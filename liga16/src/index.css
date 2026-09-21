@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Liga16 — tema deportivo claro: carbón + verde pelota/pista */
+    --background: 0 0% 100%;
+    --foreground: 160 10% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 160 10% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 10% 8%;
+    --primary: 158 64% 22%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 80 60% 95%;
+    --secondary-foreground: 158 64% 18%;
+    --muted: 150 14% 96%;
+    --muted-foreground: 160 5% 42%;
+    --accent: 84 81% 44%;
+    --accent-foreground: 160 10% 8%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 150 12% 90%;
+    --input: 150 12% 90%;
+    --ring: 158 64% 22%;
+    --radius: 0.625rem;
+    --sidebar-background: 160 12% 10%;
+    --sidebar-foreground: 150 14% 90%;
+    --sidebar-primary: 84 81% 44%;
+    --sidebar-primary-foreground: 160 10% 8%;
+    --sidebar-accent: 158 20% 16%;
+    --sidebar-accent-foreground: 84 81% 60%;
+    --sidebar-border: 158 15% 18%;
+    --sidebar-ring: 84 81% 44%;
+  }
+
+  .dark {
+    --background: 160 12% 8%;
+    --foreground: 0 0% 96%;
+    --card: 160 10% 11%;
+    --card-foreground: 0 0% 96%;
+    --popover: 160 10% 11%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 84 81% 48%;
+    --primary-foreground: 160 12% 8%;
+    --secondary: 158 16% 16%;
+    --secondary-foreground: 84 81% 60%;
+    --muted: 158 14% 15%;
+    --muted-foreground: 150 8% 60%;
+    --accent: 84 81% 44%;
+    --accent-foreground: 160 12% 8%;
+    --destructive: 0 62.8% 40%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 158 12% 18%;
+    --input: 158 12% 18%;
+    --ring: 84 81% 48%;
+    --sidebar-background: 160 14% 7%;
+    --sidebar-foreground: 150 14% 88%;
+    --sidebar-primary: 84 81% 44%;
+    --sidebar-primary-foreground: 160 12% 8%;
+    --sidebar-accent: 158 18% 14%;
+    --sidebar-accent-foreground: 84 81% 60%;
+    --sidebar-border: 158 12% 16%;
+    --sidebar-ring: 84 81% 44%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .court-lines {
+    background-image:
+      linear-gradient(to right, hsl(158 64% 22% / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(158 64% 22% / 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+}
