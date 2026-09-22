@@ -11,6 +11,7 @@ const navItems = [
   { to: "/clubes", label: "Clubes" },
   { to: "/jugadores", label: "Jugadores" },
   { to: "/noticias", label: "Noticias" },
+  { to: "/admin", label: "Admin" },
 ];
 
 export function SiteHeader() {
