@@ -212,9 +212,9 @@ export default function PlayerDetailPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 md:px-6">
-        <Card className="overflow-hidden border-zinc-800 bg-zinc-950 text-white">
+        <Card className="overflow-hidden">
           <CardContent className="p-0">
-            <div className="grid grid-cols-3 divide-x divide-white/10 text-center md:grid-cols-6">
+            <div className="grid grid-cols-3 divide-x divide-border text-center md:grid-cols-6">
               {[
                 { k: "PJ", v: played },
                 { k: "PG", v: won },
@@ -223,8 +223,8 @@ export default function PlayerDetailPage() {
                 { k: "Puntos", v: ranking?.points.toLocaleString("es-MX") ?? "—" },
                 { k: "Títulos", v: card?.titles ?? 0 },
               ].map((s) => (
-                <div key={s.k} className="p-4 transition-colors hover:bg-white/5">
-                  <p className="text-[11px] uppercase tracking-widest text-white/50">{s.k}</p>
+                <div key={s.k} className="p-4 transition-colors hover:bg-muted/50">
+                  <p className="text-[11px] uppercase tracking-widest text-muted-foreground">{s.k}</p>
                   <p className="mt-1 text-xl font-black tabular-nums">{s.v}</p>
                 </div>
               ))}
