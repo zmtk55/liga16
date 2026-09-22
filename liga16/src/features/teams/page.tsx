@@ -1,172 +1,109 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { db } from "@/lib/data";
 import type { Team } from "@/types";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, TrendingUp, Crown } from "lucide-react";
-import { TeamCrest } from "@/components/cards/card-image";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ChevronRight, Search } from "lucide-react";
 
-function initials(name: string) {
-  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-}
-
-function divisionLabel(division: string, sex: string) {
-  const sexLabel = sex === "M" ? "M" : sex === "F" ? "F" : "M/X";
-  return `${division} ${sexLabel}`;
-}
+function initials(name: string) { return name.split(" ").map((w) => w[0]).join("").slice(0,2).toUpperCase(); }
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
+  const [q, setQ] = useState("");
+  const [division, setDivision] = useState("all");
+  const [city, setCity] = useState("all");
 
   useEffect(() => {
     let active = true;
-    db.listTeams().then((data) => {
-      if (active) setTeams(data);
-    });
-    return () => {
-      active = false;
-    };
+    db.listTeams().then((data) => { if (active) setTeams(data); });
+    return () => { active = false; };
   }, []);
 
+  const cities = useMemo(() => {
+    if (!teams) return [];
+    return Array.from(new Set(teams.map((t) => t.city))).sort();
+  }, [teams]);
+
+  const filtered = useMemo(() => {
+    if (!teams) return [];
+    return teams.filter((t) => {
+      if (division !== "all" && t.division !== division) return false;
+      if (city !== "all" && t.city !== city) return false;
+      if (q.trim() && !t.name.toLowerCase().includes(q.toLowerCase()) && !`${t.player1?.name ?? ""} ${t.player2?.name ?? ""}`.toLowerCase().includes(q.toLowerCase())) return false;
+      return true;
+    });
+  }, [teams, q, division, city]);
+
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Equipos</h1>
-        <p className="text-muted-foreground">
-          Parejas del circuito Liga16 por categoría (1ra a 6ta y Novatos)
-        </p>
+        <p className="text-muted-foreground">Parejas del circuito — lista con filtros, click para dashboard</p>
       </header>
 
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Buscar pareja o jugador…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
+        </div>
+        <div className="flex gap-2">
+          <Select value={division} onValueChange={setDivision}>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="División" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="1ra">1ra</SelectItem>
+              <SelectItem value="2da">2da</SelectItem>
+              <SelectItem value="3ra">3ra</SelectItem>
+              <SelectItem value="4ta">4ta</SelectItem>
+              <SelectItem value="5ta">5ta</SelectItem>
+              <SelectItem value="6ta">6ta</SelectItem>
+              <SelectItem value="Novatos">Novatos</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={city} onValueChange={setCity}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Ciudad" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas ciudades</SelectItem>
+              {cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {teams === null ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-72 w-full" />
-          ))}
-        </div>
+        <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
+      ) : filtered.length === 0 ? (
+        <p className="py-10 text-center text-muted-foreground">Sin equipos con esos filtros</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {teams.map((team) => {
-            const winRate = team.played ? Math.round((team.won / team.played) * 100) : 0;
-            const setDiff = team.sets_for - team.sets_against;
-            return (
-              <Card key={team.id} className="overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg animate-slide-up">
-                <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-primary/20 via-primary/5 to-background">
-                  <TeamCrest
-                    name={team.name}
-                    crestUrl={team.crest_url}
-                    className="absolute inset-0 h-full w-full"
-                  />
-                  {team.position === 1 && (
-                    <div className="absolute top-2 right-2 animate-float">
-                      <Badge variant="default" className="shadow-sm">
-                        <Crown className="h-3 w-3 mr-1" /> Líder
-                      </Badge>
-                    </div>
-                  )}
-                  <div className="absolute bottom-2 left-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {divisionLabel(team.division, team.sex)}
-                    </Badge>
+        <Card>
+          <CardContent className="p-0 divide-y">
+            {filtered.map((team) => {
+              const winRate = team.played ? Math.round((team.won / team.played) * 100) : 0;
+              return (
+                <Link key={team.id} to={`/equipos/${team.slug}`} className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors">
+                  <div className="flex -space-x-2">
+                    <Avatar className="h-9 w-9 border-2 border-background"><AvatarFallback className="text-xs">{team.player1 ? initials(team.player1.name) : "?"}</AvatarFallback></Avatar>
+                    <Avatar className="h-9 w-9 border-2 border-background"><AvatarFallback className="text-xs">{team.player2 ? initials(team.player2.name) : "?"}</AvatarFallback></Avatar>
                   </div>
-                </div>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold">
-                      {team.crest_url ? (
-                        <img src={team.crest_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
-                      ) : (
-                        initials(team.name)
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg truncate">{team.name}</CardTitle>
-                        <Badge variant={team.position === 1 ? "default" : "secondary"} className="shrink-0">
-                          #{team.position}
-                        </Badge>
-                      </div>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {team.division} · {team.points} pts
-                      </p>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{team.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{team.city} · {team.division} {team.sex} · {team.player1?.name ?? "?"} / {team.player2?.name ?? "?"}</p>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Pareja: 2 jugadores */}
-                  <div className="rounded-lg border p-2 space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">Pareja</p>
-                    {team.player1 ? (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium truncate">{team.player1.name}</span>
-                        <Badge variant="secondary" className="text-xs shrink-0">N {team.player1.level.toFixed(1)}</Badge>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Jugador 1 pendiente</p>
-                    )}
-                    {team.player2 ? (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium truncate">{team.player2.name}</span>
-                        <Badge variant="secondary" className="text-xs shrink-0">N {team.player2.level.toFixed(1)}</Badge>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Jugador 2 pendiente</p>
-                    )}
+                  <div className="hidden sm:flex items-center gap-3 text-xs">
+                    <span className="tabular-nums"><span className="font-bold">#{team.position}</span> · {team.points} pts</span>
+                    <Badge variant={winRate >= 60 ? "default" : winRate >= 40 ? "secondary" : "outline"}>{winRate}%</Badge>
                   </div>
-
-                  {/* Estadísticas */}
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-xs text-muted-foreground">PJ</p>
-                      <p className="text-lg font-bold">{team.played}</p>
-                    </div>
-                    <div className="rounded-lg bg-emerald-500/10 p-2">
-                      <p className="text-xs text-emerald-700 dark:text-emerald-400">Ganados</p>
-                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{team.won}</p>
-                    </div>
-                    <div className="rounded-lg bg-blue-500/10 p-2">
-                      <p className="text-xs text-blue-700 dark:text-blue-400">Efectividad</p>
-                      <p className="text-lg font-bold">{winRate}%</p>
-                    </div>
-                  </div>
-
-                  {/* Sets */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Sets</span>
-                    <span className="tabular-nums">
-                      {team.sets_for} <span className="text-muted-foreground">/</span> {team.sets_against}
-                      {" · "}
-                      <span className={setDiff > 0 ? "text-emerald-600" : setDiff < 0 ? "text-red-500" : "text-muted-foreground"}>
-                        {setDiff > 0 ? "+" : ""}{setDiff}
-                      </span>
-                    </span>
-                  </div>
-
-                  {/* Posición */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Posición</span>
-                      <span>#{team.position} · {team.points} pts</span>
-                    </div>
-                    <Progress value={team.position <= 2 ? 100 : Math.max(10, 100 - team.position * 10)} className="h-2" />
-                  </div>
-
-                  {team.titles > 0 && (
-                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Trophy className="h-3 w-3" /> {team.titles} título{team.titles > 1 ? "s" : ""} conquistado{team.titles > 1 ? "s" : ""}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </Link>
+              );
+            })}
+          </CardContent>
+        </Card>
       )}
     </section>
   );

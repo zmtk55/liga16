@@ -52,7 +52,12 @@ function matchFromRow(row: Record<string, unknown>): Match {
     status: row.status as Match['status'],
     side_a: { pair_id: (row.side_a_pair_id as string) ?? null, pair_name: (row.side_a_name as string) ?? '' },
     side_b: { pair_id: (row.side_b_pair_id as string) ?? null, pair_name: (row.side_b_name as string) ?? '' },
-    sets: (row.sets as { a: number; b: number }[]) ?? [],
+    sets: ((row.sets as { a: number; b: number; tiebreak_a?: number | null; tiebreak_b?: number | null }[]) ?? []).map((s) => ({
+      a: s.a,
+      b: s.b,
+      tiebreak_a: s.tiebreak_a ?? null,
+      tiebreak_b: s.tiebreak_b ?? null,
+    })),
     winner: (row.winner as 'a' | 'b' | null) ?? null,
   };
 }
@@ -81,15 +86,19 @@ export const supabaseProvider: DataProvider = {
 
   async createTournament(data: Omit<import('@/types').Tournament, 'id' | 'slug'>) {
     const slug = (data.name ?? 'torneo-nuevo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const row: Record<string, unknown> = { ...data, slug };
+    if (data.scoring) row.scoring = data.scoring;
     const { data: result, error } = await client()
-      .from('tournaments').insert({ ...data, slug } as Record<string, unknown>).select().single();
+      .from('tournaments').insert(row).select().single();
     if (error) throw error;
     return result as never;
   },
 
   async updateTournament(slug: string, data: Partial<import('@/types').Tournament>) {
+    const row: Record<string, unknown> = { ...data };
+    if (data.scoring) row.scoring = data.scoring;
     const { data: result, error } = await client()
-      .from('tournaments').update(data as Record<string, unknown>).eq('slug', slug).select().single();
+      .from('tournaments').update(row).eq('slug', slug).select().single();
     if (error) throw error;
     return result as never;
   },
@@ -105,6 +114,13 @@ export const supabaseProvider: DataProvider = {
       .from('tournament_categories').select('*').eq('tournament_id', tournamentId);
     if (error) throw error;
     return (data ?? []) as never;
+  },
+
+  async createTournamentCategory(data: Omit<import('@/types').TournamentCategory, 'id'>) {
+    const { data: result, error } = await client()
+      .from('tournament_categories').insert(data as Record<string, unknown>).select().single();
+    if (error) throw error;
+    return result as never;
   },
 
   async getTournamentPairs(tournamentId: string) {

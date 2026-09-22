@@ -1,6 +1,7 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,8 @@ export default function PlayerDetailPage() {
   const [compareId, setCompareId] = useState<string>("");
   const [compareData, setCompareData] = useState<{ p: PlayerProfile; c: PlayerCard | null; r: RankingEntry | null; jev: JevAnalysis } | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user, isConfigured } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "organizer";
 
   useEffect(() => {
     if (!id) return;
@@ -83,6 +86,28 @@ export default function PlayerDetailPage() {
       <section className="space-y-4">
         <Button asChild variant="ghost" size="sm"><Link to="/jugadores"><ArrowLeft className="h-4 w-4" /> Jugadores</Link></Button>
         <p className="text-muted-foreground">Jugador no encontrado.</p>
+      </section>
+    );
+  }
+
+  // Solo el dueño del perfil o un admin pueden ver stats individuales
+  const canView = !isConfigured || isAdmin || user?.player_id === player.id;
+  if (!canView) {
+    return (
+      <section className="space-y-4">
+        <Button asChild variant="ghost" size="sm"><Link to="/"><ArrowLeft className="h-4 w-4" /> Inicio</Link></Button>
+        <Card className="max-w-md">
+          <CardContent className="pt-6 space-y-4 text-center">
+            <ShieldAlert className="h-12 w-12 mx-auto text-destructive" />
+            <div>
+              <h2 className="text-xl font-bold">Acceso privado</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Solo puedes ver tu propio perfil. Las estadísticas de otros jugadores están reservadas para administradores.
+              </p>
+            </div>
+            <Button asChild><Link to={user?.player_id ? `/jugadores/${user.player_id}` : "/login"}>Ir a mi perfil</Link></Button>
+          </CardContent>
+        </Card>
       </section>
     );
   }
@@ -324,50 +349,52 @@ export default function PlayerDetailPage() {
           </Card>
         </div>
 
-        <Card className="border-dashed">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>
-            <p className="text-xs text-muted-foreground">Elige otro jugador y compara estadísticas deportivas lado a lado (sin finanzas). JEV recalcula forma y estilo.</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="max-w-sm">
-              <Select value={compareId} onValueChange={setCompareId}>
-                <SelectTrigger><SelectValue placeholder="Selecciona rival para comparar" /></SelectTrigger>
-                <SelectContent>
-                  {allPlayers.slice(0, 30).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.display_name} · {p.city} · N {(p.official_level ?? p.declared_level).toFixed(1)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {compareData ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="py-2 text-left">Métrica</th>
-                      <th className="py-2 text-center font-black">{player.display_name.split(" ")[0]}</th>
-                      <th className="py-2 text-center font-black">{compareData.p.display_name.split(" ")[0]}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    <tr><td className="py-2">Nivel</td><td className="py-2 text-center tabular-nums font-bold">{(player.official_level ?? player.declared_level).toFixed(1)}</td><td className="py-2 text-center tabular-nums">{(compareData.p.official_level ?? compareData.p.declared_level).toFixed(1)}</td></tr>
-                    <tr><td className="py-2">Puntos ranking</td><td className="py-2 text-center tabular-nums">{ranking?.points ?? 0}</td><td className="py-2 text-center tabular-nums">{compareData.r?.points ?? 0}</td></tr>
-                    <tr><td className="py-2">PJ / PG</td><td className="py-2 text-center">{played} / {won}</td><td className="py-2 text-center">{cardPlayed(compareData.c)} / {cardWon(compareData.c)}</td></tr>
-                    <tr><td className="py-2">Win %</td><td className="py-2 text-center">{winPct}%</td><td className="py-2 text-center">{Math.round((cardWon(compareData.c) / Math.max(1, cardPlayed(compareData.c))) * 100)}%</td></tr>
-                    <tr><td className="py-2">Títulos</td><td className="py-2 text-center">{card?.titles ?? 0}</td><td className="py-2 text-center">{compareData.c?.titles ?? 0}</td></tr>
-                    <tr><td className="py-2">Forma JEV</td><td className="py-2 text-center">{jev.forma.score}/5 — {jev.forma.label}</td><td className="py-2 text-center">{compareData.jev.forma.score}/5 — {compareData.jev.forma.label}</td></tr>
-                    <tr><td className="py-2">Estilo JEV</td><td className="py-2 text-center capitalize">{jev.estilo.choice}</td><td className="py-2 text-center capitalize">{compareData.jev.estilo.choice}</td></tr>
-                    <tr><td className="py-2">Racha</td><td className="py-2 text-center">{(jev.racha.probYes * 100).toFixed(0)}% {jev.racha.label}</td><td className="py-2 text-center">{(compareData.jev.racha.probYes * 100).toFixed(0)}% {compareData.jev.racha.label}</td></tr>
-                  </tbody>
-                </table>
+        {isAdmin && (
+          <Card className="border-dashed">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>
+              <p className="text-xs text-muted-foreground">Elige otro jugador y compara estadísticas deportivas lado a lado (sin finanzas). JEV recalcula forma y estilo.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-w-sm">
+                <Select value={compareId} onValueChange={setCompareId}>
+                  <SelectTrigger><SelectValue placeholder="Selecciona rival para comparar" /></SelectTrigger>
+                  <SelectContent>
+                    {allPlayers.slice(0, 30).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.display_name} · {p.city} · N {(p.official_level ?? p.declared_level).toFixed(1)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Selecciona un rival para ver la comparativa deportiva.</p>
-            )}
-          </CardContent>
-        </Card>
+
+              {compareData ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="py-2 text-left">Métrica</th>
+                        <th className="py-2 text-center font-black">{player.display_name.split(" ")[0]}</th>
+                        <th className="py-2 text-center font-black">{compareData.p.display_name.split(" ")[0]}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      <tr><td className="py-2">Nivel</td><td className="py-2 text-center tabular-nums font-bold">{(player.official_level ?? player.declared_level).toFixed(1)}</td><td className="py-2 text-center tabular-nums">{(compareData.p.official_level ?? compareData.p.declared_level).toFixed(1)}</td></tr>
+                      <tr><td className="py-2">Puntos ranking</td><td className="py-2 text-center tabular-nums">{ranking?.points ?? 0}</td><td className="py-2 text-center tabular-nums">{compareData.r?.points ?? 0}</td></tr>
+                      <tr><td className="py-2">PJ / PG</td><td className="py-2 text-center">{played} / {won}</td><td className="py-2 text-center">{cardPlayed(compareData.c)} / {cardWon(compareData.c)}</td></tr>
+                      <tr><td className="py-2">Win %</td><td className="py-2 text-center">{winPct}%</td><td className="py-2 text-center">{Math.round((cardWon(compareData.c) / Math.max(1, cardPlayed(compareData.c))) * 100)}%</td></tr>
+                      <tr><td className="py-2">Títulos</td><td className="py-2 text-center">{card?.titles ?? 0}</td><td className="py-2 text-center">{compareData.c?.titles ?? 0}</td></tr>
+                      <tr><td className="py-2">Forma JEV</td><td className="py-2 text-center">{jev.forma.score}/5 — {jev.forma.label}</td><td className="py-2 text-center">{compareData.jev.forma.score}/5 — {compareData.jev.forma.label}</td></tr>
+                      <tr><td className="py-2">Estilo JEV</td><td className="py-2 text-center capitalize">{jev.estilo.choice}</td><td className="py-2 text-center capitalize">{compareData.jev.estilo.choice}</td></tr>
+                      <tr><td className="py-2">Racha</td><td className="py-2 text-center">{(jev.racha.probYes * 100).toFixed(0)}% {jev.racha.label}</td><td className="py-2 text-center">{(compareData.jev.racha.probYes * 100).toFixed(0)}% {compareData.jev.racha.label}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Selecciona un rival para ver la comparativa deportiva.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Eventos de ranking</CardTitle></CardHeader>

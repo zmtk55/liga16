@@ -126,6 +126,7 @@ create table if not exists public.tournaments (
   currency text not null default 'MXN',
   rules_summary text,
   description text,
+  scoring jsonb default '{"sets_to_win":2,"games_per_set":6,"tie_break_at":6,"tie_break_points":7,"win_by_two_tiebreak":true,"tie_breaker_rules":["points","sets_diff","games_diff","head_to_head"]}'::jsonb,
   published_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

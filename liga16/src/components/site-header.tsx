@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router";
-import { Search, Menu, X, Shield } from "lucide-react";
+import { Search, Menu, X, Shield, User, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -17,26 +17,38 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const publicNav = [
   { to: "/", label: "Inicio" },
   { to: "/torneos", label: "Torneos" },
-  { to: "/calendario", label: "Calendario" },
-  { to: "/ranking", label: "Ranking" },
   { to: "/equipos", label: "Equipos" },
   { to: "/jugadores", label: "Jugadores" },
-  { to: "/padel", label: "Sede" },
+  { to: "/ranking", label: "Ranking" },
+  { to: "/calendario", label: "Agenda" },
   { to: "/noticias", label: "Noticias" },
+];
+
+const adminNav = [
+  { to: "/padel", label: "Sede" },
+  { to: "/admin", label: "Admin" },
 ];
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const showAdmin = !isSupabaseConfigured || user?.role === "admin" || user?.role === "organizer";
 
-  const navItems = showAdmin ? [...publicNav, { to: "/admin", label: "Admin" }] : publicNav;
+  const isAdmin = user?.role === "admin" || user?.role === "organizer";
+  const isDemo = !isSupabaseConfigured;
+  const showAdminLinks = isAdmin || isDemo;
+
+  const navItems = showAdminLinks ? [...publicNav, ...adminNav] : publicNav;
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
     const q = query.trim();
+    if (!showAdminLinks) {
+      navigate("/login");
+      setOpen(false);
+      return;
+    }
     navigate(q ? `/jugadores?q=${encodeURIComponent(q)}` : "/jugadores");
     setOpen(false);
   }
@@ -45,6 +57,8 @@ export function SiteHeader() {
     await signOut();
     navigate("/");
   }
+
+  const profileLink = user?.player_id ? `/jugadores/${user.player_id}` : "/login";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur">
@@ -76,35 +90,55 @@ export function SiteHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <form onSubmit={onSearch} className="relative hidden sm:block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar jugadores…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-9 w-48 lg:w-64 pl-9"
-            />
-          </form>
+          {showAdminLinks && (
+            <form onSubmit={onSearch} className="relative hidden sm:block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar jugadores…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-9 w-48 lg:w-64 pl-9"
+              />
+            </form>
+          )}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    {user?.email?.[0]?.toUpperCase() ?? "U"}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem asChild><Link to="/jugadores">Mi perfil</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link to="/admin">Panel admin</Link></DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); void handleSignOut(); }}>
-                Cerrar sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {loading ? (
+            <Button variant="ghost" size="icon" className="rounded-full" disabled>
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-muted text-muted-foreground text-xs">…</AvatarFallback>
+              </Avatar>
+            </Button>
+          ) : user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                      {user.email?.[0]?.toUpperCase() ?? "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link to={profileLink}><User className="h-4 w-4 mr-2" /> Mi perfil</Link>
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin"><Shield className="h-4 w-4 mr-2" /> Panel admin</Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); void handleSignOut(); }}>
+                  Cerrar sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/login"><LogIn className="h-4 w-4 mr-2" /> Entrar</Link>
+            </Button>
+          )}
 
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen((v) => !v)}>
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -128,6 +162,15 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
+            {!user && (
+              <Link
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-primary"
+              >
+                <LogIn className="inline h-3.5 w-3.5" /> Entrar
+              </Link>
+            )}
           </div>
         </nav>
       )}

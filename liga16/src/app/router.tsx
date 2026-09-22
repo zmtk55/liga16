@@ -2,12 +2,15 @@ import { createBrowserRouter, Navigate } from "react-router";
 import AppLayout from "./layout";
 import Home from "../features/home/page";
 import { lazy } from "react";
+import { RequireRole } from "@/components/auth/guards";
 
 // Lazy-loaded routes for performance
+const Login = lazy(() => import("../features/auth/page"));
 const Calendar = lazy(() => import("../features/calendar/page"));
 const Players = lazy(() => import("../features/players/page"));
 const PlayerDetail = lazy(() => import("../features/players/detail"));
 const Teams = lazy(() => import("../features/teams/page"));
+const TeamDetail = lazy(() => import("../features/teams/detail"));
 const Tournaments = lazy(() => import("../features/tournaments/page"));
 const TournamentDetail = lazy(() => import("../features/tournaments/detail"));
 const Rankings = lazy(() => import("../features/rankings/page"));
@@ -24,24 +27,39 @@ const AdminResults = lazy(() => import("../features/admin/results"));
 const AdminRanking = lazy(() => import("../features/admin/ranking"));
 const AdminOnboarding = lazy(() => import("../features/admin/onboarding"));
 
+// eslint-disable-next-line react-refresh/only-export-components
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <RequireRole roles={["admin", "organizer"]} message="Solo administradores y organizadores pueden acceder al panel.">
+      {children}
+    </RequireRole>
+  );
+}
+
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <AppLayout />,
     children: [
       { index: true, element: <Home /> },
+      { path: "login", element: <Login /> },
       { path: "torneos", element: <Tournaments /> },
       { path: "torneos/:slug", element: <TournamentDetail /> },
       { path: "calendario", element: <Calendar /> },
       { path: "ranking", element: <Rankings /> },
       { path: "equipos", element: <Teams /> },
+      { path: "equipos/:slug", element: <TeamDetail /> },
       { path: "jugadores", element: <Players /> },
       { path: "jugadores/:id", element: <PlayerDetail /> },
       { path: "padel", element: <Clubs /> },
       { path: "noticias", element: <News /> },
       {
         path: "admin",
-        element: <AdminLayout />,
+        element: (
+          <AdminRoute>
+            <AdminLayout />
+          </AdminRoute>
+        ),
         children: [
           { index: true, element: <AdminDashboard /> },
           { path: "torneos", element: <AdminTournaments /> },

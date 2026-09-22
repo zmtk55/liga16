@@ -1,268 +1,105 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
-import type { Match, MatchStatus } from "@/types";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import type { Match } from "@/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Radio, ChevronLeft, ChevronRight, Clock, MapPin, Zap } from "lucide-react";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  addMonths,
-  subMonths,
-  getHours,
-} from "date-fns";
-import { es } from "date-fns/locale";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Clock, MapPin, Radio } from "lucide-react";
 
-const statusMeta: Record<
-  MatchStatus,
-  { label: string; variant: "default" | "secondary" | "outline" | "destructive" }
-> = {
-  live: { label: "En vivo", variant: "destructive" },
-  scheduled: { label: "Programado", variant: "secondary" },
-  finished: { label: "Finalizado", variant: "outline" },
-  walkover: { label: "W.O.", variant: "outline" },
-  disputed: { label: "En disputa", variant: "destructive" },
-  cancelled: { label: "Cancelado", variant: "outline" },
-};
+function initials(name: string) { return name.split(" ").map((p) => p[0]).slice(0,2).join("").toUpperCase(); }
 
 function setsCompact(m: Match) {
   if (m.sets.length === 0) return "—";
   return m.sets.map((s) => `${s.a}-${s.b}`).join(" · ");
 }
 
-function totalGames(m: Match, side: "a" | "b") {
-  return m.sets.reduce((sum, s) => sum + (side === "a" ? s.a : s.b), 0);
-}
-
-const DAYS = [" Lun", " Mar", " Mie", "Jue", "Vie", "Sáb", "Dom"];
-
 export default function CalendarPage() {
   const [matches, setMatches] = useState<Match[] | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 8, 1));
 
   useEffect(() => {
     let active = true;
-    db.listRecentMatches().then((data) => {
-      if (active) setMatches(data);
-    });
-    return () => {
-      active = false;
-    };
+    db.listRecentMatches().then((data) => { if (active) setMatches(data); });
+    return () => { active = false; };
   }, []);
 
-  const calendarDays = useMemo(() => {
-    const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
-    const end = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 });
-    return eachDayOfInterval({ start, end });
-  }, [currentMonth]);
+  if (matches === null) {
+    return (
+      <section className="space-y-3">
+        <Skeleton className="h-10 w-64" />
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}
+      </section>
+    );
+  }
 
-  const matchesByDay = useMemo(() => {
-    if (!matches) return {};
-    const map: Record<string, Match[]> = {};
-    matches.forEach((m) => {
-      if (!m.scheduled_at) return;
-      const date = new Date(m.scheduled_at);
-      const key = format(date, "yyyy-MM-dd");
-      if (!map[key]) map[key] = [];
-      map[key].push(m);
-    });
-    return map;
-  }, [matches]);
-
-  const liveMatches = matches?.filter((m) => m.status === "live") ?? [];
-  const upcomingMatches = matches?.filter((m) => m.status === "scheduled").slice(0, 3) ?? [];
+  const live = matches.filter((m) => m.status === "live");
+  const upcoming = matches.filter((m) => m.status === "scheduled").slice(0, 8);
+  const agenda = [...live, ...upcoming].slice(0, 8);
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Calendario de Partidos</h1>
-          <p className="text-muted-foreground">Partidos en vivo, programados y resultados recientes</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {liveMatches.length > 0 && (
-            <Badge variant="destructive" className="text-xs font-semibold">
-              <Radio className="mr-1 h-3 w-3 animate-pulse" />
-              {liveMatches.length} en vivo
-            </Badge>
-          )}
-          <div className="flex items-center rounded-lg border border-border overflow-hidden">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-none border-r"
-              onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="px-4 text-sm font-medium min-w-[140px] text-center">
-              {format(currentMonth, "MMMM yyyy", { locale: es })}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-none border-l"
-              onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+    <section className="space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">Agenda</h1>
+        <p className="text-muted-foreground">Solo los siguientes juegos — con perfiles</p>
       </header>
 
-      {matches && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between py-4">
-            <CardTitle className="text-sm text-muted-foreground">Vista Semanal</CardTitle>
-            <span className="text-xs text-muted-foreground">
-              {format(currentMonth, "MMMM yyyy", { locale: es })}
-            </span>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {DAYS.map((day, i) => {
-                const date = calendarDays[i];
-                const isToday = date && isSameDay(date, new Date());
-                return (
-                  <div key={day} className="text-center py-1">
-                    <span className="text-xs font-medium text-muted-foreground">{day}</span>
-                    {date && (
-                      <div
-                        className={`mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium ${
-                          isToday
-                            ? "bg-primary text-primary-foreground"
-                            : isSameMonth(date, currentMonth)
-                              ? "text-foreground"
-                              : "text-muted-foreground"
-                        }`}
-                      >
-                        {format(date, "d")}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="space-y-1">
-              {[8, 12, 16, 20].map((hour) => (
-                <div key={hour} className="grid grid-cols-7 gap-1">
-                  <div className="flex items-center text-xs text-muted-foreground pr-1 justify-end">
-                    {hour}:00
-                  </div>
-                  {calendarDays.slice(0, 7).map((date) => {
-                    const dayKey = format(date, "yyyy-MM-dd");
-                    const dayMatches = matchesByDay[dayKey]?.filter((m) => {
-                      const matchHour = getHours(new Date(m.scheduled_at!));
-                      return Math.abs(matchHour - hour) <= 2;
-                    });
-                    return (
-                      <div key={dayKey} className="min-h-[48px] p-0.5">
-                        {dayMatches?.map((m) => (
-                          <div
-                            key={m.id}
-                            className={`rounded px-1.5 py-1 text-[10px] font-medium truncate cursor-pointer transition-colors hover:opacity-90 ${
-                              m.status === "live"
-                                ? "bg-red-500 text-white"
-                                : m.status === "finished"
-                                  ? "bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                                  : "bg-primary/20 text-primary"
-                            }`}
-                          >
-                            {m.side_a.pair_name}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {live.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Badge variant="destructive" className="animate-pulse"><Radio className="mr-1 h-3 w-3" /> {live.length} en vivo</Badge>
+          <span className="text-xs text-muted-foreground">Actualizado ahora</span>
+        </div>
       )}
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Partidos</h2>
-        </div>
-        {matches === null ? (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full" />
-            ))}
-          </div>
+        {agenda.length === 0 ? (
+          <Card><CardContent className="py-10 text-center text-muted-foreground">Sin juegos programados</CardContent></Card>
         ) : (
-          matches.map((m) => {
-            const meta = statusMeta[m.status];
+          agenda.map((m) => {
+            const aNames = m.side_a.pair_name.split("/").map((s) => s.trim());
+            const bNames = m.side_b.pair_name.split("/").map((s) => s.trim());
             const isLive = m.status === "live";
             return (
-              <Card
-                key={m.id}
-                className={`${isLive ? "border-red-500/40" : "hover:border-primary/30"} transition-colors`}
-              >
+              <Card key={m.id} className={`${isLive ? "border-red-500/30 bg-red-50/20 dark:bg-red-950/10" : "hover:border-primary/20"} transition-colors`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between gap-2">
-                    <CardTitle
-                      className={`text-sm font-medium ${isLive ? "text-red-600" : "text-muted-foreground"}`}
-                    >
-                      {m.tournament_name} · {m.category_name} · {m.round}
-                    </CardTitle>
-                    <div className="flex items-center gap-1.5">
-                      {isLive && (
-                        <span className="flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
-                          <Radio className="h-3 w-3 animate-pulse" /> EN VIVO
-                        </span>
-                      )}
-                      <Badge variant={meta.variant}>{meta.label}</Badge>
-                    </div>
+                    <CardTitle className="text-xs font-medium text-muted-foreground truncate">{m.tournament_name} · {m.category_name} · {m.round}</CardTitle>
+                    {isLive ? <Badge variant="destructive" className="animate-pulse text-xs">EN VIVO</Badge> : <Badge variant="secondary">Programado</Badge>}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className={`truncate ${m.winner === "a" ? "font-semibold text-emerald-600" : ""}`}>
-                      {m.side_a.pair_name}
-                    </span>
-                    <span className="tabular-nums text-muted-foreground text-sm">
-                      {setsCompact(m)} ({totalGames(m, "a")} juegos)
-                    </span>
+                <CardContent className="space-y-3">
+                  {/* Parejas con avatars */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="flex -space-x-2">
+                        {aNames.slice(0,2).map((n, i) => (
+                          <Avatar key={i} className="h-9 w-9 border-2 border-background"><AvatarFallback className="text-xs">{initials(n)}</AvatarFallback></Avatar>
+                        ))}
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`truncate text-sm ${m.winner === "a" ? "font-bold text-emerald-600" : "font-medium"}`}>{m.side_a.pair_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{aNames.join(" · ")}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-muted-foreground">VS</span>
+                    <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                      <div className="min-w-0 text-right">
+                        <p className={`truncate text-sm ${m.winner === "b" ? "font-bold text-emerald-600" : "font-medium"}`}>{m.side_b.pair_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{bNames.join(" · ")}</p>
+                      </div>
+                      <div className="flex -space-x-2">
+                        {bNames.slice(0,2).map((n, i) => (
+                          <Avatar key={i} className="h-9 w-9 border-2 border-background"><AvatarFallback className="text-xs">{initials(n)}</AvatarFallback></Avatar>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className={`truncate ${m.winner === "b" ? "font-semibold text-emerald-600" : ""}`}>
-                      {m.side_b.pair_name}
+
+                  <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                    <span className="font-mono tabular-nums font-medium">{setsCompact(m)}</span>
+                    <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {m.scheduled_at ? new Date(m.scheduled_at).toLocaleString("es-MX", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Sin hora"}</span>
+                      {m.court_name && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {m.court_name}</span>}
                     </span>
-                    <span className="tabular-nums text-muted-foreground text-sm">
-                      {totalGames(m, "b")} juegos
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 pt-1 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {new Date(m.scheduled_at!).toLocaleString("es-MX", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    {m.court_name && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> {m.court_name}
-                      </span>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -270,27 +107,6 @@ export default function CalendarPage() {
           })
         )}
       </div>
-
-      {upcomingMatches.length > 0 && (
-        <Card className="border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" /> Próximos partidos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {upcomingMatches.map((m) => (
-              <div key={m.id} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium">{m.side_a.pair_name} vs {m.side_b.pair_name}</p>
-                  <p className="text-xs text-muted-foreground">{m.tournament_name} · {m.court_name}</p>
-                </div>
-                <Badge variant="secondary">{statusMeta[m.status].label}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    </section>
   );
 }

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
-import { TrendingDown, TrendingUp } from "lucide-react";
 import { db } from "@/lib/data";
-import type { RankingEntry } from "@/types";
+import type { Team } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -21,16 +19,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Users } from "lucide-react";
+
+const divisions = [
+  { value: "all", label: "Todas las divisiones" },
+  { value: "1ra", label: "1ra División" },
+  { value: "2da", label: "2da División" },
+  { value: "3ra", label: "3ra División" },
+  { value: "4ta", label: "4ta División" },
+  { value: "5ta", label: "5ta División" },
+  { value: "6ta", label: "6ta División" },
+  { value: "Novatos", label: "Novatos" },
+];
+
+const sexOptions = [
+  { value: "all", label: "Todas las ramas" },
+  { value: "M", label: "Varonil" },
+  { value: "F", label: "Femenil" },
+  { value: "X", label: "Mixto" },
+];
+
+function sexLabel(sex: string) {
+  if (sex === "M") return "Varonil";
+  if (sex === "F") return "Femenil";
+  return "Mixto";
+}
+
+function winRate(played: number, won: number) {
+  return played ? Math.round((won / played) * 100) : 0;
+}
 
 export default function RankingsPage() {
-  const [rankings, setRankings] = useState<RankingEntry[] | null>(null);
+  const [teams, setTeams] = useState<Team[] | null>(null);
+  const [division, setDivision] = useState("all");
   const [sex, setSex] = useState("all");
-
 
   useEffect(() => {
     let active = true;
-    db.listRankings().then((data) => {
-      if (active) setRankings(data);
+    db.listTeams().then((data) => {
+      if (active) setTeams(data);
     });
     return () => {
       active = false;
@@ -38,40 +65,64 @@ export default function RankingsPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (!rankings) return [] as RankingEntry[];
-    return rankings
-      .filter(
-        (r) =>
-          (sex === "all" || r.sex === sex),
-      )
-      .map((r, i) => ({ ...r, position: i + 1 }));
-  }, [rankings, sex]);
+    if (!teams) return [] as Team[];
+    let list = [...teams];
+    if (division !== "all") list = list.filter((t) => t.division === division);
+    if (sex !== "all") list = list.filter((t) => t.sex === sex);
+    return list
+      .sort((a, b) => {
+        // Primero por división, luego por posición, luego por puntos
+        const divOrder = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
+        const da = divOrder.indexOf(a.division);
+        const db_ = divOrder.indexOf(b.division);
+        if (da !== db_) return da - db_;
+        if (a.position !== b.position) return a.position - b.position;
+        return b.points - a.points;
+      })
+      .map((t, i) => ({ ...t, displayPosition: i + 1 }));
+  }, [teams, division, sex]);
 
   return (
     <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Ranking</h1>
         <p className="text-muted-foreground">
-          Clasificación oficial del padel Reforma
+          Clasificación oficial de parejas por división y rama
         </p>
       </header>
 
       <div className="flex flex-wrap gap-2">
+        <Select value={division} onValueChange={setDivision}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="División" />
+          </SelectTrigger>
+          <SelectContent>
+            {divisions.map((d) => (
+              <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select value={sex} onValueChange={setSex}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Rama" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="M">Masculino</SelectItem>
-            <SelectItem value="F">Femenino</SelectItem>
+            {sexOptions.map((s) => (
+              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
-
       </div>
 
-      {rankings === null ? (
+      {teams === null ? (
         <Skeleton className="h-96 w-full" />
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            No hay equipos registrados con esos filtros.
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="p-0">
@@ -79,52 +130,50 @@ export default function RankingsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
-                  <TableHead>Jugador</TableHead>
-
-                  <TableHead className="text-right">Nivel</TableHead>
+                  <TableHead>Equipo / Pareja</TableHead>
+                  <TableHead>Jugadores</TableHead>
+                  <TableHead className="text-right">División</TableHead>
                   <TableHead className="hidden text-right md:table-cell">PJ</TableHead>
                   <TableHead className="hidden text-right md:table-cell">PG</TableHead>
+                  <TableHead className="hidden text-right md:table-cell">Efect.</TableHead>
                   <TableHead className="text-right">Puntos</TableHead>
-                  <TableHead className="w-20 text-right">Cambio</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
-                  <TableRow key={r.player_id}>
-                    <TableCell className="font-medium">{r.position}</TableCell>
+                {filtered.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className="font-medium">
+                      {t.position > 0 ? t.position : "—"}
+                    </TableCell>
                     <TableCell>
-                      <Link
-                        to={`/jugadores/${r.player_id}`}
-                        className="font-medium hover:underline"
-                      >
-                        {r.player_name}
-                      </Link>
+                      <div className="font-medium">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">{t.city}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>
+                          {t.player1?.name ?? "—"} / {t.player2?.name ?? "—"}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Badge variant="outline">{r.level.toFixed(1)}</Badge>
+                      <Badge variant="outline">{t.division}</Badge>
+                      <Badge variant="secondary" className="ml-1">
+                        {sexLabel(t.sex)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="hidden text-right md:table-cell">
-                      {r.played}
+                      {t.played}
                     </TableCell>
                     <TableCell className="hidden text-right md:table-cell">
-                      {r.won}
+                      {t.won}
+                    </TableCell>
+                    <TableCell className="hidden text-right md:table-cell">
+                      {winRate(t.played, t.won)}%
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
-                      {r.points.toLocaleString("es-MX")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {r.delta === 0 ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : r.delta > 0 ? (
-                        <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
-                          <TrendingUp className="h-3.5 w-3.5" />+{r.delta}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-0.5 text-red-500">
-                          <TrendingDown className="h-3.5 w-3.5" />
-                          {r.delta}
-                        </span>
-                      )}
+                      {t.points.toLocaleString("es-MX")}
                     </TableCell>
                   </TableRow>
                 ))}

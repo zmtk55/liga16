@@ -73,6 +73,14 @@ export const demoProvider: DataProvider = {
     return store.categories.filter((c) => c.tournament_id === tournamentId);
   },
 
+  async createTournamentCategory(data: Omit<TournamentCategory, 'id'>) {
+    await delay();
+    const id = `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const category: TournamentCategory = { ...data, id } as TournamentCategory;
+    store.categories.push(category);
+    return category;
+  },
+
   async getTournamentPairs(tournamentId: string) {
     await delay();
     return store.pairs.filter((p) => p.tournament_id === tournamentId);

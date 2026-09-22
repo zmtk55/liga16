@@ -36,6 +36,7 @@ export interface DataProvider {
   updateTournament(slug: string, data: Partial<Tournament>): Promise<Tournament | null>;
   deleteTournament(slug: string): Promise<boolean>;
   getTournamentCategories(tournamentId: string): Promise<TournamentCategory[]>;
+  createTournamentCategory(data: Omit<TournamentCategory, 'id'>): Promise<TournamentCategory>;
   getTournamentPairs(tournamentId: string): Promise<Pair[]>;
   // Ligas
   listLeagues(): Promise<League[]>;

@@ -13,21 +13,28 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function resolveRole(userId: string): Promise<UserRole> {
-  if (!isSupabaseConfigured || !supabase) return "player";
+async function resolveUser(userId: string): Promise<Pick<User, "role" | "player_id">> {
+  if (!isSupabaseConfigured || !supabase) {
+    return { role: "player", player_id: null };
+  }
   try {
-    // Lee el rol de raw_app_meta_data (NO raw_user_meta_data, es editable por el usuario)
-    const { data } = await supabase
-      .auth.getUser();
-    if (data?.user?.id === userId) {
-      const role = data.user.user_metadata?.role as UserRole | undefined;
-      if (role) return role;
-      const appRole = data.user.app_metadata?.role as UserRole | undefined;
-      if (appRole) return appRole;
-    }
-    return "player";
+    const { data: authData } = await supabase.auth.getUser();
+    const sessionUser = authData?.user;
+    const role =
+      (sessionUser?.app_metadata?.role as UserRole | undefined) ||
+      (sessionUser?.user_metadata?.role as UserRole | undefined) ||
+      "player";
+
+    // Buscar el perfil de jugador asociado al usuario auth
+    const { data: profile } = await supabase
+      .from("player_profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    return { role, player_id: profile?.id ?? null };
   } catch {
-    return "player";
+    return { role: "player", player_id: null };
   }
 }
 
@@ -43,11 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function hydrateUser(
       sessionUser: { id: string; email?: string | null; created_at?: string | null },
     ) {
-      const role = await resolveRole(sessionUser.id);
+      const { role, player_id } = await resolveUser(sessionUser.id);
       setUser({
         id: sessionUser.id,
         email: sessionUser.email || "",
         role,
+        player_id,
         created_at: sessionUser.created_at || new Date().toISOString(),
       });
     }

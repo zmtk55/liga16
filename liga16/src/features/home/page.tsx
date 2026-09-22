@@ -27,9 +27,10 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TournamentCard } from "@/components/cards/resource-card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { tierLabel } from "@/lib/format";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
+
+function initials(name: string) { return name.split(" ").map((p) => p[0]).slice(0,2).join("").toUpperCase(); }
 
 // ─── Animated counter ───
 function AnimatedNumber({ value, className }: { value: number; className?: string }) {
@@ -134,14 +135,6 @@ export default function Home() {
   }, []);
 
   const topPlayers = useMemo(() => stats?.rankings.slice(0, 5) ?? [], [stats]);
-
-  // Chart data: monthly tournament counts (mock based on actual tournaments)
-  const chartData = useMemo(() => {
-    if (!stats) return [];
-    const months = ["Jun", "Jul", "Ago", "Sept", "Oct", "Nov", "Dec"];
-    const counts = [2, 1, 3, 4, 5, 3, 2];
-    return months.map((month, i) => ({ month, count: counts[i] }));
-  }, [stats]);
 
   // Activity items for the activity feed card
   const recentActivities = useMemo(() => {
@@ -256,36 +249,47 @@ export default function Home() {
 
       {/* ── Row 1: Chart + Activity Feed ── */}
       <section className="grid gap-4 lg:grid-cols-3">
-        {/* Chart */}
+        {/* Agenda: Siguientes juegos con avatars */}
         <Card className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "100ms" }}>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base">Torneos por Mes</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Junio — Diciembre 2026</p>
+              <CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4 text-primary" /> Siguientes juegos</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Agenda padel — solo próximos, con perfil</p>
             </div>
             <Button asChild variant="ghost" size="sm">
-              <Link to="/torneos">Ver todos<ChevronRight className="ml-1 h-3.5 w-3.5" /></Link>
+              <Link to="/calendario">Ver agenda<ChevronRight className="ml-1 h-3.5 w-3.5" /></Link>
             </Button>
           </CardHeader>
-          <CardContent>
-            <ChartContainer
-            className="h-64"
-            config={{
-              count: { label: "Torneos", color: "primary" },
-            }}
-          >
-            <BarChart data={chartData} barSize={32}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} />
-              <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }} />
-              <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                {chartData.map((_, i) => (
-                  <Cell key={i} fill="hsl(var(--primary))" fillOpacity={i === 3 ? 1 : 0.35} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ChartContainer>
+          <CardContent className="space-y-3">
+            {(() => {
+              const next = stats.matches.filter((m) => m.status === "live" || m.status === "scheduled").slice(0, 5);
+              const list = next.length ? next : stats.matches.slice(0, 4);
+              return list.map((m) => {
+                const aNames = m.side_a.pair_name.split("/").map((s) => s.trim());
+                const bNames = m.side_b.pair_name.split("/").map((s) => s.trim());
+                const isLive = m.status === "live";
+                return (
+                  <div key={m.id} className="flex items-center gap-3 rounded-xl border p-3 hover:bg-muted/50 transition-colors">
+                    <div className="flex -space-x-2">
+                      {aNames.slice(0,2).map((n,i) => (
+                        <Avatar key={i} className="h-8 w-8 border-2 border-background"><AvatarFallback className="text-xs">{initials(n)}</AvatarFallback></Avatar>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">vs</span>
+                    <div className="flex -space-x-2">
+                      {bNames.slice(0,2).map((n,i) => (
+                        <Avatar key={i} className="h-8 w-8 border-2 border-background"><AvatarFallback className="text-xs">{initials(n)}</AvatarFallback></Avatar>
+                      ))}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{m.side_a.pair_name} vs {m.side_b.pair_name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{m.tournament_name} · {m.round} {m.court_name ? `· ${m.court_name}` : ""}</p>
+                    </div>
+                    {isLive ? <Badge variant="destructive" className="animate-pulse">EN VIVO</Badge> : <Badge variant="secondary">Programado</Badge>}
+                  </div>
+                );
+              });
+            })()}
           </CardContent>
         </Card>
 
@@ -383,6 +387,48 @@ export default function Home() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* ── Noticias pequeña + datos básicos torneo ── */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between py-3">
+            <CardTitle className="text-sm flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Noticias · Torneo al día</CardTitle>
+            <Button asChild variant="ghost" size="sm"><Link to="/noticias">Ver todo</Link></Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {stats.news.slice(0,3).map((n) => (
+              <div key={n.id} className="flex gap-3 rounded-lg border p-2.5 hover:bg-muted/40 transition-colors">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Sparkles className="h-4 w-4" /></div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium leading-tight">{n.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">{n.excerpt}</p>
+                </div>
+                <Badge variant="outline" className="h-fit text-xs">{n.tag}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card className="bg-muted/30">
+          <CardHeader className="py-3"><CardTitle className="text-sm flex items-center gap-2"><Trophy className="h-4 w-4 text-primary" /> Datos básicos torneo</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {(() => {
+              const t = openTournaments[0] ?? stats.tournaments[0];
+              if (!t) return <p className="text-muted-foreground">Sin torneos</p>;
+              return (
+                <>
+                  <p className="font-medium leading-tight">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">{t.city} · {t.club_name} · {t.format}</p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <Badge variant="secondary">{t.status}</Badge>
+                    <Badge variant="outline">{t.modality}</Badge>
+                  </div>
+                  <Button asChild size="sm" className="mt-2 w-full"><Link to={`/torneos/${t.slug}`}>Ver torneo</Link></Button>
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
       </section>
 
       {/* ── Sponsors ── */}
