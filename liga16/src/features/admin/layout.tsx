@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Link, Outlet, useLocation } from "react-router";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
