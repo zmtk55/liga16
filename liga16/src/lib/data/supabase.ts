@@ -124,9 +124,59 @@ export const supabaseProvider: DataProvider = {
   },
 
   async getTournamentPairs(tournamentId: string) {
-    const { data, error } = await client().from('pairs').select('*').eq('tournament_id', tournamentId);
+    const { data, error } = await client().from('pairs').select('*').eq('tournament_id', tournamentId).order('seed', { ascending: true, nullsFirst: false });
     if (error) throw error;
     return (data ?? []) as never;
+  },
+
+  async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null }) {
+    const { data: result, error } = await client()
+      .from('pairs')
+      .insert({ tournament_id: data.tournament_id, category_id: data.category_id ?? null, name: data.name, seed: data.seed ?? null, status: 'confirmed' })
+      .select()
+      .single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async deletePair(id: string) {
+    const { error } = await client().from('pairs').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
+
+  async listMatchesByTournament(tournamentId: string) {
+    const { data, error } = await client()
+      .from('matches').select('*').eq('tournament_id', tournamentId);
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => matchFromRow(r)) as never;
+  },
+
+  async createMatches(list: Array<Omit<Match, 'id'>>) {
+    const rows = list.map((m) => ({
+      tournament_id: m.tournament_id,
+      tournament_name: m.tournament_name ?? null,
+      category_name: m.category_name ?? null,
+      round: m.round,
+      court_name: m.court_name ?? null,
+      scheduled_at: m.scheduled_at ?? null,
+      status: m.status,
+      side_a_pair_id: m.side_a.pair_id ?? null,
+      side_b_pair_id: m.side_b.pair_id ?? null,
+      side_a_name: m.side_a.pair_name,
+      side_b_name: m.side_b.pair_name,
+      winner: null,
+      sets: [],
+    }));
+    const { data, error } = await client().from('matches').insert(rows).select();
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => matchFromRow(r)) as never;
+  },
+
+  async deleteMatchesByTournament(tournamentId: string) {
+    const { error } = await client().from('matches').delete().eq('tournament_id', tournamentId);
+    if (error) throw error;
+    return true;
   },
 
   // Ligas

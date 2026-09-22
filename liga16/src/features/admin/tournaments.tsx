@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { db } from "@/lib/data";
 import type { Tournament, TieBreakerRule } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -151,12 +152,17 @@ export default function AdminTournaments() {
             <TableBody>
               {list?.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to={`/admin/torneos/${t.slug}`} className="hover:underline">{t.name}</Link>
+                  </TableCell>
                   <TableCell className="hidden sm:table-cell">{t.club_name ?? t.city}</TableCell>
                   <TableCell><Badge variant="outline">{tournamentStatusLabel[t.status]}</Badge></TableCell>
                   <TableCell className="hidden md:table-cell">{t.format}</TableCell>
                   <TableCell className="text-right">{t.price_cents > 0 ? `$${(t.price_cents / 100).toFixed(2)}` : "Gratis"}</TableCell>
                   <TableCell className="text-right space-x-1">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={`/admin/torneos/${t.slug}`}>Grupos</Link>
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => { setEditing(t); setOpenCreate(true); }}>Editar</Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(t)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </TableCell>

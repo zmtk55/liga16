@@ -86,6 +86,45 @@ export const demoProvider: DataProvider = {
     return store.pairs.filter((p) => p.tournament_id === tournamentId);
   },
 
+  async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null }) {
+    await delay();
+    const pair = {
+      id: `pair-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      tournament_id: data.tournament_id,
+      category_id: data.category_id ?? "",
+      name: data.name,
+      player1_id: "",
+      player2_id: "",
+      seed: data.seed ?? null,
+    };
+    store.pairs.push(pair);
+    return pair;
+  },
+
+  async deletePair(id: string) {
+    await delay();
+    store.pairs = store.pairs.filter((p) => p.id !== id);
+    return true;
+  },
+
+  async listMatchesByTournament(tournamentId: string) {
+    await delay();
+    return store.matches.filter((m) => m.tournament_id === tournamentId);
+  },
+
+  async createMatches(list: Array<Omit<Match, "id">>) {
+    await delay();
+    const created = list.map((m, i) => ({ ...m, id: `m-${Date.now()}-${i}` }) as Match);
+    store.matches.push(...created);
+    return created;
+  },
+
+  async deleteMatchesByTournament(tournamentId: string) {
+    await delay();
+    store.matches = store.matches.filter((m) => m.tournament_id !== tournamentId);
+    return true;
+  },
+
   // Ligas
   async listLeagues() {
     await delay();
