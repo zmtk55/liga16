@@ -85,6 +85,12 @@ export const sexOptions = [
   { value: "X", label: "Mixto" },
 ];
 
+export function sexShort(sex: string): string {
+  if (sex === "M") return "Varonil";
+  if (sex === "F") return "Femenil";
+  return "Mixto";
+}
+
 export function sexLabel(sex: string): string {
   if (sex === "M") return "Varonil";
   if (sex === "F") return "Femenil";

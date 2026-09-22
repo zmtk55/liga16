@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import CategoryPicker, { type CategoryValue } from "@/components/ui/category-picker";
+import { sexShort } from "@/lib/format";
 
 const STEPS = [
   { id: "club", label: "Sede", icon: Building2 },
@@ -33,12 +35,7 @@ const sexes: { value: Sex; label: string }[] = [
   { value: "X", label: "Mixto" },
 ];
 
-interface CategoryInput {
-  name: string;
-  division: PadelDivision;
-  sex: Sex;
-  max_pairs: number;
-}
+
 
 interface TeamInput {
   name: string;
@@ -87,10 +84,10 @@ export default function AdminOnboarding() {
     rules_summary: "Grupos de 4 + eliminación directa. Mejor de 3 sets.",
   });
 
-  const [categories, setCategories] = useState<CategoryInput[]>([
-    { name: "4ta Varonil", division: "4ta", sex: "M", max_pairs: 16 },
-    { name: "4ta Femenil", division: "4ta", sex: "F", max_pairs: 12 },
-    { name: "Novatos Mixto", division: "Novatos", sex: "X", max_pairs: 12 },
+  const [categories, setCategories] = useState<CategoryValue[]>([
+    { division: "4ta", sex: "M", max_pairs: 16 },
+    { division: "4ta", sex: "F", max_pairs: 12 },
+    { division: "Novatos", sex: "X", max_pairs: 12 },
   ]);
 
   const [teams, setTeams] = useState<TeamInput[]>([
@@ -114,22 +111,7 @@ export default function AdminOnboarding() {
     });
   }, []);
 
-  function updateCategory(index: number, field: keyof CategoryInput, value: string | number) {
-    setCategories((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, [field]: value } : c))
-    );
-  }
 
-  function addCategory() {
-    setCategories((prev) => [
-      ...prev,
-      { name: "", division: "4ta", sex: "M", max_pairs: 16 },
-    ]);
-  }
-
-  function removeCategory(index: number) {
-    setCategories((prev) => prev.filter((_, i) => i !== index));
-  }
 
   function updateTeam(index: number, field: keyof TeamInput, value: string) {
     setTeams((prev) =>
@@ -184,7 +166,7 @@ export default function AdminOnboarding() {
       for (const cat of categories) {
         const created = await db.createTournamentCategory({
           tournament_id: createdTournament.id,
-          name: cat.name,
+          name: `${cat.division} ${sexShort(cat.sex)}`,
           sex: cat.sex,
           max_pairs: cat.max_pairs,
           min_level: null,
@@ -229,7 +211,7 @@ export default function AdminOnboarding() {
   function canAdvance() {
     if (step === 0) return club.name && club.city;
     if (step === 1) return tournament.name && tournament.start_date && tournament.end_date;
-    if (step === 2) return categories.length > 0 && categories.every((c) => c.name && c.max_pairs > 0);
+    if (step === 2) return categories.length > 0 && categories.every((c) => c.max_pairs > 0);
     if (step === 3) return teams.length > 0 && teams.every((t) => t.name && t.player1 && t.player2);
     return true;
   }
@@ -351,46 +333,11 @@ export default function AdminOnboarding() {
 
           {step === 2 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold flex items-center gap-2"><Layers className="h-5 w-5" /> Categorías</h2>
-                <Button type="button" variant="outline" size="sm" onClick={addCategory}>Añadir categoría</Button>
-              </div>
-              <p className="text-sm text-muted-foreground">Cada categoría combina una división con una rama (varonil, femenil o mixto).</p>
-              <div className="space-y-3">
-                {categories.map((cat, i) => (
-                  <div key={i} className="grid gap-3 sm:grid-cols-4 items-end rounded-lg border p-3">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Nombre</Label>
-                      <Input value={cat.name} onChange={(e) => updateCategory(i, "name", e.target.value)} placeholder="Ej: 4ta Varonil" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">División</Label>
-                      <Select value={cat.division} onValueChange={(v) => updateCategory(i, "division", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {divisions.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Rama</Label>
-                      <Select value={cat.sex} onValueChange={(v) => updateCategory(i, "sex", v as Sex)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {sexes.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="space-y-2 flex-1">
-                        <Label className="text-xs">Cupo</Label>
-                        <Input type="number" min={1} value={cat.max_pairs} onChange={(e) => updateCategory(i, "max_pairs", Number(e.target.value))} />
-                      </div>
-                      <Button type="button" variant="ghost" size="icon" className="mb-0.5" onClick={() => removeCategory(i)}>×</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <h2 className="text-xl font-bold flex items-center gap-2"><Layers className="h-5 w-5" /> Categorías</h2>
+              <p className="text-sm text-muted-foreground">
+                Cada categoría combina una división con una rama (varonil, femenil o mixto). Busca y selecciona las que necesites; el cupo se puede ajustar por chip.
+              </p>
+              <CategoryPicker value={categories} onChange={setCategories} />
             </div>
           )}
 
@@ -461,7 +408,7 @@ export default function AdminOnboarding() {
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Categorías</p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {categories.map((c, i) => (
-                      <Badge key={i} variant="secondary">{c.name}</Badge>
+                      <Badge key={i} variant="secondary">{c.division} {sexShort(c.sex)} · {c.max_pairs} cupo</Badge>
                     ))}
                   </div>
                 </div>

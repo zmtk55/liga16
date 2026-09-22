@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { Link } from "react-router";
+import { sexShort } from "@/lib/format";
 
 const DIVISIONS = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
 
@@ -116,9 +118,11 @@ export default function AdminTeams() {
             <TableBody>
               {list?.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to={`/equipos/${t.slug}`} className="hover:underline">{t.name}</Link>
+                  </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    {t.division} {t.sex === "X" ? "M/X" : t.sex === "M" ? "M" : "F"}
+                    {t.division} {sexShort(t.sex)}
                   </TableCell>
                   <TableCell className="text-right">{t.played}</TableCell>
                   <TableCell className="text-right text-emerald-600">{t.won}</TableCell>

@@ -32,10 +32,11 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { sexLabel } from "@/lib/format";
 
 const SEX_OPTIONS = [
-  { value: "M", label: "Masculino" },
-  { value: "F", label: "Femenino" },
+  { value: "M", label: "Varonil" },
+  { value: "F", label: "Femenil" },
   { value: "X", label: "Mixto" },
 ];
 
@@ -126,8 +127,8 @@ export default function AdminPlayers() {
                   <TableCell className="font-medium">{p.display_name}</TableCell>
                   <TableCell className="hidden sm:table-cell">@{p.username}</TableCell>
                   <TableCell>{p.declared_level.toFixed(1)}</TableCell>
-                  <TableCell className="hidden md:table-cell">{p.sex}</TableCell>
-                  <TableCell className="hidden md:table-cell">{p.dominant_hand}</TableCell>
+                  <TableCell className="hidden md:table-cell">{sexLabel(p.sex)}</TableCell>
+                  <TableCell className="hidden md:table-cell">{{ right: "Diestro", left: "Zurdo", both: "Ambidiestro" }[p.dominant_hand]}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setOpenCreate(true); }}>Editar</Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(p)}><Trash2 className="h-3.5 w-3.5" /></Button>
