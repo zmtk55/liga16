@@ -19,35 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
 import { Users } from "lucide-react";
-
-const divisions = [
-  { value: "all", label: "Todas las divisiones" },
-  { value: "1ra", label: "1ra División" },
-  { value: "2da", label: "2da División" },
-  { value: "3ra", label: "3ra División" },
-  { value: "4ta", label: "4ta División" },
-  { value: "5ta", label: "5ta División" },
-  { value: "6ta", label: "6ta División" },
-  { value: "Novatos", label: "Novatos" },
-];
-
-const sexOptions = [
-  { value: "all", label: "Todas las ramas" },
-  { value: "M", label: "Varonil" },
-  { value: "F", label: "Femenil" },
-  { value: "X", label: "Mixto" },
-];
-
-function sexLabel(sex: string) {
-  if (sex === "M") return "Varonil";
-  if (sex === "F") return "Femenil";
-  return "Mixto";
-}
-
-function winRate(played: number, won: number) {
-  return played ? Math.round((won / played) * 100) : 0;
-}
 
 export default function RankingsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -79,7 +52,7 @@ export default function RankingsPage() {
         if (a.position !== b.position) return a.position - b.position;
         return b.points - a.points;
       })
-      .map((t, i) => ({ ...t, displayPosition: i + 1 }));
+      .map((t) => ({ ...t }));
   }, [teams, division, sex]);
 
   return (
@@ -97,7 +70,7 @@ export default function RankingsPage() {
             <SelectValue placeholder="División" />
           </SelectTrigger>
           <SelectContent>
-            {divisions.map((d) => (
+            {divisionOptions.map((d) => (
               <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
             ))}
           </SelectContent>
@@ -120,7 +93,7 @@ export default function RankingsPage() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            No hay equipos registrados con esos filtros.
+            No hay equipos en esta división y rama todavía.
           </CardContent>
         </Card>
       ) : (

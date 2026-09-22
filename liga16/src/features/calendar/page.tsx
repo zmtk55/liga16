@@ -7,12 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, MapPin, Radio } from "lucide-react";
 import { formatMatchScore } from "@/lib/scoring";
-
-function initials(name: string) { return name.split(" ").map((p) => p[0]).slice(0,2).join("").toUpperCase(); }
-
-function setsCompact(m: Match) {
-  return formatMatchScore(m.sets);
-}
+import { formatMatchDateTime, initials } from "@/lib/format";
 
 export default function CalendarPage() {
   const [matches, setMatches] = useState<Match[] | null>(null);
@@ -40,7 +35,7 @@ export default function CalendarPage() {
     <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Agenda</h1>
-        <p className="text-muted-foreground">Solo los siguientes juegos — con perfiles</p>
+        <p className="text-muted-foreground">Próximos partidos y partidos en juego</p>
       </header>
 
       {live.length > 0 && (
@@ -52,7 +47,7 @@ export default function CalendarPage() {
 
       <div className="space-y-3">
         {agenda.length === 0 ? (
-          <Card><CardContent className="py-10 text-center text-muted-foreground">Sin juegos programados</CardContent></Card>
+          <Card><CardContent className="py-10 text-center text-muted-foreground">No hay partidos programados. Revisa los torneos para ver las próximas fechas.</CardContent></Card>
         ) : (
           agenda.map((m) => {
             const aNames = m.side_a.pair_name.split("/").map((s) => s.trim());
@@ -95,9 +90,9 @@ export default function CalendarPage() {
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
-                    <span className="font-mono tabular-nums font-medium">{setsCompact(m)}</span>
+                    <span className="font-mono tabular-nums font-medium">{formatMatchScore(m.sets)}</span>
                     <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {m.scheduled_at ? new Date(m.scheduled_at).toLocaleString("es-MX", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Sin hora"}</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {m.scheduled_at ? formatMatchDateTime(m.scheduled_at) : "Sin hora"}</span>
                       {m.court_name && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {m.court_name}</span>}
                     </span>
                   </div>

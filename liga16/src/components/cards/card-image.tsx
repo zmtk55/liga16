@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatLabel } from "@/lib/format";
 import {
   Trophy,
   Newspaper,
@@ -76,6 +77,19 @@ export function TournamentCover({
     custom: "from-primary/30 via-primary/10 to-background",
   };
 
+  if (tournament.cover_url) {
+    return (
+      <div className={cn("relative overflow-hidden aspect-square", className)}>
+        <img
+          src={tournament.cover_url}
+          alt={tournament.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -89,7 +103,9 @@ export function TournamentCover({
         <p className="text-sm font-semibold opacity-40 uppercase tracking-wider">
           {tournament.modality}
         </p>
-        <p className="text-xs opacity-30 mt-1">{tournament.format}</p>
+        <p className="text-xs opacity-30 mt-1">
+          {formatLabel[tournament.format] ?? tournament.format}
+        </p>
       </div>
     </div>
   );

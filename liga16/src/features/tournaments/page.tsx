@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
 import { TournamentCard } from "@/components/cards/resource-card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -40,7 +41,7 @@ export default function TournamentsPage() {
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Torneos</h1>
         <p className="text-muted-foreground">
-          Próximas fechas del padel Reforma
+          Calendario del circuito — inscríbete en las fechas abiertas
         </p>
       </header>
 
@@ -79,7 +80,11 @@ export default function TournamentsPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground">No hay torneos con esos filtros.</p>
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            No hay torneos con este estado y formato. Prueba otros filtros.
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((t) => (

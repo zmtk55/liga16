@@ -66,3 +66,50 @@ export const tierLabel: Record<string, string> = {
   plata: 'Plata',
   bronce: 'Bronce',
 };
+
+export const divisionOptions = [
+  { value: "all", label: "Todas las divisiones" },
+  { value: "1ra", label: "1ra División" },
+  { value: "2da", label: "2da División" },
+  { value: "3ra", label: "3ra División" },
+  { value: "4ta", label: "4ta División" },
+  { value: "5ta", label: "5ta División" },
+  { value: "6ta", label: "6ta División" },
+  { value: "Novatos", label: "Novatos" },
+];
+
+export const sexOptions = [
+  { value: "all", label: "Todas las ramas" },
+  { value: "M", label: "Varonil" },
+  { value: "F", label: "Femenil" },
+  { value: "X", label: "Mixto" },
+];
+
+export function sexLabel(sex: string): string {
+  if (sex === "M") return "Varonil";
+  if (sex === "F") return "Femenil";
+  return "Mixto";
+}
+
+export function winRate(played: number, won: number): number {
+  return played ? Math.round((won / played) * 100) : 0;
+}
+
+export function formatMatchDateTime(iso: string): string {
+  return new Intl.DateTimeFormat("es-MX", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+export function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}

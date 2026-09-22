@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Tournament } from "@/types";
-import { formatMoney, formatDateRange, tournamentStatusLabel } from "@/lib/format";
+import { formatMoney, formatDateRange, formatLabel, tournamentStatusLabel } from "@/lib/format";
 import { TournamentCover } from "./card-image";
 
 interface ResourceCardProps {
@@ -112,7 +112,9 @@ export function TournamentCard({
   className?: string;
 }) {
   const statusBadge = tournamentStatusLabel[tournament.status];
-  const description = tournament.description ?? `${tournament.modality} · ${tournament.format}`;
+  const description =
+    tournament.description ??
+    `${tournament.modality} · ${formatLabel[tournament.format] ?? tournament.format}`;
   return (
     <ResourceCard
       tournament={tournament}

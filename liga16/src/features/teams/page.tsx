@@ -9,8 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChevronRight, Search } from "lucide-react";
-
-function initials(name: string) { return name.split(" ").map((w) => w[0]).join("").slice(0,2).toUpperCase(); }
+import { initials, sexLabel } from "@/lib/format";
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -40,10 +39,10 @@ export default function TeamsPage() {
   }, [teams, q, division, city]);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Equipos</h1>
-        <p className="text-muted-foreground">Parejas del circuito — lista con filtros, click para dashboard</p>
+        <p className="text-muted-foreground">Parejas del circuito por división y ciudad</p>
       </header>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -78,7 +77,11 @@ export default function TeamsPage() {
       {teams === null ? (
         <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
       ) : filtered.length === 0 ? (
-        <p className="py-10 text-center text-muted-foreground">Sin equipos con esos filtros</p>
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            Ningún equipo coincide con la búsqueda. Prueba con otra división o ciudad.
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="p-0 divide-y">
@@ -92,7 +95,7 @@ export default function TeamsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{team.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{team.city} · {team.division} {team.sex} · {team.player1?.name ?? "?"} / {team.player2?.name ?? "?"}</p>
+                    <p className="truncate text-xs text-muted-foreground">{team.city} · {team.division} {sexLabel(team.sex)} · {team.player1?.name ?? "?"} / {team.player2?.name ?? "?"}</p>
                   </div>
                   <div className="hidden sm:flex items-center gap-3 text-xs">
                     <span className="tabular-nums"><span className="font-bold">#{team.position}</span> · {team.points} pts</span>
