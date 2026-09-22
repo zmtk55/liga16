@@ -191,8 +191,8 @@ export default function TournamentDetailPage() {
           </p>
         )}
         {tournament.rules_summary && (
-          <div className="max-w-3xl rounded-lg border-l-4 border-primary bg-primary/5 p-3">
-            <p className="text-xs font-medium text-primary mb-1">📜 Reglamento</p>
+          <div className="max-w-3xl rounded-lg border bg-card p-3">
+            <p className="text-xs font-semibold mb-1">📜 Reglamento</p>
             <p className="text-xs text-muted-foreground">{tournament.rules_summary}</p>
           </div>
         )}

@@ -136,7 +136,7 @@ export default function PlayerDetailPage() {
                   <p className="text-sm tracking-widest text-white/60 uppercase">{player.city} · {player.state}</p>
                   <h1 className="text-4xl font-black tracking-tight md:text-5xl">
                     <span className="block text-lg font-normal tracking-wide text-white/70">{player.display_name.split(" ")[0]}</span>
-                    <span className="bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">{player.display_name.split(" ").slice(1).join(" ") || player.display_name}</span>
+                    <span className="text-white">{player.display_name.split(" ").slice(1).join(" ") || player.display_name}</span>
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge className="bg-white text-black hover:bg-white">#{ranking?.position ?? "—"} Liga16</Badge>

@@ -184,18 +184,18 @@ export function TeamCrest({
   }
 
   const colors = [
-    "from-primary/40 to-primary/10",
-    "from-emerald-500/30 to-emerald-500/10",
-    "from-blue-500/30 to-blue-500/10",
-    "from-purple-500/30 to-purple-500/10",
-    "from-amber-500/30 to-amber-500/10",
+    "bg-primary/20 text-primary",
+    "bg-emerald-500/15 text-emerald-600",
+    "bg-sky-500/15 text-sky-600",
+    "bg-amber-500/20 text-amber-600",
+    "bg-rose-500/15 text-rose-600",
   ];
   const colorIndex = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
 
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-xl bg-gradient-to-br font-bold text-white/60 text-lg",
+        "flex items-center justify-center rounded-xl bg-muted font-bold text-lg",
         colors[colorIndex],
         className,
       )}
