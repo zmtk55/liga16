@@ -1,21 +1,26 @@
 import { Link } from "react-router";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu, X, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
-const navItems = [
+const publicNav = [
   { to: "/", label: "Inicio" },
   { to: "/torneos", label: "Torneos" },
   { to: "/ranking", label: "Ranking" },
   { to: "/padel", label: "Padel" },
   { to: "/jugadores", label: "Jugadores" },
   { to: "/noticias", label: "Noticias" },
-  { to: "/admin", label: "Admin" },
 ];
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const showAdmin = !isSupabaseConfigured || user?.role === "admin" || user?.role === "organizer";
+
+  const navItems = showAdmin ? [...publicNav, { to: "/admin", label: "Admin" }] : publicNav;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur">
@@ -32,8 +37,11 @@ export function SiteHeader() {
             <Link
               key={item.to}
               to={item.to}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent/10 hover:text-foreground ${
+                item.to === "/admin" ? "text-primary" : "text-muted-foreground"
+              }`}
             >
+              {item.to === "/admin" && <Shield className="inline h-3.5 w-3.5 mr-1" />}
               {item.label}
             </Link>
           ))}
@@ -72,8 +80,11 @@ export function SiteHeader() {
                 key={item.to}
                 to={item.to}
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+                className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent/10 hover:text-foreground ${
+                  item.to === "/admin" ? "text-primary" : "text-muted-foreground"
+                }`}
               >
+                {item.to === "/admin" && <Shield className="inline h-3.5 w-3.5 mr-1" />}
                 {item.label}
               </Link>
             ))}

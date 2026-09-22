@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { db } from "@/lib/data";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, Building2, Newspaper } from "lucide-react";
@@ -22,12 +24,22 @@ export default function AdminDashboard() {
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Newspaper className="h-4 w-4" /> Noticias</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{stats?.n ?? "—"}</p><p className="text-xs text-muted-foreground">Publicadas</p></CardContent></Card>
       </div>
       <Card>
-        <CardHeader><CardTitle className="text-base">Requerimientos del plan cubiertos</CardTitle></CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-1">
-          <p>• Público pulido: landing, header responsive, cards con stats, bundle optimizado (manualChunks + lazy recharts), vercel deploy fixado.</p>
-          <p>• Operativo: este panel admin con torneos, padel y noticias, tablas y acciones demo listas para conectar a Supabase RLS.</p>
-          <p>• Perfil permanente: /jugadores y /jugadores/:id con ranking, títulos, récord y tendencia.</p>
-          <p>• Siguiente: Auth real (Supabase) + RLS por rol organizer/admin + CRUD persistente + pagos.</p>
+        <CardHeader><CardTitle className="text-base">Acciones rápidas</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button asChild>
+              <Link to="/admin/torneos">Gestionar torneos</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/admin/padel">Configurar padel</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/admin/noticias">Editar noticias</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/torneos">Ver torneos públicos</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

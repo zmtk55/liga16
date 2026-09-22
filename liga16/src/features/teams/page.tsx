@@ -40,13 +40,13 @@ export default function TeamsPage() {
       </header>
 
       {teams === null ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-56 w-full" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {teams.map((team) => {
             const winRate = team.record.played ? Math.round((team.record.won / team.record.played) * 100) : 0;
             const avgLevel = team.members.length
