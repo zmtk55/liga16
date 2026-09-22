@@ -4,13 +4,8 @@ import {
   CalendarDays,
   Search,
   Trophy,
-  Users,
   Sparkles,
   ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
-  Activity,
   Clock,
   Zap,
 } from "lucide-react";
@@ -31,79 +26,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { tierLabel } from "@/lib/format";
 
 function initials(name: string) { return name.split(" ").map((p) => p[0]).slice(0,2).join("").toUpperCase(); }
-
-// ─── Animated counter ───
-function AnimatedNumber({ value, className }: { value: number; className?: string }) {
-  const [display, setDisplay] = useState(0);
-  useEffect(() => {
-    let start = 0;
-    const duration = 800;
-    const step = Math.max(1, Math.ceil(value / (duration / 16)));
-    const timer = setInterval(() => {
-      start = Math.min(start + step, value);
-      setDisplay(start);
-      if (start >= value) clearInterval(timer);
-    }, 16);
-    return () => clearInterval(timer);
-  }, [value]);
-  return <span className={className}>{display.toLocaleString()}</span>;
-}
-
-// ─── KPI Card with trend ───
-function KpiCard({
-  title,
-  value,
-  trend,
-  icon,
-  iconBg,
-  iconColor,
-  delay,
-}: {
-  title: string;
-  value: number;
-  trend?: { value: number; positive: boolean };
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  delay: number;
-}) {
-  return (
-    <Card
-      className="animate-slide-up"
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg} ${iconColor}`}>
-          {icon}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-baseline gap-2">
-          <p className="text-3xl font-bold tracking-tight">
-            <AnimatedNumber value={value} />
-          </p>
-          {trend && (
-            <Badge
-              variant={trend.positive ? "default" : "destructive"}
-              className="text-xs font-medium"
-            >
-              {trend.positive ? (
-                <TrendingUp className="mr-1 h-3 w-3" />
-              ) : (
-                <TrendingDown className="mr-1 h-3 w-3" />
-              )}
-              {Math.abs(trend.value)}%
-            </Badge>
-          )}
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">vs mes anterior</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -207,44 +129,44 @@ export default function Home() {
         </form>
       </section>
 
-      {/* ── KPI Cards ── */}
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          title="Torneos Activos"
-          value={openTournaments.length}
-          trend={{ value: 18, positive: true }}
-          icon={<Trophy className="h-4 w-4" />}
-          iconBg="bg-primary/10"
-          iconColor="text-primary"
-          delay={0}
-        />
-        <KpiCard
-          title="Equipos Inscritos"
-          value={stats.teams.length}
-          trend={{ value: 5, positive: true }}
-          icon={<Users className="h-4 w-4" />}
-          iconBg="bg-emerald-500/10"
-          iconColor="text-emerald-600"
-          delay={100}
-        />
-        <KpiCard
-          title="Partidos Hoy"
-          value={stats.matches.filter((m) => m.status === "live" || m.status === "scheduled").length}
-          trend={{ value: 12, positive: true }}
-          icon={<Activity className="h-4 w-4" />}
-          iconBg="bg-amber-500/10"
-          iconColor="text-amber-600"
-          delay={200}
-        />
-        <KpiCard
-          title="Jugadores Top"
-          value={stats.rankings.length}
-          trend={{ value: 8, positive: false }}
-          icon={<BarChart3 className="h-4 w-4" />}
-          iconBg="bg-blue-500/10"
-          iconColor="text-blue-600"
-          delay={300}
-        />
+      {/* ── CTA Próximo torneo — llamativo para jugadores ── */}
+      <section className="relative overflow-hidden rounded-2xl p-[1.5px] bg-gradient-to-br from-primary via-orange-500 to-amber-400">
+        <div className="rounded-2xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-black px-5 py-6 md:px-8 md:py-8 text-white">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold backdrop-blur">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> Inscripciones abiertas · Cupos limitados
+              </div>
+              {(() => {
+                const t = openTournaments[0] ?? stats.tournaments[0];
+                if (!t) return <h2 className="text-2xl font-black">Próximo torneo</h2>;
+                return (
+                  <>
+                    <h2 className="text-2xl font-black leading-tight md:text-3xl">
+                      Regístrate — <span className="bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent">{t.name}</span>
+                    </h2>
+                    <p className="text-sm text-white/70">
+                      {t.city} · {t.club_name} · {new Date(t.start_date).toLocaleDateString("es-MX", { day: "numeric", month: "short" })} — {new Date(t.end_date).toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · {t.format} · {(t.price_cents/100).toLocaleString("es-MX", { style: "currency", currency: t.currency })}
+                    </p>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-white text-black px-2.5 py-1 font-bold">{t.modality}</span>
+                      <span className="rounded-full bg-white/10 px-2.5 py-1 border border-white/20">{t.status === "registration_open" ? "Inscripción abierta" : t.status}</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row lg:flex-col shrink-0">
+              <Button asChild size="lg" className="bg-white text-black hover:bg-zinc-100 font-bold">
+                <Link to={openTournaments[0] ? `/torneos/${openTournaments[0].slug}` : "/torneos"}>Inscribir mi pareja →</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="border-white/20 text-white hover:bg-white/10 bg-transparent">
+                <Link to="/jugadores">Crear mi perfil gratis</Link>
+              </Button>
+              <p className="text-center text-xs text-white/50">+{stats.rankings.length} jugadores rankeados · {stats.teams.length} parejas</p>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ── Row 1: Chart + Activity Feed ── */}

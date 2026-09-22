@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 // Liga16 — utilidades de puntuación para pádel
 import type { SetScore, TournamentScoring, Team } from "@/types";

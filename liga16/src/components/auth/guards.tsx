@@ -1,5 +1,7 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 import { useAuth } from "@/contexts/AuthContext";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { UserRole } from "@/types";
 import { Navigate, useLocation } from "react-router";
 import { ShieldAlert } from "lucide-react";
