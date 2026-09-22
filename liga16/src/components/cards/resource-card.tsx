@@ -63,8 +63,8 @@ export function ResourceCard({
           </div>
         )}
 
-        {/* Dark hover overlay with description + CTA */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-4">
+        {/* Dark hover overlay — visible on mobile (touch), hover-only on desktop */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
           {description && (
             <p className="mb-3 line-clamp-2 text-sm text-white/90">
               {description}
@@ -83,8 +83,8 @@ export function ResourceCard({
       </div>
 
       {/* Footer with metadata and action */}
-      <div className="flex items-center justify-between gap-2 px-4 py-3">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{tournament.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {tournament.club_name ?? "Club Pádel Reforma"}
@@ -100,6 +100,11 @@ export function ResourceCard({
             </span>
           )}
         </div>
+        {to && (
+          <Button asChild size="sm" className="sm:hidden">
+            <Link to={to}>{cta}</Link>
+          </Button>
+        )}
       </div>
     </div>
   );
