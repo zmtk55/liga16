@@ -767,8 +767,8 @@ create or replace function public.sync_role_app_metadata()
 returns trigger as $$
 begin
   if new.raw_user_meta_data ? 'role' then
-    new.raw_app_metadata := jsonb_set(
-      coalesce(new.raw_app_metadata, '{}'::jsonb),
+    new.raw_app_meta_data := jsonb_set(
+      coalesce(new.raw_app_meta_data, '{}'::jsonb),
       '{role}',
       new.raw_user_meta_data->'role'
     );
@@ -786,8 +786,8 @@ create or replace function public.sync_role_on_update()
 returns trigger as $$
 begin
   if new.raw_user_meta_data ->> 'role' is distinct from old.raw_user_meta_data ->> 'role' then
-    new.raw_app_metadata := jsonb_set(
-      coalesce(new.raw_app_metadata, '{}'::jsonb),
+    new.raw_app_meta_data := jsonb_set(
+      coalesce(new.raw_app_meta_data, '{}'::jsonb),
       '{role}',
       new.raw_user_meta_data->'role'
     );
