@@ -1,12 +1,17 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Trophy, Building2, Newspaper, Shield } from "lucide-react";
+import { LayoutDashboard, Trophy, Building2, Newspaper, Users, BarChart3, Sparkles, Shield, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const items = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/admin/torneos", label: "Torneos", icon: Trophy },
+  { to: "/admin/equipos", label: "Equipos", icon: ShieldCheck },
+  { to: "/admin/jugadores", label: "Jugadores", icon: Users },
+  { to: "/admin/ranking", label: "Ranking", icon: BarChart3 },
+  { to: "/admin/resultados", label: "Resultados", icon: Trophy },
   { to: "/admin/padel", label: "Padel", icon: Building2 },
   { to: "/admin/noticias", label: "Noticias", icon: Newspaper },
+  { to: "/admin/onboarding", label: "Onboarding", icon: Sparkles },
 ];
 
 export default function AdminLayout() {

@@ -11,6 +11,7 @@ function client() {
 }
 
 export const supabaseProvider: DataProvider = {
+  // Torneos
   async listTournaments(filters?: Omit<TournamentFilters, 'city'>) {
     let q = client().from('tournaments').select('*, clubs(name)').order('start_date');
     if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
@@ -31,6 +32,26 @@ export const supabaseProvider: DataProvider = {
     return { ...data, club_name: (data.clubs as { name?: string } | null)?.name ?? null } as never;
   },
 
+  async createTournament(data: Omit<import('@/types').Tournament, 'id' | 'slug'>) {
+    const { data: result, error } = await client()
+      .from('tournaments').insert(data as Record<string, unknown>).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async updateTournament(slug: string, data: Partial<import('@/types').Tournament>) {
+    const { data: result, error } = await client()
+      .from('tournaments').update(data as Record<string, unknown>).eq('slug', slug).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async deleteTournament(slug: string) {
+    const { error } = await client().from('tournaments').delete().eq('slug', slug);
+    if (error) throw error;
+    return true;
+  },
+
   async getTournamentCategories(tournamentId: string) {
     const { data, error } = await client()
       .from('tournament_categories').select('*').eq('tournament_id', tournamentId);
@@ -39,12 +60,12 @@ export const supabaseProvider: DataProvider = {
   },
 
   async getTournamentPairs(tournamentId: string) {
-    const { data, error } = await client()
-      .from('pairs').select('*').eq('tournament_id', tournamentId);
+    const { data, error } = await client().from('pairs').select('*').eq('tournament_id', tournamentId);
     if (error) throw error;
     return (data ?? []) as never;
   },
 
+  // Ligas
   async listLeagues() {
     const { data, error } = await client().from('leagues').select('*');
     if (error) throw error;
@@ -57,6 +78,7 @@ export const supabaseProvider: DataProvider = {
     return data as never;
   },
 
+  // Rankings
   async listRankings(scope?: { sex?: string }) {
     let q = client().from('ranking_view').select('*').order('points', { ascending: false });
     if (scope?.sex && scope.sex !== 'all') q = q.eq('sex', scope.sex);
@@ -65,14 +87,22 @@ export const supabaseProvider: DataProvider = {
     return (data ?? []).map((r: Record<string, unknown>, i: number) => ({ ...r, position: i + 1 })) as never;
   },
 
+  async updateRanking(playerId: string, updates: Partial<import('@/types').RankingEntry>) {
+    const { error } = await client()
+      .from('ranking_events').insert({ player_id: playerId, points: updates.points ?? 0, reason: 'Actualización manual admin' })
+      .select().single();
+    if (error) throw error;
+    return { ...updates, player_id: playerId } as never;
+  },
+
   async getPlayerRankingEvents(playerId: string) {
     const { data, error } = await client()
-      .from('ranking_events').select('*').eq('player_id', playerId)
-      .order('created_at', { ascending: false });
+      .from('ranking_events').select('*').eq('player_id', playerId).order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? []) as never;
   },
 
+  // Jugadores
   async listPlayers(query?: string) {
     let q = client().from('player_profiles').select('*').eq('is_public', true);
     if (query?.trim()) q = q.or(`display_name.ilike.%${query}%,username.ilike.%${query}%`);
@@ -88,13 +118,36 @@ export const supabaseProvider: DataProvider = {
     return data as never;
   },
 
+  async createPlayer(data: Omit<import('@/types').PlayerProfile, 'id' | 'user_id'>) {
+    const { data: userData, error: userErr } = await client().auth.signUp({ email: `${data.username}@liga16.example`, password: 'demo123456' });
+    if (userErr || !userData.user) throw new Error('Error creando usuario auth');
+    const { data: result, error } = await client()
+      .from('player_profiles').insert({ user_id: userData.user.id, ...data } as Record<string, unknown>).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async updatePlayer(id: string, data: Partial<import('@/types').PlayerProfile>) {
+    const { data: result, error } = await client()
+      .from('player_profiles').update(data as Record<string, unknown>).eq('id', id).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async deletePlayer(id: string) {
+    const { error } = await client().from('player_profiles').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
+
   async getPlayerCard(playerId: string) {
     const { data, error } = await client()
-      .from('player_cards').select('*').eq('slug', playerId).maybeSingle();
+      .from('player_cards').select('*').eq('player_id', playerId).maybeSingle();
     if (error) throw error;
     return data as never;
   },
 
+  // Equipos
   async listTeams() {
     const { data, error } = await client().from('teams').select('*');
     if (error) throw error;
@@ -107,6 +160,27 @@ export const supabaseProvider: DataProvider = {
     return data as never;
   },
 
+  async createTeam(data: Omit<import('@/types').Team, 'id' | 'slug'>) {
+    const { data: result, error } = await client()
+      .from('teams').insert(data as Record<string, unknown>).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async updateTeam(slug: string, data: Partial<import('@/types').Team>) {
+    const { data: result, error } = await client()
+      .from('teams').update(data as Record<string, unknown>).eq('slug', slug).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async deleteTeam(slug: string) {
+    const { error } = await client().from('teams').delete().eq('slug', slug);
+    if (error) throw error;
+    return true;
+  },
+
+  // Club
   async listClubs() {
     const { data, error } = await client().from('clubs').select('*');
     if (error) throw error;
@@ -119,6 +193,14 @@ export const supabaseProvider: DataProvider = {
     return data as never;
   },
 
+  async updateClub(slug: string, data: Partial<import('@/types').Club>) {
+    const { data: result, error } = await client()
+      .from('clubs').update(data as Record<string, unknown>).eq('slug', slug).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  // Resultados
   async listRecentMatches() {
     const { data, error } = await client()
       .from('matches').select('*').order('scheduled_at', { ascending: false }).limit(30);
@@ -126,6 +208,14 @@ export const supabaseProvider: DataProvider = {
     return (data ?? []) as never;
   },
 
+  async updateMatch(id: string, updates: Partial<import('@/types').Match>) {
+    const { data: result, error } = await client()
+      .from('matches').update(updates as Record<string, unknown>).eq('id', id).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  // Noticias
   async listNews() {
     const { data, error } = await client()
       .from('news').select('*').order('published_at', { ascending: false });
@@ -133,36 +223,54 @@ export const supabaseProvider: DataProvider = {
     return (data ?? []) as never;
   },
 
+  async createNews(data: Omit<import('@/types').NewsItem, 'id'>) {
+    const { data: result, error } = await client()
+      .from('news').insert(data as Record<string, unknown>).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async updateNews(id: string, data: Partial<import('@/types').NewsItem>) {
+    const { data: result, error } = await client()
+      .from('news').update(data as Record<string, unknown>).eq('id', id).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async deleteNews(id: string) {
+    const { error } = await client().from('news').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
+
+  // Sponsors
   async listSponsors() {
     const { data, error } = await client().from('sponsors').select('*');
     if (error) throw error;
     return (data ?? []) as never;
   },
 
+  // Registro
   async registerPair(input: RegisterPairInput) {
     const { data: { user } } = await client().auth.getUser();
     if (!user) throw new Error("No hay sesión activa. Inicia sesión para inscribirte.");
 
     const { data: pair, error: pairErr } = await client()
-      .from('pairs')
-      .insert({
+      .from('pairs').insert({
         tournament_id: input.tournament_id,
         category_id: input.category_id,
         name: input.pair_name,
-      })
-      .select().single();
+      }).select().single();
     if (pairErr) throw pairErr;
     const { data: registration, error: regErr } = await client()
-      .from('registrations')
-      .insert({
+      .from('registrations').insert({
         tournament_id: input.tournament_id,
         category_id: input.category_id,
         pair_id: pair.id,
         user_id: user.id,
         status: input.payment_method === 'transfer' ? 'payment_review' : 'payment_pending',
         rules_accepted_at: new Date().toISOString(),
-      })
-      .select().single();
+      }).select().single();
     if (regErr) throw regErr;
     return { registration: registration as never };
   },
