@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
-import type { Match } from "@/types";
+import type { Match, SetScore, Tournament } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,13 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import type { MatchStatus } from "@/types";
+import {
+  determineMatchWinner,
+  formatMatchScore,
+  normalizeScoring,
+  validateScoring,
+} from "@/lib/scoring";
+import { Plus, Trash2, Trophy } from "lucide-react";
 
 const STATUS_OPTIONS = [
   { value: "scheduled", label: "Programado" },
@@ -45,28 +52,46 @@ const STATUS_OPTIONS = [
 
 export default function AdminResults() {
   const [list, setList] = useState<Match[] | null>(null);
+  const [tournaments, setTournaments] = useState<Record<string, Tournament>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    db.listRecentMatches().then(setList);
+    load();
   }, []);
+
+  async function load() {
+    const [matches, tList] = await Promise.all([db.listRecentMatches(), db.listTournaments()]);
+    setList(matches);
+    const map: Record<string, Tournament> = {};
+    for (const t of tList) map[t.id] = t;
+    setTournaments(map);
+  }
 
   async function handleSave(id: string, form: MatchFormData) {
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
+      const tournament = tournaments[form.tournament_id];
+      const scoring = normalizeScoring(tournament?.scoring);
+      const validation = validateScoring(form.sets, scoring);
+      if (validation) {
+        toast.error(validation);
+        setSubmitting(false);
+        return;
+      }
+
+      const winner = determineMatchWinner(form.sets, scoring);
       await db.updateMatch(id, {
         status: form.status as MatchStatus,
         round: form.round,
         court_name: form.court_name,
         scheduled_at: form.scheduled_at || undefined,
-        winner: form.winner as Match["winner"] || undefined,
-        sets: form.sets_a ? [{ a: Number(form.sets_a), b: Number(form.sets_b ?? 0) }] : [],
+        winner: winner ?? (form.winner as Match["winner"]) ?? undefined,
+        sets: form.sets,
       });
       toast.success("Partido actualizado");
       setEditingId(null);
-      db.listRecentMatches().then(setList);
+      load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al guardar");
     } finally {
@@ -80,7 +105,7 @@ export default function AdminResults() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Resultados</h1>
-        <p className="text-sm text-muted-foreground">Gestiona el estado de los partidos</p>
+        <p className="text-sm text-muted-foreground">Gestiona resultados con sets, juegos y tie-breaks</p>
       </div>
       <Card>
         <CardHeader className="pb-2">
@@ -93,7 +118,7 @@ export default function AdminResults() {
                 <TableHead>Torneo</TableHead>
                 <TableHead className="hidden sm:table-cell">Categoría</TableHead>
                 <TableHead className="hidden md:table-cell">Ronda</TableHead>
-                <TableHead className="hidden md:table-cell">Cancha</TableHead>
+                <TableHead>Marcador</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -104,7 +129,9 @@ export default function AdminResults() {
                   <TableCell className="font-medium">{m.tournament_name}</TableCell>
                   <TableCell className="hidden sm:table-cell">{m.category_name}</TableCell>
                   <TableCell className="hidden md:table-cell">{m.round}</TableCell>
-                  <TableCell className="hidden md:table-cell">{m.court_name}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {formatMatchScore(m.sets, tournaments[m.tournament_id]?.scoring ?? undefined)}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={m.status === "finished" ? "default" : m.status === "live" ? "destructive" : "outline"}>
                       {STATUS_OPTIONS.find((s) => s.value === m.status)?.label ?? m.status}
@@ -125,6 +152,7 @@ export default function AdminResults() {
       {editingMatch && (
         <MatchEditDialog
           match={editingMatch}
+          tournament={tournaments[editingMatch.tournament_id]}
           open={!!editingId}
           onOpenChange={(o) => { if (!o) setEditingId(null); }}
           onSave={handleSave}
@@ -135,53 +163,105 @@ export default function AdminResults() {
   );
 }
 
+interface SetInput {
+  a: string;
+  b: string;
+  tiebreak_a: string;
+  tiebreak_b: string;
+}
+
 interface MatchFormData {
+  tournament_id: string;
   status: string;
   round: string;
   court_name: string;
   scheduled_at: string;
   winner: string;
-  sets_a: string;
-  sets_b: string;
+  sets: SetScore[];
+}
+
+function toSetInputs(sets: SetScore[]): SetInput[] {
+  return sets.map((s) => ({
+    a: String(s.a ?? 0),
+    b: String(s.b ?? 0),
+    tiebreak_a: s.tiebreak_a != null ? String(s.tiebreak_a) : "",
+    tiebreak_b: s.tiebreak_b != null ? String(s.tiebreak_b) : "",
+  }));
+}
+
+function fromSetInputs(inputs: SetInput[]): SetScore[] {
+  return inputs.map((s) => ({
+    a: Number(s.a) || 0,
+    b: Number(s.b) || 0,
+    tiebreak_a: s.tiebreak_a.trim() ? Number(s.tiebreak_a) : null,
+    tiebreak_b: s.tiebreak_b.trim() ? Number(s.tiebreak_b) : null,
+  }));
 }
 
 function MatchEditDialog({
   match,
+  tournament,
   open,
   onOpenChange,
   onSave,
   submitting,
 }: {
   match: Match;
+  tournament: Tournament | undefined;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (id: string, data: MatchFormData) => void;
   submitting: boolean;
 }) {
+  const scoring = normalizeScoring(tournament?.scoring);
   const [form, setForm] = useState<MatchFormData>(() => ({
+    tournament_id: match.tournament_id,
     status: match.status,
     round: match.round,
     court_name: match.court_name ?? "",
     scheduled_at: match.scheduled_at ? match.scheduled_at.slice(0, 16) : "",
     winner: match.winner ?? "",
-    sets_a: match.sets.length > 0 ? String(match.sets[0].a) : "",
-    sets_b: match.sets.length > 0 ? String(match.sets[0].b) : "",
+    sets: match.sets.length > 0 ? match.sets : [{ a: 0, b: 0, tiebreak_a: null, tiebreak_b: null }],
   }));
+  const [setInputs, setSetInputs] = useState<SetInput[]>(() => toSetInputs(form.sets));
 
   const update = (field: keyof MatchFormData, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
   };
 
+  function updateSet(index: number, field: keyof SetInput, value: string) {
+    setSetInputs((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    );
+  }
+
+  function addSet() {
+    setSetInputs((prev) => [...prev, { a: "", b: "", tiebreak_a: "", tiebreak_b: "" }]);
+  }
+
+  function removeSet(index: number) {
+    setSetInputs((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const currentSets = fromSetInputs(setInputs);
+  const winner = determineMatchWinner(currentSets, scoring);
+  const scorePreview = formatMatchScore(currentSets, scoring);
+
+  function submit() {
+    onSave(match.id, { ...form, sets: currentSets });
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar resultado</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Trophy className="h-5 w-5" /> Editar resultado</DialogTitle>
           <DialogDescription>
-            {match.side_a?.pair_name ?? "Partido"} — {match.tournament_name}
+            {match.side_a.pair_name} vs {match.side_b.pair_name} · {match.tournament_name}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 py-2">
+
+        <div className="grid gap-4 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Estado</Label>
@@ -197,6 +277,7 @@ function MatchEditDialog({
               <Input value={form.round} onChange={(e) => update("round", e.target.value)} />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Cancha</Label>
@@ -207,35 +288,82 @@ function MatchEditDialog({
               <Input type="datetime-local" value={form.scheduled_at} onChange={(e) => update("scheduled_at", e.target.value)} />
             </div>
           </div>
-          <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground mb-1">📋 Resultados</p>
-            <p>TBD = por determinar. Sets en formato 6-4, 6-3. Ganador: A o B.</p>
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold">Sets</h3>
+                <p className="text-xs text-muted-foreground">
+                  {scoring.sets_to_win} de {scoring.sets_to_win * 2 - 1} sets · {scoring.games_per_set} juegos · tie-break a {scoring.tie_break_points} puntos
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addSet}>
+                <Plus className="h-4 w-4 mr-1" /> Añadir set
+              </Button>
+            </div>
+
+            {setInputs.map((set, i) => (
+              <div key={i} className="grid gap-3 rounded-lg bg-muted/30 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">Set {i + 1}</span>
+                  {setInputs.length > 1 && (
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSet(i)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Juegos A</Label>
+                    <Input type="number" min={0} value={set.a} onChange={(e) => updateSet(i, "a", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Juegos B</Label>
+                    <Input type="number" min={0} value={set.b} onChange={(e) => updateSet(i, "b", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tie A</Label>
+                    <Input type="number" min={0} placeholder="TB" value={set.tiebreak_a} onChange={(e) => updateSet(i, "tiebreak_a", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tie B</Label>
+                    <Input type="number" min={0} placeholder="TB" value={set.tiebreak_b} onChange={(e) => updateSet(i, "tiebreak_b", e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex items-center justify-between rounded-lg bg-primary/5 p-3">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Marcador:</span>{" "}
+                <span className="font-mono font-medium">{scorePreview}</span>
+              </div>
+              {winner ? (
+                <Badge className="bg-emerald-600">
+                  Ganador: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
+                </Badge>
+              ) : (
+                <Badge variant="outline">Aún no hay ganador</Badge>
+              )}
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="grid gap-1.5">
-              <Label>Sets A</Label>
-              <Input type="number" value={form.sets_a} onChange={(e) => update("sets_a", e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Sets B</Label>
-              <Input type="number" value={form.sets_b} onChange={(e) => update("sets_b", e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Ganador</Label>
-              <Select value={form.winner} onValueChange={(v) => update("winner", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">TBD</SelectItem>
-                  <SelectItem value="a">Equipo A</SelectItem>
-                  <SelectItem value="b">Equipo B</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
+          <div className="grid gap-1.5">
+            <Label>Ganador manual (opcional)</Label>
+            <Select value={form.winner} onValueChange={(v) => update("winner", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Automático por sets</SelectItem>
+                <SelectItem value="a">{match.side_a.pair_name}</SelectItem>
+                <SelectItem value="b">{match.side_b.pair_name}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => onSave(match.id, form)} disabled={submitting}>
+          <Button onClick={submit} disabled={submitting}>
             {submitting ? "Guardando…" : "Guardar"}
           </Button>
         </DialogFooter>

@@ -1,0 +1,13 @@
+# Logs y sesiones de agentes
+.freebuff/
+.opencode/
+
+# Dependencias
+node_modules/
+
+# Build
+liga16/dist/
+
+# Entorno
+.env
+.env.*

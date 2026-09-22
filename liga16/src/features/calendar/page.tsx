@@ -6,12 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, MapPin, Radio } from "lucide-react";
+import { formatMatchScore } from "@/lib/scoring";
 
 function initials(name: string) { return name.split(" ").map((p) => p[0]).slice(0,2).join("").toUpperCase(); }
 
 function setsCompact(m: Match) {
-  if (m.sets.length === 0) return "—";
-  return m.sets.map((s) => `${s.a}-${s.b}`).join(" · ");
+  return formatMatchScore(m.sets);
 }
 
 export default function CalendarPage() {
