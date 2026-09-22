@@ -1,0 +1,3 @@
+[submodule "liga16"]
+	path = liga16
+	url = https://github.com/zmtk55/liga16.git
