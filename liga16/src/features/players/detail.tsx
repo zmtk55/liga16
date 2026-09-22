@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense, lazy } from "react";
 import { Link, useParams } from "react-router";
 import { ArrowLeft, CalendarDays, Trophy } from "lucide-react";
 import { db } from "@/lib/data";
@@ -10,14 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/shared/stat-card";
 import { formatDate } from "@/lib/format";
-import {
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+
+const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
 
 const handLabel: Record<PlayerProfile["dominant_hand"], string> = {
   right: "Diestro",
@@ -190,20 +184,9 @@ export default function PlayerDetailPage() {
               <CardTitle className="text-base">Tendencia de nivel</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={trendData} margin={{ left: -28, right: 8 }}>
-                  <XAxis dataKey="i" hide />
-                  <YAxis domain={[0, "auto"]} />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="v"
-                    stroke="var(--chart-1)"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<Skeleton className="h-56 w-full" />}>
+                <LevelTrendChart data={trendData} />
+              </Suspense>
             </CardContent>
           </Card>
         )}

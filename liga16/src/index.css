@@ -4,89 +4,48 @@
 
 @layer base {
   :root {
-    /* Liga16 — paleta día (light mode): fondo claro + acentos cálidos */
+    /* Liga16 — paleta: carbón + cálido */
     --palette-1: #1a1a1a;
     --palette-2: #3d3d3d;
     --palette-3: #ff4500;
     --palette-4: #ff6347;
     --palette-5: #ffa07a;
 
-    --background: 0 0% 100%;
-    --foreground: 0 0% 10%;
-    --card: 0 0% 96%;
-    --card-foreground: 0 0% 10%;
+    --background: 0 0% 97%;
+    --foreground: 24 100% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 100% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
+    --popover-foreground: 24 100% 10%;
     --primary: 16 100% 50%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 92%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 0 0% 90%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 9 100% 64%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 85%;
-    --input: 0 0% 85%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 24 60% 92%;
+    --secondary-foreground: 24 100% 20%;
+    --muted: 24 40% 94%;
+    --muted-foreground: 24 40% 36%;
+    --accent: 16 100% 54%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 24 40% 88%;
+    --input: 24 40% 88%;
     --ring: 16 100% 50%;
     --radius: 0.625rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 0 0% 10%;
-    --sidebar-primary: 16 100% 50%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 90%;
-    --sidebar-accent-foreground: 16 100% 50%;
-    --sidebar-border: 0 0% 88%;
-    --sidebar-ring: 16 100% 50%;
+
+    --sidebar-background: 16 100% 50%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 16 100% 50%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 16 100% 45%;
+    --sidebar-border: rgba(255, 255, 255, 0.25);
+    --sidebar-ring: 0 0% 100%;
   }
 
-  .dark {
-    /* Liga16 — paleta noche (dark mode): fondo oscuro + acentos cálidos */
-    --background: 0 0% 10%;
-    --foreground: 19 100% 74%;
-    --card: 0 0% 24%;
-    --card-foreground: 19 100% 74%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 19 100% 74%;
-    --primary: 16 100% 50%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 18%;
-    --secondary-foreground: 19 100% 74%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 19 100% 74%;
-    --accent: 9 100% 64%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 40%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 16 100% 50%;
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 19 100% 74%;
-    --sidebar-primary: 16 100% 50%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 14%;
-    --sidebar-accent-foreground: 19 100% 74%;
-    --sidebar-border: 0 0% 16%;
-    --sidebar-ring: 16 100% 50%;
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-  }
-}
-
-@layer utilities {
-  .court-lines {
-    background-image:
-      linear-gradient(to right, hsl(16 100% 50% / 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(16 100% 50% / 0.05) 1px, transparent 1px);
-    background-size: 44px 44px;
+    @apply bg-background text-foreground antialiased;
   }
 }

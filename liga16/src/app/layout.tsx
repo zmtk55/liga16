@@ -1,20 +1,19 @@
 import { Outlet } from "react-router";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
+import { AppFooter } from "@/components/app-footer";
 import { Toaster } from "@/components/ui/sonner";
 
 export default function AppLayout() {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <SiteHeader />
-        <main className="flex-1 p-6">
+    <div className="flex min-h-screen flex-col bg-background">
+      <SiteHeader />
+      <main className="flex-1 px-4 py-8 md:px-6">
+        <div className="mx-auto w-full max-w-7xl">
           <Outlet />
-        </main>
-      </SidebarInset>
+        </div>
+      </main>
+      <AppFooter />
       <Toaster />
-    </SidebarProvider>
+    </div>
   );
 }

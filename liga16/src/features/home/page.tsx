@@ -1,14 +1,40 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { CalendarDays, Trophy, Users } from "lucide-react";
+import {
+  CalendarDays,
+  Search,
+  Trophy,
+  Users,
+  ArrowRight,
+  Sparkles,
+  ChevronRight,
+} from "lucide-react";
 import { db } from "@/lib/data";
-import type { Match, NewsItem, Sponsor, Team, Tournament } from "@/types";
+import type {
+  Match,
+  NewsItem,
+  Sponsor,
+  Team,
+  Tournament,
+  RankingEntry,
+} from "@/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard } from "@/components/shared/stat-card";
-import { formatDateRange, matchStatusLabel, tierLabel, tournamentStatusLabel } from "@/lib/format";
+import {
+  formatDateRange,
+  matchStatusLabel,
+  tournamentStatusLabel,
+  tierLabel,
+} from "@/lib/format";
 
 const statusVariantMatch: Record<
   Match["status"],
@@ -34,6 +60,7 @@ export default function Home() {
     matches: Match[];
     news: NewsItem[];
     sponsors: Sponsor[];
+    rankings: RankingEntry[];
   } | null>(null);
 
   useEffect(() => {
@@ -44,26 +71,28 @@ export default function Home() {
       db.listRecentMatches(),
       db.listNews(),
       db.listSponsors(),
-    ]).then(([tournaments, teams, matches, news, sponsors]) => {
-      if (active) setStats({ tournaments, teams, matches, news, sponsors });
+      db.listRankings(),
+    ]).then(([tournaments, teams, matches, news, sponsors, rankings]) => {
+      if (active) setStats({ tournaments, teams, matches, news, sponsors, rankings });
     });
     return () => {
       active = false;
     };
   }, []);
 
-  const activeTournament = useMemo(
-    () =>
-      stats?.tournaments.find(
-        (t) => t.status === "in_progress" || t.status === "registration_open",
-      ) ?? stats?.tournaments[0],
+  const topPlayers = useMemo(
+    () => stats?.rankings.slice(0, 5) ?? [],
     [stats],
   );
 
   if (!stats) {
     return (
-      <section className="space-y-6">
-        <Skeleton className="h-10 w-64" />
+      <div className="space-y-10">
+        <div className="space-y-4">
+          <Skeleton className="h-16 w-80" />
+          <Skeleton className="h-5 w-96" />
+          <Skeleton className="h-14 w-full max-w-md" />
+        </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 w-full" />
@@ -74,78 +103,194 @@ export default function Home() {
             <Skeleton key={i} className="h-64 w-full" />
           ))}
         </div>
-      </section>
+      </div>
     );
   }
 
   const liveMatches = stats.matches.filter((m) => m.status === "live");
+  const openTournaments = stats.tournaments.filter(
+    (t) => t.status === "registration_open" || t.status === "in_progress",
+  );
 
   return (
-    <section className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Liga16</h1>
-        <p className="text-muted-foreground">
-          Circuito nacional de pádel — temporada 2026-27
-        </p>
-      </header>
-
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Torneos"
-          value={String(stats.tournaments.length)}
-          trend={`${stats.tournaments.filter((t) => t.status === "registration_open").length} con inscripciones abiertas`}
-        />
-        <StatCard
-          title="Equipos"
-          value={String(stats.teams.length)}
-          trend="Liga16 Nacional"
-        />
-        <StatCard
-          title="Partidos"
-          value={String(stats.matches.length)}
-          trend={liveMatches.length > 0 ? `${liveMatches.length} en vivo` : "Sin partidos en vivo"}
-        />
-        <StatCard title="Noticias" value={String(stats.news.length)} trend="Últimas novedades del circuito" />
+    <div className="space-y-12">
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background px-6 py-14 md:px-10 md:py-20">
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card px-3 py-1 text-xs font-medium text-primary">
+            <Sparkles className="h-3.5 w-3.5" />
+            Temporada 2026-27
+          </div>
+          <h1 className="text-4xl font-extrabold tracking-tight md:text-6xl">
+            Liga16
+          </h1>
+          <p className="mt-4 text-lg text-muted-foreground md:text-xl">
+            El circuito nacional de pádel — torneos, ranking, clubes y más.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Button asChild size="lg">
+              <Link to="/jugadores">
+                Crear mi perfil gratis
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link to="/ranking">
+                Ver ranking
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <div className="relative mx-auto mt-8 max-w-lg">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar jugadores, clubes, torneos..."
+              className="h-11 pl-9"
+            />
+          </div>
+        </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-muted-foreground" />
-              Torneo actual
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {activeTournament ? (
-              <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">{activeTournament.name}</p>
-                  <Badge>{tournamentStatusLabel[activeTournament.status]}</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {formatDateRange(activeTournament.start_date, activeTournament.end_date)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {activeTournament.city} · {activeTournament.club_name}
-                </p>
-                <Button asChild variant="outline" size="sm">
-                  <Link to={`/torneos/${activeTournament.slug}`}>Ver torneo</Link>
-                </Button>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No hay torneos activos por ahora.
-              </p>
-            )}
+      {/* Stats */}
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Trophy className="h-4 w-4" /> Torneos
+            </div>
+            <p className="mt-2 text-3xl font-bold">{stats.tournaments.length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {stats.tournaments.filter((t) => t.status === "registration_open").length} con inscripciones abiertas
+            </p>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="h-4 w-4" /> Equipos
+            </div>
+            <p className="mt-2 text-3xl font-bold">{stats.teams.length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Liga16 Nacional</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CalendarDays className="h-4 w-4" /> Partidos
+            </div>
+            <p className="mt-2 text-3xl font-bold">{stats.matches.length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {liveMatches.length > 0 ? `${liveMatches.length} en vivo` : "Sin partidos en vivo"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Sparkles className="h-4 w-4" /> Noticias
+            </div>
+            <p className="mt-2 text-3xl font-bold">{stats.news.length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Últimas novedades</p>
+          </CardContent>
+        </Card>
+      </section>
 
+      {/* Sponsors strip */}
+      <section>
+        <h2 className="mb-4 text-center text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+          Patrocinadores
+        </h2>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {stats.sponsors.map((s) => (
+            <Card key={s.id} className="min-w-[180px] flex-1 max-w-[220px]">
+              <CardContent className="flex flex-col items-center justify-center gap-1 py-5 text-center">
+                <p className="text-sm font-semibold">{s.name}</p>
+                <Badge variant="outline" className="text-xs">
+                  {tierLabel[s.tier]}
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Top players */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">Top jugadores</h2>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/ranking">Ver ranking completo</Link>
+          </Button>
+        </div>
+        <div className="grid gap-3">
+          {topPlayers.map((p) => (
+            <div
+              key={p.player_id}
+              className="flex items-center gap-4 rounded-lg border p-3 hover:bg-accent/30 transition-colors"
+            >
+              <span className="w-6 text-center text-sm font-bold text-muted-foreground">
+                {p.position}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium">{p.player_name}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {p.city} · Nivel {p.level} · {p.points.toLocaleString()} pts
+                </p>
+              </div>
+              <Badge
+                variant={p.delta > 0 ? "default" : p.delta < 0 ? "destructive" : "outline"}
+                className="text-xs"
+              >
+                {p.delta > 0 ? `▲ ${p.delta}` : p.delta < 0 ? `▼ ${Math.abs(p.delta)}` : "—"}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Open tournaments */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">Torneos abiertos</h2>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/torneos">Ver todos</Link>
+          </Button>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {openTournaments.map((t) => (
+            <Card key={t.id} className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-base">{t.name}</CardTitle>
+                <CardDescription>
+                  {t.city} · {t.club_name}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="mt-auto space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge>{tournamentStatusLabel[t.status]}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDateRange(t.start_date, t.end_date)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t.modality} · {t.format}
+                </p>
+                <Button asChild variant="outline" size="sm" className="mt-2 w-full">
+                  <Link to={`/torneos/${t.slug}`}>Ver torneo</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Matches + News */}
+      <section className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              Partidos
+              Partidos recientes
             </CardTitle>
             <Button asChild variant="ghost" size="sm">
               <Link to="/calendario">Ver calendario</Link>
@@ -178,13 +323,11 @@ export default function Home() {
             ))}
           </CardContent>
         </Card>
-      </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <Sparkles className="h-4 w-4 text-muted-foreground" />
               Noticias
             </CardTitle>
             <Button asChild variant="ghost" size="sm">
@@ -206,25 +349,25 @@ export default function Home() {
             ))}
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Sponsors</CardTitle>
-            <CardDescription>Aliados del circuito</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {stats.sponsors.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between rounded-md border p-2.5 text-sm"
-              >
-                <span className="font-medium">{s.name}</span>
-                <Badge variant="outline">{tierLabel[s.tier]}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </section>
-    </section>
+
+      {/* CTA banner */}
+      <section className="rounded-2xl bg-primary px-6 py-12 text-center text-primary-foreground">
+        <h2 className="text-2xl font-bold md:text-3xl">
+          ¿Listo para competir?
+        </h2>
+        <p className="mt-2 opacity-80">
+          Crea tu perfil, únete a un equipo y participa en torneos oficiales.
+        </p>
+        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Button asChild size="lg" variant="secondary">
+            <Link to="/jugadores">Crear mi perfil</Link>
+          </Button>
+          <Button asChild size="lg" variant="ghost" className="text-primary-foreground hover:bg-primary-foreground/10">
+            <Link to="/torneos">Explorar torneos</Link>
+          </Button>
+        </div>
+      </section>
+    </div>
   );
 }
