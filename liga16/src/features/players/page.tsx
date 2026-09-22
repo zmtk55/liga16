@@ -5,14 +5,10 @@ import type { PlayerProfile, RankingEntry, PlayerCard } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PlayerAvatar } from "@/components/cards/card-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, TrendingUp } from "lucide-react";
-
-function initials(name: string) {
-  return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-}
 
 const handLabel: Record<PlayerProfile["dominant_hand"], string> = {
   right: "Diestro",
@@ -83,11 +79,13 @@ export default function PlayersPage() {
             const winPct = card && card.record.played ? Math.round((card.record.won / card.record.played) * 100) : 0;
             return (
               <Link key={p.id} to={`/jugadores/${p.id}`} className="group">
-                <Card className="h-full transition-colors group-hover:border-primary/30 group-hover:shadow-sm">
+                <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
                   <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="font-bold">{initials(p.display_name)}</AvatarFallback>
-                    </Avatar>
+                    <PlayerAvatar
+                      name={p.display_name}
+                      photoUrl={p.photo_url}
+                      className="h-12 w-12"
+                    />
                     <div className="min-w-0 flex-1">
                       <CardTitle className="truncate text-base leading-tight">{p.display_name}</CardTitle>
                       <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">

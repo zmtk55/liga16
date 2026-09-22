@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trophy, Users, TrendingUp, Crown } from "lucide-react";
+import { TeamCrest } from "@/components/cards/card-image";
 
 function initials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -53,7 +54,21 @@ export default function TeamsPage() {
               ? (team.members.reduce((s, m) => s + m.level, 0) / team.members.length).toFixed(1)
               : "—";
             return (
-              <Card key={team.id} className="overflow-hidden">
+              <Card key={team.id} className="overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg animate-slide-up">
+                <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-primary/20 via-primary/5 to-background">
+                  <TeamCrest
+                    name={team.name}
+                    crestUrl={team.crest_url}
+                    className="absolute inset-0 h-full w-full"
+                  />
+                  {team.position === 1 && (
+                    <div className="absolute top-2 right-2 animate-float">
+                      <Badge variant="default" className="shadow-sm">
+                        <Crown className="h-3 w-3 mr-1" /> Líder
+                      </Badge>
+                    </div>
+                  )}
+                </div>
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-3">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold">
@@ -79,16 +94,16 @@ export default function TeamsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-lg bg-muted p-2">
+                    <div className="rounded-lg bg-muted p-2 transition-colors hover:bg-muted/80">
                       <p className="text-xs text-muted-foreground">PJ</p>
                       <p className="text-lg font-bold">{team.record.played}</p>
                     </div>
-                    <div className="rounded-lg bg-emerald-500/10 p-2">
+                    <div className="rounded-lg bg-emerald-500/10 p-2 transition-colors hover:bg-emerald-500/20">
                       <p className="text-xs text-emerald-700 dark:text-emerald-400">Ganados</p>
                       <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{team.record.won}</p>
                     </div>
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-xs text-muted-foreground">Win rate</p>
+                    <div className="rounded-lg bg-blue-500/10 p-2 transition-colors hover:bg-blue-500/20">
+                      <p className="text-xs text-blue-700 dark:text-blue-400">Efectividad</p>
                       <p className="text-lg font-bold">{winRate}%</p>
                     </div>
                   </div>

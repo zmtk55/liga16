@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Tournament } from "@/types";
 import { formatMoney, formatDateRange, tournamentStatusLabel } from "@/lib/format";
+import { TournamentCover } from "./card-image";
 
 interface ResourceCardProps {
   tournament: Tournament;
@@ -25,41 +26,30 @@ export function ResourceCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-card shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5",
+        "group relative overflow-hidden rounded-xl border bg-card shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 animate-scale-in",
         className,
       )}
     >
       {/* Square-dominant image area */}
-      <div className="relative aspect-square w-full overflow-hidden bg-muted">
-        {tournament.cover_url ? (
-          <img
-            src={tournament.cover_url}
-            alt={tournament.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            <svg
-              className="h-12 w-12 opacity-30"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
-            </svg>
-          </div>
-        )}
+      <div className="relative aspect-square w-full overflow-hidden">
+        <TournamentCover tournament={tournament} className="h-full w-full" />
 
         {/* Floating status badge */}
         {badge && (
-          <div className="absolute top-3 right-3">
+          <div className="absolute top-3 right-3 animate-float">
             <Badge variant="secondary" className="shadow-sm">
               {badge}
             </Badge>
+          </div>
+        )}
+
+        {/* Live indicator pulse */}
+        {tournament.status === "in_progress" && (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
           </div>
         )}
 
@@ -71,7 +61,7 @@ export function ResourceCard({
             </p>
           )}
           {to ? (
-            <Button asChild size="sm" className="self-start bg-white text-foreground hover:bg-white/90">
+            <Button asChild size="sm" className="self-start bg-white text-foreground hover:bg-white/90 animate-slide-up">
               <Link to={to}>{cta}</Link>
             </Button>
           ) : (

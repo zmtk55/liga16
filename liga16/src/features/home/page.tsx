@@ -151,10 +151,13 @@ export default function Home() {
 
       {/* Stats */}
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="animate-slide-up" style={{ animationDelay: "0ms" }}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Trophy className="h-4 w-4" /> Torneos
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Trophy className="h-4 w-4" />
+              </div>
+              Torneos
             </div>
             <p className="mt-2 text-3xl font-bold">{stats.tournaments.length}</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -162,19 +165,25 @@ export default function Home() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="animate-slide-up" style={{ animationDelay: "100ms" }}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Users className="h-4 w-4" /> Equipos
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                <Users className="h-4 w-4" />
+              </div>
+              Equipos
             </div>
             <p className="mt-2 text-3xl font-bold">{stats.teams.length}</p>
             <p className="mt-1 text-xs text-muted-foreground">Liga del padel Reforma</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="animate-slide-up" style={{ animationDelay: "200ms" }}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CalendarDays className="h-4 w-4" /> Partidos
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+                <CalendarDays className="h-4 w-4" />
+              </div>
+              Partidos
             </div>
             <p className="mt-2 text-3xl font-bold">{stats.matches.length}</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -182,10 +191,13 @@ export default function Home() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="animate-slide-up" style={{ animationDelay: "300ms" }}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Sparkles className="h-4 w-4" /> Noticias
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              Noticias
             </div>
             <p className="mt-2 text-3xl font-bold">{stats.news.length}</p>
             <p className="mt-1 text-xs text-muted-foreground">Últimas novedades</p>
