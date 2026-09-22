@@ -742,17 +742,22 @@ create trigger trigger_create_player_card
 
 -- Trigger para crear perfil cuando se crea usuario en auth
 -- Lee de raw_app_meta_data con fallback a raw_user_meta_data por seguridad
+-- Tolerante a fallos: si el perfil no se puede crear, el usuario SÍ se crea
 create or replace function public.handle_auth_user_created()
 returns trigger as $$
 begin
-  insert into public.player_profiles (user_id, display_name, username, city, state)
-  values (
-    new.id,
-    coalesce(new.raw_app_meta_data->>'display_name', new.raw_user_meta_data->>'display_name', new.email),
-    coalesce(new.raw_app_meta_data->>'username', new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
-    'Ciudad de México',
-    'CDMX'
-  );
+  begin
+    insert into public.player_profiles (user_id, display_name, username, city, state)
+    values (
+      new.id,
+      coalesce(new.raw_app_meta_data->>'display_name', new.raw_user_meta_data->>'display_name', new.email),
+      coalesce(new.raw_app_meta_data->>'username', new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)) || '-' || substr(new.id::text, 1, 6),
+      'Ciudad de México',
+      'CDMX'
+    );
+  exception when others then
+    raise warning 'handle_auth_user_created: no se pudo crear perfil para %: %', new.email, sqlerrm;
+  end;
   return new;
 end;
 $$ language plpgsql;
