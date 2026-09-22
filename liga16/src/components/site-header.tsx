@@ -1,64 +1,112 @@
-import { Link } from "react-router";
-import { Search, Menu, X } from "lucide-react";
+import { Link, useNavigate } from "react-router";
+import { Search, Menu, X, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const navItems = [
+const publicNav = [
   { to: "/", label: "Inicio" },
   { to: "/torneos", label: "Torneos" },
+  { to: "/calendario", label: "Calendario" },
   { to: "/ranking", label: "Ranking" },
-  { to: "/clubes", label: "Clubes" },
+  { to: "/equipos", label: "Equipos" },
   { to: "/jugadores", label: "Jugadores" },
+  { to: "/padel", label: "Sede" },
   { to: "/noticias", label: "Noticias" },
-  { to: "/admin", label: "Admin" },
 ];
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const showAdmin = !isSupabaseConfigured || user?.role === "admin" || user?.role === "organizer";
+
+  const navItems = showAdmin ? [...publicNav, { to: "/admin", label: "Admin" }] : publicNav;
+
+  function onSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    navigate(q ? `/jugadores?q=${encodeURIComponent(q)}` : "/jugadores");
+    setOpen(false);
+  }
+
+  async function handleSignOut() {
+    await signOut();
+    navigate("/");
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
-        <Link to="/" className="flex items-center gap-2">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">
+        <Link to="/" className="flex items-center gap-2 shrink-0">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">
             16
           </span>
-          <span className="text-xl font-bold tracking-tight">Liga16</span>
+          <span className="text-xl font-bold tracking-tight hidden sm:inline">Liga16</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden lg:flex items-center gap-1 rounded-full border bg-muted/50 px-1.5 py-1">
           {navItems.map((item) => (
             <Link
               key={item.to}
               to={item.to}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                item.to === "/"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : item.to === "/admin"
+                    ? "text-primary hover:bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
             >
+              {item.to === "/admin" && <Shield className="inline h-3.5 w-3.5 mr-1" />}
               {item.label}
             </Link>
           ))}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="relative hidden sm:block">
+          <form onSubmit={onSearch} className="relative hidden sm:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar jugadores, clubes, torneos..."
-              className="h-9 w-56 pl-9 lg:w-72"
+              placeholder="Buscar jugadores…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-9 w-48 lg:w-64 pl-9"
             />
-          </div>
-          <Button asChild size="sm" variant="ghost">
-            <Link to="/jugadores">Entrar</Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link to="/torneos">Únete</Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="ml-1 md:hidden"
-            onClick={() => setOpen((v) => !v)}
-          >
+          </form>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {user?.email?.[0]?.toUpperCase() ?? "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem asChild><Link to="/jugadores">Mi perfil</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link to="/admin">Panel admin</Link></DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); void handleSignOut(); }}>
+                Cerrar sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen((v) => !v)}>
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
@@ -72,8 +120,11 @@ export function SiteHeader() {
                 key={item.to}
                 to={item.to}
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+                className={`flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent/10 hover:text-foreground ${
+                  item.to === "/admin" ? "text-primary" : "text-muted-foreground"
+                }`}
               >
+                {item.to === "/admin" && <Shield className="inline h-3.5 w-3.5" />}
                 {item.label}
               </Link>
             ))}

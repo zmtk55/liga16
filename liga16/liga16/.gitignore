@@ -23,7 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-.vercel
-
-# Supabase CLI temp
-supabase/.temp
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.*.local

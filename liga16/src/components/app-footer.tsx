@@ -3,9 +3,10 @@ import { Facebook, Instagram } from "lucide-react";
 
 const explore = [
   { to: "/torneos", label: "Torneos" },
-  { to: "/ranking", label: "Ranking" },
-  { to: "/clubes", label: "Clubes" },
   { to: "/calendario", label: "Calendario" },
+  { to: "/ranking", label: "Ranking" },
+  { to: "/equipos", label: "Equipos" },
+  { to: "/padel", label: "Sede" },
 ];
 
 const community = [
@@ -34,7 +35,7 @@ export function AppFooter() {
               <span className="text-xl font-bold tracking-tight">Liga16</span>
             </Link>
             <p className="mt-3 max-w-sm text-sm text-muted-foreground">
-              El circuito nacional de pádel — torneos, ranking, clubes y más.
+              Torneos, ranking y vida de padel en un solo lugar.
             </p>
             <div className="mt-4 flex gap-3">
               <a href="https://facebook.com" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary">

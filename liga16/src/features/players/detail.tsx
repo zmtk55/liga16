@@ -19,6 +19,9 @@ const handLabel: Record<PlayerProfile["dominant_hand"], string> = { right: "Dies
 const positionLabel: Record<PlayerProfile["preferred_position"], string> = { drive: "Drive", reves: "Revés", both: "Ambos" };
 
 function initials(name: string) { return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase(); }
+function cardWon(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; won?: number })?.record?.won ?? (c as unknown as { won?: number })?.won ?? 0; }
+function cardPlayed(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; played?: number })?.record?.played ?? (c as unknown as { played?: number })?.played ?? 0; }
+function cardPartner(c: PlayerCard | null | undefined) { return (c as unknown as { frequent_partner?: string; partner?: string })?.frequent_partner ?? (c as unknown as { partner?: string })?.partner ?? null; }
 
 export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -64,7 +67,7 @@ export default function PlayerDetailPage() {
   }, [compareId]);
 
   const jev: JevAnalysis | null = useMemo(() => player ? analyzePlayerLocal(player, card, ranking) : null, [player, card, ranking]);
-  const winPct = card && card.record.played ? Math.round((card.record.won / card.record.played) * 100) : 0;
+  const winPct = card ? Math.round((cardWon(card) / Math.max(1, cardPlayed(card))) * 100) : 0;
 
   if (loading) {
     return (
@@ -85,13 +88,14 @@ export default function PlayerDetailPage() {
   }
 
   const trendData = card?.trend.map((v, i) => ({ i, v })) ?? [];
+  const won = cardWon(card);
+  const played = cardPlayed(card);
+  const partner = cardPartner(card);
 
   return (
     <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
-      {/* Hero oscuro estilo NBA */}
       <section className="relative overflow-hidden bg-[#0f0f0f] text-white">
         <div className="absolute inset-0 bg-gradient-to-r from-black via-zinc-900 to-transparent" />
-        {/* número gigante de fondo */}
         <div className="absolute right-6 top-6 select-none text-[140px] font-black leading-none text-white/5 md:text-[220px] md:right-12">
           {ranking ? String(ranking.position).padStart(2, "0") : initials(player.display_name)}
         </div>
@@ -103,7 +107,6 @@ export default function PlayerDetailPage() {
           </Button>
 
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-center">
-            {/* Izquierda: info */}
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div>
@@ -139,7 +142,7 @@ export default function PlayerDetailPage() {
                 </div>
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
                   <p className="text-xs text-white/50">Récord</p>
-                  <p className="text-lg font-black tabular-nums">{card?.record.won ?? 0} – {(card?.record.played ?? 0) - (card?.record.won ?? 0)} <span className="text-xs font-normal text-white/60">/ {card?.record.played ?? 0} PJ</span></p>
+                  <p className="text-lg font-black tabular-nums">{won} – {played - won} <span className="text-xs font-normal text-white/60">/ {played} PJ</span></p>
                   <p className="text-xs text-white/50">{winPct}% victorias</p>
                 </div>
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
@@ -156,7 +159,6 @@ export default function PlayerDetailPage() {
               </div>
             </div>
 
-            {/* Derecha: foto grande */}
             <div className="relative flex justify-center lg:justify-end">
               <div className="relative">
                 <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-primary/20 via-transparent to-transparent blur-2xl" />
@@ -184,14 +186,13 @@ export default function PlayerDetailPage() {
         </div>
       </section>
 
-      {/* Stats bar estilo NBA */}
       <section className="mx-auto max-w-7xl px-4 md:px-6">
         <Card className="overflow-hidden border-zinc-800 bg-zinc-950 text-white">
           <CardContent className="p-0">
             <div className="grid grid-cols-3 divide-x divide-white/10 text-center md:grid-cols-6">
               {[
-                { k: "PJ", v: card?.record.played ?? 0 },
-                { k: "PG", v: card?.record.won ?? 0 },
+                { k: "PJ", v: played },
+                { k: "PG", v: won },
                 { k: "Win%", v: `${winPct}%` },
                 { k: "Nivel", v: (player.official_level ?? player.declared_level).toFixed(1) },
                 { k: "Puntos", v: ranking?.points.toLocaleString("es-MX") ?? "—" },
@@ -208,7 +209,6 @@ export default function PlayerDetailPage() {
       </section>
 
       <section className="mx-auto max-w-7xl space-y-6 px-4 md:px-6">
-        {/* JEV Insights */}
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground"><Sparkles className="h-4 w-4 text-primary" /> Insights JEV — System One</h3>
           <div className="grid gap-4 md:grid-cols-3">
@@ -262,7 +262,6 @@ export default function PlayerDetailPage() {
           </div>
         </div>
 
-        {/* Últimos juegos + Liga/Compañero + Tendencia */}
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="overflow-hidden">
             <CardHeader className="pb-2 flex flex-row items-center justify-between"><CardTitle className="text-base">Últimos juegos</CardTitle><Badge variant="outline">{card?.recent_results.length ?? 0} registrados</Badge></CardHeader>
@@ -295,7 +294,7 @@ export default function PlayerDetailPage() {
                 </div>
                 <div className="rounded-xl border p-3">
                   <p className="text-xs text-muted-foreground">Compañero frecuente</p>
-                  <p className="font-bold">{card?.frequent_partner ?? "—"}</p>
+                  <p className="font-bold">{partner ?? "—"}</p>
                   <p className="text-xs text-muted-foreground">Pareja habitual · nivel {(player.official_level ?? player.declared_level).toFixed(1)}</p>
                   <div className="mt-2 flex gap-1">
                     <Badge variant="secondary">Drive/Revés</Badge>
@@ -325,7 +324,6 @@ export default function PlayerDetailPage() {
           </Card>
         </div>
 
-        {/* Comparador */}
         <Card className="border-dashed">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>
@@ -356,8 +354,8 @@ export default function PlayerDetailPage() {
                   <tbody className="divide-y">
                     <tr><td className="py-2">Nivel</td><td className="py-2 text-center tabular-nums font-bold">{(player.official_level ?? player.declared_level).toFixed(1)}</td><td className="py-2 text-center tabular-nums">{(compareData.p.official_level ?? compareData.p.declared_level).toFixed(1)}</td></tr>
                     <tr><td className="py-2">Puntos ranking</td><td className="py-2 text-center tabular-nums">{ranking?.points ?? 0}</td><td className="py-2 text-center tabular-nums">{compareData.r?.points ?? 0}</td></tr>
-                    <tr><td className="py-2">PJ / PG</td><td className="py-2 text-center">{card?.record.played ?? 0} / {card?.record.won ?? 0}</td><td className="py-2 text-center">{compareData.c?.record.played ?? 0} / {compareData.c?.record.won ?? 0}</td></tr>
-                    <tr><td className="py-2">Win %</td><td className="py-2 text-center">{winPct}%</td><td className="py-2 text-center">{compareData.c ? Math.round((compareData.c.record.won / Math.max(1, compareData.c.record.played)) * 100) : 0}%</td></tr>
+                    <tr><td className="py-2">PJ / PG</td><td className="py-2 text-center">{played} / {won}</td><td className="py-2 text-center">{cardPlayed(compareData.c)} / {cardWon(compareData.c)}</td></tr>
+                    <tr><td className="py-2">Win %</td><td className="py-2 text-center">{winPct}%</td><td className="py-2 text-center">{Math.round((cardWon(compareData.c) / Math.max(1, cardPlayed(compareData.c))) * 100)}%</td></tr>
                     <tr><td className="py-2">Títulos</td><td className="py-2 text-center">{card?.titles ?? 0}</td><td className="py-2 text-center">{compareData.c?.titles ?? 0}</td></tr>
                     <tr><td className="py-2">Forma JEV</td><td className="py-2 text-center">{jev.forma.score}/5 — {jev.forma.label}</td><td className="py-2 text-center">{compareData.jev.forma.score}/5 — {compareData.jev.forma.label}</td></tr>
                     <tr><td className="py-2">Estilo JEV</td><td className="py-2 text-center capitalize">{jev.estilo.choice}</td><td className="py-2 text-center capitalize">{compareData.jev.estilo.choice}</td></tr>
@@ -371,7 +369,6 @@ export default function PlayerDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Eventos ranking */}
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Eventos de ranking</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
