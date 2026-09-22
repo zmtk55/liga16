@@ -8,7 +8,7 @@ const navItems = [
   { to: "/", label: "Inicio" },
   { to: "/torneos", label: "Torneos" },
   { to: "/ranking", label: "Ranking" },
-  { to: "/clubes", label: "Clubes" },
+  { to: "/padel", label: "Padel" },
   { to: "/jugadores", label: "Jugadores" },
   { to: "/noticias", label: "Noticias" },
   { to: "/admin", label: "Admin" },
@@ -43,7 +43,7 @@ export function SiteHeader() {
           <div className="relative hidden sm:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar jugadores, clubes, torneos..."
+              placeholder="Buscar jugadores y torneos..."
               className="h-9 w-56 pl-9 lg:w-72"
             />
           </div>

@@ -24,15 +24,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TournamentCard } from "@/components/cards/resource-card";
 import {
-  formatDateRange,
   matchStatusLabel,
-  tournamentStatusLabel,
   tierLabel,
 } from "@/lib/format";
 
@@ -125,7 +123,7 @@ export default function Home() {
             Liga16
           </h1>
           <p className="mt-4 text-lg text-muted-foreground md:text-xl">
-            El circuito nacional de pádel — torneos, ranking, clubes y más.
+            Torneos, ranking y vida de padel en un solo lugar.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Button asChild size="lg">
@@ -144,7 +142,7 @@ export default function Home() {
           <div className="relative mx-auto mt-8 max-w-lg">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar jugadores, clubes, torneos..."
+              placeholder="Buscar jugadores y torneos..."
               className="h-11 pl-9"
             />
           </div>
@@ -170,7 +168,7 @@ export default function Home() {
               <Users className="h-4 w-4" /> Equipos
             </div>
             <p className="mt-2 text-3xl font-bold">{stats.teams.length}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Liga16 Nacional</p>
+            <p className="mt-1 text-xs text-muted-foreground">Liga del padel Reforma</p>
           </CardContent>
         </Card>
         <Card>
@@ -234,7 +232,7 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="truncate text-sm font-medium">{p.player_name}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {p.city} · Nivel {p.level} · {p.points.toLocaleString()} pts
+                  Nivel {p.level} · {p.points.toLocaleString()} pts
                 </p>
               </div>
               <Badge
@@ -256,30 +254,9 @@ export default function Home() {
             <Link to="/torneos">Ver todos</Link>
           </Button>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {openTournaments.map((t) => (
-            <Card key={t.id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle className="text-base">{t.name}</CardTitle>
-                <CardDescription>
-                  {t.city} · {t.club_name}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="mt-auto space-y-2">
-                <div className="flex items-center gap-2">
-                  <Badge>{tournamentStatusLabel[t.status]}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDateRange(t.start_date, t.end_date)}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t.modality} · {t.format}
-                </p>
-                <Button asChild variant="outline" size="sm" className="mt-2 w-full">
-                  <Link to={`/torneos/${t.slug}`}>Ver torneo</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <TournamentCard key={t.id} tournament={t} />
           ))}
         </div>
       </section>
@@ -357,7 +334,7 @@ export default function Home() {
           ¿Listo para competir?
         </h2>
         <p className="mt-2 opacity-80">
-          Crea tu perfil, únete a un equipo y participa en torneos oficiales.
+          Crea tu perfil, forma parte de un equipo y participa en torneos del padel.
         </p>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg" variant="secondary">

@@ -18,7 +18,7 @@ const navItems = [
   { to: "/ranking", label: "Ranking", icon: Package },
   { to: "/equipos", label: "Equipos", icon: Users },
   { to: "/jugadores", label: "Jugadores", icon: Users },
-  { to: "/clubes", label: "Clubes", icon: MapPin },
+  { to: "/padel", label: "Padel", icon: MapPin },
   { to: "/noticias", label: "Noticias", icon: Newspaper },
 ];
 

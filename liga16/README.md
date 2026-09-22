@@ -30,6 +30,7 @@ npm run dev      # http://localhost:5173
 src/
   app/          layout y router
   components/   shadcn/ui + componentes de la app
+  components/cards/  tarjetas reutilizables responsive (ResourceCard, TournamentCard)
   contexts/     AuthContext (Supabase auth)
   features/     páginas (home, torneos, calendario, ranking, equipos, jugadores, clubes, noticias)
   lib/data/     capa de datos: provider.ts (interfaz) + demo.ts + supabase.ts + seed.ts
@@ -52,10 +53,12 @@ La capa de datos está abstraída tras `DataProvider` (`src/lib/data/provider.ts
 
   Con ambas variables definidas, `DATA_MODE` es `supabase`. Aplica `supabase/schema.sql` en el proyecto antes.
 
+  > **Nota de seguridad:** `SUPABASE_SERVICE_ROLE_KEY` nunca debe exponerse en variables de entorno del frontend. El uso de RLS en el esquema permite operar únicamente con la anon key.
+
 ## Funcionalidad
 
 - **Dashboard** — métricas del circuito, torneo actual, partidos en vivo, noticias y sponsors.
-- **Torneos** — listado con filtros (ciudad / estado / formato) y detalle con categorías, cupo y **inscripción de pareja** (pago por transferencia o efectivo).
+- **Torneos** — listado con filtros (estado / formato) y detalle con categorías, cupo y **inscripción de pareja** (pago por transferencia o efectivo).
 - **Calendario** — partidos en vivo, programados y resultados por fecha.
 - **Ranking** — clasificación oficial con filtros por rama y ciudad vinculada al detalle de jugador.
 - **Equipos / Jugadores / Clubes / Noticias** — directorios del circuito.

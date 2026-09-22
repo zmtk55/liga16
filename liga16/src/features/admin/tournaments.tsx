@@ -23,13 +23,13 @@ export default function AdminTournaments() {
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow><TableHead>Nombre</TableHead><TableHead>Ciudad</TableHead><TableHead>Estado</TableHead><TableHead>Acciones</TableHead></TableRow>
+              <TableRow><TableHead>Nombre</TableHead><TableHead>Sede</TableHead><TableHead>Estado</TableHead><TableHead>Acciones</TableHead></TableRow>
             </TableHeader>
             <TableBody>
               {list.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">{t.name}</TableCell>
-                  <TableCell>{t.city}</TableCell>
+                  <TableCell>{t.club_name ?? t.city}</TableCell>
                   <TableCell><Badge variant="outline">{tournamentStatusLabel[t.status]}</Badge></TableCell>
                   <TableCell className="space-x-1">
                     <Button variant="ghost" size="sm" onClick={() => toast.success(`Demo editar ${t.slug}`)}>Editar</Button>

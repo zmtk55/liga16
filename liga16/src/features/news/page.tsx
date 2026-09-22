@@ -24,7 +24,7 @@ export default function NewsPage() {
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Noticias</h1>
         <p className="text-muted-foreground">
-          Novedades y resultados del circuito
+          Novedades y resultados del padel Reforma
         </p>
       </header>
 

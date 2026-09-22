@@ -25,7 +25,7 @@ import {
 export default function RankingsPage() {
   const [rankings, setRankings] = useState<RankingEntry[] | null>(null);
   const [sex, setSex] = useState("all");
-  const [city, setCity] = useState("all");
+
 
   useEffect(() => {
     let active = true;
@@ -37,28 +37,22 @@ export default function RankingsPage() {
     };
   }, []);
 
-  const cities = useMemo(() => {
-    if (!rankings) return [] as string[];
-    return Array.from(new Set(rankings.map((r) => r.city))).sort();
-  }, [rankings]);
-
   const filtered = useMemo(() => {
     if (!rankings) return [] as RankingEntry[];
     return rankings
       .filter(
         (r) =>
-          (sex === "all" || r.sex === sex) &&
-          (city === "all" || r.city === city),
+          (sex === "all" || r.sex === sex),
       )
       .map((r, i) => ({ ...r, position: i + 1 }));
-  }, [rankings, sex, city]);
+  }, [rankings, sex]);
 
   return (
     <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Ranking</h1>
         <p className="text-muted-foreground">
-          Clasificación oficial del circuito Liga16
+          Clasificación oficial del padel Reforma
         </p>
       </header>
 
@@ -74,19 +68,6 @@ export default function RankingsPage() {
           </SelectContent>
         </Select>
 
-        <Select value={city} onValueChange={setCity}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Ciudad" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas las ciudades</SelectItem>
-            {cities.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {rankings === null ? (
@@ -99,7 +80,7 @@ export default function RankingsPage() {
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
                   <TableHead>Jugador</TableHead>
-                  <TableHead className="hidden sm:table-cell">Ciudad</TableHead>
+
                   <TableHead className="text-right">Nivel</TableHead>
                   <TableHead className="hidden text-right md:table-cell">PJ</TableHead>
                   <TableHead className="hidden text-right md:table-cell">PG</TableHead>
@@ -118,9 +99,6 @@ export default function RankingsPage() {
                       >
                         {r.player_name}
                       </Link>
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">
-                      {r.city}
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="outline">{r.level.toFixed(1)}</Badge>

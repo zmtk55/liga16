@@ -11,9 +11,8 @@ function client() {
 }
 
 export const supabaseProvider: DataProvider = {
-  async listTournaments(filters?: TournamentFilters) {
+  async listTournaments(filters?: Omit<TournamentFilters, 'city'>) {
     let q = client().from('tournaments').select('*, clubs(name)').order('start_date');
-    if (filters?.city) q = q.eq('city', filters.city);
     if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
     if (filters?.format && filters.format !== 'all') q = q.eq('format', filters.format);
     const { data, error } = await q;
@@ -58,9 +57,8 @@ export const supabaseProvider: DataProvider = {
     return data as never;
   },
 
-  async listRankings(scope?: { sex?: string; city?: string }) {
+  async listRankings(scope?: { sex?: string }) {
     let q = client().from('ranking_view').select('*').order('points', { ascending: false });
-    if (scope?.city) q = q.eq('city', scope.city);
     if (scope?.sex && scope.sex !== 'all') q = q.eq('sex', scope.sex);
     const { data, error } = await q;
     if (error) throw error;
@@ -77,7 +75,7 @@ export const supabaseProvider: DataProvider = {
 
   async listPlayers(query?: string) {
     let q = client().from('player_profiles').select('*').eq('is_public', true);
-    if (query?.trim()) q = q.or(`display_name.ilike.%${query}%,city.ilike.%${query}%`);
+    if (query?.trim()) q = q.or(`display_name.ilike.%${query}%,username.ilike.%${query}%`);
     const { data, error } = await q;
     if (error) throw error;
     return (data ?? []) as never;
@@ -142,6 +140,9 @@ export const supabaseProvider: DataProvider = {
   },
 
   async registerPair(input: RegisterPairInput) {
+    const { data: { user } } = await client().auth.getUser();
+    if (!user) throw new Error("No hay sesión activa. Inicia sesión para inscribirte.");
+
     const { data: pair, error: pairErr } = await client()
       .from('pairs')
       .insert({
@@ -157,6 +158,7 @@ export const supabaseProvider: DataProvider = {
         tournament_id: input.tournament_id,
         category_id: input.category_id,
         pair_id: pair.id,
+        user_id: user.id,
         status: input.payment_method === 'transfer' ? 'payment_review' : 'payment_pending',
         rules_accepted_at: new Date().toISOString(),
       })

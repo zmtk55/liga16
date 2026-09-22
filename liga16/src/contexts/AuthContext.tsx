@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { User } from "@/types";
+import type { User, UserRole } from "@/types";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface AuthContextType {
@@ -13,6 +13,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function resolveRole(userId: string): Promise<UserRole> {
+  if (!isSupabaseConfigured || !supabase) return "player";
+  try {
+    const { data } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", userId)
+      .single();
+    return (data?.role as UserRole | undefined) ?? "player";
+  } catch {
+    return "player";
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(isSupabaseConfigured);
@@ -22,15 +36,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    async function hydrateUser(
+      sessionUser: { id: string; email?: string | null; created_at?: string | null },
+    ) {
+      const role = await resolveRole(sessionUser.id);
+      setUser({
+        id: sessionUser.id,
+        email: sessionUser.email || "",
+        role,
+        created_at: sessionUser.created_at || new Date().toISOString(),
+      });
+    }
+
     // Check active session
     supabase!.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          role: "player", // default role
-          created_at: session.user.created_at || new Date().toISOString(),
-        });
+        void hydrateUser(session.user);
       }
       setLoading(false);
     });
@@ -39,12 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: listener } = supabase!.auth.onAuthStateChange(
       async (_, session) => {
         if (session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email || "",
-            role: "player",
-            created_at: session.user.created_at || new Date().toISOString(),
-          });
+          void hydrateUser(session.user);
         } else {
           setUser(null);
         }

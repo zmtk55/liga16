@@ -9,10 +9,9 @@ import type { Registration, TournamentFilters } from '@/types';
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 
 export const demoProvider: DataProvider = {
-  async listTournaments(filters?: TournamentFilters) {
+  async listTournaments(filters?: Omit<TournamentFilters, 'city'>) {
     await delay();
     let list = [...tournaments];
-    if (filters?.city) list = list.filter((t) => t.city === filters.city);
     if (filters?.status && filters.status !== 'all') list = list.filter((t) => t.status === filters.status);
     if (filters?.format && filters.format !== 'all') list = list.filter((t) => t.format === filters.format);
     if (filters?.category) {
@@ -47,10 +46,9 @@ export const demoProvider: DataProvider = {
     return leagues.find((l) => l.slug === slug) ?? null;
   },
 
-  async listRankings(scope?: { sex?: string; city?: string }) {
+  async listRankings(scope?: { sex?: string }) {
     await delay();
     let list = [...rankings];
-    if (scope?.city) list = list.filter((r) => r.city === scope.city);
     if (scope?.sex && scope.sex !== 'all') list = list.filter((r) => r.sex === scope.sex);
     return list.sort((a, b) => a.position - b.position).map((r, i) => ({ ...r, position: i + 1 }));
   },
@@ -65,7 +63,7 @@ export const demoProvider: DataProvider = {
     const q = query?.trim().toLowerCase();
     if (!q) return players;
     return players.filter(
-      (p) => p.display_name.toLowerCase().includes(q) || p.city.toLowerCase().includes(q),
+      (p) => p.display_name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q),
     );
   },
 

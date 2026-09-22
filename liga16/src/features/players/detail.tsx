@@ -111,7 +111,7 @@ export default function PlayerDetailPage() {
             {!player.is_public && <Badge variant="outline">Perfil privado</Badge>}
           </div>
           <p className="text-muted-foreground">
-            @{player.username} · {player.city}, {player.state}
+            @{player.username} · Liga16
           </p>
         </div>
       </header>

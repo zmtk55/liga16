@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
       { path: "equipos", element: <Teams /> },
       { path: "jugadores", element: <Players /> },
       { path: "jugadores/:id", element: <PlayerDetail /> },
-      { path: "clubes", element: <Clubs /> },
+      { path: "padel", element: <Clubs /> },
       { path: "noticias", element: <News /> },
       {
         path: "admin",
@@ -40,7 +40,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AdminDashboard /> },
           { path: "torneos", element: <AdminTournaments /> },
-          { path: "clubes", element: <AdminClubs /> },
+          { path: "padel", element: <AdminClubs /> },
           { path: "noticias", element: <AdminNews /> },
         ],
       },

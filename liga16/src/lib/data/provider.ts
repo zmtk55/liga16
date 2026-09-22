@@ -29,13 +29,13 @@ export interface RegisterPairInput {
 }
 
 export interface DataProvider {
-  listTournaments(filters?: TournamentFilters): Promise<Tournament[]>;
+  listTournaments(filters?: Omit<TournamentFilters, 'city'>): Promise<Tournament[]>;
   getTournament(slug: string): Promise<Tournament | null>;
   getTournamentCategories(tournamentId: string): Promise<TournamentCategory[]>;
   getTournamentPairs(tournamentId: string): Promise<Pair[]>;
   listLeagues(): Promise<League[]>;
   getLeague(slug: string): Promise<League | null>;
-  listRankings(scope?: { sex?: string; city?: string }): Promise<RankingEntry[]>;
+  listRankings(scope?: { sex?: string }): Promise<RankingEntry[]>;
   getPlayerRankingEvents(playerId: string): Promise<RankingEvent[]>;
   listPlayers(query?: string): Promise<PlayerProfile[]>;
   getPlayer(id: string): Promise<PlayerProfile | null>;

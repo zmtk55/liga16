@@ -35,7 +35,7 @@ export default function TeamsPage() {
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Equipos</h1>
         <p className="text-muted-foreground">
-          Equipos registrados en la Liga16 Nacional — estadísticas y plantilla
+          Equipos del padel Reforma — estadísticas y plantilla
         </p>
       </header>
 
@@ -72,7 +72,7 @@ export default function TeamsPage() {
                         )}
                       </div>
                       <CardDescription className="truncate">
-                        {team.category} · {team.city} · Cap. {team.captain_name} · Nivel medio {avgLevel}
+                        {team.category} · Cap. {team.captain_name} · Nivel medio {avgLevel}
                       </CardDescription>
                     </div>
                   </div>

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, TrendingUp, MapPin } from "lucide-react";
+import { Trophy, TrendingUp } from "lucide-react";
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
@@ -57,17 +57,17 @@ export default function PlayersPage() {
     if (!players) return [];
     const q = query.trim().toLowerCase();
     if (!q) return players;
-    return players.filter((p) => p.display_name.toLowerCase().includes(q) || p.city.toLowerCase().includes(q));
+    return players.filter((p) => p.display_name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q));
   }, [players, query]);
 
   return (
     <section className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Jugadores</h1>
-        <p className="text-muted-foreground">Directorio del circuito — ranking, títulos y forma reciente</p>
+        <p className="text-muted-foreground">Directorio de jugadores del padel Reforma</p>
       </header>
 
-      <Input placeholder="Buscar por nombre o ciudad…" value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-sm" />
+      <Input placeholder="Buscar por nombre…" value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-sm" />
 
       {players === null ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -91,7 +91,7 @@ export default function PlayersPage() {
                     <div className="min-w-0 flex-1">
                       <CardTitle className="truncate text-base leading-tight">{p.display_name}</CardTitle>
                       <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" /> {p.city}, {p.state} · {p.sex}
+                        {p.sex}
                       </p>
                     </div>
                     {rk && (

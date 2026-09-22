@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 const items = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/admin/torneos", label: "Torneos", icon: Trophy },
-  { to: "/admin/clubes", label: "Clubes", icon: Building2 },
+  { to: "/admin/padel", label: "Padel", icon: Building2 },
   { to: "/admin/noticias", label: "Noticias", icon: Newspaper },
 ];
 

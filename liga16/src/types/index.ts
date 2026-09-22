@@ -276,7 +276,6 @@ export interface Dispute {
 }
 
 export interface TournamentFilters {
-  city?: string;
   status?: TournamentStatus | 'all';
   category?: string;
   format?: TournamentFormat | 'all';

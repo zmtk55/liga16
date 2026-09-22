@@ -18,47 +18,43 @@ export default function ClubsPage() {
     };
   }, []);
 
+  const club = clubs?.[0];
+
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Clubes</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Padel</h1>
         <p className="text-muted-foreground">
-          Sedes y clubes del circuito Liga16
+          La sede oficial de Liga16
         </p>
       </header>
 
-      {clubs === null ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 w-full" />
-          ))}
-        </div>
+      {club === undefined ? (
+        <Skeleton className="h-56 w-full" />
+      ) : club ? (
+        <Card className="max-w-3xl">
+          <CardHeader>
+            <CardTitle className="text-2xl">{club.name}</CardTitle>
+            <CardDescription>
+              {club.city}, {club.state}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>{club.description}</p>
+            <p className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              {club.address ?? "Dirección por confirmar"}
+            </p>
+            {club.phone && (
+              <p className="flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                {club.phone}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {clubs.map((club) => (
-            <Card key={club.id}>
-              <CardHeader>
-                <CardTitle className="text-lg">{club.name}</CardTitle>
-                <CardDescription>
-                  {club.city}, {club.state}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                {club.description && <p>{club.description}</p>}
-                <p className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  {club.address ?? "Dirección por confirmar"}
-                </p>
-                {club.phone && (
-                  <p className="flex items-center gap-2">
-                    <Phone className="h-4 w-4" />
-                    {club.phone}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <p className="text-sm text-muted-foreground">Aún no hay padel configurado.</p>
       )}
     </section>
   );
