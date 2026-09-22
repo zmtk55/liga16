@@ -40,8 +40,8 @@ export function analyzePlayerLocal(
   card: PlayerCard | null,
   ranking: RankingEntry | null
 ): JevAnalysis {
-  const won = card?.record.won ?? 0;
-  const played = card?.record.played ?? 1;
+  const won = (card as unknown as PlayerCard | null)?.won ?? 0;
+  const played = (card as unknown as PlayerCard | null)?.played ?? 1;
   const winRate = won / Math.max(played, 1);
   const recentWins = card?.recent_results.filter((r) => r.startsWith("G")).length ?? 0;
   const trend = card?.trend ?? [];
@@ -91,7 +91,7 @@ export function analyzePlayerLocal(
     racha: { probYes, label: rachaLabel },
     consistencia: { score: consistencia, label: consistencia > 75 ? "Muy consistente" : consistencia > 55 ? "Consistente" : "Volátil" },
     ritmo,
-  };
+  } as JevAnalysis;
 }
 
 // Wrapper que intenta usar TypeSafe SDK si hay API key, si no usa local
@@ -114,7 +114,7 @@ export async function analyzePlayerWithJev(
         posicion: player.preferred_position,
         ciudad: player.city,
         titulos: card?.titles ?? 0,
-        record: card?.record ?? { played: 0, won: 0 },
+        record: card ? { played: (card as unknown as { played: number }).played ?? 0, won: (card as unknown as { won: number }).won ?? 0 } : { played: 0, won: 0 },
         recientes: card?.recent_results.join(" | ") ?? "sin datos",
         tendencia: (card?.trend ?? []).join(","),
         ranking: ranking ? `#${ranking.position} ${ranking.points}pts Δ${ranking.delta}` : "sin ranking",
@@ -124,7 +124,6 @@ export async function analyzePlayerWithJev(
     const res = await (client.systemOne as unknown as (req: unknown) => Promise<{ answers: unknown }>)({
       state,
       questions: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         forma: score("Evalúa forma competitiva reciente del jugador de pádel", { 1: "Bajón", 2: "Irregular", 3: "Estable", 4: "En forma", 5: "Pico" } as unknown as Parameters<typeof score>[1]),
         estilo: choice("Estilo de juego predominante en pádel", {
           ofensivo: "Atacante, define en red, volea agresiva",

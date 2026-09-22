@@ -44,7 +44,7 @@ export default function PlayerDetailPage() {
         setPlayer(p); setCard(c); setEvents(e);
         const rk = rks.find((r) => r.player_id === p.id) ?? null;
         setRanking(rk);
-        const t = teams.find((tm) => tm.members.some((m) => m.player_id === p.id)) ?? null;
+        const t = teams.find((tm) => tm.player1?.player_id === p.id || tm.player2?.player_id === p.id) ?? null;
         setTeam(t);
         setAllPlayers(pls.filter((x) => x.id !== p.id));
       })
@@ -173,7 +173,7 @@ export default function PlayerDetailPage() {
                   <Avatar className="h-8 w-8"><AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${player.display_name}`} /><AvatarFallback>{initials(player.display_name)}</AvatarFallback></Avatar>
                   <div className="leading-tight">
                     <p className="text-xs font-bold">{team?.name ?? "Sin equipo"}</p>
-                    <p className="text-[11px] text-muted-foreground">{team?.category ?? "Libre"} {team ? `· #${team.position}` : ""}</p>
+                    <p className="text-[11px] text-muted-foreground">{team?.division ?? "Libre"} {team ? `· #${team.position}` : ""}</p>
                   </div>
                 </div>
                 <div className="absolute -top-3 -right-3 rounded-2xl bg-primary px-4 py-2 text-center text-white shadow-xl">
@@ -289,8 +289,8 @@ export default function PlayerDetailPage() {
                 <div className="rounded-xl border p-3">
                   <p className="text-xs text-muted-foreground">Equipo actual</p>
                   <p className="font-bold flex items-center gap-2"><Users className="h-4 w-4" /> {team?.name ?? "Sin equipo"}</p>
-                  <p className="text-xs text-muted-foreground">{team?.city ?? player.city} · {team?.category ?? "Libre"}</p>
-                  <p className="mt-2 text-xs"><span className="text-muted-foreground">Capitán:</span> {team?.captain_name ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground">{team?.city ?? player.city} · {team?.division ?? "Libre"}</p>
+                  <p className="mt-2 text-xs"><span className="text-muted-foreground">División:</span> {team?.division ?? "—"} · {team?.sex ?? ""}</p>
                 </div>
                 <div className="rounded-xl border p-3">
                   <p className="text-xs text-muted-foreground">Compañero frecuente</p>
