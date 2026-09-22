@@ -411,6 +411,20 @@ returns uuid as $$
   select auth.uid();
 $$ language sql stable strict;
 
+-- Helper de rol admin/organizer/club para policies RLS.
+-- SECURITY DEFINER: la función corre con los privilegios del dueño (postgres),
+-- que sí puede leer auth.users. Con una subquery directa desde una policy,
+-- el rol authenticated no tiene GRANT sobre auth.users y toda policy que la
+-- consulte falla con "permission denied for table users".
+create or replace function public.is_admin_or_organizer(allowed_roles text[])
+returns boolean as $$
+  select exists (
+    select 1 from auth.users
+    where id = auth.uid()
+      and raw_app_meta_data->>'role' = any(allowed_roles)
+  );
+$$ language sql stable security definer set search_path = public, auth;
+
 -- Clubs: lectura pública, escritura admin/organizer/club
 create policy "Users can view clubs"
   on public.clubs for select
@@ -421,9 +435,7 @@ create policy "Admins and organizers can modify clubs"
   on public.clubs for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer', 'club')
-    )
+    is_admin_or_organizer(['admin', 'organizer', 'club'])
   );
 
 -- Tournaments: lectura pública, escritura admin/organizer
@@ -438,9 +450,7 @@ create policy "Admins and organizers manage tournaments"
   on public.tournaments for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   );
 
 -- Tournament categories
@@ -453,9 +463,7 @@ create policy "Admins and organizers manage categories"
   on public.tournament_categories for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -469,9 +477,7 @@ create policy "Users manage own pairs"
   on public.pairs for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer', 'club')
-    )
+    is_admin_or_organizer(['admin', 'organizer', 'club'])
   );
 
 -- Registrations
@@ -489,9 +495,7 @@ create policy "Admins and organizers manage registrations"
   on public.registrations for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -516,9 +520,7 @@ create policy "Admins and organizers manage players"
   on public.player_profiles for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -532,9 +534,7 @@ create policy "Admins and organizers manage player cards"
   on public.player_cards for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -548,9 +548,7 @@ create policy "Admins and organizers manage teams"
   on public.teams for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -564,9 +562,7 @@ create policy "Admins and organizers manage leagues"
   on public.leagues for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -580,9 +576,7 @@ create policy "Admins and organizers manage league divisions"
   on public.league_divisions for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -596,9 +590,7 @@ create policy "Admins and organizers manage league teams"
   on public.league_teams for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -612,9 +604,7 @@ create policy "Admins and organizers manage matches"
   on public.matches for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -629,9 +619,7 @@ create policy "Users own their ranking events"
   to authenticated
   using (
     player_id = (select auth.uid()) or
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (player_id = (select auth.uid()));
 
@@ -645,9 +633,7 @@ create policy "Admins and organizers manage news"
   on public.news for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -661,9 +647,7 @@ create policy "Admins and organizers manage sponsors"
   on public.sponsors for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
@@ -673,18 +657,14 @@ create policy "Invitation recipients view"
   to authenticated
   using (
     player_id = current_user_id() or
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   );
 
 create policy "Admins and organizers manage invitations"
   on public.invitations for all
   to authenticated
   using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
+    is_admin_or_organizer(['admin', 'organizer'])
   )
   with check (true);
 
