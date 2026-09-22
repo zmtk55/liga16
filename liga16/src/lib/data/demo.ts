@@ -172,7 +172,21 @@ export const demoProvider: DataProvider = {
     await delay();
     const id = `team-${Date.now()}`;
     const slug = (data.name ?? 'equipo-nuevo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const team: Team = { ...data, id, slug } as Team;
+    const team: Team = {
+      ...data,
+      id,
+      slug,
+      crest_url: data.crest_url ?? null,
+      club_id: data.club_id ?? null,
+      position: data.position ?? 0,
+      points: data.points ?? 0,
+      played: data.played ?? 0,
+      won: data.won ?? 0,
+      lost: data.lost ?? 0,
+      sets_for: data.sets_for ?? 0,
+      sets_against: data.sets_against ?? 0,
+      titles: data.titles ?? 0,
+    } as Team;
     store.teams.push(team);
     return team;
   },

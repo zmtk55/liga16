@@ -33,6 +33,8 @@ import {
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 
+const DIVISIONS = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
+
 export default function AdminTeams() {
   const [list, setList] = useState<Team[] | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
@@ -49,11 +51,19 @@ export default function AdminTeams() {
     setSubmitting(true);
     try {
       await new Promise((r) => setTimeout(r, 400));
+      const payload = {
+        name: form.name,
+        division: form.division,
+        sex: form.sex,
+        city: form.city,
+        player1: form.player1_name ? { player_id: "", name: form.player1_name, level: 0 } : null,
+        player2: form.player2_name ? { player_id: "", name: form.player2_name, level: 0 } : null,
+      };
       if (editing) {
-        await db.updateTeam(editing.slug, form as unknown as Partial<Team>);
+        await db.updateTeam(editing.slug, payload as unknown as Partial<Team>);
         toast.success(`Equipo "${form.name}" actualizado`);
       } else {
-        await db.createTeam(form as unknown as Omit<Team, "id" | "slug">);
+        await db.createTeam(payload as unknown as Omit<Team, "id" | "slug">);
         toast.success(`Equipo "${form.name}" creado`);
       }
       setOpenCreate(false);
@@ -83,18 +93,18 @@ export default function AdminTeams() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Equipos</h1>
         <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Nuevo equipo
+          <Plus className="h-4 w-4 mr-1" /> Nueva pareja
         </Button>
       </div>
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Todos los equipos</CardTitle>
+          <CardTitle className="text-sm">Todas las parejas</CardTitle>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Equipo</TableHead>
+                <TableHead>Pareja</TableHead>
                 <TableHead className="hidden sm:table-cell">División</TableHead>
                 <TableHead className="text-right">PJ</TableHead>
                 <TableHead className="text-right">G</TableHead>
@@ -107,10 +117,12 @@ export default function AdminTeams() {
               {list?.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">{t.name}</TableCell>
-                  <TableCell className="hidden sm:table-cell">{t.category}</TableCell>
-                  <TableCell className="text-right">{t.record.played}</TableCell>
-                  <TableCell className="text-right text-emerald-600">{t.record.won}</TableCell>
-                  <TableCell className="text-right text-red-500">{t.record.lost}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {t.division} {t.sex === "X" ? "M/X" : t.sex === "M" ? "M" : "F"}
+                  </TableCell>
+                  <TableCell className="text-right">{t.played}</TableCell>
+                  <TableCell className="text-right text-emerald-600">{t.won}</TableCell>
+                  <TableCell className="text-right text-red-500">{t.lost}</TableCell>
                   <TableCell className="text-right">{t.position}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button variant="ghost" size="sm" onClick={() => { setEditing(t); setOpenCreate(true); }}>Editar</Button>
@@ -138,10 +150,11 @@ export default function AdminTeams() {
 
 interface TeamFormData {
   name: string;
-  category: string;
-  captain_name: string;
+  division: string;
+  sex: string;
   city: string;
-  state: string;
+  player1_name: string;
+  player2_name: string;
 }
 
 function TeamFormDialog({
@@ -163,18 +176,20 @@ function TeamFormDialog({
     if (editing) {
       return {
         name: editing.name,
-        category: editing.category,
-        captain_name: editing.captain_name,
+        division: editing.division,
+        sex: editing.sex,
         city: editing.city,
-        state: editing.city,
+        player1_name: editing.player1?.name ?? "",
+        player2_name: editing.player2?.name ?? "",
       };
     }
     return {
       name: "",
-      category: "Primera División",
-      captain_name: "",
+      division: "1ra",
+      sex: "M",
       city: "Ciudad de México",
-      state: "CDMX",
+      player1_name: "",
+      player2_name: "",
     };
   });
 
@@ -186,48 +201,61 @@ function TeamFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editing ? "Editar equipo" : "Nuevo equipo"}</DialogTitle>
+          <DialogTitle>{editing ? "Editar pareja" : "Nueva pareja"}</DialogTitle>
           <DialogDescription>
-            {editing ? `Edita "${editing.name}"` : "Crea un nuevo equipo para la liga."}
+            {editing ? `Edita "${editing.name}"` : "Registra una pareja (2 jugadores) en una división."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>Nombre</Label>
-            <Input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Reforma Smash" />
+            <Label>Nombre de la pareja</Label>
+            <Input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Fuentes / Rojas" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>División</Label>
-              <Select value={form.category} onValueChange={(v) => update("category", v)}>
+              <Select value={form.division} onValueChange={(v) => update("division", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Primera División">Primera División (élite)</SelectItem>
-                  <SelectItem value="Segunda División">Segunda División</SelectItem>
-                  <SelectItem value="Tercera División">Tercera División (novatos)</SelectItem>
+                  {DIVISIONS.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d === "1ra" ? "1ra División (élite)" : d === "Novatos" ? "Novatos" : `${d} División`}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Primera = élite, Tercera = en desarrollo</p>
+              <p className="text-xs text-muted-foreground">1ra = élite, Novatos = principiantes</p>
             </div>
             <div className="grid gap-1.5">
-              <Label>Capitán</Label>
-              <Input value={form.captain_name} onChange={(e) => update("captain_name", e.target.value)} placeholder="Nombre del capitán" />
+              <Label>Género</Label>
+              <Select value={form.sex} onValueChange={(v) => update("sex", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M">Masculino</SelectItem>
+                  <SelectItem value="F">Femenino</SelectItem>
+                  <SelectItem value="X">Mixto</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Ciudad</Label>
-              <Input value={form.city} onChange={(e) => update("city", e.target.value)} />
+              <Label>Jugador 1</Label>
+              <Input value={form.player1_name} onChange={(e) => update("player1_name", e.target.value)} placeholder="Nombre del jugador 1" />
             </div>
             <div className="grid gap-1.5">
-              <Label>Estado</Label>
-              <Input value={form.state} onChange={(e) => update("state", e.target.value)} />
+              <Label>Jugador 2</Label>
+              <Input value={form.player2_name} onChange={(e) => update("player2_name", e.target.value)} placeholder="Nombre del jugador 2" />
             </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Ciudad</Label>
+            <Input value={form.city} onChange={(e) => update("city", e.target.value)} />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); onCancel(); }}>Cancelar</Button>
-          <Button onClick={() => onSave(form)} disabled={submitting || !form.name.trim() || !form.captain_name.trim()}>
+          <Button onClick={() => onSave(form)} disabled={submitting || !form.name.trim() || !form.player1_name.trim() || !form.player2_name.trim()}>
             {submitting ? "Guardando…" : editing ? "Actualizar" : "Crear"}
           </Button>
         </DialogFooter>

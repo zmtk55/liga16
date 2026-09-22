@@ -28,14 +28,24 @@ export default function AdminClubs() {
   }, []);
 
   async function handleSave() {
+    if (!club) return;
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
-      toast.success("Configuración del padel actualizada (demo)");
+      await db.updateClub(club.slug, {
+        name: form.name,
+        address: form.address,
+        phone: form.phone,
+        description: form.description,
+      });
+      toast.success("Sede actualizada");
       setEditing(false);
-      if (club) {
-        setClub({ ...club, ...form });
-      }
+      db.listClubs().then((list) => {
+        const c = list[0] ?? null;
+        setClub(c);
+        if (c) {
+          setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "" });
+        }
+      });
     } catch (e) {
       toast.error((e as Error).message ?? "Error al guardar");
     } finally {
@@ -48,7 +58,7 @@ export default function AdminClubs() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Padel — Única sede</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Sede</h1>
         {!editing ? (
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
             <Edit3 className="h-4 w-4 mr-1" /> Editar
@@ -58,7 +68,7 @@ export default function AdminClubs() {
 
       {editing ? (
         <Card>
-          <CardHeader><CardTitle className="text-base">Editar configuración del padel</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Editar configuración de la sede</CardTitle></CardHeader>
           <CardContent className="grid gap-3">
             <div className="grid gap-1.5">
               <Label>Nombre del club</Label>

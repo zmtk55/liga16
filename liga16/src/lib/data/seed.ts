@@ -12,21 +12,21 @@ export const tournaments: Tournament[] = [
   { id: 't-1', slug: 'copa-liga16-apertura-2026', name: 'Copa Liga16 Apertura 2026', cover_url: null, club_id: 'club-1', club_name: 'Club Pádel Reforma', city: 'Ciudad de México', state: 'CDMX', start_date: '2026-10-09', end_date: '2026-10-11', registration_deadline: '2026-10-02', status: 'registration_open', modality: 'pairs', format: 'groups_knockout', organizer_id: 'org-1', price_cents: 80000, currency: 'MXN', rules_summary: 'Grupos de 4 + eliminación directa. Mejor de 3 sets. Desempate: diferencia de sets, luego juegos, luego enfrentamiento directo.', description: 'Primer torneo oficial del padel Reforma. Puntos dobles para el ranking de temporada.' },
   { id: 't-2', slug: 'reforma-master-500', name: 'Reforma Master 500', cover_url: null, club_id: 'club-1', club_name: 'Club Pádel Reforma', city: 'Ciudad de México', state: 'CDMX', start_date: '2026-10-23', end_date: '2026-10-25', registration_deadline: '2026-10-16', status: 'registration_open', modality: 'pairs', format: 'single_elimination', organizer_id: 'org-1', price_cents: 100000, currency: 'MXN', rules_summary: 'Eliminación directa con consolación. Mejor de 3 sets con super tie-break.', description: 'Categoría 500 puntos. Bolsa de premios y trofeos para campeones y finalistas.' },
   { id: 't-3', slug: 'reforma-relampago-2026', name: 'Reforma Relámpago 2026', cover_url: null, club_id: 'club-1', club_name: 'Club Pádel Reforma', city: 'Ciudad de México', state: 'CDMX', start_date: '2026-09-26', end_date: '2026-09-26', registration_deadline: '2026-09-22', status: 'in_progress', modality: 'pairs', format: 'americano', organizer_id: 'org-1', price_cents: 40000, currency: 'MXN', rules_summary: 'Formato americano: todos contra todos en rondas rotativas. Gana la pareja con más puntos.', description: 'Un día, formato americano y ambiente de club. Ideal para debutar en el padel.' },
-  { id: 't-4', slug: 'reforma-challenger-250', name: 'Reforma Challenger 250', cover_url: null, club_id: 'club-1', club_name: 'Club Pádel Reforma', city: 'Ciudad de México', state: 'CDMX', start_date: '2026-11-13', end_date: '2026-11-15', registration_deadline: '2026-11-06', status: 'published', modality: 'pairs', format: 'groups_knockout', organizer_id: 'org-1', price_cents: 70000, currency: 'MXN', rules_summary: 'Grupos + eliminación. Categorías 4ª a 6ª.', description: 'Primer torneo de la segunda vuelta del padel Reforma. Inscripciones abren el 1 de octubre.' },
+  { id: 't-4', slug: 'reforma-challenger-250', name: 'Reforma Challenger 250', cover_url: null, club_id: 'club-1', club_name: 'Club Pádel Reforma', city: 'Ciudad de México', state: 'CDMX', start_date: '2026-11-13', end_date: '2026-11-15', registration_deadline: '2026-11-06', status: 'published', modality: 'pairs', format: 'groups_knockout', organizer_id: 'org-1', price_cents: 70000, currency: 'MXN', rules_summary: 'Grupos + eliminación. Categorías 4ta a 6ta y Novatos.', description: 'Primer torneo de la segunda vuelta del padel Reforma. Inscripciones abren el 1 de octubre.' },
   { id: 't-5', slug: 'copa-independencia-2026', name: 'Copa Independencia 2026', cover_url: null, club_id: 'club-1', club_name: 'Club Pádel Reforma', city: 'Ciudad de México', state: 'CDMX', start_date: '2026-09-11', end_date: '2026-09-13', registration_deadline: '2026-09-04', status: 'finished', modality: 'pairs', format: 'groups_knockout', organizer_id: 'org-1', price_cents: 80000, currency: 'MXN', rules_summary: 'Grupos de 4 + eliminación directa.', description: 'Torneo inaugural de la temporada 2026-27. 48 parejas, 4 categorías.' },
 ];
 
 export const categories: TournamentCategory[] = [
-  { id: 'cat-1', tournament_id: 't-1', name: '4ª Masculino', sex: 'M', min_level: 4.0, max_level: 4.9, max_pairs: 16, registered_pairs: 14, price_cents: 80000 },
-  { id: 'cat-2', tournament_id: 't-1', name: '5ª Masculino', sex: 'M', min_level: 3.0, max_level: 3.9, max_pairs: 16, registered_pairs: 16, price_cents: 80000 },
-  { id: 'cat-3', tournament_id: 't-1', name: '4ª Femenino', sex: 'F', min_level: 4.0, max_level: 4.9, max_pairs: 12, registered_pairs: 9, price_cents: 80000 },
-  { id: 'cat-4', tournament_id: 't-1', name: 'Mixto Open', sex: 'X', min_level: null, max_level: null, max_pairs: 12, registered_pairs: 7, price_cents: 70000 },
-  { id: 'cat-5', tournament_id: 't-2', name: '3ª Masculino', sex: 'M', min_level: 5.0, max_level: 5.9, max_pairs: 16, registered_pairs: 11, price_cents: 100000 },
-  { id: 'cat-6', tournament_id: 't-2', name: '4ª Masculino', sex: 'M', min_level: 4.0, max_level: 4.9, max_pairs: 24, registered_pairs: 19, price_cents: 100000 },
-  { id: 'cat-7', tournament_id: 't-3', name: 'Open Masculino', sex: 'M', min_level: null, max_level: null, max_pairs: 24, registered_pairs: 20, price_cents: 40000 },
-  { id: 'cat-8', tournament_id: 't-3', name: 'Open Femenino', sex: 'F', min_level: null, max_level: null, max_pairs: 16, registered_pairs: 12, price_cents: 40000 },
-  { id: 'cat-9', tournament_id: 't-5', name: '4ª Masculino', sex: 'M', min_level: 4.0, max_level: 4.9, max_pairs: 16, registered_pairs: 16, price_cents: 80000 },
-  { id: 'cat-10', tournament_id: 't-5', name: '5ª Masculino', sex: 'M', min_level: 3.0, max_level: 3.9, max_pairs: 16, registered_pairs: 16, price_cents: 80000 },
+  { id: 'cat-1', tournament_id: 't-1', name: '4ta Masculino', sex: 'M', min_level: 4.0, max_level: 4.9, max_pairs: 16, registered_pairs: 14, price_cents: 80000 },
+  { id: 'cat-2', tournament_id: 't-1', name: '5ta Masculino', sex: 'M', min_level: 3.0, max_level: 3.9, max_pairs: 16, registered_pairs: 16, price_cents: 80000 },
+  { id: 'cat-3', tournament_id: 't-1', name: '4ta Femenino', sex: 'F', min_level: 4.0, max_level: 4.9, max_pairs: 12, registered_pairs: 9, price_cents: 80000 },
+  { id: 'cat-4', tournament_id: 't-1', name: 'Novatos Mixto', sex: 'X', min_level: null, max_level: null, max_pairs: 12, registered_pairs: 7, price_cents: 70000 },
+  { id: 'cat-5', tournament_id: 't-2', name: '3ra Masculino', sex: 'M', min_level: 5.0, max_level: 5.9, max_pairs: 16, registered_pairs: 11, price_cents: 100000 },
+  { id: 'cat-6', tournament_id: 't-2', name: '4ta Masculino', sex: 'M', min_level: 4.0, max_level: 4.9, max_pairs: 24, registered_pairs: 19, price_cents: 100000 },
+  { id: 'cat-7', tournament_id: 't-3', name: 'Novatos Masculino', sex: 'M', min_level: null, max_level: null, max_pairs: 24, registered_pairs: 20, price_cents: 40000 },
+  { id: 'cat-8', tournament_id: 't-3', name: 'Novatos Femenino', sex: 'F', min_level: null, max_level: null, max_pairs: 16, registered_pairs: 12, price_cents: 40000 },
+  { id: 'cat-9', tournament_id: 't-5', name: '4ta Masculino', sex: 'M', min_level: 4.0, max_level: 4.9, max_pairs: 16, registered_pairs: 16, price_cents: 80000 },
+  { id: 'cat-10', tournament_id: 't-5', name: '5ta Masculino', sex: 'M', min_level: 3.0, max_level: 3.9, max_pairs: 16, registered_pairs: 16, price_cents: 80000 },
 ];
 
 export const players: PlayerProfile[] = [
@@ -60,9 +60,9 @@ export const rankings: RankingEntry[] = [
 ];
 
 export const rankingEvents: RankingEvent[] = [
-  { id: 're-1', player_id: 'p-1', tournament_id: 't-5', points: 250, reason: 'Campeón 4ª Masculino — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
-  { id: 're-2', player_id: 'p-2', tournament_id: 't-5', points: 250, reason: 'Campeón 4ª Masculino — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
-  { id: 're-3', player_id: 'p-9', tournament_id: 't-5', points: 150, reason: 'Finalista 4ª Masculino — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
+  { id: 're-1', player_id: 'p-1', tournament_id: 't-5', points: 250, reason: 'Campeón 4ta Masculino — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
+  { id: 're-2', player_id: 'p-2', tournament_id: 't-5', points: 250, reason: 'Campeón 4ta Masculino — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
+  { id: 're-3', player_id: 'p-9', tournament_id: 't-5', points: 150, reason: 'Finalista 4ta Masculino — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
 ];
 
 export const playerCards: Record<string, PlayerCard> = Object.fromEntries(
@@ -72,50 +72,56 @@ export const playerCards: Record<string, PlayerCard> = Object.fromEntries(
       player_id: p.id,
       slug: p.username,
       titles: [3, 2, 5, 1, 1, 4, 0, 0, 2, 2, 0, 1][i] ?? 0,
-      record: { played: rankings[i]?.played ?? 12, won: rankings[i]?.won ?? 6 },
-      frequent_partner: i % 2 === 0 ? players[(i + 1) % players.length].display_name : null,
+      played: rankings[i]?.played ?? 12,
+      won: rankings[i]?.won ?? 6,
+      partner: i % 2 === 0 ? players[(i + 1) % players.length].display_name : null,
       recent_results: ['G 6-4 6-3', 'P 4-6 6-7', 'G 6-2 6-1'],
       trend: [3, 1, 2, 0, -1, 1, 2].map((v) => v + (i % 3)),
     },
   ]),
 );
 
+// Equipos de padel: parejas de 2 jugadores por división.
 export const teams: Team[] = [
-  { id: 'team-1', slug: 'reforma-smash', name: 'Reforma Smash', crest_url: null, city: 'Ciudad de México', captain_name: 'Emilio Garza',
-    members: [
-      { player_id: 'p-6', name: 'Emilio Garza', level: 5.4 },
-      { player_id: 'p-3', name: 'Sofía Camacho', level: 5.2 },
-      { player_id: 'p-10', name: 'Paola Suárez', level: 4.7 },
-    ],
-    category: 'Primera División', record: { played: 8, won: 7, lost: 1 }, position: 1, titles: 2 },
-  { id: 'team-2', slug: 'reforma-femenino', name: 'Reforma Femenino', crest_url: null, city: 'Ciudad de México', captain_name: 'Paola Suárez',
-    members: [
-      { player_id: 'p-5', name: 'Lucía Herrera', level: 4.2 },
-      { player_id: 'p-7', name: 'Valeria Montes', level: 3.6 },
-      { player_id: 'p-12', name: 'Daniela Cervantes', level: 4.0 },
-    ],
-    category: 'Primera División', record: { played: 8, won: 6, lost: 2 }, position: 2, titles: 1 },
-  { id: 'team-3', slug: 'reforma-junior', name: 'Reforma Junior', crest_url: null, city: 'Ciudad de México', captain_name: 'Diego Fuentes',
-    members: [
-      { player_id: 'p-1', name: 'Diego Fuentes', level: 4.6 },
-      { player_id: 'p-2', name: 'Martín Rojas', level: 4.5 },
-      { player_id: 'p-11', name: 'Ricardo Anaya', level: 3.4 },
-    ],
-    category: 'Segunda División', record: { played: 8, won: 5, lost: 3 }, position: 1, titles: 0 },
-  { id: 'team-4', slug: 'reforma-abierta', name: 'Reforma Abierta', crest_url: null, city: 'Ciudad de México', captain_name: 'Fernando Lira',
-    members: [
-      { player_id: 'p-9', name: 'Fernando Lira', level: 5.1 },
-      { player_id: 'p-4', name: 'Andrés Valle', level: 4.1 },
-      { player_id: 'p-8', name: 'Javier Quintana', level: 4.0 },
-    ],
-    category: 'Segunda División', record: { played: 8, won: 4, lost: 4 }, position: 2, titles: 0 },
+  { id: 'team-1', slug: 'fuentes-rojas', name: 'Fuentes / Rojas', crest_url: null, city: 'Ciudad de México', club_id: 'club-1',
+    division: '1ra', sex: 'M',
+    player1: { player_id: 'p-1', name: 'Diego Fuentes', level: 4.6 },
+    player2: { player_id: 'p-2', name: 'Martín Rojas', level: 4.5 },
+    position: 1, points: 24, played: 8, won: 7, lost: 1, sets_for: 42, sets_against: 18, titles: 2 },
+  { id: 'team-2', slug: 'lira-valle', name: 'Lira / Valle', crest_url: null, city: 'Ciudad de México', club_id: 'club-1',
+    division: '1ra', sex: 'M',
+    player1: { player_id: 'p-9', name: 'Fernando Lira', level: 5.1 },
+    player2: { player_id: 'p-4', name: 'Andrés Valle', level: 4.1 },
+    position: 2, points: 21, played: 8, won: 6, lost: 2, sets_for: 36, sets_against: 22, titles: 1 },
+  { id: 'team-3', slug: 'camacho-suarez', name: 'Camacho / Suárez', crest_url: null, city: 'Ciudad de México', club_id: 'club-1',
+    division: '2da', sex: 'F',
+    player1: { player_id: 'p-3', name: 'Sofía Camacho', level: 5.2 },
+    player2: { player_id: 'p-10', name: 'Paola Suárez', level: 4.7 },
+    position: 1, points: 18, played: 8, won: 5, lost: 3, sets_for: 30, sets_against: 24, titles: 0 },
+  { id: 'team-4', slug: 'garza-quintana', name: 'Garza / Quintana', crest_url: null, city: 'Ciudad de México', club_id: 'club-1',
+    division: '2da', sex: 'M',
+    player1: { player_id: 'p-6', name: 'Emilio Garza', level: 5.4 },
+    player2: { player_id: 'p-8', name: 'Javier Quintana', level: 4.0 },
+    position: 2, points: 16, played: 8, won: 4, lost: 4, sets_for: 28, sets_against: 28, titles: 0 },
+  { id: 'team-5', slug: 'herrera-montes', name: 'Herrera / Montes', crest_url: null, city: 'Ciudad de México', club_id: 'club-1',
+    division: '3ra', sex: 'F',
+    player1: { player_id: 'p-5', name: 'Lucía Herrera', level: 4.2 },
+    player2: { player_id: 'p-7', name: 'Valeria Montes', level: 3.6 },
+    position: 1, points: 14, played: 7, won: 4, lost: 3, sets_for: 25, sets_against: 20, titles: 0 },
+  { id: 'team-6', slug: 'anaya-cervantes', name: 'Anaya / Cervantes', crest_url: null, city: 'Ciudad de México', club_id: 'club-1',
+    division: 'Novatos', sex: 'X',
+    player1: { player_id: 'p-11', name: 'Ricardo Anaya', level: 3.4 },
+    player2: { player_id: 'p-12', name: 'Daniela Cervantes', level: 4.0 },
+    position: 1, points: 12, played: 6, won: 3, lost: 3, sets_for: 20, sets_against: 19, titles: 0 },
 ];
 
 export const leagues: League[] = [
   { id: 'lg-1', slug: 'liga-reforma-2026-27', name: 'Liga Reforma 2026-27', season: 'Temporada 2026-27', city: 'Ciudad de México', format: 'round_robin', status: 'active',
     divisions: [
-      { name: 'Primera División', teams: 8 },
-      { name: 'Segunda División', teams: 10 },
+      { name: '1ra División', teams: 8 },
+      { name: '2da División', teams: 10 },
+      { name: '3ra División', teams: 10 },
+      { name: 'Novatos', teams: 8 },
     ],
     rules_summary: 'Todos contra todos por jornada en el padel Reforma. 2 puntos por victoria. Ascienden 2, descienden 2.' },
 ];
@@ -132,32 +138,32 @@ export const pairs: Pair[] = [
 ];
 
 export const matches: Match[] = [
-  { id: 'm-1', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Open Masculino',
+  { id: 'm-1', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Masculino',
     round: 'Ronda 3', court_name: 'Cancha 1', scheduled_at: '2026-09-26T18:00:00Z', status: 'live',
     side_a: { pair_id: 'pair-1', pair_name: 'Fuentes / Rojas' },
     side_b: { pair_id: 'pair-2', pair_name: 'Lira / Valle' },
     sets: [{ a: 6, b: 4 }, { a: 3, b: 4 }], winner: null },
-  { id: 'm-2', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Open Femenino',
+  { id: 'm-2', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Femenino',
     round: 'Ronda 3', court_name: 'Cancha 2', scheduled_at: '2026-09-26T18:00:00Z', status: 'live',
     side_a: { pair_id: 'pair-5', pair_name: 'Camacho / Suárez' },
     side_b: { pair_id: 'pair-6', pair_name: 'Herrera / Montes' },
     sets: [{ a: 7, b: 5 }], winner: null },
-  { id: 'm-3', tournament_id: 't-5', tournament_name: 'Copa Independencia 2026', category_name: '4ª Masculino',
+  { id: 'm-3', tournament_id: 't-5', tournament_name: 'Copa Independencia 2026', category_name: '4ta Masculino',
     round: 'Final', court_name: 'Cancha Central', scheduled_at: '2026-09-13T19:00:00Z', status: 'finished',
     side_a: { pair_id: 'pair-1', pair_name: 'Fuentes / Rojas' },
     side_b: { pair_id: null, pair_name: 'Lira / Osuna' },
     sets: [{ a: 6, b: 3 }, { a: 4, b: 6 }, { a: 7, b: 6 }], winner: 'a' },
-  { id: 'm-4', tournament_id: 't-5', tournament_name: 'Copa Independencia 2026', category_name: '5ª Masculino',
+  { id: 'm-4', tournament_id: 't-5', tournament_name: 'Copa Independencia 2026', category_name: '5ta Masculino',
     round: 'Final', court_name: 'Cancha 2', scheduled_at: '2026-09-13T17:00:00Z', status: 'finished',
     side_a: { pair_id: null, pair_name: 'Cortés / Ibarra' },
     side_b: { pair_id: null, pair_name: 'Vega / Saldivar' },
     sets: [{ a: 2, b: 6 }, { a: 3, b: 6 }], winner: 'b' },
-  { id: 'm-5', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Open Masculino',
+  { id: 'm-5', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Masculino',
     round: 'Ronda 4', court_name: 'Cancha 1', scheduled_at: '2026-09-26T19:30:00Z', status: 'scheduled',
     side_a: { pair_id: 'pair-3', pair_name: 'Garza / Anaya' },
     side_b: { pair_id: 'pair-4', pair_name: 'Quintana / Cervantes' },
     sets: [], winner: null },
-  { id: 'm-6', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Open Femenino',
+  { id: 'm-6', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Femenino',
     round: 'Ronda 4', court_name: 'Cancha 3', scheduled_at: '2026-09-26T19:30:00Z', status: 'scheduled',
     side_a: { pair_id: 'pair-5', pair_name: 'Camacho / Suárez' },
     side_b: { pair_id: null, pair_name: 'Cervantes / Robles' },
@@ -166,7 +172,7 @@ export const matches: Match[] = [
 
 export const news: NewsItem[] = [
   { id: 'n-1', title: 'Fuentes y Rojas levantan la Copa Independencia', excerpt: 'La dupla del Reforma remontó el tercer set 7-6 ante Lira/Osuna y se llevó 250 puntos de ranking.', image_url: null, published_at: '2026-09-14', tag: 'Resultados' },
-  { id: 'n-2', title: 'La Liga Reforma ya tiene calendario completo', excerpt: 'Primera y Segunda División jugarán 14 jornadas entre octubre y mayo en el padel Reforma.', image_url: null, published_at: '2026-09-18', tag: 'Ligas' },
+  { id: 'n-2', title: 'La Liga Reforma ya tiene calendario completo', excerpt: '1ra, 2da, 3ra y Novatos jugarán 14 jornadas entre octubre y mayo en el padel Reforma.', image_url: null, published_at: '2026-09-18', tag: 'Ligas' },
   { id: 'n-3', title: 'Reforma Challenger 250 abre inscripciones', excerpt: 'El torneo de noviembre será la segunda cita de la temporada en el único padel de Liga16.', image_url: null, published_at: '2026-09-20', tag: 'Torneos' },
 ];
 

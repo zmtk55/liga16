@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Phone, Clock, Users, Calendar } from "lucide-react";
+import { Link } from "react-router";
+import { MapPin, Phone, Clock, Users, CalendarDays, ChevronRight } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Club } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,20 +22,28 @@ export default function ClubsPage() {
     };
   }, []);
 
-  const club = clubs?.[0];
-
-  if (club === undefined) {
+  if (clubs === null) {
     return <Skeleton className="h-56 w-full" />;
   }
 
+  const club = clubs[0];
+
   if (!club) {
-    return <p className="text-sm text-muted-foreground">Aún no hay padel configurado.</p>;
+    return (
+      <section className="space-y-6">
+        <header className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Sede</h1>
+          <p className="text-muted-foreground">La sede oficial de Liga16</p>
+        </header>
+        <p className="text-sm text-muted-foreground">Aún no hay sede configurada.</p>
+      </section>
+    );
   }
 
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Padel</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Sede</h1>
         <p className="text-muted-foreground">
           La sede oficial de Liga16
         </p>
@@ -65,28 +74,38 @@ export default function ClubsPage() {
 
       {/* Info cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" /> Calendario
-            </div>
-            <CardTitle className="text-lg">Ver partidos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Consulta el calendario de torneos y partidos en el padel Reforma.</p>
-          </CardContent>
-        </Card>
-        <Card className="transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Users className="h-4 w-4" /> Jugadores
-            </div>
-            <CardTitle className="text-lg">Directorio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Ver jugadores, rankings y perfiles del circuito.</p>
-          </CardContent>
-        </Card>
+        <Link to="/calendario" className="group">
+          <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" /> Calendario
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <CardTitle className="text-lg">Ver partidos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Consulta el calendario de torneos y partidos en la sede.</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/jugadores" className="group">
+          <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" /> Jugadores
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <CardTitle className="text-lg">Directorio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Ver jugadores, rankings y perfiles del circuito.</p>
+            </CardContent>
+          </Card>
+        </Link>
         <Card className="transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

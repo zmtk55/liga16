@@ -4,24 +4,92 @@
 
 create extension if not exists "pgcrypto";
 
--- Tipos enumerados
-create type if not exists user_role as enum ('player', 'captain', 'organizer', 'club', 'admin', 'sponsor');
-create type if not exists sex_type as enum ('M', 'F', 'X');
-create type if not exists dominant_hand as enum ('right', 'left', 'both');
-create type if not exists court_position as enum ('drive', 'reves', 'both');
-create type if not exists tournament_status as enum ('draft', 'published', 'registration_open', 'registration_closed', 'in_progress', 'finished', 'cancelled');
-create type if not exists tournament_format as enum ('single_elimination', 'round_robin', 'groups_knockout', 'americano', 'mexicano', 'ladder', 'custom');
-create type if not exists tournament_modality as enum ('pairs', 'singles', 'teams', 'league');
-create type if not exists registration_status as enum ('started', 'payment_pending', 'payment_review', 'paid', 'refunded', 'cancelled', 'no_show');
-create type if not exists payment_status as enum ('pending', 'review', 'paid', 'refunded', 'rejected');
-create type if not exists payment_method as enum ('cash', 'transfer', 'stripe', 'mercado_pago');
-create type if not exists match_status as enum ('scheduled', 'live', 'finished', 'walkover', 'disputed', 'cancelled');
-create type if not exists dispute_status as enum ('open', 'under_review', 'resolved', 'rejected');
-create type if not exists league_status as enum ('upcoming', 'active', 'finished');
-create type if not exists invitation_status as enum ('pending', 'accepted', 'declined', 'expired');
-create type if not exists sponsor_tier as enum ('principal', 'oro', 'plata', 'bronce');
-create type if not exists news_tag as enum ('General', 'Resultados', 'Torneos', 'Ligas', 'Jugadores', 'Clubs');
-create type if not exists tournament_category as enum ('18A', '18B', '18C', '16A', '16B', '14A', '14B', '12A', '12B', '10A', '10B');
+-- Tipos enumerados (PostgreSQL no soporta CREATE TYPE IF NOT EXISTS; se usan bloques DO idempotentes)
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'user_role') then
+    create type user_role as enum ('player', 'captain', 'organizer', 'club', 'admin', 'sponsor');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'sex_type') then
+    create type sex_type as enum ('M', 'F', 'X');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'dominant_hand') then
+    create type dominant_hand as enum ('right', 'left', 'both');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'court_position') then
+    create type court_position as enum ('drive', 'reves', 'both');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'tournament_status') then
+    create type tournament_status as enum ('draft', 'published', 'registration_open', 'registration_closed', 'in_progress', 'finished', 'cancelled');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'tournament_format') then
+    create type tournament_format as enum ('single_elimination', 'round_robin', 'groups_knockout', 'americano', 'mexicano', 'ladder', 'custom');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'tournament_modality') then
+    create type tournament_modality as enum ('pairs', 'singles', 'teams', 'league');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'registration_status') then
+    create type registration_status as enum ('started', 'payment_pending', 'payment_review', 'paid', 'refunded', 'cancelled', 'no_show');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'payment_status') then
+    create type payment_status as enum ('pending', 'review', 'paid', 'refunded', 'rejected');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'payment_method') then
+    create type payment_method as enum ('cash', 'transfer', 'stripe', 'mercado_pago');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'match_status') then
+    create type match_status as enum ('scheduled', 'live', 'finished', 'walkover', 'disputed', 'cancelled');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'dispute_status') then
+    create type dispute_status as enum ('open', 'under_review', 'resolved', 'rejected');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'league_status') then
+    create type league_status as enum ('upcoming', 'active', 'finished');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'invitation_status') then
+    create type invitation_status as enum ('pending', 'accepted', 'declined', 'expired');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'sponsor_tier') then
+    create type sponsor_tier as enum ('principal', 'oro', 'plata', 'bronce');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'news_tag') then
+    create type news_tag as enum ('General', 'Resultados', 'Torneos', 'Ligas', 'Jugadores', 'Clubs');
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'padel_division') then
+    create type padel_division as enum ('1ra', '2da', '3ra', '4ta', '5ta', '6ta', 'Novatos');
+  end if;
+end $$;
 
 -- Club / Sede
 create table if not exists public.clubs (
@@ -72,40 +140,10 @@ create table if not exists public.tournament_categories (
   id uuid primary key default gen_random_uuid(),
   tournament_id uuid not null references public.tournaments (id) on delete cascade,
   name text not null,
-  category tournament_category not null,
+  category padel_division not null default '1ra',
   sex sex_type not null,
   price_cents integer not null default 0,
   unique (tournament_id, name)
-);
-
--- Pares (inscripciones)
-create table if not exists public.pairs (
-  id uuid primary key default gen_random_uuid(),
-  tournament_id uuid not null references public.tournaments (id) on delete cascade,
-  category_id uuid references public.tournament_categories (id) on delete set null,
-  name text not null,
-  player1_id uuid references public.player_profiles (id) on delete set null,
-  player2_id uuid references public.player_profiles (id) on delete set null,
-  status text not null default 'pending',
-  created_at timestamptz not null default now()
-);
-
-create index if not exists idx_pairs_tournament on public.pairs(tournament_id);
-
--- Registros
-create table if not exists public.registrations (
-  id uuid primary key default gen_random_uuid(),
-  tournament_id uuid not null references public.tournaments (id) on delete cascade,
-  category_id uuid references public.tournament_categories (id) on delete set null,
-  pair_id uuid references public.pairs (id) on delete set null,
-  user_id uuid not null references auth.users (id) on delete cascade,
-  status registration_status not null default 'started',
-  payment_method payment_method not null default 'cash',
-  amount_cents integer,
-  paid_at timestamptz,
-  rules_accepted_at timestamptz,
-  created_at timestamptz not null default now(),
-  unique (tournament_id, category_id, user_id)
 );
 
 -- Jugadores (perfiles)
@@ -150,36 +188,65 @@ create table if not exists public.player_cards (
   updated_at timestamptz not null default now()
 );
 
--- Equipos
+-- Pares (inscripciones)
+create table if not exists public.pairs (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references public.tournaments (id) on delete cascade,
+  category_id uuid references public.tournament_categories (id) on delete set null,
+  name text not null,
+  player1_id uuid references public.player_profiles (id) on delete set null,
+  player2_id uuid references public.player_profiles (id) on delete set null,
+  seed integer,
+  status text not null default 'pending',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_pairs_tournament on public.pairs(tournament_id);
+
+-- Registros
+create table if not exists public.registrations (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references public.tournaments (id) on delete cascade,
+  category_id uuid references public.tournament_categories (id) on delete set null,
+  pair_id uuid references public.pairs (id) on delete set null,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  status registration_status not null default 'started',
+  payment_method payment_method not null default 'cash',
+  amount_cents integer,
+  paid_at timestamptz,
+  rules_accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (tournament_id, category_id, user_id)
+);
+
+-- Equipos: en padel, un equipo es una pareja de 2 jugadores en una división.
 create table if not exists public.teams (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
-  name text not null,
+  name text not null,                       -- Ej: "Fuentes / Rojas"
   crest_url text,
   city text not null default 'Ciudad de México',
-  state text not null default 'CDMX',
-  captain_name text,
-  captain_id uuid references public.player_profiles (id) on delete set null,
-  category text not null default 'Primera División',
-  record jsonb not null default '{"played": 0, "won": 0, "lost": 0}'::jsonb,
+  club_id uuid references public.clubs (id) on delete set null,
+  division text not null default '1ra',     -- 1ra, 2da, 3ra, 4ta, 5ta, 6ta, Novatos
+  sex text not null default 'M',            -- M, F, X
+  player1_name text,                        -- Jugador 1 de la pareja
+  player1_level numeric(3,1),               -- Nivel 1.0-7.0
+  player2_name text,                        -- Jugador 2 de la pareja
+  player2_level numeric(3,1),               -- Nivel 1.0-7.0
   position integer not null default 0,
+  points integer not null default 0,
+  played integer not null default 0,
+  won integer not null default 0,
+  lost integer not null default 0,
+  sets_for integer not null default 0,
+  sets_against integer not null default 0,
   titles integer not null default 0,
-  active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index if not exists idx_teams_slug on public.teams(slug);
-create index if not exists idx_teams_category on public.teams(category);
-
--- Miembros de equipo
-create table if not exists public.team_members (
-  id uuid primary key default gen_random_uuid(),
-  team_id uuid not null references public.teams (id) on delete cascade,
-  player_id uuid not null references public.player_profiles (id) on delete cascade,
-  role text not null default 'player',
-  unique (team_id, player_id)
-);
+create index if not exists idx_teams_division on public.teams(division);
 
 -- Ligas
 create table if not exists public.leagues (
@@ -230,6 +297,8 @@ create table if not exists public.matches (
   status match_status not null default 'scheduled',
   side_a_pair_id uuid references public.pairs (id) on delete set null,
   side_b_pair_id uuid references public.pairs (id) on delete set null,
+  side_a_name text,
+  side_b_name text,
   side_a_score integer,
   side_b_score integer,
   winner text,
@@ -258,7 +327,8 @@ create index if not exists idx_ranking_events_player on public.ranking_events(pl
 create index if not exists idx_ranking_events_tournament on public.ranking_events(tournament_id);
 
 -- Vista consolidada de ranking
-create or replace view public.ranking_view as
+create or replace view public.ranking_view
+with (security_invoker = true) as
 select
   pp.id as player_id,
   pp.display_name as player_name,
@@ -325,7 +395,6 @@ alter table public.registrations enable row level security;
 alter table public.player_profiles enable row level security;
 alter table public.player_cards enable row level security;
 alter table public.teams enable row level security;
-alter table public.team_members enable row level security;
 alter table public.leagues enable row level security;
 alter table public.league_divisions enable row level security;
 alter table public.league_teams enable row level security;
@@ -334,7 +403,6 @@ alter table public.ranking_events enable row level security;
 alter table public.news enable row level security;
 alter table public.sponsors enable row level security;
 alter table public.invitations enable row level security;
-alter table public.ranking_view enable row level security;
 
 -- Helpers
 create or replace function public.current_user_id()
@@ -353,18 +421,11 @@ create policy "Admins and organizers can modify clubs"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    ) or EXISTS (
-      select 1 from auth.users where auth.uid() = user_id and raw_app_meta_data->>'role' = 'club'
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer', 'club')
     )
   );
 
 -- Tournaments: lectura pública, escritura admin/organizer
-create policy "Public can view tournaments"
-  on public.tournaments for select
-  to authenticated, anon
-  using (status != 'draft');
-
 -- Nota: usa raw_app_meta_data (NO raw_user_meta_data) porque este último es editable por el usuario.
 -- El rol debe guardarse en raw_app_meta_data al crear el usuario.
 create policy "Public can view tournaments"
@@ -480,26 +541,10 @@ create policy "Admins and organizers manage player cards"
 create policy "Public can view teams"
   on public.teams for select
   to authenticated, anon
-  using (active = true);
+  using (true);
 
 create policy "Admins and organizers manage teams"
   on public.teams for all
-  to authenticated
-  using (
-    EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
-    )
-  )
-  with check (true);
-
--- Team members
-create policy "Team members viewable"
-  on public.team_members for select
-  to authenticated, anon
-  using (true);
-
-create policy "Admins and organizers manage team members"
-  on public.team_members for all
   to authenticated
   using (
     EXISTS (
@@ -643,11 +688,6 @@ create policy "Admins and organizers manage invitations"
   with check (true);
 
 -- Ranking view: lectura pública
-create policy "Ranking view is public"
-  on public.ranking_view for select
-  to authenticated, anon
-  using (true);
-
 -- ============================================
 -- Funciones utilitarias
 -- ============================================
@@ -704,12 +744,11 @@ create trigger trigger_create_player_card
 create or replace function public.handle_auth_user_created()
 returns trigger as $$
 begin
-  insert into public.player_profiles (user_id, display_name, username, email, city, state)
+  insert into public.player_profiles (user_id, display_name, username, city, state)
   values (
     new.id,
     coalesce(new.raw_app_meta_data->>'display_name', new.raw_user_meta_data->>'display_name', new.email),
     coalesce(new.raw_app_meta_data->>'username', new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
-    new.email,
     'Ciudad de México',
     'CDMX'
   );

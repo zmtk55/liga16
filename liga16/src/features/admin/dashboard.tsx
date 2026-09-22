@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { db } from "@/lib/data";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Users, Building2, Newspaper, TrendingUp, TrendingDown, ArrowRight, Zap, Settings, BarChart3 } from "lucide-react";
+import { Trophy, Users, Building2, Newspaper, TrendingUp, TrendingDown, ArrowRight, Zap, BarChart3 } from "lucide-react";
 
 interface StatCard {
   title: string;
@@ -49,7 +50,7 @@ export default function AdminDashboard() {
       action: { label: "Directorio", to: "/admin/jugadores" },
     },
     {
-      title: "Padel",
+      title: "Sede",
       value: stats?.c ?? 0,
       icon: <Building2 className="h-5 w-5" />,
       iconBg: "bg-amber-500/10",
@@ -83,8 +84,8 @@ export default function AdminDashboard() {
             </Link>
           </Button>
           <Button asChild size="sm">
-            <Link to="/admin/settings">
-              <Settings className="h-3.5 w-3.5" /> Configuración
+            <Link to="/admin/padel">
+              <Building2 className="h-3.5 w-3.5" /> Sede
             </Link>
           </Button>
         </div>
@@ -170,7 +171,9 @@ export default function AdminDashboard() {
               <>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Modo de datos</span>
-                  <Badge variant="default">DEMO</Badge>
+                  <Badge variant={isSupabaseConfigured ? "default" : "secondary"}>
+                    {isSupabaseConfigured ? "Supabase" : "Demo"}
+                  </Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Usuarios activos</span>

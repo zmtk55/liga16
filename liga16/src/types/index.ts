@@ -6,6 +6,9 @@ export type Sex = 'M' | 'F' | 'X';
 export type DominantHand = 'right' | 'left' | 'both';
 export type CourtPosition = 'drive' | 'reves' | 'both';
 
+// Categorías de padel por división
+export type PadelDivision = '1ra' | '2da' | '3ra' | '4ta' | '5ta' | '6ta' | 'Novatos';
+
 export type UserRole = 'player' | 'captain' | 'organizer' | 'club' | 'admin' | 'sponsor';
 
 export type TournamentStatus =
@@ -113,7 +116,7 @@ export interface Tournament {
   status: TournamentStatus;
   modality: TournamentModality;
   format: TournamentFormat;
-  organizer_id: UUID;
+  organizer_id: UUID | null;
   price_cents: number;
   currency: string;
   rules_summary: string | null;
@@ -218,23 +221,32 @@ export interface PlayerCard {
   player_id: UUID;
   slug: string;
   titles: number;
-  record: { played: number; won: number };
-  frequent_partner: string | null;
+  played: number;
+  won: number;
+  partner: string | null;
   recent_results: string[];
   trend: number[];
 }
 
+// En padel, un "equipo" es una pareja de 2 jugadores que compite en una división.
 export interface Team {
   id: UUID;
   slug: string;
-  name: string;
+  name: string;              // Ej: "Fuentes / Rojas"
   crest_url: string | null;
   city: string;
-  captain_name: string;
-  members: { player_id: UUID; name: string; level: number }[];
-  category: string;
-  record: { played: number; won: number; lost: number };
-  position: number;
+  club_id: UUID | null;      // Club al que pertenece la pareja
+  division: PadelDivision;   // 1ra, 2da, 3ra, 4ta, 5ta, 6ta, Novatos
+  sex: Sex;                  // M, F, X
+  player1: { player_id: UUID; name: string; level: number } | null;
+  player2: { player_id: UUID; name: string; level: number } | null;
+  position: number;          // Posición en la división
+  points: number;            // Puntos de liga
+  played: number;
+  won: number;
+  lost: number;
+  sets_for: number;
+  sets_against: number;
   titles: number;
 }
 

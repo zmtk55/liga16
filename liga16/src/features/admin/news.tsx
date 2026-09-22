@@ -52,8 +52,20 @@ export default function AdminNews() {
   async function handleSave(form: NewsForm) {
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
-      toast.success(editing ? `"${form.title}" actualizado` : `"${form.title}" publicado`);
+      const payload = {
+        title: form.title,
+        excerpt: form.excerpt,
+        tag: form.tag,
+        image_url: form.image_url || null,
+        published_at: editing?.published_at ?? new Date().toISOString(),
+      };
+      if (editing) {
+        await db.updateNews(editing.id, payload);
+        toast.success(`"${form.title}" actualizado`);
+      } else {
+        await db.createNews(payload as Omit<NewsItem, "id">);
+        toast.success(`"${form.title}" publicado`);
+      }
       setOpenCreate(false);
       setEditing(null);
       load();
@@ -65,8 +77,13 @@ export default function AdminNews() {
   }
 
   async function handleDelete(n: NewsItem) {
-    toast.success(`Noticia "${n.title}" eliminada (demo)`);
-    load();
+    try {
+      await db.deleteNews(n.id);
+      toast.success(`Noticia "${n.title}" eliminada`);
+      load();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al eliminar");
+    }
   }
 
   const dialogKey = editing?.id ?? "new";

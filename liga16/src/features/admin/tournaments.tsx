@@ -50,8 +50,33 @@ export default function AdminTournaments() {
   async function handleSave(form: TournamentFormData) {
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
-      toast.success(editing ? `Torneo "${form.name}" actualizado` : `Torneo "${form.name}" creado`);
+      const clubs = await db.listClubs();
+      const clubId = clubs[0]?.id ?? "club-1";
+      const payload = {
+        name: form.name,
+        cover_url: null,
+        club_id: clubId,
+        city: "Ciudad de México",
+        state: "CDMX",
+        start_date: form.start_date,
+        end_date: form.end_date,
+        registration_deadline: form.registration_deadline,
+        status: form.status as Tournament["status"],
+        modality: form.modality as Tournament["modality"],
+        format: form.format as Tournament["format"],
+        organizer_id: null,
+        price_cents: Number(form.price_cents) || 0,
+        currency: "MXN",
+        rules_summary: form.rules_summary || null,
+        description: form.description || null,
+      };
+      if (editing) {
+        await db.updateTournament(editing.slug, payload);
+        toast.success(`Torneo "${form.name}" actualizado`);
+      } else {
+        await db.createTournament(payload as Omit<Tournament, "id" | "slug">);
+        toast.success(`Torneo "${form.name}" creado`);
+      }
       setOpenCreate(false);
       setEditing(null);
       load();
@@ -63,8 +88,13 @@ export default function AdminTournaments() {
   }
 
   async function handleDelete(t: Tournament) {
-    toast.success(`Torneo "${t.name}" eliminado (demo)`);
-    load();
+    try {
+      await db.deleteTournament(t.slug);
+      toast.success(`Torneo "${t.name}" eliminado`);
+      load();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al eliminar");
+    }
   }
 
   const dialogKey = editing?.id ?? "new";
@@ -272,8 +302,8 @@ function TournamentFormDialog({
           </div>
           <div className="grid gap-1.5">
             <Label>Categorías</Label>
-            <Input value={form.category_names} onChange={(e) => update("category_names", e.target.value)} placeholder="4ª Masculino, 5ª Masculino, Mixto Open" />
-            <p className="text-xs text-muted-foreground">Una por línea o separadas por coma. Ej: 4ª Masculino, 5ª Masculino, Mixto Open</p>
+            <Input value={form.category_names} onChange={(e) => update("category_names", e.target.value)} placeholder="4ta Masculino, 5ta Masculino, Novatos Mixto" />
+            <p className="text-xs text-muted-foreground">Una por línea o separadas por coma. Ej: 4ta Masculino, 5ta Masculino, Novatos Mixto</p>
           </div>
           <div className="grid gap-1.5">
             <Label>Descripción</Label>

@@ -129,11 +129,11 @@ export default function PlayerDetailPage() {
         <StatCard title="Títulos" value={String(card?.titles ?? 0)} icon={<Trophy className="h-4 w-4 text-muted-foreground" />} />
         <StatCard
           title="Récord"
-          value={`${card?.record.won ?? 0}G / ${card?.record.played ?? 0}PJ`}
+          value={`${card?.won ?? 0}G / ${card?.played ?? 0}PJ`}
         />
         <StatCard
           title="Pareja frecuente"
-          value={card?.frequent_partner ?? "—"}
+          value={card?.partner ?? "—"}
         />
       </div>
 

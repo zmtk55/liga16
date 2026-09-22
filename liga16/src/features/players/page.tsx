@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { PlayerProfile, RankingEntry, PlayerCard } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,10 +23,11 @@ const positionLabel: Record<PlayerProfile["preferred_position"], string> = {
 };
 
 export default function PlayersPage() {
+  const [searchParams] = useSearchParams();
   const [players, setPlayers] = useState<PlayerProfile[] | null>(null);
   const [rankings, setRankings] = useState<RankingEntry[] | null>(null);
   const [cards, setCards] = useState<Record<string, PlayerCard> | null>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
 
   useEffect(() => {
     let active = true;
@@ -76,7 +77,7 @@ export default function PlayersPage() {
           {filtered.map((p) => {
             const rk = rankById.get(p.id);
             const card = cards?.[p.id];
-            const winPct = card && card.record.played ? Math.round((card.record.won / card.record.played) * 100) : 0;
+            const winPct = card && card.played ? Math.round((card.won / card.played) * 100) : 0;
             return (
               <Link key={p.id} to={`/jugadores/${p.id}`} className="group">
                 <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
@@ -114,7 +115,7 @@ export default function PlayersPage() {
 
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" /> {card ? `${card.record.won}/${card.record.played} ganados` : "Sin datos"}</span>
+                        <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" /> {card ? `${card.won}/${card.played} ganados` : "Sin datos"}</span>
                         <span>{winPct}%</span>
                       </div>
                       <Progress value={winPct} className="h-1.5" />
@@ -123,7 +124,7 @@ export default function PlayersPage() {
                     <div className="flex flex-wrap gap-1.5">
                       <Badge variant="outline" className="text-xs">{handLabel[p.dominant_hand]}</Badge>
                       <Badge variant="outline" className="text-xs">{positionLabel[p.preferred_position]}</Badge>
-                      {card?.frequent_partner && <Badge variant="secondary" className="text-xs">con {card.frequent_partner.split(" ")[0]}</Badge>}
+                      {card?.partner && <Badge variant="secondary" className="text-xs">con {card.partner.split(" ")[0]}</Badge>}
                     </div>
                     {rk && <p className="text-xs text-muted-foreground">{rk.played} PJ · {rk.won} PG · Δ {rk.delta > 0 ? `+${rk.delta}` : rk.delta}</p>}
                   </CardContent>

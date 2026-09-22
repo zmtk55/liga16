@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   CalendarDays,
   Search,
@@ -27,29 +27,9 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TournamentCard } from "@/components/cards/resource-card";
-import {
-  matchStatusLabel,
-  tierLabel,
-} from "@/lib/format";
+import { tierLabel } from "@/lib/format";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, ResponsiveContainer } from "recharts";
-
-const statusVariantMatch: Record<
-  Match["status"],
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  live: "destructive",
-  scheduled: "secondary",
-  finished: "outline",
-  walkover: "outline",
-  disputed: "destructive",
-  cancelled: "outline",
-};
-
-function setsSummary(m: Match) {
-  if (m.sets.length === 0) return "—";
-  return m.sets.map((s) => `${s.a}-${s.b}`).join(" · ");
-}
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 
 // ─── Animated counter ───
 function AnimatedNumber({ value, className }: { value: number; className?: string }) {
@@ -125,6 +105,8 @@ function KpiCard({
 }
 
 export default function Home() {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const [stats, setStats] = useState<{
     tournaments: Tournament[];
     teams: Team[];
@@ -207,28 +189,29 @@ export default function Home() {
     );
   }
 
-  const liveMatches = stats.matches.filter((m) => m.status === "live");
   const openTournaments = stats.tournaments.filter(
     (t) => t.status === "registration_open" || t.status === "in_progress",
   );
+
+  function onSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    navigate(q ? `/jugadores?q=${encodeURIComponent(q)}` : "/jugadores");
+  }
 
   return (
     <div className="space-y-8">
       {/* ── Search bar ── */}
       <section className="animate-slide-up">
-        <div className="relative">
+        <form onSubmit={onSearch} className="relative">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar jugadores, torneos, equipos, noticias..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="h-14 pl-12 text-base bg-card shadow-sm border-border/50 focus-visible:ring-2 focus-visible:ring-primary/30"
           />
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              <kbd className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">⌘</kbd>
-              <kbd className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground ml-0.5">K</kbd>
-            </Badge>
-          </div>
-        </div>
+        </form>
       </section>
 
       {/* ── KPI Cards ── */}
@@ -353,7 +336,7 @@ export default function Home() {
               <span className="text-sm opacity-75 mb-1">activos este mes</span>
             </div>
             <Button asChild size="sm" variant="secondary" className="mt-4">
-              <Link to="/torneos">Crear torneo</Link>
+              <Link to="/torneos">Ver torneos</Link>
             </Button>
           </CardContent>
         </Card>

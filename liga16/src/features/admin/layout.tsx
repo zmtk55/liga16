@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { LayoutDashboard, Trophy, Building2, Newspaper, Users, BarChart3, Sparkles, Shield, ShieldCheck, ShieldAlert, Menu, X } from "lucide-react";
+import { LayoutDashboard, Trophy, Building2, Newspaper, Users, UsersRound, BarChart3, ClipboardList, Sparkles, Shield, ShieldAlert, Menu, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,13 +12,13 @@ import {
 } from "@/components/ui/sheet";
 
 const items = [
-  { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+  { to: "/admin", label: "Panel", icon: LayoutDashboard, exact: true },
   { to: "/admin/torneos", label: "Torneos", icon: Trophy },
-  { to: "/admin/equipos", label: "Equipos", icon: ShieldCheck },
-  { to: "/admin/jugadores", label: "Jugadores", icon: Users },
+  { to: "/admin/equipos", label: "Equipos", icon: Users },
+  { to: "/admin/jugadores", label: "Jugadores", icon: UsersRound },
   { to: "/admin/ranking", label: "Ranking", icon: BarChart3 },
-  { to: "/admin/resultados", label: "Resultados", icon: Trophy },
-  { to: "/admin/padel", label: "Padel", icon: Building2 },
+  { to: "/admin/resultados", label: "Resultados", icon: ClipboardList },
+  { to: "/admin/padel", label: "Sede", icon: Building2 },
   { to: "/admin/noticias", label: "Noticias", icon: Newspaper },
   { to: "/admin/onboarding", label: "Onboarding", icon: Sparkles },
 ];
