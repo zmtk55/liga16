@@ -53,7 +53,7 @@ create table if not exists public.tournaments (
   status tournament_status not null default 'draft',
   modality tournament_modality not null default 'pairs',
   format tournament_format not null default 'single_elimination',
-  organizer_id uuid references public.profiles (id) on delete set null,
+  organizer_id uuid references auth.users (id) on delete set null,
   price_cents integer not null default 0,
   currency text not null default 'MXN',
   rules_summary text,
