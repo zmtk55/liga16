@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, CalendarDays, MapPin, Trophy, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Trophy, Users, Check, ChevronRight, ChevronLeft, CreditCard, User } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Pair, Tournament, TournamentCategory } from "@/types";
 import { formatMoney, formatDateRange, formatLabel, tournamentStatusLabel } from "@/lib/format";
@@ -38,6 +38,7 @@ export default function TournamentDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("transfer");
   const [acceptedRules, setAcceptedRules] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [regStep, setRegStep] = useState(0); // 0: datos, 1: pago, 2: confirmar
 
   useEffect(() => {
     if (!slug) return;
@@ -82,6 +83,7 @@ export default function TournamentDetailPage() {
     setPairName("");
     setPaymentMethod("transfer");
     setAcceptedRules(false);
+    setRegStep(0);
     setOpenDialog(true);
   };
 
@@ -158,26 +160,28 @@ export default function TournamentDetailPage() {
         </Link>
       </Button>
 
-      <header className="space-y-2">
+      <header className="space-y-3 rounded-2xl border bg-gradient-to-br from-card to-muted/30 p-6 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">{tournament.name}</h1>
-          <Badge>{tournamentStatusLabel[tournament.status]}</Badge>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{tournament.name}</h1>
+          <Badge className={tournament.status === "registration_open" ? "bg-emerald-600" : undefined}>
+            {tournamentStatusLabel[tournament.status]}
+          </Badge>
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <CalendarDays className="h-4 w-4" />
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <span className="flex items-center gap-1.5 font-medium">
+            <CalendarDays className="h-4 w-4 text-primary" />
             {formatDateRange(tournament.start_date, tournament.end_date)}
           </span>
-          <span className="flex items-center gap-1.5">
-            <MapPin className="h-4 w-4" />
+          <span className="flex items-center gap-1.5 font-medium">
+            <MapPin className="h-4 w-4 text-primary" />
             {tournament.club_name ?? "Club Padel Reforma"}
           </span>
-          <span className="flex items-center gap-1.5">
-            <Trophy className="h-4 w-4" />
+          <span className="flex items-center gap-1.5 font-medium">
+            <Trophy className="h-4 w-4 text-primary" />
             {formatLabel[tournament.format]}
           </span>
-          <span className="flex items-center gap-1.5">
-            <Users className="h-4 w-4" />
+          <span className="flex items-center gap-1.5 font-medium">
+            <Users className="h-4 w-4 text-primary" />
             Inscripción {formatMoney(tournament.price_cents, tournament.currency)}
           </span>
         </div>
@@ -187,9 +191,10 @@ export default function TournamentDetailPage() {
           </p>
         )}
         {tournament.rules_summary && (
-          <p className="max-w-3xl rounded-md bg-muted p-3 text-xs text-muted-foreground">
-            Reglamento: {tournament.rules_summary}
-          </p>
+          <div className="max-w-3xl rounded-lg border-l-4 border-primary bg-primary/5 p-3">
+            <p className="text-xs font-medium text-primary mb-1">📜 Reglamento</p>
+            <p className="text-xs text-muted-foreground">{tournament.rules_summary}</p>
+          </div>
         )}
       </header>
 
@@ -258,80 +263,185 @@ export default function TournamentDetailPage() {
           <DialogHeader>
             <DialogTitle>Inscripción — {selectedCategory?.name}</DialogTitle>
             <DialogDescription>
-              {tournament.name}. Completa los datos de la pareja para reservar tu lugar.
+              {tournament.name} · {selectedCategory ? formatMoney(selectedCategory.price_cents, tournament.currency) : ""}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="player1">Jugador 1</Label>
-              <Input
-                id="player1"
-                placeholder="Nombre completo"
-                value={player1}
-                onChange={(e) => setPlayer1(e.target.value)}
-              />
+          {/* Progress steps */}
+          <div className="flex items-center gap-2 py-2">
+            {[
+              { n: 0, label: "Datos", icon: User },
+              { n: 1, label: "Pago", icon: CreditCard },
+              { n: 2, label: "Confirmar", icon: Check },
+            ].map((s, i) => (
+              <div key={s.n} className="flex flex-1 items-center">
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                  i < regStep ? "bg-emerald-600 text-white" :
+                  i === regStep ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
+                  {i < regStep ? <s.icon className="h-3.5 w-3.5" /> : i + 1}
+                </div>
+                <span className={`ml-1.5 hidden text-xs font-medium sm:block ${i === regStep ? "text-foreground" : "text-muted-foreground"}`}>
+                  {s.label}
+                </span>
+                {i < 2 && <div className={`mx-1 h-0.5 flex-1 rounded ${i < regStep ? "bg-emerald-600" : "bg-muted"}`} />}
+              </div>
+            ))}
+          </div>
+
+          {/* STEP 0: Datos */}
+          {regStep === 0 && (
+            <div className="grid gap-3 py-2">
+              <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground mb-1">📝 Datos de la pareja</p>
+                <p>Necesitamos los nombres completos de ambos jugadores para la inscripción.</p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="player1">Nombre del Jugador 1 *</Label>
+                <Input
+                  id="player1"
+                  placeholder="Nombre completo"
+                  value={player1}
+                  onChange={(e) => setPlayer1(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="player2">Nombre del Jugador 2 *</Label>
+                <Input
+                  id="player2"
+                  placeholder="Nombre completo"
+                  value={player2}
+                  onChange={(e) => setPlayer2(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pairName">Nombre de la pareja (opcional)</Label>
+                <Input
+                  id="pairName"
+                  placeholder="Ej: González / López"
+                  value={pairName}
+                  onChange={(e) => setPairName(e.target.value)}
+                />
+              </div>
+              <Button onClick={() => setRegStep(1)} className="w-full">
+                Siguiente <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="player2">Jugador 2</Label>
-              <Input
-                id="player2"
-                placeholder="Nombre completo"
-                value={player2}
-                onChange={(e) => setPlayer2(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="pairName">Nombre de la pareja (opcional)</Label>
-              <Input
-                id="pairName"
-                placeholder="Apellidos / Apellidos"
-                value={pairName}
-                onChange={(e) => setPairName(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Método de pago</Label>
+          )}
+
+          {/* STEP 1: Pago */}
+          {regStep === 1 && (
+            <div className="grid gap-3 py-2">
+              <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground mb-1">💳 Método de pago</p>
+                <p>
+                  {paymentMethod === "transfer"
+                    ? "Transferencia bancaria: después de inscribirte te enviamos los datos de la cuenta."
+                    : "Efectivo: pagas directamente al organizer el día del torneo."}
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Selecciona método de pago</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={paymentMethod === "transfer" ? "default" : "outline"}
+                    onClick={() => setPaymentMethod("transfer")}
+                    className="flex-1"
+                  >
+                    <CreditCard className="h-4 w-4 mr-1.5" />
+                    Transferencia
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={paymentMethod === "cash" ? "default" : "outline"}
+                    onClick={() => setPaymentMethod("cash")}
+                    className="flex-1"
+                  >
+                    Efectivo
+                  </Button>
+                </div>
+              </div>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={acceptedRules}
+                  onChange={(e) => setAcceptedRules(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Acepto el reglamento del torneo y confirmo el pago de{" "}
+                  <strong>
+                    {selectedCategory
+                      ? formatMoney(selectedCategory.price_cents, tournament.currency)
+                      : ""}
+                  </strong>.
+                </span>
+              </label>
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={paymentMethod === "transfer" ? "default" : "outline"}
-                  onClick={() => setPaymentMethod("transfer")}
-                  className="flex-1"
-                >
-                  Transferencia
+                <Button variant="outline" onClick={() => setRegStep(0)} className="flex-1">
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
                 </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === "cash" ? "default" : "outline"}
-                  onClick={() => setPaymentMethod("cash")}
-                  className="flex-1"
-                >
-                  Efectivo
+                <Button onClick={() => setRegStep(2)} className="flex-1" disabled={!acceptedRules}>
+                  Revisar <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={acceptedRules}
-                onChange={(e) => setAcceptedRules(e.target.checked)}
-                className="mt-0.5"
-              />
-              Acepto el reglamento del torneo y confirmo el pago de{" "}
-              {selectedCategory
-                ? formatMoney(selectedCategory.price_cents, tournament.currency)
-                : "la inscripción"}
-              .
-            </label>
-          </div>
+          )}
 
-          <DialogFooter>
+          {/* STEP 2: Confirmar */}
+          {regStep === 2 && (
+            <div className="grid gap-3 py-2">
+              <div className="rounded-lg bg-primary/10 p-3 text-sm">
+                <p className="font-medium text-primary mb-2">🔍 Revisa tu inscripción</p>
+                <div className="grid gap-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Torneo:</span>
+                    <span className="font-medium">{tournament.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Categoría:</span>
+                    <span className="font-medium">{selectedCategory?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Jugador 1:</span>
+                    <span className="font-medium">{player1}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Jugador 2:</span>
+                    <span className="font-medium">{player2}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pareja:</span>
+                    <span className="font-medium">
+                      {pairName.trim() || `${player1} / ${player2}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pago:</span>
+                    <span className="font-medium">
+                      {paymentMethod === "transfer" ? "Transferencia" : "Efectivo"} ·{" "}
+                      {selectedCategory
+                        ? formatMoney(selectedCategory.price_cents, tournament.currency)
+                        : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setRegStep(1)} className="flex-1">
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Corregir
+                </Button>
+                <Button onClick={submitRegistration} disabled={submitting} className="flex-1">
+                  {submitting ? "Enviando…" : <><Check className="h-4 w-4 mr-1" /> Confirmar</>}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="hidden">
             <Button variant="outline" onClick={() => setOpenDialog(false)}>
               Cancelar
-            </Button>
-            <Button onClick={submitRegistration} disabled={submitting}>
-              {submitting ? "Enviando…" : "Confirmar inscripción"}
             </Button>
           </DialogFooter>
         </DialogContent>

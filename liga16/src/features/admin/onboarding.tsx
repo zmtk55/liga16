@@ -103,18 +103,22 @@ export default function AdminOnboarding() {
         {step === 0 && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold">Sede</h2>
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">🏢 Información básica del club</p>
+              <p>Estos datos aparecerán en tu perfil público y en la documentación de la liga.</p>
+            </div>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
                 <Label>Nombre del club</Label>
-                <Input value={venue.name} onChange={(e) => setVenue((v) => ({ ...v, name: e.target.value }))} />
+                <Input value={venue.name} onChange={(e) => setVenue((v) => ({ ...v, name: e.target.value }))} placeholder="Ej: Club Pádel Reforma" />
               </div>
               <div className="grid gap-1.5">
                 <Label>Dirección</Label>
-                <Input value={venue.address} onChange={(e) => setVenue((v) => ({ ...v, address: e.target.value }))} />
+                <Input value={venue.address} onChange={(e) => setVenue((v) => ({ ...v, address: e.target.value }))} placeholder="Ej: Av. Reforma 245, Col. Juárez" />
               </div>
               <div className="grid gap-1.5">
                 <Label>Teléfono</Label>
-                <Input value={venue.phone} onChange={(e) => setVenue((v) => ({ ...v, phone: e.target.value }))} />
+                <Input value={venue.phone} onChange={(e) => setVenue((v) => ({ ...v, phone: e.target.value }))} placeholder="Ej: +52 55 1234 0001" />
               </div>
             </div>
           </div>
@@ -122,14 +126,26 @@ export default function AdminOnboarding() {
         {step === 1 && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold">Jugadores</h2>
-            <p className="text-sm text-muted-foreground">¿Cuántos jugadores vas a registrar inicialmente?</p>
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">👥 ¿Cuántos jugadores participarán?</p>
+              <p>Esto te ayuda a planificar la liga. Puedes agregar o editar jugadores después.</p>
+            </div>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
                 <Label>Cantidad estimada</Label>
                 <Input type="number" min="1" value={playersCount} onChange={(e) => setPlayersCount(e.target.value)} />
               </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-muted-foreground">Ejemplos comunes:</Label>
+                <div className="flex gap-2 flex-wrap">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setPlayersCount("8")}>8 jugadores</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setPlayersCount("12")}>12 jugadores</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setPlayersCount("16")}>16 jugadores</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setPlayersCount("24")}>24 jugadores</Button>
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Puedes agregar más jugadores después desde Administración → Jugadores.
+                Puedes agregar más después desde Administración → Jugadores.
               </p>
             </div>
           </div>
@@ -137,14 +153,22 @@ export default function AdminOnboarding() {
         {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold">Equipos</h2>
-            <p className="text-sm text-muted-foreground">¿Cuántos equipos participarán?</p>
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">🏈 ¿Cuántos equipos competirán?</p>
+              <p>Se crearán automáticamente con nombres genéricos (Equipo 1, Equipo 2...) que después puedes editar.</p>
+            </div>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
                 <Label>Cantidad de equipos</Label>
                 <Input type="number" min="2" value={teamsCount} onChange={(e) => setTeamsCount(e.target.value)} />
               </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" variant="outline" size="sm" onClick={() => setTeamsCount("2")}>2 equipos</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setTeamsCount("4")}>4 equipos</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setTeamsCount("8")}>8 equipos</Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Puedes crear equipos desde Administración → Equipos.
+                Puedes crear más desde Administración → Equipos.
               </p>
             </div>
           </div>
@@ -152,13 +176,17 @@ export default function AdminOnboarding() {
         {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold">Primer torneo</h2>
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">🏆 Configura tu primer torneo</p>
+              <p>Se creará con formato grupos + eliminación, inscripciones abiertas por categoría.</p>
+            </div>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
                 <Label>Nombre del torneo</Label>
-                <Input value={tournamentName} onChange={(e) => setTournamentName(e.target.value)} />
+                <Input value={tournamentName} onChange={(e) => setTournamentName(e.target.value)} placeholder="Ej: Copa Liga16 Apertura 2026" />
               </div>
               <p className="text-xs text-muted-foreground">
-                El torneo se creará con formato grupos + eliminación, inscripciones abiertas, y 80,000 MXN de registro.
+                El registro será de $800 MXN por pareja. Puedes editar todo después desde Administración → Torneos.
               </p>
             </div>
           </div>

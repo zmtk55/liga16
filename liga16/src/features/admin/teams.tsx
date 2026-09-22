@@ -81,7 +81,7 @@ export default function AdminTeams() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Equipos</h2>
+        <h1 className="text-3xl font-bold tracking-tight">Equipos</h1>
         <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
           <Plus className="h-4 w-4 mr-1" /> Nuevo equipo
         </Button>
@@ -202,11 +202,12 @@ function TeamFormDialog({
               <Select value={form.category} onValueChange={(v) => update("category", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Primera División">Primera División</SelectItem>
+                  <SelectItem value="Primera División">Primera División (élite)</SelectItem>
                   <SelectItem value="Segunda División">Segunda División</SelectItem>
-                  <SelectItem value="Tercera División">Tercera División</SelectItem>
+                  <SelectItem value="Tercera División">Tercera División (novatos)</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Primera = élite, Tercera = en desarrollo</p>
             </div>
             <div className="grid gap-1.5">
               <Label>Capitán</Label>

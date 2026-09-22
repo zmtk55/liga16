@@ -353,9 +353,9 @@ create policy "Admins and organizers can modify clubs"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     ) or EXISTS (
-      select 1 from auth.users where auth.uid() = user_id and raw_user_meta_data->>'role' = 'club'
+      select 1 from auth.users where auth.uid() = user_id and raw_app_meta_data->>'role' = 'club'
     )
   );
 
@@ -365,12 +365,19 @@ create policy "Public can view tournaments"
   to authenticated, anon
   using (status != 'draft');
 
+-- Nota: usa raw_app_meta_data (NO raw_user_meta_data) porque este último es editable por el usuario.
+-- El rol debe guardarse en raw_app_meta_data al crear el usuario.
+create policy "Public can view tournaments"
+  on public.tournaments for select
+  to anon, authenticated
+  using (status != 'draft');
+
 create policy "Admins and organizers manage tournaments"
   on public.tournaments for all
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
   );
 
@@ -385,9 +392,10 @@ create policy "Admins and organizers manage categories"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Pairs
 create policy "Public can view pairs"
@@ -400,7 +408,7 @@ create policy "Users manage own pairs"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer', 'club')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer', 'club')
     )
   );
 
@@ -420,9 +428,10 @@ create policy "Admins and organizers manage registrations"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Player profiles
 create policy "Public profiles are viewable"
@@ -439,16 +448,17 @@ create policy "Users can update own profile"
   on public.player_profiles for update
   to authenticated
   using (user_id = current_user_id())
-  with check (true);
+  with check (user_id = current_user_id());
 
 create policy "Admins and organizers manage players"
   on public.player_profiles for all
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Player cards
 create policy "Player cards viewable"
@@ -461,9 +471,10 @@ create policy "Admins and organizers manage player cards"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Teams: lectura pública, escritura admin/organizer
 create policy "Public can view teams"
@@ -476,9 +487,10 @@ create policy "Admins and organizers manage teams"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Team members
 create policy "Team members viewable"
@@ -491,9 +503,10 @@ create policy "Admins and organizers manage team members"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Leagues
 create policy "Public can view leagues"
@@ -506,9 +519,10 @@ create policy "Admins and organizers manage leagues"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- League divisions
 create policy "League divisions viewable"
@@ -521,9 +535,10 @@ create policy "Admins and organizers manage league divisions"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- League teams (positions)
 create policy "League teams viewable"
@@ -536,9 +551,10 @@ create policy "Admins and organizers manage league teams"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Matches
 create policy "Public can view matches"
@@ -551,9 +567,10 @@ create policy "Admins and organizers manage matches"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Ranking events
 create policy "Ranking events viewable"
@@ -567,9 +584,10 @@ create policy "Users own their ranking events"
   using (
     player_id = (select auth.uid()) or
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (player_id = (select auth.uid()));
 
 -- News
 create policy "Public can view news"
@@ -582,9 +600,10 @@ create policy "Admins and organizers manage news"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Sponsors
 create policy "Sponsors viewable"
@@ -597,9 +616,10 @@ create policy "Admins and organizers manage sponsors"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Invitations
 create policy "Invitation recipients view"
@@ -608,7 +628,7 @@ create policy "Invitation recipients view"
   using (
     player_id = current_user_id() or
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
   );
 
@@ -617,9 +637,10 @@ create policy "Admins and organizers manage invitations"
   to authenticated
   using (
     EXISTS (
-      select 1 from auth.users where auth.uid() = id and raw_user_meta_data->>'role' in ('admin', 'organizer')
+      select 1 from auth.users where auth.uid() = id and raw_app_meta_data->>'role' in ('admin', 'organizer')
     )
-  );
+  )
+  with check (true);
 
 -- Ranking view: lectura pública
 create policy "Ranking view is public"
@@ -679,14 +700,15 @@ create trigger trigger_create_player_card
   for each row execute function public.handle_new_player();
 
 -- Trigger para crear perfil cuando se crea usuario en auth
+-- Lee de raw_app_meta_data con fallback a raw_user_meta_data por seguridad
 create or replace function public.handle_auth_user_created()
 returns trigger as $$
 begin
   insert into public.player_profiles (user_id, display_name, username, email, city, state)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'display_name', new.email),
-    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
+    coalesce(new.raw_app_meta_data->>'display_name', new.raw_user_meta_data->>'display_name', new.email),
+    coalesce(new.raw_app_meta_data->>'username', new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
     new.email,
     'Ciudad de México',
     'CDMX'
@@ -698,3 +720,42 @@ $$ language plpgsql;
 create trigger trigger_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_auth_user_created();
+
+-- Sincroniza role de raw_user_meta_data a raw_app_meta_data para RLS seguro
+-- Tras signup, el role viaja en raw_user_meta_data pero RLS lo lee de raw_app_meta_data
+create or replace function public.sync_role_app_metadata()
+returns trigger as $$
+begin
+  if new.raw_user_meta_data ? 'role' then
+    new.raw_app_metadata := jsonb_set(
+      coalesce(new.raw_app_metadata, '{}'::jsonb),
+      '{role}',
+      new.raw_user_meta_data->'role'
+    );
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger trigger_sync_role_app_metadata
+  before insert or update on auth.users
+  for each row execute function public.sync_role_app_metadata();
+
+-- Actualiza raw_app_metadata cuando cambia raw_user_metadata (rol update)
+create or replace function public.sync_role_on_update()
+returns trigger as $$
+begin
+  if new.raw_user_meta_data ->> 'role' is distinct from old.raw_user_meta_data ->> 'role' then
+    new.raw_app_metadata := jsonb_set(
+      coalesce(new.raw_app_metadata, '{}'::jsonb),
+      '{role}',
+      new.raw_user_meta_data->'role'
+    );
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger trigger_sync_role_update
+  before update on auth.users
+  for each row execute function public.sync_role_on_update();

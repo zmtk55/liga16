@@ -124,15 +124,16 @@ export const supabaseProvider: DataProvider = {
 
   async createPlayer(data: Omit<import('@/types').PlayerProfile, 'id' | 'user_id'>) {
     // Crear usuario en auth y perfil en player_profiles
-    const username = data.username;
-    const email = `${username}@liga16.example`;
+    // Guardar role en raw_user_meta_data temporalmente.
+    // Un trigger en SQL lo sincroniza a raw_app_meta_data (ver schema.sql).
     const { data: authData, error: authErr } = await client().auth.signUp({
-      email,
+      email: `${data.username}@liga16.example`,
       password: 'Liga162026!',
       options: {
         data: {
           display_name: data.display_name,
           username: data.username,
+          role: data.role ?? 'player',
         },
       },
     });

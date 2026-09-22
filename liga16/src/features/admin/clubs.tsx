@@ -48,7 +48,7 @@ export default function AdminClubs() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Padel — Única sede</h2>
+        <h1 className="text-3xl font-bold tracking-tight">Padel — Única sede</h1>
         {!editing ? (
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
             <Edit3 className="h-4 w-4 mr-1" /> Editar

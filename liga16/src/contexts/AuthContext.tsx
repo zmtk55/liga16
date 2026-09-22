@@ -16,12 +16,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 async function resolveRole(userId: string): Promise<UserRole> {
   if (!isSupabaseConfigured || !supabase) return "player";
   try {
+    // Lee el rol de raw_app_meta_data (NO raw_user_meta_data, es editable por el usuario)
     const { data } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
-    return (data?.role as UserRole | undefined) ?? "player";
+      .auth.getUser();
+    if (data?.user?.id === userId) {
+      const role = data.user.user_metadata?.role as UserRole | undefined;
+      if (role) return role;
+      const appRole = data.user.app_metadata?.role as UserRole | undefined;
+      if (appRole) return appRole;
+    }
+    return "player";
   } catch {
     return "player";
   }

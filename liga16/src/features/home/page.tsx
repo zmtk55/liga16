@@ -5,7 +5,6 @@ import {
   Search,
   Trophy,
   Users,
-  ArrowRight,
   Sparkles,
   ChevronRight,
 } from "lucide-react";
@@ -113,36 +112,33 @@ export default function Home() {
   return (
     <div className="space-y-12">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background px-6 py-14 md:px-10 md:py-20">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-background px-6 py-14 md:px-10 md:py-20">
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card px-3 py-1 text-xs font-medium text-primary">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card/80 backdrop-blur px-4 py-1.5 text-xs font-semibold text-primary">
             <Sparkles className="h-3.5 w-3.5" />
-            Temporada 2026-27
+            Temporada 2026-27 — 16 torneos
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight md:text-6xl">
+          <h1 className="text-5xl font-extrabold tracking-tight md:text-7xl">
             Liga16
           </h1>
-          <p className="mt-4 text-lg text-muted-foreground md:text-xl">
-            Torneos, ranking y vida de padel en un solo lugar.
+          <p className="mt-4 text-lg font-medium text-foreground md:text-xl">
+            Torneos, ranking y vida de pádel en un solo lugar
           </p>
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Button asChild size="lg">
-              <Link to="/jugadores">
-                Crear mi perfil gratis
-                <ArrowRight className="ml-2 h-4 w-4" />
+            <Button asChild size="lg" className="gap-1.5">
+              <Link to="/torneos">
+                Ver torneos
+                <ChevronRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link to="/ranking">
-                Ver ranking
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Link>
+              <Link to="/calendario">Ver calendario</Link>
             </Button>
           </div>
           <div className="relative mx-auto mt-8 max-w-lg">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar jugadores y torneos..."
+              placeholder="Buscar jugadores, torneos, equipos..."
               className="h-11 pl-9"
             />
           </div>

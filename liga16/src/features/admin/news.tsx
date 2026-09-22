@@ -74,7 +74,7 @@ export default function AdminNews() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Noticias</h2>
+        <h1 className="text-3xl font-bold tracking-tight">Noticias</h1>
         <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
           <Plus className="h-4 w-4 mr-1" /> Nueva noticia
         </Button>
@@ -182,7 +182,8 @@ function NewsFormDialog({
           </div>
           <div className="grid gap-1.5">
             <Label>Extracto</Label>
-            <Input value={form.excerpt} onChange={(e) => update("excerpt", e.target.value)} placeholder="Breve descripción" />
+            <Input value={form.excerpt} onChange={(e) => update("excerpt", e.target.value)} placeholder="1-2 líneas que resuman la noticia" />
+            <p className="text-xs text-muted-foreground">Máx ~140 caracteres para tarjetas</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
@@ -199,6 +200,7 @@ function NewsFormDialog({
             <div className="grid gap-1.5">
               <Label>Imagen (URL)</Label>
               <Input value={form.image_url} onChange={(e) => update("image_url", e.target.value)} placeholder="https://..." />
+              <p className="text-xs text-muted-foreground">Opcional. Recomendado 1200×630px</p>
             </div>
           </div>
         </div>

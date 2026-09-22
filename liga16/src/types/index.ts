@@ -68,6 +68,7 @@ export interface PlayerProfile {
   preferred_position: CourtPosition;
   bio: string | null;
   is_public: boolean;
+  role: UserRole;
 }
 
 export interface Club {

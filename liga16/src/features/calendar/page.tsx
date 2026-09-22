@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Radio } from "lucide-react";
 
 const statusMeta: Record<
   MatchStatus,
@@ -72,23 +73,27 @@ export default function CalendarPage() {
         <div className="space-y-3">
           {matches.map((m) => {
             const meta = statusMeta[m.status];
+            const isLive = m.status === "live";
             return (
-              <Card key={m.id}>
+              <Card key={m.id} className={isLive ? "border-red-500/40" : ""}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                    <CardTitle className={`text-sm font-medium ${isLive ? "text-red-600" : "text-muted-foreground"}`}>
                       {m.tournament_name} · {m.category_name} · {m.round}
                     </CardTitle>
-                    <Badge variant={meta.variant}>{meta.label}</Badge>
+                    <div className="flex items-center gap-1.5">
+                      {isLive && (
+                        <span className="flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+                          <Radio className="h-3 w-3 animate-pulse" /> EN VIVO
+                        </span>
+                      )}
+                      <Badge variant={meta.variant}>{meta.label}</Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span
-                      className={
-                        m.winner === "a" ? "font-semibold" : undefined
-                      }
-                    >
+                    <span className={m.winner === "a" ? "font-semibold" : undefined}>
                       {m.side_a.pair_name}
                     </span>
                     <span className="tabular-nums text-muted-foreground">
@@ -96,11 +101,7 @@ export default function CalendarPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span
-                      className={
-                        m.winner === "b" ? "font-semibold" : undefined
-                      }
-                    >
+                    <span className={m.winner === "b" ? "font-semibold" : undefined}>
                       {m.side_b.pair_name}
                     </span>
                   </div>

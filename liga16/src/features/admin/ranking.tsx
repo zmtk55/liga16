@@ -97,7 +97,7 @@ export default function AdminRanking() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Ranking</h2>
+        <h1 className="text-3xl font-bold tracking-tight">Ranking</h1>
         <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
           <Plus className="h-4 w-4 mr-1" /> Agregar jugador
         </Button>
@@ -239,6 +239,9 @@ function RankingFormDialog({
               <Input type="number" step="0.1" value={form.level} onChange={(e) => update("level", e.target.value)} />
             </div>
           </div>
+          <div className="grid gap-1.5">
+            <p className="text-xs text-muted-foreground">PJ = partidos jugados, PG = partidos ganados, Cambio = posición sube(+)/baja(-)</p>
+          </div>
           <div className="grid grid-cols-4 gap-3">
             <div className="grid gap-1.5">
               <Label>Puntos</Label>
@@ -253,7 +256,7 @@ function RankingFormDialog({
               <Input type="number" value={form.won} onChange={(e) => update("won", e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Cambio</Label>
+              <Label>Δ</Label>
               <Input type="number" value={form.delta} onChange={(e) => update("delta", e.target.value)} />
             </div>
           </div>

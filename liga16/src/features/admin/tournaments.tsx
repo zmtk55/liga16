@@ -72,7 +72,7 @@ export default function AdminTournaments() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Torneos</h2>
+        <h1 className="text-3xl font-bold tracking-tight">Torneos</h1>
         <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
           <Plus className="h-4 w-4 mr-1" /> Nuevo torneo
         </Button>
@@ -271,16 +271,21 @@ function TournamentFormDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>Categorías (separadas por coma)</Label>
+            <Label>Categorías</Label>
             <Input value={form.category_names} onChange={(e) => update("category_names", e.target.value)} placeholder="4ª Masculino, 5ª Masculino, Mixto Open" />
+            <p className="text-xs text-muted-foreground">Una por línea o separadas por coma. Ej: 4ª Masculino, 5ª Masculino, Mixto Open</p>
           </div>
           <div className="grid gap-1.5">
             <Label>Descripción</Label>
-            <Input value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="Descripción del torneo" />
+            <Input value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="Describe el torneo brevemente" />
           </div>
           <div className="grid gap-1.5">
             <Label>Reglamento</Label>
-            <Input value={form.rules_summary} onChange={(e) => update("rules_summary", e.target.value)} placeholder="Reglas del torneo" />
+            <Input value={form.rules_summary} onChange={(e) => update("rules_summary", e.target.value)} placeholder="Reglas principales del torneo" />
+          </div>
+          <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+            <p className="font-medium text-foreground mb-1">💡 Consejo:</p>
+            <p>El precio se guarda en centavos MXN. $800 = 80000. Las fechas son en formato YYYY-MM-DD.</p>
           </div>
         </div>
         <DialogFooter>

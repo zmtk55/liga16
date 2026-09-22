@@ -99,7 +99,7 @@ export default function AdminPlayers() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Jugadores</h2>
+        <h1 className="text-3xl font-bold tracking-tight">Jugadores</h1>
         <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
           <Plus className="h-4 w-4 mr-1" /> Nuevo jugador
         </Button>
@@ -232,6 +232,7 @@ function PlayerFormDialog({
             <div className="grid gap-1.5">
               <Label>Nivel</Label>
               <Input type="number" step="0.1" min="1" max="7" value={form.declared_level} onChange={(e) => update("declared_level", e.target.value)} />
+              <p className="text-xs text-muted-foreground">Nivel del 1.0 al 7.0 (se recomienda actualizar a oficial después)</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

@@ -79,7 +79,7 @@ export default function AdminResults() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Resultados</h2>
+        <h1 className="text-3xl font-bold tracking-tight">Resultados</h1>
         <p className="text-sm text-muted-foreground">Gestiona el estado de los partidos</p>
       </div>
       <Card>
@@ -206,6 +206,10 @@ function MatchEditDialog({
               <Label>Fecha y hora</Label>
               <Input type="datetime-local" value={form.scheduled_at} onChange={(e) => update("scheduled_at", e.target.value)} />
             </div>
+          </div>
+          <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+            <p className="font-medium text-foreground mb-1">📋 Resultados</p>
+            <p>TBD = por determinar. Sets en formato 6-4, 6-3. Ganador: A o B.</p>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="grid gap-1.5">
