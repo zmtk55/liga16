@@ -88,10 +88,14 @@ export const supabaseProvider: DataProvider = {
   },
 
   async updateRanking(playerId: string, updates: Partial<import('@/types').RankingEntry>) {
-    const { error } = await client()
-      .from('ranking_events').insert({ player_id: playerId, points: updates.points ?? 0, reason: 'Actualización manual admin' })
-      .select().single();
-    if (error) throw error;
+    // ranking_view es una vista; crear un ranking_event para ajustar puntos
+    if (updates.points !== undefined || updates.delta !== undefined) {
+      const points = updates.points ?? 0;
+      const { error } = await client()
+        .from('ranking_events').insert({ player_id: playerId, points, reason: 'Actualización manual admin' })
+        .select().single();
+      if (error) throw error;
+    }
     return { ...updates, player_id: playerId } as never;
   },
 
@@ -119,10 +123,36 @@ export const supabaseProvider: DataProvider = {
   },
 
   async createPlayer(data: Omit<import('@/types').PlayerProfile, 'id' | 'user_id'>) {
-    const { data: userData, error: userErr } = await client().auth.signUp({ email: `${data.username}@liga16.example`, password: 'demo123456' });
-    if (userErr || !userData.user) throw new Error('Error creando usuario auth');
+    // Crear usuario en auth y perfil en player_profiles
+    const username = data.username;
+    const email = `${username}@liga16.example`;
+    const { data: authData, error: authErr } = await client().auth.signUp({
+      email,
+      password: 'Liga162026!',
+      options: {
+        data: {
+          display_name: data.display_name,
+          username: data.username,
+        },
+      },
+    });
+    if (authErr || !authData.user) throw new Error(authErr?.message ?? 'Error creando usuario');
+
     const { data: result, error } = await client()
-      .from('player_profiles').insert({ user_id: userData.user.id, ...data } as Record<string, unknown>).select().single();
+      .from('player_profiles').insert({
+        user_id: authData.user.id,
+        display_name: data.display_name,
+        username: data.username,
+        city: data.city,
+        state: data.state,
+        country: data.country,
+        sex: data.sex,
+        declared_level: data.declared_level,
+        dominant_hand: data.dominant_hand,
+        preferred_position: data.preferred_position,
+        bio: data.bio,
+        is_public: data.is_public,
+      } as Record<string, unknown>).select().single();
     if (error) throw error;
     return result as never;
   },
@@ -203,9 +233,14 @@ export const supabaseProvider: DataProvider = {
   // Resultados
   async listRecentMatches() {
     const { data, error } = await client()
-      .from('matches').select('*').order('scheduled_at', { ascending: false }).limit(30);
+      .from('matches').select('*');
     if (error) throw error;
-    return (data ?? []) as never;
+    const orderKeys: string[] = ['live', 'scheduled', 'disputed', 'finished', 'walkover', 'cancelled'];
+    return (data ?? []).sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const sa = orderKeys.indexOf(a.status as string);
+      const sb = orderKeys.indexOf(b.status as string);
+      return sa - sb || String(a.scheduled_at ?? '').localeCompare(String(b.scheduled_at ?? ''));
+    });
   },
 
   async updateMatch(id: string, updates: Partial<import('@/types').Match>) {
@@ -253,7 +288,7 @@ export const supabaseProvider: DataProvider = {
   // Registro
   async registerPair(input: RegisterPairInput) {
     const { data: { user } } = await client().auth.getUser();
-    if (!user) throw new Error("No hay sesión activa. Inicia sesión para inscribirte.");
+    if (!user) throw new Error('No hay sesión activa. Inicia sesión para inscribirte.');
 
     const { data: pair, error: pairErr } = await client()
       .from('pairs').insert({
@@ -269,6 +304,7 @@ export const supabaseProvider: DataProvider = {
         pair_id: pair.id,
         user_id: user.id,
         status: input.payment_method === 'transfer' ? 'payment_review' : 'payment_pending',
+        payment_method: input.payment_method,
         rules_accepted_at: new Date().toISOString(),
       }).select().single();
     if (regErr) throw regErr;
