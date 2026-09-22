@@ -13,23 +13,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function resolveUser(userId: string): Promise<Pick<User, "role" | "player_id">> {
+async function resolveUser(sessionUser: { id: string; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> }): Promise<Pick<User, "role" | "player_id">> {
   if (!isSupabaseConfigured || !supabase) {
     return { role: "player", player_id: null };
   }
   try {
-    const { data: authData } = await supabase.auth.getUser();
-    const sessionUser = authData?.user;
+    // El rol ya viene en la sesión: no hace falta otro viaje de red con getUser()
     const role =
-      (sessionUser?.app_metadata?.role as UserRole | undefined) ||
-      (sessionUser?.user_metadata?.role as UserRole | undefined) ||
+      (sessionUser.app_metadata?.role as UserRole | undefined) ||
+      (sessionUser.user_metadata?.role as UserRole | undefined) ||
       "player";
 
     // Buscar el perfil de jugador asociado al usuario auth
     const { data: profile } = await supabase
       .from("player_profiles")
       .select("id")
-      .eq("user_id", userId)
+      .eq("user_id", sessionUser.id)
       .maybeSingle();
 
     return { role, player_id: profile?.id ?? null };
@@ -47,10 +46,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    let hydratedUserId: string | null = null;
+
     async function hydrateUser(
-      sessionUser: { id: string; email?: string | null; created_at?: string | null },
+      sessionUser: { id: string; email?: string | null; created_at?: string | null; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> },
     ) {
-      const { role, player_id } = await resolveUser(sessionUser.id);
+      // Evitar hidrataciones duplicadas (getSession + INITIAL_SESSION disparan ambas)
+      if (hydratedUserId === sessionUser.id) {
+        setLoading(false);
+        return;
+      }
+      hydratedUserId = sessionUser.id;
+      const { role, player_id } = await resolveUser(sessionUser);
       setUser({
         id: sessionUser.id,
         email: sessionUser.email || "",
@@ -58,14 +65,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         player_id,
         created_at: sessionUser.created_at || new Date().toISOString(),
       });
+      setLoading(false);
     }
 
     // Check active session
     supabase!.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         void hydrateUser(session.user);
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Listen to auth changes
@@ -74,9 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           void hydrateUser(session.user);
         } else {
+          hydratedUserId = null;
           setUser(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
