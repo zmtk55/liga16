@@ -606,10 +606,14 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%.
+  // Deterministic width between 50 to 90%.
   const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  }, [])
+    let hash = 0
+    for (const ch of (props["aria-label"] as string) ?? "skeleton") {
+      hash = (hash * 31 + ch.charCodeAt(0)) | 0
+    }
+    return `${50 + (Math.abs(hash) % 41)}%`
+  }, [props])
 
   return (
     <div
@@ -722,5 +726,6 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
+  // eslint-disable-next-line react-refresh/only-export-components
   useSidebar,
 }

@@ -4,65 +4,72 @@
 
 @layer base {
   :root {
-    /* Liga16 — tema deportivo claro: carbón + verde pelota/pista */
+    /* Liga16 — paleta día (light mode): fondo claro + acentos cálidos */
+    --palette-1: #1a1a1a;
+    --palette-2: #3d3d3d;
+    --palette-3: #ff4500;
+    --palette-4: #ff6347;
+    --palette-5: #ffa07a;
+
     --background: 0 0% 100%;
-    --foreground: 160 10% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 160 10% 8%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 96%;
+    --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 160 10% 8%;
-    --primary: 158 64% 22%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 16 100% 50%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 80 60% 95%;
-    --secondary-foreground: 158 64% 18%;
-    --muted: 150 14% 96%;
-    --muted-foreground: 160 5% 42%;
-    --accent: 84 81% 44%;
-    --accent-foreground: 160 10% 8%;
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 9 100% 64%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 150 12% 90%;
-    --input: 150 12% 90%;
-    --ring: 158 64% 22%;
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    --ring: 16 100% 50%;
     --radius: 0.625rem;
-    --sidebar-background: 160 12% 10%;
-    --sidebar-foreground: 150 14% 90%;
-    --sidebar-primary: 84 81% 44%;
-    --sidebar-primary-foreground: 160 10% 8%;
-    --sidebar-accent: 158 20% 16%;
-    --sidebar-accent-foreground: 84 81% 60%;
-    --sidebar-border: 158 15% 18%;
-    --sidebar-ring: 84 81% 44%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 16 100% 50%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 90%;
+    --sidebar-accent-foreground: 16 100% 50%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 16 100% 50%;
   }
 
   .dark {
-    --background: 160 12% 8%;
-    --foreground: 0 0% 96%;
-    --card: 160 10% 11%;
-    --card-foreground: 0 0% 96%;
-    --popover: 160 10% 11%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 84 81% 48%;
-    --primary-foreground: 160 12% 8%;
-    --secondary: 158 16% 16%;
-    --secondary-foreground: 84 81% 60%;
-    --muted: 158 14% 15%;
-    --muted-foreground: 150 8% 60%;
-    --accent: 84 81% 44%;
-    --accent-foreground: 160 12% 8%;
+    /* Liga16 — paleta noche (dark mode): fondo oscuro + acentos cálidos */
+    --background: 0 0% 10%;
+    --foreground: 19 100% 74%;
+    --card: 0 0% 24%;
+    --card-foreground: 19 100% 74%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 19 100% 74%;
+    --primary: 16 100% 50%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 19 100% 74%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 19 100% 74%;
+    --accent: 9 100% 64%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 40%;
     --destructive-foreground: 0 0% 98%;
-    --border: 158 12% 18%;
-    --input: 158 12% 18%;
-    --ring: 84 81% 48%;
-    --sidebar-background: 160 14% 7%;
-    --sidebar-foreground: 150 14% 88%;
-    --sidebar-primary: 84 81% 44%;
-    --sidebar-primary-foreground: 160 12% 8%;
-    --sidebar-accent: 158 18% 14%;
-    --sidebar-accent-foreground: 84 81% 60%;
-    --sidebar-border: 158 12% 16%;
-    --sidebar-ring: 84 81% 44%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 16 100% 50%;
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 19 100% 74%;
+    --sidebar-primary: 16 100% 50%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 19 100% 74%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 16 100% 50%;
   }
 }
 
@@ -78,8 +85,8 @@
 @layer utilities {
   .court-lines {
     background-image:
-      linear-gradient(to right, hsl(158 64% 22% / 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(158 64% 22% / 0.05) 1px, transparent 1px);
+      linear-gradient(to right, hsl(16 100% 50% / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(16 100% 50% / 0.05) 1px, transparent 1px);
     background-size: 44px 44px;
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { db } from "@/lib/data";
 import type { PlayerProfile } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,30 +81,32 @@ export default function PlayersPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
-            <Card key={p.id}>
-              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                <Avatar>
-                  <AvatarFallback>{initials(p.display_name)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <CardTitle className="truncate text-base">
-                    {p.display_name}
-                  </CardTitle>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {p.city}, {p.state}
-                  </p>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2 text-xs">
-                <Badge variant="secondary">
-                  Nivel {(p.official_level ?? p.declared_level).toFixed(1)}
-                </Badge>
-                <Badge variant="outline">{handLabel[p.dominant_hand]}</Badge>
-                <Badge variant="outline">
-                  {positionLabel[p.preferred_position]}
-                </Badge>
-              </CardContent>
-            </Card>
+            <Link key={p.id} to={`/jugadores/${p.id}`} className="transition-opacity hover:opacity-90">
+              <Card className="h-full">
+                <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                  <Avatar>
+                    <AvatarFallback>{initials(p.display_name)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <CardTitle className="truncate text-base">
+                      {p.display_name}
+                    </CardTitle>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {p.city}, {p.state}
+                    </p>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2 text-xs">
+                  <Badge variant="secondary">
+                    Nivel {(p.official_level ?? p.declared_level).toFixed(1)}
+                  </Badge>
+                  <Badge variant="outline">{handLabel[p.dominant_hand]}</Badge>
+                  <Badge variant="outline">
+                    {positionLabel[p.preferred_position]}
+                  </Badge>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}

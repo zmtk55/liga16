@@ -48,6 +48,13 @@ module.exports = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        palette: {
+          1: "#1a1a1a",
+          2: "#3d3d3d",
+          3: "#ff4500",
+          4: "#ff6347",
+          5: "#ffa07a",
+        },
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",

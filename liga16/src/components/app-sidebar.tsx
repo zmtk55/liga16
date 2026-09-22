@@ -1,4 +1,5 @@
-import { Calendar, Home, Package, Users } from "lucide-react";
+import { NavLink } from "react-router";
+import { Calendar, Home, MapPin, Newspaper, Package, Trophy, Users } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -8,6 +9,26 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
 } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
+
+const navItems = [
+  { to: "/", label: "Dashboard", icon: Home, end: true },
+  { to: "/torneos", label: "Torneos", icon: Trophy },
+  { to: "/calendario", label: "Calendario", icon: Calendar },
+  { to: "/ranking", label: "Ranking", icon: Package },
+  { to: "/equipos", label: "Equipos", icon: Users },
+  { to: "/jugadores", label: "Jugadores", icon: Users },
+  { to: "/clubes", label: "Clubes", icon: MapPin },
+  { to: "/noticias", label: "Noticias", icon: Newspaper },
+];
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+    isActive
+      ? "bg-accent text-accent-foreground font-medium"
+      : "hover:bg-accent hover:text-accent-foreground",
+  );
 
 export function AppSidebar() {
   return (
@@ -19,25 +40,20 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
             <nav className="flex flex-col space-y-1">
-              <a href="/" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-                <Home className="h-4 w-4" />
-                Dashboard
-              </a>
-              <a href="/calendar" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-                <Calendar className="h-4 w-4" />
-                Calendario
-              </a>
-              <a href="/teams" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-                <Package className="h-4 w-4" />
-                Equipos
-              </a>
-              <a href="/players" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-                <Users className="h-4 w-4" />
-                Jugadores
-              </a>
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={navLinkClass}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
           </SidebarGroupContent>
         </SidebarGroup>
