@@ -4,6 +4,7 @@ import { Facebook, Instagram } from "lucide-react";
 const explore = [
   { to: "/torneos", label: "Torneos" },
   { to: "/ranking", label: "Ranking" },
+  { to: "/equipos", label: "Equipos" },
   { to: "/padel", label: "Padel" },
   { to: "/calendario", label: "Calendario" },
 ];

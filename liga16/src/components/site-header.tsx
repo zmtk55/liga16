@@ -10,6 +10,7 @@ const publicNav = [
   { to: "/", label: "Inicio" },
   { to: "/torneos", label: "Torneos" },
   { to: "/ranking", label: "Ranking" },
+  { to: "/equipos", label: "Equipos" },
   { to: "/padel", label: "Padel" },
   { to: "/jugadores", label: "Jugadores" },
   { to: "/noticias", label: "Noticias" },
