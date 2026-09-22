@@ -142,7 +142,7 @@ export default function TournamentDetailPage() {
         <div className="flex flex-col items-center gap-3 pt-10 text-center">
           <h1 className="text-2xl font-bold">Torneo no encontrado</h1>
           <p className="text-muted-foreground">
-            El torneo que buscas no existe o está disponible sólo con datos de Supabase.
+            El torneo que buscas no existe o fue retirado del circuito.
           </p>
         </div>
       </section>

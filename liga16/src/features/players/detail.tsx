@@ -11,15 +11,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatDate } from "@/lib/format";
+import { formatDate, initials, sexLabel } from "@/lib/format";
 import { analyzePlayerLocal, type JevAnalysis } from "@/lib/jev";
 
 const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
 
 const handLabel: Record<PlayerProfile["dominant_hand"], string> = { right: "Diestro", left: "Zurdo", both: "Ambidiestro" };
 const positionLabel: Record<PlayerProfile["preferred_position"], string> = { drive: "Drive", reves: "Revés", both: "Ambos" };
-
-function initials(name: string) { return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase(); }
 function cardWon(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; won?: number })?.record?.won ?? (c as unknown as { won?: number })?.won ?? 0; }
 function cardPlayed(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; played?: number })?.record?.played ?? (c as unknown as { played?: number })?.played ?? 0; }
 function cardPartner(c: PlayerCard | null | undefined) { return (c as unknown as { frequent_partner?: string; partner?: string })?.frequent_partner ?? (c as unknown as { partner?: string })?.partner ?? null; }
@@ -142,7 +140,7 @@ export default function PlayerDetailPage() {
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge className="bg-white text-black hover:bg-white">#{ranking?.position ?? "—"} Liga16</Badge>
-                    <Badge variant="outline" className="border-white/20 text-white">#{player.sex} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}</Badge>
+                    <Badge variant="outline" className="border-white/20 text-white">{sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}</Badge>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs backdrop-blur">
                       <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> {jev.racha.label}
                     </span>
@@ -329,7 +327,7 @@ export default function PlayerDetailPage() {
               </div>
 
               <div className="rounded-xl bg-muted p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide">Detalles padel</p>
+                <p className="text-xs font-semibold uppercase tracking-wide">Detalles pádel</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                   <p><span className="text-muted-foreground">Mano:</span> {handLabel[player.dominant_hand]}</p>
                   <p><span className="text-muted-foreground">Posición:</span> {positionLabel[player.preferred_position]}</p>
