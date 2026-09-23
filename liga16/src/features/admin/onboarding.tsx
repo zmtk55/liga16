@@ -167,13 +167,14 @@ export default function AdminOnboarding() {
         const created = await db.createTournamentCategory({
           tournament_id: createdTournament.id,
           name: `${cat.division} ${sexShort(cat.sex)}`,
+          division: cat.division,
           sex: cat.sex,
           max_pairs: cat.max_pairs,
           min_level: null,
           max_level: null,
           registered_pairs: 0,
           price_cents: tournament.price_cents,
-        });
+        } as never);
         categoryMap.set(`${cat.division}-${cat.sex}`, created.id);
       }
 

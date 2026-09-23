@@ -117,8 +117,17 @@ export const supabaseProvider: DataProvider = {
   },
 
   async createTournamentCategory(data: Omit<import('@/types').TournamentCategory, 'id'>) {
+    // La tabla real usa (tournament_id, name, category, sex, price_cents).
+    // Mapear desde el tipo interno: max_pairs vive en el select de UI, no en la BD.
+    const row: Record<string, unknown> = {
+      tournament_id: (data as { tournament_id?: string }).tournament_id,
+      name: data.name,
+      category: (data as unknown as { division?: string }).division ?? '4ta',
+      sex: data.sex,
+      price_cents: data.price_cents,
+    };
     const { data: result, error } = await client()
-      .from('tournament_categories').insert(data as Record<string, unknown>).select().single();
+      .from('tournament_categories').insert(row).select().single();
     if (error) throw error;
     return result as never;
   },
