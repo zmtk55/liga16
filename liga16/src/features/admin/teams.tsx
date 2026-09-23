@@ -29,11 +29,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ImagePlus, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import { sexShort } from "@/lib/format";
 import PlayerSlot from "@/components/players/player-slot";
+import ImageUpload from "@/components/ui/image-upload";
+import { ensurePlayer } from "@/lib/players";
 
+// Categorías cerradas del ranking: 4ta, 5ta, 6ta… (nombres libres como "Suma Nueve" viven en el torneo)
 const DIVISIONS = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
 
 interface EquipoForm {
@@ -85,13 +88,18 @@ export default function AdminTeams() {
   async function handleSave(form: EquipoForm) {
     setSubmitting(true);
     try {
+      // Registrar perfiles de jugadores nuevos (si no existen)
+      const [p1, p2] = await Promise.all([
+        ensurePlayer(form.player1_name, form.division),
+        ensurePlayer(form.player2_name, form.division),
+      ]);
       const payload = {
         name: form.name.trim(),
         division: form.division,
         sex: form.sex,
         crest_url: form.logo,
-        player1: form.player1_name.trim() ? { player_id: "", name: form.player1_name.trim(), level: 0 } : null,
-        player2: form.player2_name.trim() ? { player_id: "", name: form.player2_name.trim(), level: 0 } : null,
+        player1: p1 ? { player_id: p1.id, name: p1.display_name, level: p1.declared_level } : null,
+        player2: p2 ? { player_id: p2.id, name: p2.display_name, level: p2.declared_level } : null,
       };
       if (editing) {
         await db.updateTeam(editing.slug, payload as unknown as Partial<Team>);
@@ -148,11 +156,11 @@ export default function AdminTeams() {
                 />
               </div>
               <Select value={division} onValueChange={setDivision}>
-                <SelectTrigger className="h-9 w-40" aria-label="Filtrar por división">
+                <SelectTrigger className="h-9 w-40" aria-label="Filtrar por categoría">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas las divisiones</SelectItem>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
                   {DIVISIONS.map((d) => (
                     <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
@@ -166,7 +174,7 @@ export default function AdminTeams() {
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Equipo</TableHead>
-                <TableHead className="hidden sm:table-cell">División</TableHead>
+                <TableHead className="hidden sm:table-cell">Categoría</TableHead>
                 <TableHead className="hidden md:table-cell">Jugadores</TableHead>
                 <TableHead className="text-right">PJ</TableHead>
                 <TableHead className="text-right">G</TableHead>
@@ -287,13 +295,6 @@ function EquipoDialog({
     });
   }
 
-  function setLogoFile(file: File | null) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setForm((f) => ({ ...f, logo: String(reader.result) }));
-    reader.readAsDataURL(file);
-  }
-
   const valid = form.name.trim() && form.player1_name.trim() && form.player2_name.trim();
 
   return (
@@ -309,26 +310,12 @@ function EquipoDialog({
         <div className="grid gap-4 py-2">
           {/* Logo + nombre */}
           <div className="flex items-start gap-3">
-            <input
-              type="file"
+            <ImageUpload
               id="equipo-logo"
-              accept="image/*"
-              className="sr-only"
-              onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+              value={form.logo}
+              label="Logo del equipo"
+              onChange={(dataUrl) => setForm((f) => ({ ...f, logo: dataUrl }))}
             />
-            <button
-              type="button"
-              onClick={() => document.getElementById("equipo-logo")?.click()}
-              className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/50 transition-colors hover:border-primary/60"
-              aria-label="Subir logo del equipo"
-              title="Subir logo"
-            >
-              {form.logo ? (
-                <img src={form.logo} alt="" className="h-full w-full object-contain p-1" />
-              ) : (
-                <ImagePlus className="h-5 w-5 text-muted-foreground" />
-              )}
-            </button>
             <div className="grid flex-1 gap-1.5">
               <Label htmlFor="equipo-name">Nombre del equipo</Label>
               <Input
@@ -364,10 +351,10 @@ function EquipoDialog({
             />
           </div>
 
-          {/* División + rama */}
+          {/* Categoría + rama */}
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>División</Label>
+              <Label>Categoría</Label>
               <Select value={form.division} onValueChange={(v) => setForm((f) => ({ ...f, division: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

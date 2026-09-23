@@ -21,6 +21,7 @@ import { DEFAULT_SCORING } from "@/lib/scoring";
 import { scheduleRounds, type Group } from "@/lib/groups";
 import { sexShort } from "@/lib/format";
 import { toast } from "sonner";
+import { ensurePlayer } from "@/lib/players";
 import {
   ArrowLeft,
   Building2,
@@ -304,13 +305,18 @@ export default function TournamentWizard() {
         }
         setCatIds(nextIds);
       }
-      // Persistir parejas al pasar del paso 4 (antes estaban solo en memoria)
+      // Persistir equipos al pasar del paso 4 (antes estaban solo en memoria)
       if (target >= 4 && tournamentId) {
         const existing = await db.getTournamentPairs(String(tournamentId));
         const existingNames = new Set((existing as Pair[]).map((p) => p.name.toLowerCase()));
         for (const t of teams) {
           const name = t.name.trim();
           if (!name || existingNames.has(name.toLowerCase())) continue;
+          // Perfiles de jugadores nuevos se crean aquí si no existen
+          await Promise.all([
+            ensurePlayer(t.player1, t.division).catch(() => null),
+            ensurePlayer(t.player2, t.division).catch(() => null),
+          ]);
           await db
             .createPair({
               tournament_id: String(tournamentId),

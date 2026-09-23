@@ -12,6 +12,8 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDate, initials, sexLabel } from "@/lib/format";
+import ImageUpload from "@/components/ui/image-upload";
+import { toast } from "sonner";
 import { analyzePlayerLocal, type JevAnalysis } from "@/lib/jev";
 
 const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
@@ -114,6 +116,7 @@ export default function PlayerDetailPage() {
   const won = cardWon(card);
   const played = cardPlayed(card);
   const partner = cardPartner(card);
+  const canEditPhoto = !isConfigured || isAdmin || user?.player_id === player.id;
 
   return (
     <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
@@ -185,6 +188,23 @@ export default function PlayerDetailPage() {
             <div className="relative flex justify-center lg:justify-end">
               <div className="relative">
                 <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-primary/20 via-transparent to-transparent blur-2xl" />
+                {canEditPhoto && (
+                  <div className="absolute -top-2 -left-2 z-10">
+                    <ImageUpload
+                      id="player-photo"
+                      value={player.photo_url}
+                      round
+                      label="Foto de perfil"
+                      onChange={(dataUrl) => {
+                        if (dataUrl === null) return;
+                        setPlayer({ ...player, photo_url: dataUrl });
+                        db.updatePlayer(player.id, { photo_url: dataUrl })
+                          .then(() => toast.success("Foto de perfil actualizada"))
+                          .catch((e: Error) => toast.error(e.message ?? "No se pudo guardar la foto"));
+                      }}
+                    />
+                  </div>
+                )}
                 {player.photo_url ? (
                   <img src={player.photo_url} alt={player.display_name} className="h-[340px] w-[300px] object-cover object-top rounded-[1.5rem] border border-white/10 shadow-2xl md:h-[420px] md:w-[340px]" />
                 ) : (
