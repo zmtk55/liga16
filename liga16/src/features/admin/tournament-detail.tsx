@@ -123,6 +123,7 @@ export default function AdminTournamentDetail() {
   const [scheduleConfig, setScheduleConfig] = useState({ courts: 2, minutesPerMatch: 60, startHour: 9 });
   const [courts, setCourts] = useState<Court[]>([]);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [jornadaDay, setJornadaDay] = useState<string>(() => new Date().toISOString().split("T")[0]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -315,11 +316,77 @@ export default function AdminTournamentDetail() {
 
       <Tabs defaultValue="parejas">
         <TabsList>
+          <TabsTrigger value="jornada">Jornada</TabsTrigger>
           <TabsTrigger value="parejas">Parejas</TabsTrigger>
           <TabsTrigger value="grupos">Grupos y sorteo</TabsTrigger>
           <TabsTrigger value="posiciones">Tablas de posiciones</TabsTrigger>
           <TabsTrigger value="calendario">Calendario ({matches.length})</TabsTrigger>
         </TabsList>
+
+        {/* ============ JORNADA (agenda del día + captura encadenada) ============ */}
+        <TabsContent value="jornada" className="space-y-4 pt-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="jornada-day" className="text-sm text-muted-foreground">Día:</Label>
+            <Input
+              id="jornada-day"
+              type="date"
+              value={jornadaDay}
+              onChange={(e) => setJornadaDay(e.target.value)}
+              className="w-40"
+            />
+            <Badge variant="outline">
+              {matches.filter((m) => (m.scheduled_at ?? "").startsWith(jornadaDay)).length} partidos
+            </Badge>
+          </div>
+          {(() => {
+            const dayMatches = matches
+              .filter((m) => (m.scheduled_at ?? "").startsWith(jornadaDay))
+              .sort((a, b) =>
+                String(a.court_name).localeCompare(String(b.court_name)) ||
+                String(a.scheduled_at).localeCompare(String(b.scheduled_at)),
+              );
+            if (dayMatches.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                    Sin partidos este día. Genera el calendario en "Grupos y sorteo" o elige otra fecha.
+                  </CardContent>
+                </Card>
+              );
+            }
+            return (
+              <div className="space-y-2">
+                {dayMatches.map((m) => {
+                  const done = m.status === "finished" && m.winner;
+                  const score = m.sets.map((x) => `${x.a}-${x.b}`).join(" ");
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setEditingMatchId(m.id)}
+                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-muted/40 ${
+                        done ? "opacity-75" : ""
+                      }`}
+                    >
+                      <Badge variant="secondary" className="shrink-0">{m.court_name ?? "—"}</Badge>
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {m.scheduled_at ? new Date(m.scheduled_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                      </span>
+                      <span className={`flex-1 truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
+                        {m.side_a.pair_name} <span className="text-muted-foreground">vs</span> {m.side_b.pair_name}
+                      </span>
+                      {done ? (
+                        <Badge className="bg-emerald-600 font-mono">{score}</Badge>
+                      ) : (
+                        <Badge variant="outline" className="font-mono text-muted-foreground">— : —</Badge>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </TabsContent>
 
         {/* ============ PAREJAS ============ */}
         <TabsContent value="parejas" className="space-y-4 pt-2">
@@ -620,14 +687,23 @@ export default function AdminTournamentDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Captura de resultado por partido */}
+      {/* Captura de resultado por partido — encadenada a la jornada */}
       {editingMatchId && (
         <MatchResultDialog
           match={matches.find((m) => m.id === editingMatchId)!}
+          nextMatchId={
+            matches
+              .filter((m) => (m.scheduled_at ?? "").startsWith(jornadaDay) && m.status !== "finished")
+              .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
+              .find((m) => m.id !== editingMatchId)?.id ?? null
+          }
           courts={courts}
           open={!!editingMatchId}
           onOpenChange={(o) => { if (!o) setEditingMatchId(null); }}
-          onSaved={() => { setEditingMatchId(null); void reload(); }}
+          onAdvance={(nextId) => {
+            void reload();
+            setEditingMatchId(nextId); // siguiente partido o cierre
+          }}
         />
       )}
     </div>
@@ -637,16 +713,18 @@ export default function AdminTournamentDetail() {
 /** Captura rápida de marcador, cancha y hora desde el calendario del torneo. */
 function MatchResultDialog({
   match,
+  nextMatchId,
   courts,
   open,
   onOpenChange,
-  onSaved,
+  onAdvance,
 }: {
   match: Match;
+  nextMatchId: string | null;
   courts: Court[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
+  onAdvance: (nextMatchId: string | null) => void;
 }) {
   const [sets, setSets] = useState<Array<{ a: string; b: string }>>(() =>
     match.sets.length > 0 ? match.sets.map((s) => ({ a: String(s.a), b: String(s.b) })) : [{ a: "", b: "" }],
@@ -675,8 +753,8 @@ function MatchResultDialog({
         court_name: courtName || null,
         scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
       });
-      toast.success(status === "finished" ? "Resultado guardado" : "Partido actualizado");
-      onSaved();
+      toast.success(status === "finished" ? (nextMatchId ? "Guardado — siguiente partido" : "Resultado guardado") : "Partido actualizado");
+      onAdvance(status === "finished" ? nextMatchId : null);
     } catch (e) {
       toast.error((e as Error).message ?? "Error al guardar el resultado");
     } finally {
