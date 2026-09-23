@@ -299,29 +299,14 @@ export const supabaseProvider: DataProvider = {
   },
 
   async createPlayer(data: Omit<import('@/types').PlayerProfile, 'id' | 'user_id'>) {
-    // Crear usuario en auth y perfil en player_profiles
-    // Guardar role en raw_user_meta_data temporalmente.
-    // Un trigger en SQL lo sincroniza a raw_app_meta_data (ver schema.sql).
-    const { data: authData, error: authErr } = await client().auth.signUp({
-      email: `${data.username}@liga16.example`,
-      password: 'Liga162026!',
-      options: {
-        data: {
-          display_name: data.display_name,
-          username: data.username,
-          role: data.role ?? 'player',
-        },
-      },
-    });
-    if (authErr || !authData.user) throw new Error(authErr?.message ?? 'Error creando usuario');
-
-    // El trigger handle_auth_user_created ya creó un perfil mínimo al hacer signup.
-    // Usamos upsert sobre user_id para actualizarlo con los datos completos (evita conflicto unique).
+    // Perfil de jugador sin cuenta: NO crea usuarios en auth (evita rate limit
+    // de emails y registros falsos). Cuando el jugador real se registre con su
+    // email, se vincula su user_id a este perfil.
     const { data: result, error } = await client()
-      .from('player_profiles').upsert({
-        user_id: authData.user.id,
+      .from('player_profiles').insert({
         display_name: data.display_name,
         username: data.username,
+        photo_url: data.photo_url ?? null,
         city: data.city,
         state: data.state,
         country: data.country,
@@ -331,7 +316,8 @@ export const supabaseProvider: DataProvider = {
         preferred_position: data.preferred_position,
         bio: data.bio,
         is_public: data.is_public,
-      } as Record<string, unknown>, { onConflict: 'user_id' }).select().single();
+        role: 'player',
+      } as Record<string, unknown>).select().single();
     if (error) throw error;
     return result as never;
   },

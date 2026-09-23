@@ -150,7 +150,7 @@ create table if not exists public.tournament_categories (
 -- Jugadores (perfiles)
 create table if not exists public.player_profiles (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid unique references auth.users (id) on delete cascade,
+  user_id uuid unique references auth.users (id) on delete cascade, -- nullable: perfiles sin cuenta hasta que el jugador se registre
   display_name text not null,
   username text not null unique,
   photo_url text,
