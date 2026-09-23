@@ -56,9 +56,9 @@ export default function RankingsPage() {
   }, [teams, division, sex]);
 
   return (
-    <section className="space-y-6">
+    <section className="animate-fade-in space-y-6">
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Ranking</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Ranking</h1>
         <p className="text-muted-foreground">
           Clasificación oficial de parejas por división y rama
         </p>

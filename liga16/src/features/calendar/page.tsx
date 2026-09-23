@@ -32,9 +32,9 @@ export default function CalendarPage() {
   const agenda = [...live, ...upcoming].slice(0, 8);
 
   return (
-    <section className="space-y-6">
+    <section className="animate-fade-in space-y-6">
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Agenda</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Agenda</h1>
         <p className="text-muted-foreground">Próximos partidos y partidos en juego</p>
       </header>
 

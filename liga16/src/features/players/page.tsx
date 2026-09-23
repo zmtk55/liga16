@@ -58,9 +58,9 @@ export default function PlayersPage() {
   }, [players, query]);
 
   return (
-    <section className="space-y-6">
+    <section className="animate-fade-in space-y-6">
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Jugadores</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Jugadores</h1>
         <p className="text-muted-foreground">Directorio de jugadores del padel Reforma</p>
       </header>
 

@@ -39,9 +39,9 @@ export default function TeamsPage() {
   }, [teams, q, division, city]);
 
   return (
-    <section className="space-y-6">
+    <section className="animate-fade-in space-y-6">
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Equipos</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Equipos</h1>
         <p className="text-muted-foreground">Parejas del circuito por división y ciudad</p>
       </header>
 

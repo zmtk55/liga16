@@ -37,9 +37,9 @@ export default function TournamentsPage() {
   }, [tournaments, status, format]);
 
   return (
-    <section className="space-y-6">
+    <section className="animate-fade-in space-y-6">
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Torneos</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Torneos</h1>
         <p className="text-muted-foreground">
           Calendario del circuito — inscríbete en las fechas abiertas
         </p>
