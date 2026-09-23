@@ -202,17 +202,33 @@ export default function TournamentWizard() {
     }
   }, [slug, navigate]);
 
-  const canAdvance = useMemo(() => {
-    if (step === 0) return club.name.trim().length > 0 && courts.length > 0;
-    if (step === 1) return tournament.name.trim().length > 0;
-    if (step === 2) return categoriasValidas(categories);
-    if (step === 3)
-      return (
-        teams.length > 0 &&
-        teams.every((t) => t.player1.trim() && t.player2.trim() && t.division && t.sex)
-      );
-    return groups.length > 0;
+  /** Qué falta en el paso actual — para avisar al usuario en vez de dejar el botón mudo. */
+  const missingReason = useMemo(() => {
+    if (step === 0) {
+      if (!club.name.trim()) return "Escribe el nombre de la sede";
+      if (courts.length === 0) return "Registra al menos una cancha";
+    }
+    if (step === 1 && !tournament.name.trim()) return "Escribe el nombre del torneo";
+    if (step === 2 && !categoriasValidas(categories)) return "Añade al menos una categoría válida";
+    if (step === 3) {
+      if (teams.length === 0) return "Añade al menos un equipo";
+      const bad = teams.find((t) => !t.player1.trim() || !t.player2.trim() || !t.division || !t.sex);
+      if (bad) return `Equipo incompleto: "${bad.name || "(sin nombre)"}" — faltan jugadores o categoría`;
+    }
+    if (step === 4 && groups.length === 0) return "Ejecuta el sorteo para crear los grupos";
+    return null;
   }, [step, club, courts, tournament, categories, teams, groups]);
+
+  const canAdvance = useMemo(() => missingReason === null, [missingReason]);
+
+  async function next() {
+    if (!canAdvance) {
+      if (missingReason) toast.warning(missingReason);
+      return;
+    }
+    await persistStep(step + 1);
+    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  }
 
   function addCourt() {
     const name = newCourt.trim();
@@ -331,12 +347,6 @@ export default function TournamentWizard() {
     }
   }
 
-  async function next() {
-    if (!canAdvance) return;
-    await persistStep(step + 1);
-    setStep((s) => Math.min(STEPS.length - 1, s + 1));
-  }
-
   function back() {
     setStep((s) => Math.max(0, s - 1));
   }
@@ -401,6 +411,18 @@ export default function TournamentWizard() {
     if (!tournamentId) {
       toast.error("Falta crear el torneo");
       return;
+    }
+    if (groups.length === 0) {
+      toast.warning("Primero sortea los grupos con el botón \"Sortear al azar\"");
+      return;
+    }
+    const conRivales = groups.filter((g) => g.pairIds.length >= 2).length;
+    if (conRivales === 0) {
+      toast.warning("Necesitas al menos 2 equipos por grupo para generar partidos. Añade más equipos en el paso anterior.");
+      return;
+    }
+    if (groups.some((g) => g.pairIds.length === 1)) {
+      toast.warning("Hay grupos con un solo equipo: no tendrán partidos. Ajústalos o quita ese equipo.");
     }
     setSaving(true);
     try {
@@ -751,9 +773,12 @@ export default function TournamentWizard() {
                 <Badge variant="outline">{teams.length} equipos</Badge>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" onClick={handleDraw} disabled={teams.length < 2}>
+                <Button type="button" onClick={handleDraw} disabled={teams.length < 2} title={teams.length < 2 ? "Necesitas al menos 2 equipos" : undefined}>
                   <Dice5 className="h-4 w-4 mr-1" /> Sortear al azar
                 </Button>
+                {teams.length < 2 && (
+                  <p className="self-center text-sm text-amber-600 dark:text-amber-400">Añade al menos 2 equipos para poder sortear.</p>
+                )}
                 {groups.length > 0 && (
                   <Button type="button" variant="outline" size="sm" onClick={() => setGroups([])}>
                     <RotateCcw className="h-3.5 w-3.5 mr-1" /> Vaciar
@@ -798,8 +823,8 @@ export default function TournamentWizard() {
           <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
         </Button>
         {step < STEPS.length - 1 ? (
-          <Button onClick={next} disabled={!canAdvance || saving}>
-            {saving ? "Guardando…" : "Siguiente"} <ChevronRight className="h-4 w-4 ml-1" />
+          <Button onClick={next} disabled={saving} title={missingReason ?? undefined} variant={canAdvance ? "default" : "outline"}>
+            {saving ? "Guardando…" : canAdvance ? ("Siguiente") : missingReason} <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         ) : (
           <Button onClick={generateCalendarAndFinish} disabled={!groups.length || saving}>
