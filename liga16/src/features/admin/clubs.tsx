@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
-import type { Club } from "@/types";
+import type { Club, Court } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MapPin, Phone, Edit3 } from "lucide-react";
+import { MapPin, Phone, Edit3, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminClubs() {
@@ -16,8 +16,10 @@ export default function AdminClubs() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ClubForm>({ name: "", address: "", phone: "", description: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [newCourt, setNewCourt] = useState("");
 
-  useEffect(() => {
+  const reload = () => {
     db.listClubs().then((list) => {
       const c = list[0] ?? null;
       setClub(c);
@@ -25,7 +27,36 @@ export default function AdminClubs() {
         setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "" });
       }
     });
+    db.listCourts().then(setCourts).catch(() => undefined);
+  };
+
+  useEffect(() => {
+    reload();
   }, []);
+
+  async function addCourt() {
+    const name = newCourt.trim();
+    if (!name || !club) return;
+    try {
+      await db.createCourt({ club_id: club.id, name, surface: "Sintética" } as never);
+      setNewCourt("");
+      toast.success(`Cancha "${name}" registrada`);
+      db.listCourts().then(setCourts).catch(() => undefined);
+    } catch (e) {
+      toast.error((e as Error).message ?? "No se pudo crear la cancha");
+    }
+  }
+
+  async function removeCourt(id: string, name: string) {
+    if (!confirm(`¿Quitar la cancha "${name}"?`)) return;
+    try {
+      await db.deleteCourt(id);
+      setCourts((cs) => cs.filter((c) => c.id !== id));
+      toast.success(`Cancha "${name}" eliminada`);
+    } catch (e) {
+      toast.error((e as Error).message ?? "No se pudo eliminar");
+    }
+  }
 
   async function handleSave() {
     if (!club) return;
@@ -115,6 +146,43 @@ export default function AdminClubs() {
           </CardContent>
         </Card>
       )}
+
+      {/* Canchas */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Canchas disponibles ({courts.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              value={newCourt}
+              onChange={(e) => setNewCourt(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addCourt()}
+              placeholder="Nombre de la cancha, p. ej. Cancha 3"
+            />
+            <Button onClick={addCourt} disabled={!newCourt.trim()}>
+              <Plus className="h-4 w-4 mr-1" /> Agregar
+            </Button>
+          </div>
+          {courts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin canchas registradas todavía.</p>
+          ) : (
+            <ul className="divide-y rounded-lg border">
+              {courts.map((c) => (
+                <li key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <span className="font-medium">{c.name}</span>
+                  <span className="flex items-center gap-2">
+                    {c.surface && <Badge variant="outline">{c.surface}</Badge>}
+                    <Button variant="ghost" size="icon" onClick={() => removeCourt(c.id, c.name)} aria-label={`Eliminar ${c.name}`}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

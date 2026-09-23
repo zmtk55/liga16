@@ -590,6 +590,11 @@ export default function AdminTournamentDetail() {
               ? "El sorteo reparte todos los equipos en grupos parejos. Después puedes arrastrar o reasignar cualquiera."
               : "Arrastra los equipos entre grupos, usa el selector de grupo en cada tarjeta, o renombra el grupo con un clic en su título."}
           </p>
+          {pairs && pairs.length < 2 && (
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              Tienes {pairs.length} equipo{pairs.length === 1 ? "" : "s"} inscrito{pairs.length === 1 ? "" : "s"} — se necesitan al menos 2 para sortear o generar partidos. Regístralos en la pestaña Equipos.
+            </p>
+          )}
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             {unassigned.length > 0 && (
