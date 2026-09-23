@@ -30,7 +30,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import CategoryPicker, { type CategoryValue } from "@/components/ui/category-picker";
+import CategoryMatrix, { type CategoryValue } from "@/components/ui/category-matrix";
 import PlayerSlot from "@/components/players/player-slot";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 import { drawGroups, scheduleRounds, suggestGroupCount, type Group } from "@/lib/groups";
@@ -570,7 +570,7 @@ export default function TournamentWizard() {
               <p className="text-sm text-muted-foreground">
                 Cada categoría combina división y rama. Los equipos se agruparán bajo ellas en el siguiente paso.
               </p>
-              <CategoryPicker value={categories} onChange={setCategories} />
+              <CategoryMatrix value={categories} onChange={setCategories} />
             </div>
           )}
 

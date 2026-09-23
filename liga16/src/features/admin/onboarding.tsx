@@ -10,7 +10,7 @@ import { Check, ChevronRight, ChevronLeft, Plus, Sparkles, Trophy, Building2, Us
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import CategoryPicker, { type CategoryValue } from "@/components/ui/category-picker";
+import CategoryMatrix, { type CategoryValue } from "@/components/ui/category-matrix";
 import PlayerSlot from "@/components/players/player-slot";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -356,7 +356,7 @@ export default function AdminOnboarding() {
               <p className="text-sm text-muted-foreground">
                 Cada categoría combina una división con una rama (varonil, femenil o mixto). Busca y selecciona las que necesites; el cupo se puede ajustar por chip.
               </p>
-              <CategoryPicker value={categories} onChange={setCategories} />
+              <CategoryMatrix value={categories} onChange={setCategories} />
             </div>
           )}
 
