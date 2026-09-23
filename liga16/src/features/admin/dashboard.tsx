@@ -69,10 +69,10 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Panel Operativo</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Panel Operativo</h1>
           <p className="text-sm text-muted-foreground">
             Resumen del padel Reforma — gestión de torneos, jugadores y contenido
           </p>

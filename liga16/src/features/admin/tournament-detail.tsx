@@ -296,7 +296,7 @@ export default function AdminTournamentDetail() {
   const club = clubs.find((c) => c.id === tournament.club_id);
 
   return (
-    <div className="space-y-4">
+    <div className="animate-fade-in space-y-4">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/admin/torneos"><ArrowLeft className="h-4 w-4" /> Torneos</Link>

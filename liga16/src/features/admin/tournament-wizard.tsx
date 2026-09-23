@@ -424,7 +424,7 @@ export default function TournamentWizard() {
         ))}
       </ol>
 
-      <Card>
+      <Card className="animate-fade-in">
         <CardContent className="p-6">
           {/* ============ PASO 1: SEDE Y CANCHAS ============ */}
           {step === 0 && (

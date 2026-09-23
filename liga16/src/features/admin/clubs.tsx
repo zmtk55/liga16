@@ -58,7 +58,7 @@ export default function AdminClubs() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Sede</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Sede</h1>
         {!editing ? (
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
             <Edit3 className="h-4 w-4 mr-1" /> Editar

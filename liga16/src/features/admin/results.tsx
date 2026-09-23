@@ -104,7 +104,7 @@ export default function AdminResults() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Resultados</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Resultados</h1>
         <p className="text-sm text-muted-foreground">Gestiona resultados con sets, juegos y tie-breaks</p>
       </div>
       <Card>
