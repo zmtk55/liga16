@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { LayoutDashboard, Trophy, Building2, Newspaper, Users, UsersRound, BarChart3, ClipboardList, Sparkles, Shield, Menu, X } from "lucide-react";
+import { LayoutDashboard, Trophy, Building2, Newspaper, Users, UsersRound, BarChart3, ClipboardList, Shield, Menu, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,6 @@ const items = [
   { to: "/admin/resultados", label: "Resultados", icon: ClipboardList },
   { to: "/admin/padel", label: "Sede", icon: Building2 },
   { to: "/admin/noticias", label: "Noticias", icon: Newspaper },
-  { to: "/admin/onboarding", label: "Onboarding", icon: Sparkles },
 ];
 
 export default function AdminLayout() {

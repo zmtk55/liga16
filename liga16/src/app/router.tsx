@@ -20,6 +20,7 @@ const AdminLayout = lazy(() => import("../features/admin/layout"));
 const AdminDashboard = lazy(() => import("../features/admin/dashboard"));
 const AdminTournaments = lazy(() => import("../features/admin/tournaments"));
 const AdminTournamentDetail = lazy(() => import("../features/admin/tournament-detail"));
+const AdminTournamentWizard = lazy(() => import("../features/admin/tournament-wizard"));
 const AdminClubs = lazy(() => import("../features/admin/clubs"));
 const AdminNews = lazy(() => import("../features/admin/news"));
 const AdminPlayers = lazy(() => import("../features/admin/players"));
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: "login", element: <Login /> },
+      { path: "onboarding", element: <Navigate to="admin/torneos/nuevo" replace /> },
       { path: "torneos", element: <Tournaments /> },
       { path: "torneos/:slug", element: <TournamentDetail /> },
       { path: "calendario", element: <Calendar /> },
@@ -64,7 +66,9 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AdminDashboard /> },
           { path: "torneos", element: <AdminTournaments /> },
+          { path: "torneos/nuevo", element: <AdminTournamentWizard /> },
           { path: "torneos/:slug", element: <AdminTournamentDetail /> },
+          { path: "torneos/:slug/editar", element: <AdminTournamentWizard /> },
           { path: "equipos", element: <AdminTeams /> },
           { path: "jugadores", element: <AdminPlayers /> },
           { path: "ranking", element: <AdminRanking /> },

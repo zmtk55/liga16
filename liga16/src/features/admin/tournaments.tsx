@@ -129,8 +129,10 @@ export default function AdminTournaments() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Torneos</h1>
-        <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Nuevo torneo
+        <Button size="sm" asChild>
+          <Link to="/admin/torneos/nuevo">
+            <Plus className="h-4 w-4 mr-1" /> Nuevo torneo
+          </Link>
         </Button>
       </div>
       <Card>
@@ -163,7 +165,9 @@ export default function AdminTournaments() {
                     <Button variant="ghost" size="sm" asChild>
                       <Link to={`/admin/torneos/${t.slug}`}>Grupos</Link>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(t); setOpenCreate(true); }}>Editar</Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={`/admin/torneos/${t.slug}/editar`}>Editar</Link>
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(t)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </TableCell>
                 </TableRow>
