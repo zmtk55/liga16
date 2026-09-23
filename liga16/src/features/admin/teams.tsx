@@ -1,8 +1,6 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
-import type { Team } from "@/types";
+import type { Team, PlayerProfile } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,19 +29,51 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { ImagePlus, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import { sexShort } from "@/lib/format";
+import PlayerSlot from "@/components/players/player-slot";
 
 const DIVISIONS = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
 
+interface EquipoForm {
+  name: string;
+  division: string;
+  sex: string;
+  logo: string | null;
+  player1_name: string;
+  player2_name: string;
+}
+
+const EMPTY_FORM: EquipoForm = {
+  name: "",
+  division: "4ta",
+  sex: "M",
+  logo: null,
+  player1_name: "",
+  player2_name: "",
+};
+
+/** Nombre automático con los jugadores; respeta edición manual. */
+function autoName(f: EquipoForm): string {
+  return [f.player1_name.trim(), f.player2_name.trim()].filter(Boolean).join(" / ");
+}
+
 export default function AdminTeams() {
   const [list, setList] = useState<Team[] | null>(null);
+  const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<Team | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState("");
   const [division, setDivision] = useState("all");
+
+  useEffect(() => {
+    db.listTeams().then(setList);
+    db.listPlayers().then((p) => setPlayers(p)).catch(() => setPlayers([]));
+  }, []);
+
+  const load = () => db.listTeams().then(setList);
 
   const filtered = (list ?? []).filter((t) => {
     const q = query.trim().toLowerCase();
@@ -52,30 +82,23 @@ export default function AdminTeams() {
     return true;
   });
 
-  useEffect(() => {
-    db.listTeams().then(setList);
-  }, []);
-
-  const load = () => db.listTeams().then(setList);
-
-  async function handleSave(form: TeamFormData) {
+  async function handleSave(form: EquipoForm) {
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
       const payload = {
-        name: form.name,
+        name: form.name.trim(),
         division: form.division,
         sex: form.sex,
-        city: form.city,
-        player1: form.player1_name ? { player_id: "", name: form.player1_name, level: 0 } : null,
-        player2: form.player2_name ? { player_id: "", name: form.player2_name, level: 0 } : null,
+        crest_url: form.logo,
+        player1: form.player1_name.trim() ? { player_id: "", name: form.player1_name.trim(), level: 0 } : null,
+        player2: form.player2_name.trim() ? { player_id: "", name: form.player2_name.trim(), level: 0 } : null,
       };
       if (editing) {
         await db.updateTeam(editing.slug, payload as unknown as Partial<Team>);
-        toast.success(`Equipo "${form.name}" actualizado`);
+        toast.success(`Equipo "${payload.name}" actualizado`);
       } else {
         await db.createTeam(payload as unknown as Omit<Team, "id" | "slug">);
-        toast.success(`Equipo "${form.name}" creado`);
+        toast.success(`Equipo "${payload.name}" creado`);
       }
       setOpenCreate(false);
       setEditing(null);
@@ -88,6 +111,7 @@ export default function AdminTeams() {
   }
 
   async function handleDelete(t: Team) {
+    if (!confirm(`¿Eliminar el equipo "${t.name}"?`)) return;
     try {
       await db.deleteTeam(t.slug);
       toast.success(`Equipo "${t.name}" eliminado`);
@@ -100,26 +124,27 @@ export default function AdminTeams() {
   const dialogKey = editing?.id ?? "new";
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="animate-fade-in space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Equipos</h1>
         <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Nueva pareja
+          <Plus className="h-4 w-4 mr-1" /> Nuevo equipo
         </Button>
       </div>
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm">{filtered.length} de {list?.length ?? 0} parejas</CardTitle>
+            <CardTitle className="text-sm">{filtered.length} de {list?.length ?? 0} equipos</CardTitle>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar pareja o jugador…"
-                  className="h-9 w-52 pl-8"
-                  aria-label="Buscar parejas"
+                  placeholder="Buscar equipo o jugador…"
+                  className="h-9 w-56 pl-8"
+                  aria-label="Buscar equipos"
                 />
               </div>
               <Select value={division} onValueChange={setDivision}>
@@ -140,45 +165,59 @@ export default function AdminTeams() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Pareja</TableHead>
+                <TableHead className="pl-4">Equipo</TableHead>
                 <TableHead className="hidden sm:table-cell">División</TableHead>
+                <TableHead className="hidden md:table-cell">Jugadores</TableHead>
                 <TableHead className="text-right">PJ</TableHead>
                 <TableHead className="text-right">G</TableHead>
-                <TableHead className="text-right">P</TableHead>
-                <TableHead className="text-right">Posición</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="text-right pr-4">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
+              {list === null && (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">Cargando…</TableCell>
+                </TableRow>
+              )}
               {list !== null && list.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No hay parejas todavía. Usa el botón "Nueva pareja" para agregar el primero.
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    No hay equipos todavía. Registra el primero con "Nuevo equipo".
                   </TableCell>
                 </TableRow>
               )}
               {list !== null && list.length > 0 && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    Ninguna pareja coincide con el filtro.
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    Ningún equipo coincide con el filtro.
                   </TableCell>
                 </TableRow>
               )}
               {filtered.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell className="font-medium">
-                    <Link to={`/equipos/${t.slug}`} className="hover:underline">{t.name}</Link>
+                  <TableCell className="pl-4 font-medium">
+                    <span className="flex items-center gap-2">
+                      {t.crest_url ? (
+                        <img src={t.crest_url} alt="" className="h-7 w-7 rounded object-contain" />
+                      ) : null}
+                      <Link to={`/equipos/${t.slug}`} className="hover:underline">{t.name}</Link>
+                    </span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    {t.division} {sexShort(t.sex)}
+                    <Badgeish division={t.division} sex={t.sex} />
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-muted-foreground">
+                    {[t.player1?.name, t.player2?.name].filter(Boolean).join(" · ") || "—"}
                   </TableCell>
                   <TableCell className="text-right">{t.played}</TableCell>
                   <TableCell className="text-right text-emerald-600">{t.won}</TableCell>
-                  <TableCell className="text-right text-red-500">{t.lost}</TableCell>
-                  <TableCell className="text-right">{t.position}</TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(t); setOpenCreate(true); }}>Editar</Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(t)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <TableCell className="pr-4 text-right space-x-1">
+                    <Button variant="ghost" size="sm" onClick={() => { setEditing(t); setOpenCreate(true); }} aria-label={`Editar ${t.name}`}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(t)} aria-label={`Eliminar ${t.name}`}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -187,128 +226,175 @@ export default function AdminTeams() {
         </CardContent>
       </Card>
 
-      <TeamFormDialog
+      <EquipoDialog
         key={dialogKey}
         open={openCreate}
         onOpenChange={(o) => { if (!o) { setOpenCreate(false); setEditing(null); } }}
         onSave={handleSave}
-        onCancel={() => setEditing(null)}
         editing={editing}
         submitting={submitting}
+        players={players}
       />
     </div>
   );
 }
 
-interface TeamFormData {
-  name: string;
-  division: string;
-  sex: string;
-  city: string;
-  player1_name: string;
-  player2_name: string;
+function Badgeish({ division, sex }: { division: string; sex: string }) {
+  return (
+    <span className="text-sm">
+      {division} · {sexShort(sex)}
+    </span>
+  );
 }
 
-function TeamFormDialog({
+function EquipoDialog({
   open,
   onOpenChange,
   onSave,
-  onCancel,
   editing,
   submitting,
+  players,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: TeamFormData) => void;
-  onCancel: () => void;
+  onSave: (data: EquipoForm) => void;
   editing: Team | null;
   submitting: boolean;
+  players: PlayerProfile[];
 }) {
-  const [form, setForm] = useState<TeamFormData>(() => {
+  const [form, setForm] = useState<EquipoForm>(() => {
     if (editing) {
       return {
         name: editing.name,
         division: editing.division,
         sex: editing.sex,
-        city: editing.city,
+        logo: editing.crest_url ?? null,
         player1_name: editing.player1?.name ?? "",
         player2_name: editing.player2?.name ?? "",
       };
     }
-    return {
-      name: "",
-      division: "1ra",
-      sex: "M",
-      city: "Ciudad de México",
-      player1_name: "",
-      player2_name: "",
-    };
+    return EMPTY_FORM;
   });
+  // El nombre dejó de ser automático cuando el usuario lo edita a mano
+  const [manualName, setManualName] = useState(Boolean(editing?.name));
 
-  const update = (field: keyof TeamFormData, value: string) => {
-    setForm((f) => ({ ...f, [field]: value }));
-  };
+  function setPlayers(slot: 1 | 2, name: string) {
+    setForm((f) => {
+      const next = { ...f, [slot === 1 ? "player1_name" : "player2_name"]: name };
+      // Si el nombre no fue tocado a mano, se arma solo
+      const wasAuto = !manualName;
+      return { ...next, name: wasAuto ? autoName(next) : next.name };
+    });
+  }
+
+  function setLogoFile(file: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setForm((f) => ({ ...f, logo: String(reader.result) }));
+    reader.readAsDataURL(file);
+  }
+
+  const valid = form.name.trim() && form.player1_name.trim() && form.player2_name.trim();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editing ? "Editar pareja" : "Nueva pareja"}</DialogTitle>
+          <DialogTitle>{editing ? "Editar equipo" : "Nuevo equipo"}</DialogTitle>
           <DialogDescription>
-            {editing ? `Edita "${editing.name}"` : "Registra una pareja (2 jugadores) en una división."}
+            Un equipo es una pareja de 2 jugadores. Busca a los registrados o escribe nombres nuevos.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 py-2">
-          <div className="grid gap-1.5">
-            <Label>Nombre de la pareja</Label>
-            <Input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Fuentes / Rojas" />
+
+        <div className="grid gap-4 py-2">
+          {/* Logo + nombre */}
+          <div className="flex items-start gap-3">
+            <input
+              type="file"
+              id="equipo-logo"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => document.getElementById("equipo-logo")?.click()}
+              className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/50 transition-colors hover:border-primary/60"
+              aria-label="Subir logo del equipo"
+              title="Subir logo"
+            >
+              {form.logo ? (
+                <img src={form.logo} alt="" className="h-full w-full object-contain p-1" />
+              ) : (
+                <ImagePlus className="h-5 w-5 text-muted-foreground" />
+              )}
+            </button>
+            <div className="grid flex-1 gap-1.5">
+              <Label htmlFor="equipo-name">Nombre del equipo</Label>
+              <Input
+                id="equipo-name"
+                value={form.name}
+                onChange={(e) => {
+                  setManualName(true);
+                  setForm((f) => ({ ...f, name: e.target.value }));
+                }}
+                placeholder={autoName(form) || "Se arma solo con los jugadores"}
+              />
+              {!manualName && autoName(form) && (
+                <p className="text-xs text-muted-foreground">Automático — edítalo si quieres otro nombre</p>
+              )}
+            </div>
           </div>
+
+          {/* Jugadores */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PlayerSlot
+              label="Jugador 1"
+              value={form.player1_name}
+              players={players}
+              onPick={(n) => setPlayers(1, n)}
+              onType={(n) => setPlayers(1, n)}
+            />
+            <PlayerSlot
+              label="Jugador 2"
+              value={form.player2_name}
+              players={players}
+              onPick={(n) => setPlayers(2, n)}
+              onType={(n) => setPlayers(2, n)}
+            />
+          </div>
+
+          {/* División + rama */}
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>División</Label>
-              <Select value={form.division} onValueChange={(v) => update("division", v)}>
+              <Select value={form.division} onValueChange={(v) => setForm((f) => ({ ...f, division: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DIVISIONS.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d === "1ra" ? "1ra División (élite)" : d === "Novatos" ? "Novatos" : `${d} División`}
-                    </SelectItem>
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">1ra = élite, Novatos = principiantes</p>
             </div>
             <div className="grid gap-1.5">
-              <Label>Género</Label>
-              <Select value={form.sex} onValueChange={(v) => update("sex", v)}>
+              <Label>Rama</Label>
+              <Select value={form.sex} onValueChange={(v) => setForm((f) => ({ ...f, sex: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="M">Masculino</SelectItem>
-                  <SelectItem value="F">Femenino</SelectItem>
+                  <SelectItem value="M">Varonil</SelectItem>
+                  <SelectItem value="F">Femenil</SelectItem>
                   <SelectItem value="X">Mixto</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>Jugador 1</Label>
-              <Input value={form.player1_name} onChange={(e) => update("player1_name", e.target.value)} placeholder="Nombre del jugador 1" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Jugador 2</Label>
-              <Input value={form.player2_name} onChange={(e) => update("player2_name", e.target.value)} placeholder="Nombre del jugador 2" />
-            </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Ciudad</Label>
-            <Input value={form.city} onChange={(e) => update("city", e.target.value)} />
-          </div>
         </div>
+
         <DialogFooter>
-          <Button variant="outline" onClick={() => { onOpenChange(false); onCancel(); }}>Cancelar</Button>
-          <Button onClick={() => onSave(form)} disabled={submitting || !form.name.trim() || !form.player1_name.trim() || !form.player2_name.trim()}>
-            {submitting ? "Guardando…" : editing ? "Actualizar" : "Crear"}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={() => onSave(form)} disabled={submitting || !valid}>
+            {submitting ? "Guardando…" : editing ? "Actualizar" : "Crear equipo"}
           </Button>
         </DialogFooter>
       </DialogContent>

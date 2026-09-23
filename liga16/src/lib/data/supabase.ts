@@ -77,9 +77,12 @@ export const supabaseProvider: DataProvider = {
   },
 
   async getTournament(slug: string) {
-    // Acepta tanto el slug como el id del torneo
+    // Acepta slug o id (solo se filtra por id si el valor es un UUID válido)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
     const { data, error } = await client()
-      .from('tournaments').select('*, clubs(name)').or(`slug.eq.${slug},id.eq.${slug}`).maybeSingle();
+      .from('tournaments').select('*, clubs(name)')
+      .eq(isUuid ? 'id' : 'slug', slug)
+      .maybeSingle();
     if (error) throw error;
     if (!data) return null;
     return { ...data, club_name: (data.clubs as { name?: string } | null)?.name ?? null } as never;
@@ -151,6 +154,17 @@ export const supabaseProvider: DataProvider = {
       .insert({ tournament_id: data.tournament_id, category_id: data.category_id ?? null, name: data.name, seed: data.seed ?? null, status: 'confirmed' })
       .select()
       .single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null }) {
+    const patch: Record<string, unknown> = {};
+    if (data.name !== undefined) patch.name = data.name;
+    if (data.category_id !== undefined) patch.category_id = data.category_id;
+    if (data.seed !== undefined) patch.seed = data.seed;
+    const { data: result, error } = await client()
+      .from('pairs').update(patch).eq('id', id).select().single();
     if (error) throw error;
     return result as never;
   },

@@ -31,7 +31,18 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowLeft, Dice5, GripVertical, Plus, Trash2, CalendarClock, RotateCcw, UserPlus } from "lucide-react";
+import {
+  ArrowLeft,
+  Dice5,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+  CalendarClock,
+  RotateCcw,
+  UserPlus,
+  Search,
+} from "lucide-react";
 import { toast } from "sonner";
 import { drawGroups, suggestGroupCount, scheduleRounds, computeStandings, type Group } from "@/lib/groups";
 import {
@@ -80,30 +91,10 @@ function SortablePair({
       </button>
       <span className="flex-1 truncate">{name}</span>
       {onRemove && (
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove} aria-label="Quitar pareja">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove} aria-label="Quitar equipo">
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       )}
-    </div>
-  );
-}
-
-function UnassignedPool({
-  pairIds,
-  nameById,
-  onRemove,
-}: {
-  pairIds: string[];
-  nameById: Record<string, string>;
-  onRemove: (id: string) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: "__pool__" });
-  void attributes; void listeners; void setNodeRef; void transform; void transition; void isDragging;
-  return (
-    <div className="space-y-2">
-      {pairIds.map((id) => (
-        <SortablePair key={id} id={id} name={nameById[id] ?? id} onRemove={() => onRemove(id)} />
-      ))}
     </div>
   );
 }
@@ -124,6 +115,16 @@ export default function AdminTournamentDetail() {
   const [courts, setCourts] = useState<Court[]>([]);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [jornadaDay, setJornadaDay] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  // Edición de fechas del torneo
+  const [datesOpen, setDatesOpen] = useState(false);
+  const [datesForm, setDatesForm] = useState({ start_date: "", end_date: "", registration_deadline: "" });
+  // Edición de equipos
+  const [editingPair, setEditingPair] = useState<Pair | null>(null);
+  const [pairForm, setPairForm] = useState({ name: "", category_id: "" });
+  // Filtros
+  const [pairQuery, setPairQuery] = useState("");
+  const [matchQuery, setMatchQuery] = useState("");
+  const [matchRound, setMatchRound] = useState("all");
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -159,6 +160,8 @@ export default function AdminTournamentDetail() {
     return map;
   }, [pairs]);
 
+  const rounds = useMemo(() => [...new Set(matches.map((m) => m.round))].sort(), [matches]);
+
   const assignedIds = useMemo(() => new Set(groups.flatMap((g) => g.pairIds)), [groups]);
   const unassigned = useMemo(
     () => (pairs ?? []).filter((p) => !assignedIds.has(p.id)),
@@ -167,12 +170,12 @@ export default function AdminTournamentDetail() {
 
   function handleDraw() {
     if (!pairs || pairs.length === 0) {
-      toast.error("Registra al menos una pareja antes del sorteo");
+      toast.error("Registra al menos un equipo antes del sorteo");
       return;
     }
     const count = suggestGroupCount(pairs.length);
     setGroups(drawGroups(pairs.map((p) => p.id), count));
-    toast.success(`Sorteo listo: ${count} grupos de ~${Math.ceil(pairs.length / count)} parejas`);
+    toast.success(`Sorteo listo: ${count} grupos de ~${Math.ceil(pairs.length / count)} equipos`);
   }
 
   function handleDragEnd(e: DragEndEvent) {
@@ -196,7 +199,6 @@ export default function AdminTournamentDetail() {
     const from = findGroupOf(activeId);
     const to = findGroupOf(overId);
     if (from === -1 && to >= 0) {
-      // desde el pool hacia un grupo
       setGroups((gs) => gs.map((g, i) => (i === to ? { ...g, pairIds: [...g.pairIds, activeId] } : g)));
     } else if (from >= 0 && to >= 0 && from !== to) {
       setGroups((gs) =>
@@ -207,7 +209,6 @@ export default function AdminTournamentDetail() {
         }),
       );
     } else if (from >= 0 && from === to) {
-      // reordenar dentro del mismo grupo
       setGroups((gs) =>
         gs.map((g, i) => (i === from ? { ...g, pairIds: arrayMove(g.pairIds, g.pairIds.indexOf(activeId), g.pairIds.indexOf(overId)) } : g)),
       );
@@ -219,7 +220,18 @@ export default function AdminTournamentDetail() {
     setGroups((gs) => [...gs, { name: `Grupo ${letters[gs.length]}`, pairIds: [] }]);
   }
 
-  async function handleAddPair() {
+  function renameGroup(index: number, name: string) {
+    setGroups((gs) => gs.map((g, i) => (i === index ? { ...g, name } : g)));
+  }
+
+  /** Reasignar equipo a un grupo (o al pool) con Select — sin depender del drag. */
+  function reassignPair(pairId: string, target: string) {
+    setGroups((gs) => {
+      const without = gs.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== pairId) }));
+      if (target === "__pool__") return without;
+      return without.map((g) => (g.name === target ? { ...g, pairIds: [...g.pairIds, pairId] } : g));
+    });
+  }  async function handleAddPair() {
     if (!tournament || !newPairName.trim()) return;
     setSaving(true);
     try {
@@ -229,10 +241,33 @@ export default function AdminTournamentDetail() {
         name: newPairName.trim(),
       });
       setNewPairName("");
-      toast.success("Pareja registrada");
+      toast.success("Equipo registrado");
       await reload();
     } catch (e) {
-      toast.error((e as Error).message ?? "Error al registrar la pareja");
+      toast.error((e as Error).message ?? "Error al registrar el equipo");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openEditPair(p: Pair) {
+    setEditingPair(p);
+    setPairForm({ name: p.name, category_id: p.category_id ?? "" });
+  }
+
+  async function handleSavePair() {
+    if (!editingPair || !pairForm.name.trim()) return;
+    setSaving(true);
+    try {
+      await db.updatePair(editingPair.id, {
+        name: pairForm.name.trim(),
+        category_id: pairForm.category_id || null,
+      });
+      toast.success("Equipo actualizado");
+      setEditingPair(null);
+      await reload();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al actualizar");
     } finally {
       setSaving(false);
     }
@@ -243,9 +278,34 @@ export default function AdminTournamentDetail() {
       await db.deletePair(id);
       setGroups((gs) => gs.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== id) })));
       await reload();
-      toast.success("Pareja eliminada");
+      toast.success("Equipo eliminado");
     } catch (e) {
       toast.error((e as Error).message ?? "Error al eliminar");
+    }
+  }
+
+  function openEditDates() {
+    if (!tournament) return;
+    setDatesForm({
+      start_date: tournament.start_date,
+      end_date: tournament.end_date,
+      registration_deadline: tournament.registration_deadline,
+    });
+    setDatesOpen(true);
+  }
+
+  async function handleSaveDates() {
+    if (!tournament) return;
+    setSaving(true);
+    try {
+      await db.updateTournament(tournament.slug, datesForm as never);
+      setTournament({ ...tournament, ...datesForm });
+      setDatesOpen(false);
+      toast.success("Fechas actualizadas");
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al guardar las fechas");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -294,6 +354,19 @@ export default function AdminTournamentDetail() {
   if (!tournament) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 
   const club = clubs.find((c) => c.id === tournament.club_id);
+  const catNameById = new Map(categories.map((c) => [c.id, c.name]));
+  const filteredPairs = (pairs ?? []).filter((p) => {
+    const q = pairQuery.trim().toLowerCase();
+    return !q || p.name.toLowerCase().includes(q) || (catNameById.get(p.category_id ?? "") ?? "").toLowerCase().includes(q);
+  });
+  const filteredMatches = matches
+    .filter((m) => {
+      const q = matchQuery.trim().toLowerCase();
+      if (q && !m.side_a.pair_name.toLowerCase().includes(q) && !m.side_b.pair_name.toLowerCase().includes(q)) return false;
+      if (matchRound !== "all" && m.round !== matchRound) return false;
+      return true;
+    })
+    .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -311,19 +384,24 @@ export default function AdminTournamentDetail() {
             {tournament.format === "groups_knockout" ? "Grupos + eliminación" : tournament.format}
           </p>
         </div>
-        <Badge variant="outline">{(pairs ?? []).length} parejas</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">{(pairs ?? []).length} equipos</Badge>
+          <Button variant="outline" size="sm" onClick={openEditDates}>
+            <Pencil className="h-3.5 w-3.5 mr-1" /> Fechas
+          </Button>
+        </div>
       </header>
 
       <Tabs defaultValue="parejas">
         <TabsList>
           <TabsTrigger value="jornada">Jornada</TabsTrigger>
-          <TabsTrigger value="parejas">Parejas</TabsTrigger>
+          <TabsTrigger value="parejas">Equipos</TabsTrigger>
           <TabsTrigger value="grupos">Grupos y sorteo</TabsTrigger>
           <TabsTrigger value="posiciones">Tablas de posiciones</TabsTrigger>
           <TabsTrigger value="calendario">Calendario ({matches.length})</TabsTrigger>
         </TabsList>
 
-        {/* ============ JORNADA (agenda del día + captura encadenada) ============ */}
+        {/* ============ JORNADA ============ */}
         <TabsContent value="jornada" className="space-y-4 pt-2">
           <div className="flex flex-wrap items-center gap-2">
             <Label htmlFor="jornada-day" className="text-sm text-muted-foreground">Día:</Label>
@@ -392,7 +470,7 @@ export default function AdminTournamentDetail() {
         <TabsContent value="parejas" className="space-y-4 pt-2">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Registrar pareja</CardTitle>
+              <CardTitle className="text-sm">Registrar equipo</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-end gap-3">
               <div className="grid gap-1.5 flex-1 min-w-48">
@@ -406,18 +484,15 @@ export default function AdminTournamentDetail() {
               </div>
               {categories.length > 0 && (
                 <div className="grid gap-1.5 w-56">
-                  <Label htmlFor="pair-cat">Categoría</Label>
-                  <select
-                    id="pair-cat"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                    value={newPairCategory}
-                    onChange={(e) => setNewPairCategory(e.target.value)}
-                  >
-                    <option value="">Sin categoría</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  <Label>Categoría</Label>
+                  <Select value={newPairCategory || categories[0]?.id} onValueChange={setNewPairCategory}>
+                    <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               <Button onClick={handleAddPair} disabled={saving || !newPairName.trim()}>
@@ -427,28 +502,64 @@ export default function AdminTournamentDetail() {
           </Card>
 
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Parejas inscritas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!pairs ? (
-                <p className="text-sm text-muted-foreground">Cargando…</p>
-              ) : pairs.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Aún no hay parejas. Registra la primera con el formulario de arriba.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {pairs.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-                      <span className="flex-1 truncate">{p.name}</span>
-                      {p.seed != null && <Badge variant="secondary">Sorpresa {p.seed}</Badge>}
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemovePair(p.id)} aria-label="Eliminar pareja">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ))}
+            <CardHeader className="pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-sm">
+                  Inscritas ({filteredPairs.length} de {pairs?.length ?? 0})
+                </CardTitle>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={pairQuery}
+                    onChange={(e) => setPairQuery(e.target.value)}
+                    placeholder="Buscar equipo o categoría…"
+                    className="h-9 w-56 pl-8"
+                    aria-label="Buscar equipos"
+                  />
                 </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {!pairs ? (
+                <p className="p-4 text-sm text-muted-foreground">Cargando…</p>
+              ) : pairs.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">
+                  Aún no hay equipos. Registra el primero con el formulario de arriba.
+                </p>
+              ) : filteredPairs.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">Ningún equipo coincide con la búsqueda.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="pl-4">Equipo</TableHead>
+                      <TableHead className="hidden sm:table-cell">Categoría</TableHead>
+                      <TableHead className="text-right pr-4">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPairs.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="pl-4 font-medium">{p.name}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {p.category_id ? (
+                            <Badge variant="secondary">{catNameById.get(p.category_id) ?? "—"}</Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sin categoría</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="pr-4 text-right space-x-1">
+                          <Button variant="ghost" size="sm" onClick={() => openEditPair(p)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleRemovePair(p.id)} aria-label={`Eliminar ${p.name}`}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
@@ -476,23 +587,35 @@ export default function AdminTournamentDetail() {
           </div>
           <p className="text-sm text-muted-foreground">
             {groups.length === 0
-              ? "El sorteo reparte todas las parejas en grupos parejos. Después puedes arrastrar cualquier pareja a otro grupo para ajustar a mano."
-              : "Arrastra las parejas entre grupos para ajustar el sorteo a mano."}
+              ? "El sorteo reparte todos los equipos en grupos parejos. Después puedes arrastrar o reasignar cualquiera."
+              : "Arrastra los equipos entre grupos, usa el selector de grupo en cada tarjeta, o renombra el grupo con un clic en su título."}
           </p>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            {groups.length === 0 && unassigned.length > 0 && (
+            {unassigned.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Parejas esperando sorteo</CardTitle>
+                  <CardTitle className="text-sm">Equipos sin grupo ({unassigned.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <SortableContext items={unassigned.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-                    <UnassignedPool
-                      pairIds={unassigned.map((p) => p.id)}
-                      nameById={nameById}
-                      onRemove={handleRemovePair}
-                    />
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {unassigned.map((p) => (
+                        <div key={p.id} className="space-y-1">
+                          <SortablePair id={p.id} name={p.name} onRemove={() => handleRemovePair(p.id)} />
+                          {groups.length > 0 && (
+                            <Select value="__pool__" onValueChange={(v) => reassignPair(p.id, v)}>
+                              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {groups.map((g) => (
+                                  <SelectItem key={g.name} value={g.name}>→ {g.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </SortableContext>
                 </CardContent>
               </Card>
@@ -502,11 +625,16 @@ export default function AdminTournamentDetail() {
                 groups.length <= 2 ? "sm:grid-cols-2" : groups.length <= 4 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"
               }`}
             >
-              {groups.map((g) => (
+              {groups.map((g, gi) => (
                 <Card key={g.name}>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center justify-between">
-                      {g.name}
+                    <CardTitle className="text-sm flex items-center justify-between gap-2">
+                      <Input
+                        value={g.name}
+                        onChange={(e) => renameGroup(gi, e.target.value)}
+                        className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
+                        aria-label={`Nombre del grupo ${gi + 1}`}
+                      />
                       <Badge variant="outline">{g.pairIds.length}</Badge>
                     </CardTitle>
                   </CardHeader>
@@ -514,15 +642,25 @@ export default function AdminTournamentDetail() {
                     <SortableContext items={g.pairIds} strategy={verticalListSortingStrategy}>
                       <div className="space-y-2 min-h-16">
                         {g.pairIds.length === 0 && (
-                          <p className="text-xs text-muted-foreground py-2">Arrastra parejas aquí</p>
+                          <p className="text-xs text-muted-foreground py-2">Arrastra equipos aquí</p>
                         )}
                         {g.pairIds.map((id) => (
-                          <SortablePair
-                            key={id}
-                            id={id}
-                            name={nameById[id] ?? id}
-                            onRemove={() => handleRemovePair(id)}
-                          />
+                          <div key={id} className="space-y-1">
+                            <SortablePair id={id} name={nameById[id] ?? id} onRemove={() => handleRemovePair(id)} />
+                            <Select value={g.name} onValueChange={(v) => reassignPair(id, v)}>
+                              <SelectTrigger className="h-6 text-[11px] text-muted-foreground" aria-label={`Reasignar ${nameById[id]}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {groups.map((other) => (
+                                  <SelectItem key={other.name} value={other.name}>
+                                    {other.name}{other.name === g.name ? " (actual)" : ""}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="__pool__">Sin grupo</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         ))}
                       </div>
                     </SortableContext>
@@ -538,7 +676,7 @@ export default function AdminTournamentDetail() {
           {groups.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                Aún no hay grupos. Ve a "Grupos y sorteo" y sortea las parejas.
+                Aún no hay grupos. Ve a "Grupos y sorteo" y sortea los equipos.
               </CardContent>
             </Card>
           ) : (
@@ -561,7 +699,7 @@ export default function AdminTournamentDetail() {
                         <TableHeader>
                           <TableRow>
                             <TableHead className="pl-4">#</TableHead>
-                            <TableHead>Pareja</TableHead>
+                            <TableHead>Equipo</TableHead>
                             <TableHead className="text-right">PJ</TableHead>
                             <TableHead className="text-right">PG</TableHead>
                             <TableHead className="text-right">Sets</TableHead>
@@ -598,10 +736,33 @@ export default function AdminTournamentDetail() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {[...matches]
-                .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
-                .map((m) => (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={matchQuery}
+                    onChange={(e) => setMatchQuery(e.target.value)}
+                    placeholder="Buscar pareja…"
+                    className="h-9 w-52 pl-8"
+                    aria-label="Buscar partidos"
+                  />
+                </div>
+                <Select value={matchRound} onValueChange={setMatchRound}>
+                  <SelectTrigger className="h-9 w-52" aria-label="Filtrar por ronda">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las rondas</SelectItem>
+                    {rounds.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Badge variant="outline">{filteredMatches.length} partidos</Badge>
+              </div>
+              <div className="space-y-2">
+                {filteredMatches.map((m) => (
                   <Card key={m.id}>
                     <CardContent className="flex flex-wrap items-center gap-3 py-3 text-sm">
                       <span className="font-medium flex-1 min-w-48">
@@ -621,15 +782,80 @@ export default function AdminTournamentDetail() {
                         </span>
                       )}
                       <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
-                        {m.status === "finished" ? "Ver resultado" : "Capturar resultado"}
+                        {m.status === "finished" ? "Ver resultado" : "Editar / Capturar"}
                       </Button>
                     </CardContent>
                   </Card>
                 ))}
-            </div>
+              </div>
+            </>
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Diálogo: editar fechas del torneo */}
+      <Dialog open={datesOpen} onOpenChange={setDatesOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar fechas</DialogTitle>
+            <DialogDescription>Se aplican al calendario y a la ficha pública del torneo.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="d-start">Inicio</Label>
+              <Input id="d-start" type="date" value={datesForm.start_date} onChange={(e) => setDatesForm((f) => ({ ...f, start_date: e.target.value }))} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="d-end">Fin</Label>
+              <Input id="d-end" type="date" value={datesForm.end_date} onChange={(e) => setDatesForm((f) => ({ ...f, end_date: e.target.value }))} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="d-deadline">Cierre de inscripción</Label>
+              <Input id="d-deadline" type="date" value={datesForm.registration_deadline} onChange={(e) => setDatesForm((f) => ({ ...f, registration_deadline: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDatesOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveDates} disabled={saving || !datesForm.start_date || !datesForm.end_date}>
+              {saving ? "Guardando…" : "Guardar fechas"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: editar pareja */}
+      <Dialog open={!!editingPair} onOpenChange={(o) => { if (!o) setEditingPair(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar equipo</DialogTitle>
+            <DialogDescription>Cambia el nombre o la categoría; los partidos ya generados no se tocan.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ep-name">Nombre</Label>
+              <Input id="ep-name" value={pairForm.name} onChange={(e) => setPairForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Categoría</Label>
+              <Select value={pairForm.category_id || "__none__"} onValueChange={(v) => setPairForm((f) => ({ ...f, category_id: v === "__none__" ? "" : v }))}>
+                <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sin categoría</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPair(null)}>Cancelar</Button>
+            <Button onClick={handleSavePair} disabled={saving || !pairForm.name.trim()}>
+              {saving ? "Guardando…" : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de configuración del calendario */}
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
@@ -702,7 +928,7 @@ export default function AdminTournamentDetail() {
           onOpenChange={(o) => { if (!o) setEditingMatchId(null); }}
           onAdvance={(nextId) => {
             void reload();
-            setEditingMatchId(nextId); // siguiente partido o cierre
+            setEditingMatchId(nextId);
           }}
         />
       )}
@@ -710,7 +936,7 @@ export default function AdminTournamentDetail() {
   );
 }
 
-/** Captura rápida de marcador, cancha y hora desde el calendario del torneo. */
+/** Captura y edición de marcador, cancha, fecha y hora desde el calendario del torneo. */
 function MatchResultDialog({
   match,
   nextMatchId,
@@ -756,7 +982,7 @@ function MatchResultDialog({
       toast.success(status === "finished" ? (nextMatchId ? "Guardado — siguiente partido" : "Resultado guardado") : "Partido actualizado");
       onAdvance(status === "finished" ? nextMatchId : null);
     } catch (e) {
-      toast.error((e as Error).message ?? "Error al guardar el resultado");
+      toast.error((e as Error).message ?? "Error al guardar");
     } finally {
       setSaving(false);
     }
@@ -766,7 +992,7 @@ function MatchResultDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Capturar resultado</DialogTitle>
+          <DialogTitle>Editar partido</DialogTitle>
           <DialogDescription>
             {match.side_a.pair_name} vs {match.side_b.pair_name} · {match.round}
           </DialogDescription>

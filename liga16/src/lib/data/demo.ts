@@ -4,7 +4,7 @@ import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
   rankingEvents, rankings, sponsors, teams, tournaments,
 } from './seed';
-import type { Club, League, Match, NewsItem, PlayerProfile, RankingEntry, RankingEvent, Registration, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
+import type { Club, League, Match, NewsItem, Pair, PlayerProfile, RankingEntry, RankingEvent, Registration, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
 
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 
@@ -96,14 +96,22 @@ export const demoProvider: DataProvider = {
     const pair = {
       id: `pair-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       tournament_id: data.tournament_id,
-      category_id: data.category_id ?? "",
+      category_id: data.category_id ?? null,
       name: data.name,
       player1_id: "",
       player2_id: "",
       seed: data.seed ?? null,
-    };
+    } as unknown as Pair;
     store.pairs.push(pair);
     return pair;
+  },
+
+  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null }) {
+    await delay();
+    const idx = store.pairs.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error("Pareja no encontrada");
+    store.pairs[idx] = { ...store.pairs[idx], ...data } as unknown as Pair;
+    return store.pairs[idx];
   },
 
   async deletePair(id: string) {
