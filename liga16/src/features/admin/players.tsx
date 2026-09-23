@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { sexLabel } from "@/lib/format";
 
 const SEX_OPTIONS = [
@@ -57,6 +57,12 @@ export default function AdminPlayers() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<PlayerProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filtered = (list ?? []).filter((p) => {
+    const q = query.trim().toLowerCase();
+    return !q || p.display_name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q);
+  });
 
   useEffect(() => {
     db.listPlayers().then(setList);
@@ -106,8 +112,20 @@ export default function AdminPlayers() {
         </Button>
       </div>
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Directorio</CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-sm">{filtered.length} de {list?.length ?? 0} jugadores</CardTitle>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar jugador…"
+                className="h-9 w-52 pl-8"
+                aria-label="Buscar jugadores"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
@@ -129,7 +147,14 @@ export default function AdminPlayers() {
                   </TableCell>
                 </TableRow>
               )}
-              {list?.map((p) => (
+              {list !== null && list.length > 0 && filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    Ningún jugador coincide con la búsqueda.
+                  </TableCell>
+                </TableRow>
+              )}
+              {filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.display_name}</TableCell>
                   <TableCell className="hidden sm:table-cell">@{p.username}</TableCell>

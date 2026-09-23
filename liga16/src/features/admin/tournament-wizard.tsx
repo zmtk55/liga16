@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { db } from "@/lib/data";
-import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile } from "@/types";
+import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile, Pair } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -303,6 +303,22 @@ export default function TournamentWizard() {
           }
         }
         setCatIds(nextIds);
+      }
+      // Persistir parejas al pasar del paso 4 (antes estaban solo en memoria)
+      if (target >= 4 && tournamentId) {
+        const existing = await db.getTournamentPairs(String(tournamentId));
+        const existingNames = new Set((existing as Pair[]).map((p) => p.name.toLowerCase()));
+        for (const t of teams) {
+          const name = t.name.trim();
+          if (!name || existingNames.has(name.toLowerCase())) continue;
+          await db
+            .createPair({
+              tournament_id: String(tournamentId),
+              category_id: catIds.get(t.division.toLowerCase()) ?? null,
+              name,
+            })
+            .catch((e: Error) => toast.error(`${name}: ${e.message ?? "no se pudo registrar"}`));
+        }
       }
     } finally {
       setSaving(false);

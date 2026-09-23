@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import { sexShort } from "@/lib/format";
 
@@ -42,6 +42,15 @@ export default function AdminTeams() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<Team | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [query, setQuery] = useState("");
+  const [division, setDivision] = useState("all");
+
+  const filtered = (list ?? []).filter((t) => {
+    const q = query.trim().toLowerCase();
+    if (q && !t.name.toLowerCase().includes(q) && !(t.player1?.name ?? "").toLowerCase().includes(q) && !(t.player2?.name ?? "").toLowerCase().includes(q)) return false;
+    if (division !== "all" && t.division !== division) return false;
+    return true;
+  });
 
   useEffect(() => {
     db.listTeams().then(setList);
@@ -99,8 +108,33 @@ export default function AdminTeams() {
         </Button>
       </div>
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Todas las parejas</CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-sm">{filtered.length} de {list?.length ?? 0} parejas</CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar pareja o jugador…"
+                  className="h-9 w-52 pl-8"
+                  aria-label="Buscar parejas"
+                />
+              </div>
+              <Select value={division} onValueChange={setDivision}>
+                <SelectTrigger className="h-9 w-40" aria-label="Filtrar por división">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las divisiones</SelectItem>
+                  {DIVISIONS.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
@@ -123,7 +157,14 @@ export default function AdminTeams() {
                   </TableCell>
                 </TableRow>
               )}
-              {list?.map((t) => (
+              {list !== null && list.length > 0 && filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    Ninguna pareja coincide con el filtro.
+                  </TableCell>
+                </TableRow>
+              )}
+              {filtered.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">
                     <Link to={`/equipos/${t.slug}`} className="hover:underline">{t.name}</Link>

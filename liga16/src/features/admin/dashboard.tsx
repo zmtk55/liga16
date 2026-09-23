@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { db } from "@/lib/data";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import type { Tournament } from "@/types";
+import { tournamentStatusLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Users, Building2, Newspaper, TrendingUp, TrendingDown, ArrowRight, Zap, BarChart3 } from "lucide-react";
+import { Trophy, Users, Building2, Newspaper, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 
 interface StatCard {
   title: string;
@@ -19,12 +20,14 @@ interface StatCard {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<{ t: number; p: number; c: number; n: number } | null>(null);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([db.listTournaments(), db.listPlayers(), db.listClubs(), db.listNews()])
       .then(([t, p, c, n]) => {
         setStats({ t: t.length, p: p.length, c: c.length, n: n.length });
+        setTournaments(t as Tournament[]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -78,14 +81,9 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/admin/onboarding" className="gap-1.5">
-              <Zap className="h-3.5 w-3.5" /> Onboarding
-            </Link>
-          </Button>
           <Button asChild size="sm">
-            <Link to="/admin/padel">
-              <Building2 className="h-3.5 w-3.5" /> Sede
+            <Link to="/admin/torneos/nuevo">
+              <Trophy className="h-3.5 w-3.5" /> Nuevo torneo
             </Link>
           </Button>
         </div>
@@ -139,64 +137,39 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" /> Acciones rápidas
+              <Trophy className="h-4 w-4" /> Últimos torneos
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button asChild variant="default"><Link to="/admin/torneos">Gestionar torneos</Link></Button>
-              <Button asChild variant="outline"><Link to="/admin/padel">Configurar padel</Link></Button>
-              <Button asChild variant="outline"><Link to="/admin/jugadores">Jugadores</Link></Button>
-              <Button asChild variant="outline"><Link to="/admin/equipos">Equipos</Link></Button>
-              <Button asChild variant="outline"><Link to="/admin/ranking">Ranking</Link></Button>
-              <Button asChild variant="outline"><Link to="/admin/resultados">Resultados</Link></Button>
-              <Button asChild variant="outline"><Link to="/admin/noticias">Noticias</Link></Button>
-              <Button asChild variant="outline"><Link to="/admin/onboarding">Onboarding</Link></Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Estado del Sistema</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />
                 ))}
               </div>
+            ) : tournaments.length === 0 ? (
+              <div className="py-6 text-center">
+                <p className="text-sm text-muted-foreground mb-3">Aún no hay torneos.</p>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/admin/torneos/nuevo">Crear el primero</Link>
+                </Button>
+              </div>
             ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Modo de datos</span>
-                  <Badge variant={isSupabaseConfigured ? "default" : "secondary"}>
-                    {isSupabaseConfigured ? "Supabase" : "Demo"}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Usuarios activos</span>
-                  <span className="font-medium">{stats?.p ?? 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Torneos activos</span>
-                  <span className="font-medium">{stats?.t ?? 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Noticias publicadas</span>
-                  <span className="font-medium">{stats?.n ?? 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Sedes</span>
-                  <span className="font-medium">{stats?.c ?? 0}</span>
-                </div>
-                <div className="border-t pt-4 mt-2">
-                  <p className="text-xs text-muted-foreground">
-                    El área valida RLS cuando Supabase está configurado; en demo todo es local.
-                  </p>
-                </div>
-              </>
+              <div className="divide-y">
+                {tournaments.slice(0, 5).map((t) => (
+                  <Link
+                    key={t.id}
+                    to={`/admin/torneos/${t.slug}`}
+                    className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0 hover:bg-muted/40 rounded-md px-1 -mx-1 transition-colors"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{t.name}</span>
+                      <span className="block text-xs text-muted-foreground">{t.start_date} → {t.end_date}</span>
+                    </span>
+                    <Badge variant="outline" className="shrink-0">{tournamentStatusLabel[t.status]}</Badge>
+                  </Link>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
