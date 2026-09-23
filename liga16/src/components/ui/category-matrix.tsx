@@ -1,27 +1,32 @@
-// Matriz de categorías para el asistente de torneo.
-// Cada división es una fila; sus tres ramas (Varonil/Femenil/Mixto) son
-// toggles visibles de un vistazo. Sin popovers: todo lo seleccionado
-// permanece a la vista con su cupo editable inline.
-import { Toggle } from "@/components/ui/toggle";
+// Matriz de categorías del asistente de torneo.
+// Las categorías se TECLEAN (nombre libre: "4ta Varonil", "Suma Nueve" —
+// que significa 4ta+5ta). Sin cupos: el número de grupos se decide en el
+// sorteo según los inscritos.
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eraser } from "lucide-react";
-import type { PadelDivision, Sex } from "@/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Eraser, Plus, X } from "lucide-react";
+import type { Sex } from "@/types";
+import type { CategoryValue } from "@/lib/categories";
 
-export interface CategoryValue {
-  division: PadelDivision;
-  sex: Sex;
-  max_pairs: number;
-}
+export type { CategoryValue };
 
-const DIVISIONES: PadelDivision[] = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
 const RAMAS: { value: Sex; label: string }[] = [
   { value: "M", label: "Varonil" },
   { value: "F", label: "Femenil" },
   { value: "X", label: "Mixto" },
 ];
 
-const DEFAULT_CUPO = 16;
+const CLASICAS: [string, Sex][] = [
+  ["1ra", "M"], ["2da", "M"], ["3ra", "M"], ["4ta", "M"], ["5ta", "M"], ["6ta", "M"],
+];
 
 export default function CategoryMatrix({
   value,
@@ -30,155 +35,103 @@ export default function CategoryMatrix({
   value: CategoryValue[];
   onChange: (next: CategoryValue[]) => void;
 }) {
-  const key = (c: { division: string; sex: string }) => `${c.division}|${c.sex}`;
+  const [error, setError] = useState<string | null>(null);
 
-  const find = (division: PadelDivision, sex: Sex) =>
-    value.find((c) => c.division === division && c.sex === sex);
+  function update(index: number, patch: Partial<CategoryValue>) {
+    onChange(value.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+    setError(null);
+  }
 
-  function toggle(division: PadelDivision, sex: Sex) {
-    if (find(division, sex)) {
-      onChange(value.filter((c) => !(c.division === division && c.sex === sex)));
-    } else {
-      // Hereda el cupo de la última categoría tocada, si hay, para no
-      // reescribir el criterio del usuario a cada clic.
-      onChange([...value, { division, sex, max_pairs: value.at(-1)?.max_pairs ?? DEFAULT_CUPO }]);
+  function remove(index: number) {
+    onChange(value.filter((_, i) => i !== index));
+    setError(null);
+  }
+
+  function add() {
+    onChange([...value, { label: "", sex: "M" }]);
+    setError(null);
+  }
+
+  function addClasicas() {
+    const next = [...value];
+    for (const [label, sex] of CLASICAS) {
+      if (!next.some((c) => c.label.trim().toLowerCase() === label.toLowerCase())) {
+        next.push({ label, sex });
+      }
     }
+    onChange(next);
+    setError(null);
   }
 
-  function setCupo(division: PadelDivision, sex: Sex, cupo: number) {
-    onChange(
-      value.map((c) =>
-        key(c) === key({ division, sex }) ? { ...c, max_pairs: Math.max(1, cupo) } : c,
-      ),
-    );
-  }
 
-  function toggleRow(division: PadelDivision) {
-    const rowOn = RAMAS.every((r) => find(division, r.value));
-    onChange(
-      rowOn
-        ? value.filter((c) => c.division !== division)
-        : [
-            ...value.filter((c) => c.division !== division),
-            ...RAMAS.map((r) => ({
-              division,
-              sex: r.value,
-              max_pairs: value.at(-1)?.max_pairs ?? DEFAULT_CUPO,
-            })),
-          ],
-    );
-  }
-
-  const rowIsFull = (d: PadelDivision) => RAMAS.every((r) => find(d, r.value));
 
   return (
     <div className="space-y-3">
-      {/* Encabezado de columnas (solo >= sm, en móvil las ramas se leen en cada fila) */}
-      <div className="hidden grid-cols-[88px_1fr_auto] items-center gap-3 px-1 sm:grid">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">División</span>
+      <div className="hidden grid-cols-[1fr_140px_36px] items-center gap-2 px-1 sm:grid">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Categoría</span>
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rama</span>
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Cupo</span>
+        <span />
       </div>
 
-      <div className="overflow-hidden rounded-xl border" role="group" aria-label="Categorías del torneo">
-        {DIVISIONES.map((d, di) => (
-          <div
-            key={d}
-            className={`grid grid-cols-1 items-center gap-x-3 gap-y-1.5 px-3 py-2.5 sm:grid-cols-[88px_1fr_auto] ${
-              di > 0 ? "border-t" : ""
-            } ${rowIsFull(d) ? "bg-muted/40" : ""}`}
-          >
-            {/* División: clic en el nombre alterna toda la fila */}
-            <button
+      <div role="group" aria-label="Categorías del torneo" className="space-y-2">
+        {value.map((c, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <Input
+                value={c.label}
+                onChange={(e) => update(i, { label: e.target.value })}
+                placeholder='Nombre — ej. "4ta Varonil" o "Suma Nueve"'
+                aria-label={`Nombre de la categoría ${i + 1}`}
+                className="h-9"
+              />
+            </div>
+            <Select value={c.sex} onValueChange={(v) => update(i, { sex: v as Sex })}>
+              <SelectTrigger className="h-9 w-[140px]" aria-label={`Rama de la categoría ${i + 1}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RAMAS.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
               type="button"
-              onClick={() => toggleRow(d)}
-              title={rowIsFull(d) ? `Quitar las 3 ramas de ${d}` : `Poner las 3 ramas de ${d}`}
-              className="flex w-fit items-center gap-1 text-sm font-semibold transition-colors hover:text-primary"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              onClick={() => remove(i)}
+              aria-label={`Quitar categoría ${c.label || i + 1}`}
             >
-              {d}
-              <span
-                className={`text-[10px] font-medium ${rowIsFull(d) ? "text-primary" : "text-muted-foreground"}`}
-              >
-                {rowIsFull(d) ? "×3" : "3"}
-              </span>
-            </button>
-
-            {/* Ramas como toggles */}
-            <div className="flex flex-wrap gap-1.5">
-              {RAMAS.map((r) => {
-                const on = Boolean(find(d, r.value));
-                return (
-                  <Toggle
-                    key={r.value}
-                    size="sm"
-                    pressed={on}
-                    onPressedChange={() => toggle(d, r.value)}
-                    aria-label={`${d} ${r.label}`}
-                    className="h-7 gap-1 rounded-full px-3 text-xs"
-                  >
-                    {r.label}
-                    {on && <span className="text-[10px] tabular-nums opacity-70">{find(d, r.value)?.max_pairs}</span>}
-                  </Toggle>
-                );
-              })}
-            </div>
-
-            {/* Cupo inline de la primera rama activa de la fila */}
-            <div className="flex items-center gap-1 justify-self-start sm:justify-self-end">
-              {(() => {
-                const first = RAMAS.map((r) => find(d, r.value)).find(Boolean);
-                if (!first) return null;
-                return (
-                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    Cupo
-                    <Input
-                      type="number"
-                      min={1}
-                      value={first.max_pairs}
-                      onChange={(e) => setCupo(d, first.sex, Number(e.target.value))}
-                      className="h-7 w-14 text-center text-xs tabular-nums"
-                      aria-label={`Cupo de parejas para ${d}`}
-                    />
-                    {/* Aplica el cupo a todas las ramas activas de la fila */}
-                    {RAMAS.filter((r) => find(d, r.value)).length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          RAMAS.forEach((r) => {
-                            if (find(d, r.value)) setCupo(d, r.value, first.max_pairs);
-                          })
-                        }
-                        className="text-[10px] underline underline-offset-2 hover:text-foreground"
-                      >
-                        a las 3
-                      </button>
-                    )}
-                  </label>
-                );
-              })()}
-            </div>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         ))}
       </div>
 
-      {/* Resumen + acciones rápidas */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground" aria-live="polite">
-          {value.length === 0
-            ? "Activa las ramas que quieres por división. Clic en el nombre de la división para toda la fila."
-            : `${value.length} ${value.length === 1 ? "categoría" : "categorías"} · ${value.reduce((s, c) => s + c.max_pairs, 0)} cupos totales`}
-        </p>
+        <Button type="button" variant="outline" size="sm" onClick={add}>
+          <Plus className="h-4 w-4 mr-1" /> Añadir categoría
+        </Button>
         <div className="flex gap-1">
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChange(DIVISIONES.flatMap((d) => RAMAS.map((r) => ({ division: d, sex: r.value, max_pairs: DEFAULT_CUPO }))))}>
-            Todas (21)
+          <Button type="button" variant="ghost" size="sm" onClick={addClasicas}>
+            Clásicas (1ra–6ta Varonil)
           </Button>
           {value.length > 0 && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => onChange([])}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => { onChange([]); setError(null); }}>
               <Eraser className="h-3.5 w-3.5 mr-1" /> Limpiar
             </Button>
           )}
         </div>
       </div>
+
+      {error && (
+        <p className="text-sm text-destructive" role="alert">{error}</p>
+      )}
+      <p className="text-sm text-muted-foreground">
+        Teclea el nombre exacto que usa tu club — "Suma Nueve" significa 4ta+5ta. El número de grupos se
+        decide en el sorteo según los inscritos, aquí no hay cupos.
+      </p>
     </div>
   );
 }

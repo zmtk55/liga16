@@ -27,7 +27,6 @@ const AdminPlayers = lazy(() => import("../features/admin/players"));
 const AdminTeams = lazy(() => import("../features/admin/teams"));
 const AdminResults = lazy(() => import("../features/admin/results"));
 const AdminRanking = lazy(() => import("../features/admin/ranking"));
-const AdminOnboarding = lazy(() => import("../features/admin/onboarding"));
 
 // eslint-disable-next-line react-refresh/only-export-components
 function AdminRoute({ children }: { children: React.ReactNode }) {
@@ -75,7 +74,7 @@ export const router = createBrowserRouter([
           { path: "resultados", element: <AdminResults /> },
           { path: "padel", element: <AdminClubs /> },
           { path: "noticias", element: <AdminNews /> },
-          { path: "onboarding", element: <AdminOnboarding /> },
+          { path: "onboarding", element: <Navigate to="/admin/torneos/nuevo" replace /> },
         ],
       },
     ],

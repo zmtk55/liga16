@@ -77,8 +77,9 @@ export const supabaseProvider: DataProvider = {
   },
 
   async getTournament(slug: string) {
+    // Acepta tanto el slug como el id del torneo
     const { data, error } = await client()
-      .from('tournaments').select('*, clubs(name)').eq('slug', slug).maybeSingle();
+      .from('tournaments').select('*, clubs(name)').or(`slug.eq.${slug},id.eq.${slug}`).maybeSingle();
     if (error) throw error;
     if (!data) return null;
     return { ...data, club_name: (data.clubs as { name?: string } | null)?.name ?? null } as never;
@@ -130,6 +131,12 @@ export const supabaseProvider: DataProvider = {
       .from('tournament_categories').insert(row).select().single();
     if (error) throw error;
     return result as never;
+  },
+
+  async deleteTournamentCategory(id: string) {
+    const { error } = await client()
+      .from('tournament_categories').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async getTournamentPairs(tournamentId: string) {

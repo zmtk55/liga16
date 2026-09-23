@@ -81,6 +81,11 @@ export const demoProvider: DataProvider = {
     return category;
   },
 
+  async deleteTournamentCategory(id: string) {
+    await delay();
+    store.categories = store.categories.filter((c) => c.id !== id);
+  },
+
   async getTournamentPairs(tournamentId: string) {
     await delay();
     return store.pairs.filter((p) => p.tournament_id === tournamentId);

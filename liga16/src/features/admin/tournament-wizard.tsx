@@ -1,39 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { db } from "@/lib/data";
-import type { Club, Court, PadelDivision, Sex, Team, Tournament, TournamentCategory, PlayerProfile } from "@/types";
+import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import CategoryMatrix, { type CategoryValue } from "@/components/ui/category-matrix";
+import { categoriasValidas } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { DEFAULT_SCORING } from "@/lib/scoring";
-import { drawGroups, scheduleRounds, suggestGroupCount, type Group } from "@/lib/groups";
+import { scheduleRounds, type Group } from "@/lib/groups";
 import { sexShort } from "@/lib/format";
 import { toast } from "sonner";
 import {
@@ -43,7 +28,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Dice5,
-  GripVertical,
+  ImagePlus,
   Layers,
   Plus,
   RotateCcw,
@@ -59,12 +44,16 @@ const STEPS = [
   { id: "sorteo", label: "Sorteo y calendario", icon: Dice5 },
 ] as const;
 
+const GRUPO_LETRAS = "ABCDEFGHIJ".split("");
+
 interface TeamInput {
   division: PadelDivision;
   sex: Sex;
   name: string;
   player1: string;
   player2: string;
+  logo: string | null;
+  group: string | null; // "Grupo A"… si el admin lo asigna a mano
 }
 
 function addDays(date: string, days: number) {
@@ -74,32 +63,14 @@ function addDays(date: string, days: number) {
 }
 
 function SortablePairCard({
-  id,
   name,
   onRemove,
 }: {
-  id: string;
   name: string;
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm ${
-        isDragging ? "opacity-60 shadow-lg" : ""
-      }`}
-    >
-      <button
-        type="button"
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-        aria-label="Arrastrar para mover de grupo"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
+    <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
       <span className="flex-1 truncate">{name}</span>
       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove} aria-label={`Quitar ${name}`}>
         ×
@@ -118,6 +89,7 @@ export default function TournamentWizard() {
 
   // Paso 1: sede y canchas
   const [club, setClub] = useState({ name: "", city: "Ciudad de México", state: "CDMX", address: "", phone: "" });
+  const [clubId, setClubId] = useState<string | null>(null);
   const [courts, setCourts] = useState<Court[]>([]);
   const [newCourt, setNewCourt] = useState("");
 
@@ -140,22 +112,49 @@ export default function TournamentWizard() {
 
   // Paso 3: categorías
   const [categories, setCategories] = useState<CategoryValue[]>([]);
+  // ids reales de categorías ya guardadas (para editar/sincronizar)
+  const [catIds, setCatIds] = useState<Map<string, string>>(new Map());
 
   // Paso 4: equipos
   const [teams, setTeams] = useState<TeamInput[]>([]);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
 
   // Paso 5: sorteo
-  const [groupCount, setGroupCount] = useState(2);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [generated, setGenerated] = useState(false);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  function addTeam() {
+    setTeams((prev) => [
+      ...prev,
+      {
+        division: (categories[0]?.label ?? "4ta") as PadelDivision,
+        sex: categories[0]?.sex ?? "M",
+        name: "",
+        player1: "",
+        player2: "",
+        logo: null,
+        group: null,
+      },
+    ]);
+  }
+
+  /** Auto-nombre del equipo con los jugadores; respeta edición manual. */
+  function updateTeamPlayers(index: number, slot: 1 | 2, name: string) {
+    setTeams((prev) =>
+      prev.map((x, j) => {
+        if (j !== index) return x;
+        const next = { ...x, [slot === 1 ? "player1" : "player2"]: name };
+        const auto = [next.player1.trim(), next.player2.trim()].filter(Boolean).join(" / ");
+        const prevAuto = [x.player1.trim(), x.player2.trim()].filter(Boolean).join(" / ");
+        return { ...next, name: !x.name || x.name === prevAuto ? auto : x.name };
+      }),
+    );
+  }
 
   // Cargar contexto (sede, canchas, jugadores) y, en edición, el torneo completo
   useEffect(() => {
     db.listClubs().then((clubs: Club[]) => {
       if (clubs[0]) {
+        setClubId(clubs[0].id);
         setClub({
           name: clubs[0].name,
           city: clubs[0].city,
@@ -190,28 +189,14 @@ export default function TournamentWizard() {
           tie_break_at: String(t.scoring?.tie_break_at ?? DEFAULT_SCORING.tie_break_at),
           tie_break_points: String(t.scoring?.tie_break_points ?? DEFAULT_SCORING.tie_break_points),
         }));
-        // categorías existentes → chips
-        const cats = await db.getTournamentCategories(t.id).catch(() => [] as TournamentCategory[]);
-        setCategories(
-          (cats as unknown as Array<{ name: string; sex: Sex; category?: string }>).map((c) => ({
-            division: (c.category ?? "4ta") as PadelDivision,
-            sex: c.sex,
-            max_pairs: 16,
-          })),
-        );
-        // equipos existentes del club/ciudad
-        const allTeams = await db.listTeams();
-        setTeams(
-          allTeams
-            .filter((tm: Team) => tm.city === t.city)
-            .map((tm) => ({
-              division: tm.division,
-              sex: tm.sex,
-              name: tm.name,
-              player1: tm.player1?.name ?? "",
-              player2: tm.player2?.name ?? "",
-            })),
-        );
+        // categorías existentes → filas (name libre)
+        const cats = await db.getTournamentCategories(t.id).catch(() => []);
+        const rows: CategoryValue[] = (cats as unknown as Array<{ id: string; name: string; sex: Sex }>).map((c) => ({
+          label: c.name,
+          sex: c.sex,
+        }));
+        setCategories(rows);
+        setCatIds(new Map((cats as unknown as Array<{ id: string; name: string }>).map((c) => [c.name.toLowerCase(), c.id])));
       });
     }
   }, [slug, navigate]);
@@ -219,8 +204,12 @@ export default function TournamentWizard() {
   const canAdvance = useMemo(() => {
     if (step === 0) return club.name.trim().length > 0 && courts.length > 0;
     if (step === 1) return tournament.name.trim().length > 0;
-    if (step === 2) return categories.length > 0;
-    if (step === 3) return teams.length > 0 && teams.every((t) => t.player1.trim() && t.player2.trim());
+    if (step === 2) return categoriasValidas(categories);
+    if (step === 3)
+      return (
+        teams.length > 0 &&
+        teams.every((t) => t.player1.trim() && t.player2.trim() && t.division && t.sex)
+      );
     return groups.length > 0;
   }, [step, club, courts, tournament, categories, teams, groups]);
 
@@ -228,10 +217,11 @@ export default function TournamentWizard() {
     const name = newCourt.trim();
     if (!name) return;
     setSaving(true);
-    db.createCourt({ club_id: undefined, name, surface: "Sintética", indoor: false } as never)
+    db.createCourt({ club_id: clubId ?? "", name, surface: "Sintética" } as never)
       .then((c) => {
         setCourts((prev) => [...prev, c]);
         setNewCourt("");
+        toast.success(`Cancha "${name}" registrada`);
       })
       .catch((e: Error) => toast.error(e.message ?? "No se pudo crear la cancha"))
       .finally(() => setSaving(false));
@@ -250,7 +240,6 @@ export default function TournamentWizard() {
     setSaving(true);
     try {
       if (target >= 2 && !tournamentId) {
-        // Crear/actualizar torneo con scoring
         const payload = {
           name: tournament.name,
           cover_url: null,
@@ -278,12 +267,42 @@ export default function TournamentWizard() {
           },
         } as never;
         if (tournamentId) {
-          const t = await db.getTournament(tournamentId);
+          const t = await db.getTournament(String(tournamentId));
           await db.updateTournament((t as unknown as { slug: string }).slug, payload);
         } else {
           const created = await db.createTournament(payload);
           setTournamentId((created as unknown as { id: string }).id);
         }
+      }
+      // Sincronizar categorías al pasar del paso 3
+      if (target >= 3 && tournamentId) {
+        // Quitar en BD las que borró el usuario
+        const dbCats = await db.getTournamentCategories(String(tournamentId));
+        for (const dbCat of dbCats as unknown as Array<{ id: string; name: string }>) {
+          if (!categories.some((c) => c.label.trim().toLowerCase() === dbCat.name.toLowerCase())) {
+            await db.deleteTournamentCategory(dbCat.id).catch(() => undefined);
+          }
+        }
+        // Crear las nuevas (o actualizar el nombre de las existentes via create)
+        const nextIds = new Map(catIds);
+        for (const c of categories) {
+          const key = c.label.trim().toLowerCase();
+          const existingId = nextIds.get(key);
+          if (!existingId) {
+            const created = await db.createTournamentCategory({
+              tournament_id: tournamentId,
+              name: c.label.trim(),
+              sex: c.sex,
+              min_level: null,
+              max_level: null,
+              max_pairs: 0,
+              registered_pairs: 0,
+              price_cents: Math.round(tournament.price_mxn * 100),
+            } as never);
+            nextIds.set(key, (created as unknown as { id: string }).id);
+          }
+        }
+        setCatIds(nextIds);
       }
     } finally {
       setSaving(false);
@@ -300,39 +319,55 @@ export default function TournamentWizard() {
     setStep((s) => Math.max(0, s - 1));
   }
 
+  /** Sorteo por categoría: baraja dentro de cada categoría, respeta los grupos asignados a mano. */
   function handleDraw() {
-    const pairIds = teams.map((_, i) => String(i));
-    setGroups(drawGroups(pairIds, groupCount));
+    const byCat = new Map<string, TeamInput[]>();
+    teams.forEach((t) => {
+      const k = `${t.division}|${t.sex}`;
+      if (!byCat.has(k)) byCat.set(k, []);
+      byCat.get(k)!.push(t);
+    });
+
+    const result: Group[] = [];
+    const takenNames = new Set<string>();
+    for (const [catKey, catTeams] of byCat) {
+      const catLabel = categories.find((c) => `${c.label}|${c.sex}` === catKey)?.label ?? "";
+      const multiCat = byCat.size > 1;
+      const gname = (letra: string) => {
+        const base = multiCat && catLabel ? `${catLabel} · Grupo ${letra}` : `Grupo ${letra}`;
+        return base;
+      };
+      // Los ya asignados a mano se quedan; los libres se barajan
+      const assigned = catTeams.filter((t) => t.group);
+      const free = catTeams.filter((t) => !t.group);
+      const shuffled = [...free].sort(() => Math.random() - 0.5);
+      const pool = [...assigned, ...shuffled];
+
+      // Grupos de la categoría: los que tengan asignados + suficientes para el resto
+      const usedGroupNames = new Set(assigned.map((t) => t.group!));
+      const extraNeeded = Math.max(0, Math.ceil(free.length / 4) - usedGroupNames.size);
+      const catGroupNames: string[] = [...usedGroupNames];
+      let li = 0;
+      while (catGroupNames.length < usedGroupNames.size + extraNeeded && li < GRUPO_LETRAS.length) {
+        const name = gname(GRUPO_LETRAS[li]);
+        if (!takenNames.has(name)) catGroupNames.push(name);
+        li++;
+      }
+      catGroupNames.forEach((n) => takenNames.add(n));
+
+      const catGroups: Group[] = catGroupNames.map((name) => ({ name, pairIds: [] }));
+      pool.forEach((t, i) => {
+        const targetName = t.group ?? catGroupNames[i % catGroupNames.length];
+        const g = catGroups.find((x) => x.name === targetName);
+        if (g) g.pairIds.push(String(teams.indexOf(t)));
+      });
+      result.push(...catGroups);
+    }
+    setGroups(result);
   }
 
-  function handleDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (!over) return;
-    const activeId = String(active.id);
-    const overId = String(over.id);
-    if (activeId === overId) return;
-    const findGroupOf = (id: string) => groups.findIndex((g) => g.pairIds.includes(id));
-    const from = findGroupOf(activeId);
-    const to = findGroupOf(overId);
-    if (from === -1 && to >= 0) {
-      setGroups((gs) => gs.map((g, i) => (i === to ? { ...g, pairIds: [...g.pairIds, activeId] } : g)));
-    } else if (from >= 0 && to >= 0 && from !== to) {
-      setGroups((gs) =>
-        gs.map((g, i) => {
-          if (i === from) return { ...g, pairIds: g.pairIds.filter((x) => x !== activeId) };
-          if (i === to) return { ...g, pairIds: [...g.pairIds, activeId] };
-          return g;
-        }),
-      );
-    } else if (from >= 0 && from === to) {
-      setGroups((gs) =>
-        gs.map((g, i) =>
-          i === from
-            ? { ...g, pairIds: arrayMove(g.pairIds, g.pairIds.indexOf(activeId), g.pairIds.indexOf(overId)) }
-            : g,
-        ),
-      );
-    }
+  function removeTeamFromGroups(index: string) {
+    setGroups((gs) => gs.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== index) })));
   }
 
   function teamName(i: string | number) {
@@ -349,13 +384,8 @@ export default function TournamentWizard() {
     try {
       const allMatches: Array<Parameters<typeof db.createMatches>[0][number]> = [];
       for (const group of groups) {
-        const rounds = scheduleRounds(
-          group.pairIds,
-          courts.length || 1,
-          tournament.start_date,
-          60,
-          9,
-        );
+        if (group.pairIds.length < 2) continue;
+        const rounds = scheduleRounds(group.pairIds, courts.length || 1, tournament.start_date, 60, 9);
         rounds.forEach((roundMatches, ri) => {
           roundMatches.forEach((m) => {
             allMatches.push({
@@ -376,10 +406,8 @@ export default function TournamentWizard() {
         await db.deleteMatchesByTournament(tournamentId);
         await db.createMatches(allMatches);
       }
-      setGenerated(true);
       toast.success(`Torneo listo: ${allMatches.length} partidos generados`);
-      const t = await db.getTournament(String(tournamentId));
-      if (t) navigate(`/admin/torneos/${(t as unknown as { slug: string }).slug}`);
+      navigate(`/admin/torneos/${tournamentId}`);
     } catch (e) {
       toast.error((e as Error).message ?? "Error generando el calendario");
     } finally {
@@ -567,9 +595,6 @@ export default function TournamentWizard() {
           {step === 2 && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold">Categorías</h2>
-              <p className="text-sm text-muted-foreground">
-                Cada categoría combina división y rama. Los equipos se agruparán bajo ellas en el siguiente paso.
-              </p>
               <CategoryMatrix value={categories} onChange={setCategories} />
             </div>
           )}
@@ -579,133 +604,118 @@ export default function TournamentWizard() {
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-lg font-bold">Equipos ({teams.length})</h2>
-                {categories.length > 0 && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button type="button" size="sm">
-                        <Plus className="h-4 w-4 mr-1" /> Añadir equipo
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-1" align="end">
-                      <Command>
-                        <CommandInput placeholder="Buscar categoría…" />
-                        <CommandList>
-                          <CommandEmpty>Sin categorías.</CommandEmpty>
-                          {categories.map((c) => (
-                            <CommandItem
-                              key={`${c.division}-${c.sex}`}
-                              value={`${c.division} ${sexShort(c.sex)}`}
-                              onSelect={() =>
-                                setTeams((prev) => [
-                                  ...prev,
-                                  { division: c.division, sex: c.sex, name: "", player1: "", player2: "" },
-                                ])
-                              }
-                            >
-                              {c.division} · {sexShort(c.sex)}
-                            </CommandItem>
-                          ))}
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                )}
+                <Button type="button" size="sm" onClick={addTeam} disabled={categories.length === 0}>
+                  <Plus className="h-4 w-4 mr-1" /> Añadir equipo
+                </Button>
               </div>
 
               {teams.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  Añade el primer equipo eligiendo su categoría.
+                  Añade el primer equipo: sus 2 jugadores, logo, categoría y grupo.
                 </p>
               ) : (
-                <div className="space-y-4">
-                  {categories
-                    .filter((c) => teams.some((t) => t.division === c.division && t.sex === c.sex))
-                    .map((c) => {
-                      const withIndex = teams.map((t, i) => ({ t, i })).filter(({ t }) => t.division === c.division && t.sex === c.sex);
-                      return (
-                        <div key={`${c.division}-${c.sex}`} className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{c.division} · {sexShort(c.sex)}</Badge>
-                            <span className="text-xs text-muted-foreground">{withIndex.length} equipo(s)</span>
-                          </div>
-                          {withIndex.map(({ t, i }) => (
-                            <div key={i} className="rounded-xl border p-3">
-                              <div className="mb-2 flex items-center gap-2">
-                                <Input
-                                  value={t.name}
-                                  onChange={(e) => setTeams((prev) => prev.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
-                                  placeholder="Nombre del equipo (se arma solo)"
-                                  className="h-8 text-sm font-semibold"
-                                  aria-label={`Nombre del equipo ${i + 1}`}
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 shrink-0"
-                                  onClick={() => setTeams((prev) => prev.filter((_, j) => j !== i))}
-                                  aria-label="Quitar equipo"
-                                >
-                                  ×
-                                </Button>
-                              </div>
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                <PlayerSlot
-                                  label="Jugador 1"
-                                  value={t.player1}
-                                  players={players}
-                                  onPick={(name) =>
-                                    setTeams((prev) =>
-                                      prev.map((x, j) => {
-                                        if (j !== i) return x;
-                                        const auto = [name.trim(), x.player2.trim()].filter(Boolean).join(" / ");
-                                        const prevAuto = [x.player1.trim(), x.player2.trim()].filter(Boolean).join(" / ");
-                                        return { ...x, player1: name, name: !x.name || x.name === prevAuto ? auto : x.name };
-                                      }),
-                                    )
-                                  }
-                                  onType={(name) =>
-                                    setTeams((prev) =>
-                                      prev.map((x, j) => {
-                                        if (j !== i) return x;
-                                        const auto = [name.trim(), x.player2.trim()].filter(Boolean).join(" / ");
-                                        const prevAuto = [x.player1.trim(), x.player2.trim()].filter(Boolean).join(" / ");
-                                        return { ...x, player1: name, name: !x.name || x.name === prevAuto ? auto : x.name };
-                                      }),
-                                    )
-                                  }
-                                />
-                                <PlayerSlot
-                                  label="Jugador 2"
-                                  value={t.player2}
-                                  players={players}
-                                  onPick={(name) =>
-                                    setTeams((prev) =>
-                                      prev.map((x, j) => {
-                                        if (j !== i) return x;
-                                        const auto = [x.player1.trim(), name.trim()].filter(Boolean).join(" / ");
-                                        const prevAuto = [x.player1.trim(), x.player2.trim()].filter(Boolean).join(" / ");
-                                        return { ...x, player2: name, name: !x.name || x.name === prevAuto ? auto : x.name };
-                                      }),
-                                    )
-                                  }
-                                  onType={(name) =>
-                                    setTeams((prev) =>
-                                      prev.map((x, j) => {
-                                        if (j !== i) return x;
-                                        const auto = [x.player1.trim(), name.trim()].filter(Boolean).join(" / ");
-                                        const prevAuto = [x.player1.trim(), x.player2.trim()].filter(Boolean).join(" / ");
-                                        return { ...x, player2: name, name: !x.name || x.name === prevAuto ? auto : x.name };
-                                      }),
-                                    )
-                                  }
-                                />
-                              </div>
-                            </div>
-                          ))}
+                <div className="space-y-3">
+                  {teams.map((t, i) => (
+                    <div key={i} className="rounded-xl border p-4">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="file"
+                          id={`logo-${i}`}
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () =>
+                              setTeams((prev) => prev.map((x, j) => (j === i ? { ...x, logo: String(reader.result) } : x)));
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById(`logo-${i}`)?.click()}
+                          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/50 transition-colors hover:border-primary/60"
+                          aria-label="Subir logo del equipo"
+                          title="Subir logo"
+                        >
+                          {t.logo ? (
+                            <img src={t.logo} alt="" className="h-full w-full object-contain p-1" />
+                          ) : (
+                            <ImagePlus className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1 grid gap-3 sm:grid-cols-2">
+                          <PlayerSlot
+                            label="Jugador 1"
+                            value={t.player1}
+                            players={players}
+                            onPick={(name) => updateTeamPlayers(i, 1, name)}
+                            onType={(name) => updateTeamPlayers(i, 1, name)}
+                          />
+                          <PlayerSlot
+                            label="Jugador 2"
+                            value={t.player2}
+                            players={players}
+                            onPick={(name) => updateTeamPlayers(i, 2, name)}
+                            onType={(name) => updateTeamPlayers(i, 2, name)}
+                          />
                         </div>
-                      );
-                    })}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => setTeams((prev) => prev.filter((_, j) => j !== i))}
+                          aria-label="Quitar equipo"
+                        >
+                          ×
+                        </Button>
+                      </div>
+                      <div className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2">
+                        <div className="grid gap-1.5">
+                          <Label htmlFor={`cat-${i}`} className="text-xs text-muted-foreground">Categoría del equipo</Label>
+                          <Select
+                            value={categories.some((c) => `${c.label}|${c.sex}` === `${t.division}|${t.sex}`) ? `${t.division}|${t.sex}` : ""}
+                            onValueChange={(v) => {
+                              const [division, sex] = v.split("|") as [PadelDivision, Sex];
+                              setTeams((prev) => prev.map((x, j) => (j === i ? { ...x, division, sex } : x)));
+                            }}
+                          >
+                            <SelectTrigger id={`cat-${i}`} className="h-9">
+                              <SelectValue placeholder="Elegir categoría" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.map((c) => (
+                                <SelectItem key={`${c.label}-${c.sex}`} value={`${c.label}|${c.sex}`}>
+                                  {c.label} · {sexShort(c.sex)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor={`grupo-${i}`} className="text-xs text-muted-foreground">Grupo (opcional)</Label>
+                          <Select
+                            value={t.group ?? "none"}
+                            onValueChange={(v) =>
+                              setTeams((prev) => prev.map((x, j) => (j === i ? { ...x, group: v === "none" ? null : v } : x)))
+                            }
+                          >
+                            <SelectTrigger id={`grupo-${i}`} className="h-9">
+                              <SelectValue placeholder="Sin grupo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sin grupo</SelectItem>
+                              {GRUPO_LETRAS.map((l) => (
+                                <SelectItem key={l} value={`Grupo ${l}`}>Grupo {l}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -719,56 +729,41 @@ export default function TournamentWizard() {
                 <Badge variant="outline">{teams.length} equipos</Badge>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="group-count" className="text-sm text-muted-foreground">Grupos:</Label>
-                  <Input
-                    id="group-count"
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={groupCount}
-                    onChange={(e) => setGroupCount(Math.max(1, Number(e.target.value)))}
-                    className="w-16"
-                  />
-                </div>
                 <Button type="button" onClick={handleDraw} disabled={teams.length < 2}>
                   <Dice5 className="h-4 w-4 mr-1" /> Sortear al azar
                 </Button>
                 {groups.length > 0 && (
-                  <>
-                    <span className="text-xs text-muted-foreground">sugerido: {suggestGroupCount(teams.length)}</span>
-                    <Button type="button" variant="outline" size="sm" onClick={() => setGroups([])}>
-                      <RotateCcw className="h-3.5 w-3.5 mr-1" /> Vaciar
-                    </Button>
-                  </>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setGroups([])}>
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" /> Vaciar
+                  </Button>
                 )}
               </div>
+              <p className="text-sm text-muted-foreground">
+                El sorteo baraja dentro de cada categoría y respeta los grupos que asignaste a mano. Los equipos sin
+                grupo se reparten parejo (~4 por grupo).
+              </p>
 
               {groups.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  Sortea los grupos y ajusta arrastrando si quieres. Luego genera el calendario.
+                  Sortea los grupos y luego genera el calendario.
                 </p>
               ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {groups.map((g) => (
-                      <div key={g.name} className="rounded-xl border p-3">
-                        <p className="mb-2 flex items-center justify-between text-sm font-semibold">
-                          {g.name}
-                          <Badge variant="outline">{g.pairIds.length}</Badge>
-                        </p>
-                        <SortableContext items={g.pairIds} strategy={verticalListSortingStrategy}>
-                          <div className="min-h-12 space-y-2">
-                            {g.pairIds.length === 0 && <p className="py-1 text-xs text-muted-foreground">Arrastra equipos aquí</p>}
-                            {g.pairIds.map((id) => (
-                              <SortablePairCard key={id} id={id} name={teamName(id)} onRemove={() => setGroups((gs) => gs.map((x) => (x.name === g.name ? { ...x, pairIds: x.pairIds.filter((y) => y !== id) } : x)))} />
-                            ))}
-                          </div>
-                        </SortableContext>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {groups.map((g) => (
+                    <div key={g.name} className="rounded-xl border p-3">
+                      <p className="mb-2 flex items-center justify-between text-sm font-semibold">
+                        {g.name}
+                        <Badge variant="outline">{g.pairIds.length}</Badge>
+                      </p>
+                      <div className="min-h-12 space-y-2">
+                        {g.pairIds.length === 0 && <p className="py-1 text-xs text-muted-foreground">Vacío</p>}
+                        {g.pairIds.map((id) => (
+                          <SortablePairCard key={id} name={teamName(id)} onRemove={() => removeTeamFromGroups(id)} />
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </DndContext>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -785,8 +780,8 @@ export default function TournamentWizard() {
             {saving ? "Guardando…" : "Siguiente"} <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         ) : (
-          <Button onClick={generateCalendarAndFinish} disabled={!groups.length || saving || generated}>
-            {saving ? "Generando…" : generated ? "Listo ✓" : "Generar calendario y terminar"}
+          <Button onClick={generateCalendarAndFinish} disabled={!groups.length || saving}>
+            {saving ? "Generando…" : "Generar calendario y terminar"}
             <Check className="h-4 w-4 ml-1" />
           </Button>
         )}
