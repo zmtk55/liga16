@@ -17,6 +17,7 @@ import type {
   TournamentCategory,
   TournamentFilters,
   UUID,
+  Court,
 } from '@/types';
 
 export interface RegisterPairInput {
@@ -43,7 +44,12 @@ export interface DataProvider {
   deletePair(id: UUID): Promise<boolean>;
   listMatchesByTournament(tournamentId: string): Promise<Match[]>;
   createMatches(matches: Array<Omit<Match, 'id'>>): Promise<Match[]>;
+  updateMatch(id: string, updates: Partial<Match>): Promise<Match | null>;
   deleteMatchesByTournament(tournamentId: string): Promise<boolean>;
+  // Canchas
+  listCourts(): Promise<Court[]>;
+  createCourt(data: Omit<Court, 'id'>): Promise<Court>;
+  deleteCourt(id: string): Promise<boolean>;
   // Ligas
   listLeagues(): Promise<League[]>;
   getLeague(slug: string): Promise<League | null>;

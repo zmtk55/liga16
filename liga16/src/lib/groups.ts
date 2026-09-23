@@ -97,4 +97,63 @@ export function matchIsBetween(m: Match, a: UUID, b: UUID) {
   );
 }
 
+export interface StandingRow {
+  pairId: UUID;
+  played: number;
+  won: number;
+  lost: number;
+  setsFor: number;
+  setsAgainst: number;
+  points: number;
+}
+
+/**
+ * Tabla de posiciones de un grupo calculada desde los partidos terminados.
+ * Orden: puntos (3 por victoria de partido), diferencia de sets, sets ganados.
+ */
+export function computeStandings(
+  pairIds: UUID[],
+  matches: Match[],
+  pairNameById: Record<string, string>,
+): StandingRow[] {
+  const rows = new Map<UUID, StandingRow>();
+  pairIds.forEach((id) =>
+    rows.set(id, { pairId: id, played: 0, won: 0, lost: 0, setsFor: 0, setsAgainst: 0, points: 0 }),
+  );
+
+  for (const m of matches) {
+    if (m.status !== "finished" || !m.winner) continue;
+    const a = m.side_a.pair_id;
+    const b = m.side_b.pair_id;
+    if (!a || !b || !rows.has(a) || !rows.has(b)) continue;
+    const rowA = rows.get(a)!;
+    const rowB = rows.get(b)!;
+    rowA.played++;
+    rowB.played++;
+    for (const s of m.sets) {
+      rowA.setsFor += s.a;
+      rowA.setsAgainst += s.b;
+      rowB.setsFor += s.b;
+      rowB.setsAgainst += s.a;
+    }
+    if (m.winner === "a") {
+      rowA.won++;
+      rowA.points += 3;
+      rowB.lost++;
+    } else {
+      rowB.won++;
+      rowB.points += 3;
+      rowA.lost++;
+    }
+  }
+
+  return [...rows.values()].sort(
+    (x, y) =>
+      y.points - x.points ||
+      y.setsFor - y.setsAgainst - (x.setsFor - x.setsAgainst) ||
+      y.setsFor - x.setsFor ||
+      (pairNameById[x.pairId] ?? "").localeCompare(pairNameById[y.pairId] ?? ""),
+  );
+}
+
 const LETTERS = "ABCDEFGHIJ";

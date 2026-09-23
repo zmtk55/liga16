@@ -169,6 +169,7 @@ export interface Payment {
 
 export type MatchSide = { pair_id: UUID | null; pair_name: string };
 
+
 export type TieBreakerRule =
   | 'points'
   | 'sets_won'

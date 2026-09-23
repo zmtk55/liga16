@@ -125,6 +125,25 @@ export const demoProvider: DataProvider = {
     return true;
   },
 
+  async listCourts() {
+    await delay();
+    return [
+      { id: "c-1", club_id: store.clubs[0]?.id ?? null, name: "Cancha 1", surface: "Césped sintético", indoor: false },
+      { id: "c-2", club_id: store.clubs[0]?.id ?? null, name: "Cancha 2", surface: "Césped sintético", indoor: false },
+    ];
+  },
+
+  async createCourt(data: Omit<import("@/types").Court, "id">) {
+    await delay();
+    const court = { ...data, id: `c-${Date.now()}` };
+    return court;
+  },
+
+  async deleteCourt() {
+    await delay();
+    return true;
+  },
+
   // Ligas
   async listLeagues() {
     await delay();

@@ -33,7 +33,23 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowLeft, Dice5, GripVertical, Plus, Trash2, CalendarClock, RotateCcw, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import { drawGroups, suggestGroupCount, scheduleRounds, type Group } from "@/lib/groups";
+import { drawGroups, suggestGroupCount, scheduleRounds, computeStandings, type Group } from "@/lib/groups";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { Court } from "@/types";
 
 function SortablePair({
   id,
@@ -105,6 +121,8 @@ export default function AdminTournamentDetail() {
   const [saving, setSaving] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleConfig, setScheduleConfig] = useState({ courts: 2, minutesPerMatch: 60, startHour: 9 });
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -112,6 +130,7 @@ export default function AdminTournamentDetail() {
     if (!slug) return;
     db.getTournament(slug).then(setTournament);
     db.listClubs().then(setClubs);
+    db.listCourts().then(setCourts).catch(() => setCourts([]));
   }, [slug]);
 
   async function reload() {
@@ -298,6 +317,7 @@ export default function AdminTournamentDetail() {
         <TabsList>
           <TabsTrigger value="parejas">Parejas</TabsTrigger>
           <TabsTrigger value="grupos">Grupos y sorteo</TabsTrigger>
+          <TabsTrigger value="posiciones">Tablas de posiciones</TabsTrigger>
           <TabsTrigger value="calendario">Calendario ({matches.length})</TabsTrigger>
         </TabsList>
 
@@ -446,6 +466,62 @@ export default function AdminTournamentDetail() {
           </DndContext>
         </TabsContent>
 
+        {/* ============ TABLAS DE POSICIONES ============ */}
+        <TabsContent value="posiciones" className="space-y-4 pt-2">
+          {groups.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                Aún no hay grupos. Ve a "Grupos y sorteo" y sortea las parejas.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {groups.map((g) => {
+                const standings = computeStandings(g.pairIds, matches, nameById);
+                const groupMatches = matches.filter((m) =>
+                  g.pairIds.includes(m.side_a.pair_id ?? "") && g.pairIds.includes(m.side_b.pair_id ?? ""),
+                );
+                return (
+                  <Card key={g.name}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center justify-between">
+                        {g.name}
+                        <Badge variant="outline">{groupMatches.filter((m) => m.status === "finished").length}/{groupMatches.length} jugados</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="pl-4">#</TableHead>
+                            <TableHead>Pareja</TableHead>
+                            <TableHead className="text-right">PJ</TableHead>
+                            <TableHead className="text-right">PG</TableHead>
+                            <TableHead className="text-right">Sets</TableHead>
+                            <TableHead className="text-right pr-4">Pts</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {standings.map((row, i) => (
+                            <TableRow key={row.pairId} className={i === 0 ? "bg-primary/5" : ""}>
+                              <TableCell className="pl-4 font-medium">{i + 1}</TableCell>
+                              <TableCell className="font-medium max-w-40 truncate">{nameById[row.pairId] ?? "?"}</TableCell>
+                              <TableCell className="text-right">{row.played}</TableCell>
+                              <TableCell className="text-right text-emerald-600">{row.won}</TableCell>
+                              <TableCell className="text-right tabular-nums">{row.setsFor}-{row.setsAgainst}</TableCell>
+                              <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
         {/* ============ CALENDARIO ============ */}
         <TabsContent value="calendario" className="space-y-4 pt-2">
           {matches.length === 0 ? (
@@ -477,6 +553,9 @@ export default function AdminTournamentDetail() {
                           })}
                         </span>
                       )}
+                      <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
+                        {m.status === "finished" ? "Ver resultado" : "Capturar resultado"}
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -540,6 +619,155 @@ export default function AdminTournamentDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Captura de resultado por partido */}
+      {editingMatchId && (
+        <MatchResultDialog
+          match={matches.find((m) => m.id === editingMatchId)!}
+          courts={courts}
+          open={!!editingMatchId}
+          onOpenChange={(o) => { if (!o) setEditingMatchId(null); }}
+          onSaved={() => { setEditingMatchId(null); void reload(); }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Captura rápida de marcador, cancha y hora desde el calendario del torneo. */
+function MatchResultDialog({
+  match,
+  courts,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  match: Match;
+  courts: Court[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [sets, setSets] = useState<Array<{ a: string; b: string }>>(() =>
+    match.sets.length > 0 ? match.sets.map((s) => ({ a: String(s.a), b: String(s.b) })) : [{ a: "", b: "" }],
+  );
+  const [courtName, setCourtName] = useState(match.court_name ?? "");
+  const [scheduledAt, setScheduledAt] = useState(match.scheduled_at ? match.scheduled_at.slice(0, 16) : "");
+  const [saving, setSaving] = useState(false);
+
+  const finishedSets = sets.filter((s) => s.a !== "" && s.b !== "");
+  const validSets = finishedSets.map((s) => ({ a: Number(s.a), b: Number(s.b), tiebreak_a: null, tiebreak_b: null }));
+  const setsA = validSets.filter((s) => s.a > s.b).length;
+  const setsB = validSets.filter((s) => s.b > s.a).length;
+  const winner = setsA > setsB ? "a" : setsB > setsA ? "b" : null;
+
+  async function save(status: Match["status"]) {
+    if (status === "finished" && !winner) {
+      toast.error("Marca los sets: deben ganar más sets una pareja para cerrar el partido");
+      return;
+    }
+    setSaving(true);
+    try {
+      await db.updateMatch(match.id, {
+        sets: status === "finished" ? validSets : match.sets,
+        winner: status === "finished" ? winner : match.winner,
+        status,
+        court_name: courtName || null,
+        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+      });
+      toast.success(status === "finished" ? "Resultado guardado" : "Partido actualizado");
+      onSaved();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al guardar el resultado");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Capturar resultado</DialogTitle>
+          <DialogDescription>
+            {match.side_a.pair_name} vs {match.side_b.pair_name} · {match.round}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          {sets.map((s, i) => (
+            <div key={i} className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+              <div className="grid gap-1">
+                <Label className="text-xs">Set {i + 1} — {match.side_a.pair_name}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={s.a}
+                  onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)))}
+                  aria-label={`Juegos de ${match.side_a.pair_name} en el set ${i + 1}`}
+                />
+              </div>
+              <span className="pb-2 text-muted-foreground">–</span>
+              <div className="grid gap-1">
+                <Label className="text-xs">{match.side_b.pair_name}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={s.b}
+                  onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, b: e.target.value } : x)))}
+                  aria-label={`Juegos de ${match.side_b.pair_name} en el set ${i + 1}`}
+                />
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSets((arr) => [...arr, { a: "", b: "" }])}
+              disabled={sets.length >= 5}
+            >
+              <Plus className="h-4 w-4 mr-1" /> Añadir set
+            </Button>
+            {winner && (
+              <Badge className="bg-emerald-600">
+                Gana: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
+              </Badge>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 border-t pt-3">
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Cancha</Label>
+              <Select value={courtName} onValueChange={setCourtName}>
+                <SelectTrigger><SelectValue placeholder="Sin cancha" /></SelectTrigger>
+                <SelectContent>
+                  {courts.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Fecha y hora</Label>
+              <Input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
+          <Button variant="outline" onClick={() => save("scheduled")} disabled={saving}>
+            Guardar sin jugar
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={() => save("finished")} disabled={saving}>
+              {saving ? "Guardando…" : "Guardar resultado"}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

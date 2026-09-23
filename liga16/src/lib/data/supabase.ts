@@ -4,7 +4,7 @@
 import { supabase } from '@/lib/supabase';
 import type { DataProvider, RegisterPairInput } from './provider';
 import type { TournamentFilters } from '@/types';
-import type { Team, PadelDivision, Sex, Match } from '@/types';
+import type { Team, PadelDivision, Sex, Match, Court } from '@/types';
 
 function client() {
   if (!supabase) throw new Error('Supabase no está configurado. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
@@ -175,6 +175,30 @@ export const supabaseProvider: DataProvider = {
 
   async deleteMatchesByTournament(tournamentId: string) {
     const { error } = await client().from('matches').delete().eq('tournament_id', tournamentId);
+    if (error) throw error;
+    return true;
+  },
+
+  // Canchas
+  async listCourts() {
+    const { data, error } = await client().from('courts').select('*').order('name');
+    if (error) {
+      // La tabla puede no existir todavía (migración pendiente)
+      if ((error as unknown as { code?: string }).code === 'PGRST205' || /relation.*courts/.test(error.message)) return [];
+      throw error;
+    }
+    return (data ?? []) as never;
+  },
+
+  async createCourt(data: Omit<Court, 'id'>) {
+    const { data: result, error } = await client()
+      .from('courts').insert(data as Record<string, unknown>).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async deleteCourt(id: string) {
+    const { error } = await client().from('courts').delete().eq('id', id);
     if (error) throw error;
     return true;
   },
