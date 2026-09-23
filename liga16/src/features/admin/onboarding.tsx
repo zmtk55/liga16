@@ -6,19 +6,22 @@ import type { PadelDivision, Sex, Team } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, ChevronRight, ChevronLeft, Sparkles, Trophy, Building2, Users, Layers } from "lucide-react";
+import { Check, ChevronRight, ChevronLeft, ChevronDown as ChevronsUpDown, Plus, Sparkles, Trophy, Building2, Users, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import CategoryPicker, { type CategoryValue } from "@/components/ui/category-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { sexShort } from "@/lib/format";
+import type { PlayerProfile } from "@/types";
 
 const STEPS = [
   { id: "club", label: "Sede", icon: Building2 },
@@ -28,12 +31,6 @@ const STEPS = [
   { id: "review", label: "Revisar", icon: Check },
 ];
 
-const divisions: PadelDivision[] = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
-const sexes: { value: Sex; label: string }[] = [
-  { value: "M", label: "Varonil" },
-  { value: "F", label: "Femenil" },
-  { value: "X", label: "Mixto" },
-];
 
 
 
@@ -90,12 +87,11 @@ export default function AdminOnboarding() {
     { division: "Novatos", sex: "X", max_pairs: 12 },
   ]);
 
-  const [teams, setTeams] = useState<TeamInput[]>([
-    { name: "Fuentes / Rojas", division: "4ta", sex: "M", player1: "Diego Fuentes", player2: "Martín Rojas" },
-    { name: "Camacho / Suárez", division: "4ta", sex: "F", player1: "Sofía Camacho", player2: "Paola Suárez" },
-  ]);
+  const [teams, setTeams] = useState<TeamInput[]>([]);
+  const [players, setPlayers] = useState<PlayerProfile[]>([]);
 
   useEffect(() => {
+    db.listPlayers().then(setPlayers).catch(() => setPlayers([]));
     db.listClubs().then((clubs) => {
       if (clubs.length > 0) {
         const c = clubs[0];
@@ -119,11 +115,33 @@ export default function AdminOnboarding() {
     );
   }
 
-  function addTeam() {
+  function addTeam(division?: PadelDivision, sex?: Sex) {
+    const cat = categories[0];
     setTeams((prev) => [
       ...prev,
-      { name: "", division: "4ta", sex: "M", player1: "", player2: "" },
+      {
+        name: "",
+        division: division ?? cat?.division ?? "4ta",
+        sex: sex ?? cat?.sex ?? "M",
+        player1: "",
+        player2: "",
+      },
     ]);
+  }
+
+  /** El nombre de la pareja se arma solo con los jugadores; editable si el usuario lo sobreescribe. */
+  function updatePlayer(index: number, slot: 1 | 2, value: string) {
+    setTeams((prev) =>
+      prev.map((t, i) => {
+        if (i !== index) return t;
+        const next = { ...t, [slot === 1 ? "player1" : "player2"]: value };
+        const auto = [next.player1.trim(), next.player2.trim()].filter(Boolean).join(" / ");
+        const currentAuto = [t.player1.trim(), t.player2.trim()].filter(Boolean).join(" / ");
+        // Solo regenerar el nombre si no fue editado a mano
+        const nameUntouched = !t.name || t.name === currentAuto;
+        return { ...next, name: nameUntouched ? auto : t.name };
+      }),
+    );
   }
 
   function removeTeam(index: number) {
@@ -343,51 +361,98 @@ export default function AdminOnboarding() {
           )}
 
           {step === 3 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold flex items-center gap-2"><Users className="h-5 w-5" /> Parejas iniciales</h2>
-                <Button type="button" variant="outline" size="sm" onClick={addTeam}>Añadir pareja</Button>
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-xl font-bold flex items-center gap-2"><Users className="h-5 w-5" /> Equipos (parejas)</h2>
+                {categories.length > 0 ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" size="sm"><Plus className="h-4 w-4 mr-1" /> Añadir equipo</Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-1" align="end">
+                      <Command>
+                        <CommandInput placeholder="Buscar categoría…" />
+                        <CommandList>
+                          <CommandEmpty>Sin categorías.</CommandEmpty>
+                          {categories.map((c) => (
+                            <CommandItem
+                              key={`${c.division}-${c.sex}`}
+                              value={`${c.division} ${sexShort(c.sex)}`}
+                              onSelect={() => addTeam(c.division, c.sex)}
+                            >
+                              {c.division} · {sexShort(c.sex)}
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <Button type="button" size="sm" variant="outline" onClick={() => addTeam()} disabled>
+                    Añadir equipo
+                  </Button>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground">Registra las primeras parejas que competirán. Después los jugadores podrán inscribirse desde el torneo.</p>
-              <div className="space-y-3">
-                {teams.map((team, i) => (
-                  <div key={i} className="grid gap-3 sm:grid-cols-5 items-end rounded-lg border p-3">
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label className="text-xs">Nombre de la pareja</Label>
-                      <Input value={team.name} onChange={(e) => updateTeam(i, "name", e.target.value)} placeholder="Ej: Fuentes / Rojas" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">División</Label>
-                      <Select value={team.division} onValueChange={(v) => updateTeam(i, "division", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {divisions.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Rama</Label>
-                      <Select value={team.sex} onValueChange={(v) => updateTeam(i, "sex", v as Sex)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {sexes.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="button" variant="ghost" size="icon" className="mb-0.5" onClick={() => removeTeam(i)}>×</Button>
-                    </div>
-                    <div className="space-y-2 sm:col-span-3">
-                      <Label className="text-xs">Jugador 1</Label>
-                      <Input value={team.player1} onChange={(e) => updateTeam(i, "player1", e.target.value)} />
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label className="text-xs">Jugador 2</Label>
-                      <Input value={team.player2} onChange={(e) => updateTeam(i, "player2", e.target.value)} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Un equipo es una pareja: elige la categoría y escribe o selecciona a sus 2 jugadores. El nombre del equipo se arma solo.
+              </p>
+
+              {teams.length === 0 ? (
+                <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-6 text-center">
+                  Aún no hay equipos. Añade el primero eligiendo su categoría arriba.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {categories
+                    .filter((c) => teams.some((t) => t.division === c.division && t.sex === c.sex))
+                    .map((c) => {
+                      const catTeams = teams
+                        .map((t, i) => ({ t, i }))
+                        .filter(({ t }) => t.division === c.division && t.sex === c.sex);
+                      return (
+                        <div key={`${c.division}-${c.sex}`} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{c.division} · {sexShort(c.sex)}</Badge>
+                            <span className="text-xs text-muted-foreground">{catTeams.length} equipo(s)</span>
+                          </div>
+                          <div className="space-y-2">
+                            {catTeams.map(({ t, i }) => (
+                              <div key={i} className="rounded-xl border p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Input
+                                    value={t.name}
+                                    onChange={(e) => updateTeam(i, "name", e.target.value)}
+                                    placeholder="Nombre del equipo (se arma solo)"
+                                    className="h-8 text-sm font-semibold"
+                                  />
+                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeTeam(i)} aria-label="Quitar equipo">
+                                    ×
+                                  </Button>
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <PlayerSlot
+                                    label="Jugador 1"
+                                    value={t.player1}
+                                    players={players}
+                                    onPick={(name) => updatePlayer(i, 1, name)}
+                                    onType={(name) => updatePlayer(i, 1, name)}
+                                  />
+                                  <PlayerSlot
+                                    label="Jugador 2"
+                                    value={t.player2}
+                                    players={players}
+                                    onPick={(name) => updatePlayer(i, 2, name)}
+                                    onType={(name) => updatePlayer(i, 2, name)}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
           )}
 
@@ -437,6 +502,75 @@ export default function AdminOnboarding() {
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Campo de jugador: escribe un nombre nuevo o selecciona uno ya registrado. */
+function PlayerSlot({
+  label,
+  value,
+  players,
+  onPick,
+  onType,
+}: {
+  label: string;
+  value: string;
+  players: PlayerProfile[];
+  onPick: (name: string) => void;
+  onType: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="grid gap-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={`h-9 w-full justify-between font-normal ${value ? "" : "text-muted-foreground"}`}
+          >
+            <span className="truncate">{value || "Escribir o buscar…"}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Buscar jugador registrado…"
+              onValueChange={(q) => {
+                // Escribir en el buscador también define el nombre si no coincide con nadie
+                onType(q);
+              }}
+            />
+            <CommandList>
+              <CommandEmpty>
+                Jugador nuevo: "{value}" — se registrará al completar
+              </CommandEmpty>
+              <CommandGroup heading="Jugadores registrados">
+                {players.slice(0, 30).map((pl) => (
+                  <CommandItem
+                    key={pl.id}
+                    value={pl.display_name}
+                    onSelect={() => {
+                      onPick(pl.display_name);
+                      setOpen(false);
+                    }}
+                  >
+                    {pl.display_name}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      N {(pl.official_level ?? pl.declared_level).toFixed(1)}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
