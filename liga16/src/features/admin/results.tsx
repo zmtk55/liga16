@@ -124,6 +124,13 @@ export default function AdminResults() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {list !== null && list.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    No hay resultados todavía. Usa el botón "el calendario del torneo" para agregar el primero.
+                  </TableCell>
+                </TableRow>
+              )}
               {list?.map((m) => (
                 <TableRow key={m.id}>
                   <TableCell className="font-medium">{m.tournament_name}</TableCell>

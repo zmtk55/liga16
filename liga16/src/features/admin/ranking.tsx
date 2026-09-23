@@ -121,6 +121,13 @@ export default function AdminRanking() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {list !== null && list.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    No hay ranking todavía. Usa el botón "Agregar jugador" para agregar el primero.
+                  </TableCell>
+                </TableRow>
+              )}
               {list?.map((r) => (
                 <TableRow key={r.player_id}>
                   <TableCell className="font-medium">{r.position}</TableCell>

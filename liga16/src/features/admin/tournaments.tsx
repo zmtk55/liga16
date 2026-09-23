@@ -152,6 +152,13 @@ export default function AdminTournaments() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {list !== null && list.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    No hay torneos todavía. Usa el botón "Nuevo torneo" para agregar el primero.
+                  </TableCell>
+                </TableRow>
+              )}
               {list?.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">
