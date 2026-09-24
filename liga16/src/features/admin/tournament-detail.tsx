@@ -45,6 +45,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { drawGroups, suggestGroupCount, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
 import { ensurePlayer } from "@/lib/players";
 import {
@@ -460,7 +461,7 @@ export default function AdminTournamentDetail() {
     }
   }
 
-  if (!tournament) return <p className="text-sm text-muted-foreground">Cargando…</p>;
+  if (!tournament) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   const club = clubs.find((c) => c.id === tournament.club_id);
   const catNameById = new Map(categories.map((c) => [c.id, c.name]));

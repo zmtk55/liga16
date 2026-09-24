@@ -17,6 +17,7 @@ import { tournamentStatusLabel } from "@/lib/format";
 import { Plus, Trash2 } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export default function AdminTournaments() {
@@ -99,9 +100,9 @@ export default function AdminTournaments() {
             <TableBody>
               {list === null && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                    Cargando…
-                  </TableCell>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <TableCell key={i} className="py-4"><Skeleton className="h-4 w-full" /></TableCell>
+                  ))}
                 </TableRow>
               )}
               {list !== null && list.length === 0 && (

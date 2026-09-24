@@ -38,6 +38,7 @@ import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface EquipoForm {
   name: string;
@@ -242,7 +243,9 @@ export default function AdminTeams() {
               <TableBody>
                 {pairs === null && (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">Cargando…</TableCell>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <TableCell key={i} className="py-4"><Skeleton className="h-4 w-full" /></TableCell>
+                    ))}
                   </TableRow>
                 )}
                 {pairs !== null && pairs.length === 0 && (
