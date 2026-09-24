@@ -91,6 +91,19 @@ export const demoProvider: DataProvider = {
     return store.pairs.filter((p) => p.tournament_id === tournamentId);
   },
 
+  async listAllPairs() {
+    await delay();
+    return store.pairs.map((p) => ({
+      id: p.id,
+      name: p.name,
+      category_id: p.category_id ?? null,
+      category_name: null,
+      tournament_id: p.tournament_id,
+      tournament_name: store.tournaments.find((t) => t.id === p.tournament_id)?.name ?? null,
+      created_at: null,
+    }));
+  },
+
   async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null; player1_id?: string | null; player2_id?: string | null }) {
     await delay();
     const pair = {
@@ -106,7 +119,7 @@ export const demoProvider: DataProvider = {
     return pair;
   },
 
-  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null }) {
+  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; tournament_id?: string }) {
     await delay();
     const idx = store.pairs.findIndex((p) => p.id === id);
     if (idx === -1) throw new Error("Pareja no encontrada");

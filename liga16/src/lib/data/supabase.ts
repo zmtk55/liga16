@@ -188,11 +188,12 @@ export const supabaseProvider: DataProvider = {
     return result as never;
   },
 
-  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null }) {
+  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; tournament_id?: string }) {
     const patch: Record<string, unknown> = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.category_id !== undefined) patch.category_id = data.category_id;
     if (data.seed !== undefined) patch.seed = data.seed;
+    if (data.tournament_id !== undefined) patch.tournament_id = data.tournament_id;
     const { data: result, error } = await client()
       .from('pairs').update(patch).eq('id', id).select().single();
     if (error) throw error;
@@ -374,6 +375,23 @@ export const supabaseProvider: DataProvider = {
 
   // Equipos: leen de `pairs` (equipos POR TORNEO). La tabla global `teams` quedó obsoleta.
   // slug se deriva del nombre; player1_id/player2_id de pairs ligan al perfil real.
+  async listAllPairs() {
+    const { data, error } = await client()
+      .from('pairs')
+      .select('*, tournament_categories(name), tournaments(id, name)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      name: r.name as string,
+      category_id: (r.category_id as string) ?? null,
+      category_name: (r.tournament_categories as { name: string } | null)?.name ?? null,
+      tournament_id: (r.tournament_id as string) ?? ((r.tournaments as { id: string } | null)?.id ?? null),
+      tournament_name: (r.tournaments as { name: string } | null)?.name ?? null,
+      created_at: (r.created_at as string) ?? null,
+    }));
+  },
+
   async listTeams() {
     const { data, error } = await client()
       .from('pairs').select('*, tournament_categories(name)');

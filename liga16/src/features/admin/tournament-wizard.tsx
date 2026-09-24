@@ -353,11 +353,25 @@ export default function TournamentWizard() {
       .finally(() => setSaving(false));
   }
 
-  /** Persiste el paso actual antes de avanzar (modo edición incluido). */
+  /**
+   * Persiste el paso actual antes de avanzar (modo edición incluido).
+   * Los errores SIEMPRE se reportan con toast: nunca fallan en silencio ni dejan
+   * el registro "colgado" — el admin ve exactamente qué paso falló y puede reintentar.
+   */
   async function persistStep(target: number) {
     setSaving(true);
     try {
-      if (target >= 2 && !tournamentId) {
+      await doPersistStep(target);
+    } catch (e) {
+      const msg = (e as Error).message ?? "Error desconocido";
+      toast.error(`No se pudo guardar (paso ${target}): ${msg}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function doPersistStep(target: number) {
+    if (target >= 2 && !tournamentId) {
         const payload = {
           name: tournament.name,
           cover_url: null,
@@ -426,6 +440,7 @@ export default function TournamentWizard() {
       if (target >= 4 && tournamentId) {
         const existing = await db.getTournamentPairs(String(tournamentId));
         const existingNames = new Set((existing as Pair[]).map((p) => p.name.toLowerCase()));
+        const failures: string[] = [];
         for (const t of teams) {
           const name = t.name.trim();
           if (!name || existingNames.has(name.toLowerCase())) continue;
@@ -434,20 +449,24 @@ export default function TournamentWizard() {
             ensurePlayer(t.player1, t.division).catch(() => null),
             ensurePlayer(t.player2, t.division).catch(() => null),
           ]);
-          await db
-            .createPair({
+          try {
+            await db.createPair({
               tournament_id: String(tournamentId),
               category_id: catIds.get(t.division.toLowerCase()) ?? null,
               name,
               player1_id: prof1?.id ?? null,
               player2_id: prof2?.id ?? null,
-            })
-            .catch((e: Error) => toast.error(`${name}: ${e.message ?? "no se pudo registrar"}`));
+            });
+          } catch (e) {
+            failures.push(`${name}: ${(e as Error).message ?? "no se pudo registrar"}`);
+          }
         }
+        if (failures.length > 0) {
+          toast.error(`No se registraron ${failures.length} equipo(s): ${failures.join(" · ")}`);
+          throw new Error(failures[0]);
+        }
+        if (teams.length > 0) toast.success(`${teams.length} equipo(s) registrados`);
       }
-    } finally {
-      setSaving(false);
-    }
   }
 
   function back() {
@@ -578,6 +597,21 @@ export default function TournamentWizard() {
     if (!tournamentId) {
       toast.error("Falta crear el torneo");
       return;
+    }
+    // Los equipos del paso 4 se persisten en segundo plano al avanzar; aquí
+    // esperamos a que termine para no generar partidos con nombres sin pareja.
+    if (saving) {
+      toast.info("Guardando cambios pendientes…");
+      await new Promise<void>((resolve) => {
+        const check = () => {
+          setSaving((s) => {
+            if (!s) resolve();
+            return s;
+          });
+          setTimeout(check, 200);
+        };
+        check();
+      });
     }
     if (groups.length === 0) {
       toast.warning("Primero sortea los grupos con el botón \"Sortear al azar\"");

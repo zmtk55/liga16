@@ -14,6 +14,7 @@ const items = [
   { to: "/admin", label: "Panel", icon: LayoutDashboard, exact: true },
   { to: "/admin/torneos", label: "Torneos", icon: Trophy },
   { to: "/admin/equipos", label: "Equipos", icon: Users },
+  { to: "/admin/participantes", label: "Participantes", icon: UsersRound },
   { to: "/admin/jugadores", label: "Jugadores", icon: UsersRound },
   { to: "/admin/ranking", label: "Ranking", icon: BarChart3 },
   { to: "/admin/resultados", label: "Resultados", icon: ClipboardList },
