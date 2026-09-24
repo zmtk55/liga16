@@ -96,12 +96,43 @@ export default function AdminTeams() {
   });
 
   async function handleSave(form: EquipoForm) {
+    const p1 = form.player1_name.trim();
+    const p2 = form.player2_name.trim();
+    if (p1.toLowerCase() === p2.toLowerCase()) {
+      toast.error("El mismo jugador no puede estar 2 veces en el equipo");
+      return;
+    }
+    // Rama del torneo: si la categoría define sexo (M/F), los jugadores deben coincidir
+    const pairCat = categories.find((c) => c.id === (form.category_id || categories[0]?.id));
+    if (pairCat && pairCat.sex !== "X") {
+      const roster = [
+        { name: p1, profile: players.find((pl) => pl.display_name.trim().toLowerCase() === p1.toLowerCase()) },
+        { name: p2, profile: players.find((pl) => pl.display_name.trim().toLowerCase() === p2.toLowerCase()) },
+      ];
+      for (const r of roster) {
+        if (r.profile && r.profile.sex !== "X" && r.profile.sex !== pairCat.sex) {
+          const ramaEs = pairCat.sex === "M" ? "varonil" : "femenil";
+          toast.error(`"${r.name}" es ${r.profile.sex === "F" ? "jugadora femenil" : "jugador varonil"} y esta categoría es ${ramaEs}`);
+          return;
+        }
+      }
+    }
+    // Un jugador no puede estar en 2 equipos del mismo torneo
+    const others = (pairs ?? []).filter((p) => p.id !== editing?.id);
+    for (const p of others) {
+      const roster = p.name.split("/").map((s) => s.trim().toLowerCase());
+      const clash = [p1, p2].find((n) => roster.includes(n.toLowerCase()));
+      if (clash) {
+        toast.error(`"${clash}" ya juega en el equipo "${p.name}" de este torneo`);
+        return;
+      }
+    }
     setSubmitting(true);
     try {
       // Los jugadores se registran/reutilizan en el directorio global
       await Promise.all([
-        ensurePlayer(form.player1_name).catch(() => null),
-        ensurePlayer(form.player2_name).catch(() => null),
+        ensurePlayer(p1).catch(() => null),
+        ensurePlayer(p2).catch(() => null),
       ]);
       const name = form.name.trim() || autoName(form);
       if (editing) {

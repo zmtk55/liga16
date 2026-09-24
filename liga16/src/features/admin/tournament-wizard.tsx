@@ -199,6 +199,29 @@ export default function TournamentWizard() {
   function commitDraft() {
     const t = { ...draft, name: draft.name.trim() || [draft.player1.trim(), draft.player2.trim()].filter(Boolean).join(" / ") };
     if (!t.player1.trim() || !t.player2.trim() || !t.division) return;
+    if (t.player1.trim().toLowerCase() === t.player2.trim().toLowerCase()) {
+      toast.warning("El mismo jugador no puede estar 2 veces en el equipo");
+      return;
+    }
+    // Un jugador no puede repetirse entre equipos del torneo
+    const dup = teams.find((x) => {
+      const roster = [x.player1.trim().toLowerCase(), x.player2.trim().toLowerCase()];
+      return roster.includes(t.player1.trim().toLowerCase()) || roster.includes(t.player2.trim().toLowerCase());
+    });
+    if (dup) {
+      toast.warning(`"${dup.name}" ya tiene a uno de estos jugadores en el torneo`);
+      return;
+    }
+    // Rama: si el draft no es mixto, los jugadores registrados deben coincidir
+    if (t.sex !== "X") {
+      for (const nombre of [t.player1.trim(), t.player2.trim()]) {
+        const prof = players.find((pl) => pl.display_name.trim().toLowerCase() === nombre.toLowerCase());
+        if (prof && prof.sex !== "X" && prof.sex !== t.sex) {
+          toast.warning(`"${nombre}" es ${prof.sex === "F" ? "jugadora femenil" : "jugador varonil"} y el equipo es ${t.sex === "M" ? "varonil" : "femenil"}`);
+          return;
+        }
+      }
+    }
     setTeams((prev) => [...prev, t]);
     setDraft(emptyDraft());
     draftWasManual.current = false;

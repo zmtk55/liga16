@@ -33,6 +33,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
+  ChevronDown,
   Dice5,
   GripVertical,
   Pencil,
@@ -45,6 +46,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { drawGroups, suggestGroupCount, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
+import { ensurePlayer } from "@/lib/players";
 import {
   Select,
   SelectContent,
@@ -109,6 +111,8 @@ export default function AdminTournamentDetail() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [newPairName, setNewPairName] = useState("");
+  const [newPairP1, setNewPairP1] = useState("");
+  const [newPairP2, setNewPairP2] = useState("");
   const [newPairCategory, setNewPairCategory] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -162,7 +166,27 @@ export default function AdminTournamentDetail() {
     if (!tournament) return;
     db.getTournamentCategories(tournament.id).then(setCategories).catch(() => setCategories([]));
     db.getTournamentPairs(tournament.id).then(setPairs).catch(() => setPairs([]));
-    db.listMatchesByTournament(tournament.id).then(setMatches).catch(() => setMatches([]));
+    db.listMatchesByTournament(tournament.id)
+      .then((ms) => {
+        setMatches(ms);
+        // Reconstruir los grupos desde los partidos generados ("Grupo A · J1"…)
+        // para que el sorteo no se pierda al recargar la página.
+        setGroups((prev) => {
+          if (prev.length > 0) return prev;
+          const map = new Map<string, string[]>();
+          ms.forEach((m) => {
+            const groupName = m.round.split(" · ")[0];
+            if (!groupName) return;
+            if (!map.has(groupName)) map.set(groupName, []);
+            [m.side_a.pair_id, m.side_b.pair_id].forEach((id) => {
+              if (id && !map.get(groupName)!.includes(id)) map.get(groupName)!.push(id);
+            });
+          });
+          if (map.size === 0) return prev;
+          return [...map.entries()].map(([name, pairIds]) => ({ name, pairIds }));
+        });
+      })
+      .catch(() => setMatches([]));
   }, [tournament]);
 
   const nameById = useMemo(() => {
@@ -258,16 +282,50 @@ export default function AdminTournamentDetail() {
       if (target === "__pool__") return without;
       return without.map((g) => (g.name === target ? { ...g, pairIds: [...g.pairIds, pairId] } : g));
     });
-  }  async function handleAddPair() {
-    if (!tournament || !newPairName.trim()) return;
+  }
+
+  async function handleAddPair() {
+    if (!tournament) return;
+    // Los 2 jugadores vienen de sus inputs; el nombre se arma solo si no se tocó
+    const parts = [newPairP1.trim(), newPairP2.trim()].filter(Boolean);
+    if (parts.length !== 2) {
+      toast.error("Un equipo son 2 personas — llena Jugador 1 y Jugador 2");
+      return;
+    }
+    const raw = newPairName.trim() || parts.join(" / ");
+    // Duplicado: mismo equipo (nombre) ya inscrito en este torneo
+    const dupTeam = (pairs ?? []).find((p) => p.name.trim().toLowerCase() === raw.toLowerCase());
+    if (dupTeam) {
+      toast.error(`"${raw}" ya está inscrito en este torneo`);
+      return;
+    }
+    // Duplicado: alguno de los 2 jugadores ya juega en otro equipo del torneo
+    const playerSet = new Map<string, string>();
+    (pairs ?? []).forEach((p) => {
+      p.name.split("/").forEach((s) => {
+        const n = s.trim().toLowerCase();
+        if (n) playerSet.set(n, p.name);
+      });
+    });
+    for (const part of parts) {
+      const existing = playerSet.get(part.toLowerCase());
+      if (existing) {
+        toast.error(`"${part}" ya juega en el equipo "${existing}" de este torneo`);
+        return;
+      }
+    }
     setSaving(true);
     try {
+      // Perfiles de jugador nuevos se crean si no existen
+      await Promise.all([ensurePlayer(parts[0]).catch(() => null), ensurePlayer(parts[1]).catch(() => null)]);
       await db.createPair({
         tournament_id: tournament.id,
         category_id: newPairCategory || categories[0]?.id || null,
-        name: newPairName.trim(),
+        name: parts.join(" / "),
       });
       setNewPairName("");
+      setNewPairP1("");
+      setNewPairP2("");
       toast.success("Equipo registrado");
       await reload();
     } catch (e) {
@@ -528,32 +586,54 @@ export default function AdminTournamentDetail() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Registrar equipo</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-wrap items-end gap-3">
-              <div className="grid gap-1.5 flex-1 min-w-48">
-                <Label htmlFor="pair-name">Nombre</Label>
-                <Input
-                  id="pair-name"
-                  value={newPairName}
-                  onChange={(e) => setNewPairName(e.target.value)}
-                  placeholder="Ej: Fuentes / Rojas"
-                />
-              </div>
-              {categories.length > 0 && (
-                <div className="grid gap-1.5 w-56">
-                  <Label>Categoría</Label>
-                  <Select value={newPairCategory || categories[0]?.id} onValueChange={setNewPairCategory}>
-                    <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <CardContent className="grid gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="pair-p1">Jugador 1</Label>
+                  <Input
+                    id="pair-p1"
+                    value={newPairP1}
+                    onChange={(e) => setNewPairP1(e.target.value)}
+                    placeholder="Nombre y apellido"
+                  />
                 </div>
-              )}
-              <Button onClick={handleAddPair} disabled={saving || !newPairName.trim()}>
-                <UserPlus className="h-4 w-4 mr-1" /> Registrar
-              </Button>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="pair-p2">Jugador 2</Label>
+                  <Input
+                    id="pair-p2"
+                    value={newPairP2}
+                    onChange={(e) => setNewPairP2(e.target.value)}
+                    placeholder="Nombre y apellido"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="grid gap-1.5 flex-1 min-w-48">
+                  <Label htmlFor="pair-name">Nombre del equipo</Label>
+                  <Input
+                    id="pair-name"
+                    value={newPairName}
+                    onChange={(e) => setNewPairName(e.target.value)}
+                    placeholder={[newPairP1.trim(), newPairP2.trim()].filter(Boolean).join(" / ") || "Se arma solo con los jugadores"}
+                  />
+                </div>
+                {categories.length > 0 && (
+                  <div className="grid gap-1.5 w-56">
+                    <Label>Categoría</Label>
+                    <Select value={newPairCategory || categories[0]?.id} onValueChange={setNewPairCategory}>
+                      <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button onClick={handleAddPair} disabled={saving || !newPairP1.trim() || !newPairP2.trim()}>
+                  <UserPlus className="h-4 w-4 mr-1" /> Registrar equipo
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -741,49 +821,10 @@ export default function AdminTournamentDetail() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {groups.map((g) => {
-                const standings = computeStandings(g.pairIds, matches, nameById);
-                const groupMatches = matches.filter((m) =>
-                  g.pairIds.includes(m.side_a.pair_id ?? "") && g.pairIds.includes(m.side_b.pair_id ?? ""),
-                );
-                return (
-                  <Card key={g.name}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center justify-between">
-                        {g.name}
-                        <Badge variant="outline">{groupMatches.filter((m) => m.status === "finished").length}/{groupMatches.length} jugados</Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0 overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="pl-4">#</TableHead>
-                            <TableHead>Equipo</TableHead>
-                            <TableHead className="text-right">PJ</TableHead>
-                            <TableHead className="text-right">PG</TableHead>
-                            <TableHead className="text-right">Sets</TableHead>
-                            <TableHead className="text-right pr-4">Pts</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {standings.map((row, i) => (
-                            <TableRow key={row.pairId} className={i === 0 ? "bg-primary/5" : ""}>
-                              <TableCell className="pl-4 font-medium">{i + 1}</TableCell>
-                              <TableCell className="font-medium max-w-40 truncate">{nameById[row.pairId] ?? "?"}</TableCell>
-                              <TableCell className="text-right">{row.played}</TableCell>
-                              <TableCell className="text-right text-emerald-600">{row.won}</TableCell>
-                              <TableCell className="text-right tabular-nums">{row.setsFor}-{row.setsAgainst}</TableCell>
-                              <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="space-y-4">
+              {groups.map((g) => (
+                <GroupStandingsCard key={g.name} group={g} matches={matches} nameById={nameById} />
+              ))}
             </div>
           )}
         </TabsContent>
@@ -1321,5 +1362,127 @@ function MatchResultDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Tabla de posiciones de un grupo: compacta por defecto, completa al expandir. */
+function GroupStandingsCard({
+  group,
+  matches,
+  nameById,
+}: {
+  group: Group;
+  matches: Match[];
+  nameById: Record<string, string>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const standings = computeStandings(group.pairIds, matches, nameById);
+  const groupMatches = matches.filter(
+    (m) => group.pairIds.includes(m.side_a.pair_id ?? "") && group.pairIds.includes(m.side_b.pair_id ?? ""),
+  );
+  const played = groupMatches.filter((m) => m.status === "finished").length;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between gap-2 text-sm">
+          <span className="flex items-center gap-2">
+            {group.name}
+            <Badge variant="outline">{played}/{groupMatches.length} jugados</Badge>
+          </span>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setExpanded((e) => !e)}>
+            {expanded ? "Ver básico" : "Ver completa"}
+            <ChevronDown className={`ml-1 h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pl-4 w-8">#</TableHead>
+              <TableHead>Equipo</TableHead>
+              {/* Compacta: PJ · Sets · Pts. Completa: todo. */}
+              {!expanded && (
+                <>
+                  <TableHead className="text-center w-28">Forma</TableHead>
+                  <TableHead className="text-right">PJ</TableHead>
+                  <TableHead className="text-right">Sets</TableHead>
+                  <TableHead className="text-right pr-4">Pts</TableHead>
+                </>
+              )}
+              {expanded && (
+                <>
+                  <TableHead className="text-center w-28">Forma</TableHead>
+                  <TableHead className="text-right">PJ</TableHead>
+                  <TableHead className="text-right">PG</TableHead>
+                  <TableHead className="text-right">PP</TableHead>
+                  <TableHead className="text-right">Sets G</TableHead>
+                  <TableHead className="text-right">Sets P</TableHead>
+                  <TableHead className="text-right">Dif sets</TableHead>
+                  <TableHead className="text-right">Juegos G</TableHead>
+                  <TableHead className="text-right">Juegos P</TableHead>
+                  <TableHead className="text-right">Dif juegos</TableHead>
+                  <TableHead className="text-right pr-4">Pts</TableHead>
+                </>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {standings.map((row, i) => {
+              const difSets = row.setsFor - row.setsAgainst;
+              const difGames = row.gamesFor - row.gamesAgainst;
+              return (
+                <TableRow key={row.pairId} className={i === 0 ? "bg-primary/5" : ""}>
+                  <TableCell className="pl-4 font-medium">{i + 1}</TableCell>
+                  <TableCell className="font-medium max-w-52 truncate">{nameById[row.pairId] ?? "?"}</TableCell>
+                  <TableCell className="text-center">
+                    <span className="inline-flex gap-0.5">
+                      {row.form.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                      {row.form.map((f, fi) => (
+                        <span
+                          key={fi}
+                          className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[9px] font-bold text-white ${
+                            f === "G" ? "bg-emerald-600" : "bg-rose-500"
+                          }`}
+                          title={f === "G" ? "Victoria" : "Derrota"}
+                        >
+                          {f}
+                        </span>
+                      ))}
+                    </span>
+                  </TableCell>
+                  {!expanded && (
+                    <>
+                      <TableCell className="text-right tabular-nums">{row.played}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.setsFor}-{row.setsAgainst}</TableCell>
+                      <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>
+                    </>
+                  )}
+                  {expanded && (
+                    <>
+                      <TableCell className="text-right tabular-nums">{row.played}</TableCell>
+                      <TableCell className="text-right tabular-nums text-emerald-600">{row.won}</TableCell>
+                      <TableCell className="text-right tabular-nums text-rose-600">{row.lost}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.setsFor}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.setsAgainst}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${difSets > 0 ? "text-emerald-600" : difSets < 0 ? "text-rose-600" : ""}`}>
+                        {difSets > 0 ? "+" : ""}{difSets}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{row.gamesFor}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.gamesAgainst}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${difGames > 0 ? "text-emerald-600" : difGames < 0 ? "text-rose-600" : ""}`}>
+                        {difGames > 0 ? "+" : ""}{difGames}
+                      </TableCell>
+                      <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>
+                    </>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

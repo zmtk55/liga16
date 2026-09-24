@@ -159,7 +159,11 @@ export interface StandingRow {
   lost: number;
   setsFor: number;
   setsAgainst: number;
+  gamesFor: number;
+  gamesAgainst: number;
   points: number;
+  /** Últimos 5 resultados: 'G' victoria, 'P' derrota (más reciente al final). */
+  form: Array<"G" | "P">;
 }
 
 /**
@@ -173,11 +177,15 @@ export function computeStandings(
 ): StandingRow[] {
   const rows = new Map<UUID, StandingRow>();
   pairIds.forEach((id) =>
-    rows.set(id, { pairId: id, played: 0, won: 0, lost: 0, setsFor: 0, setsAgainst: 0, points: 0 }),
+    rows.set(id, { pairId: id, played: 0, won: 0, lost: 0, setsFor: 0, setsAgainst: 0, gamesFor: 0, gamesAgainst: 0, points: 0, form: [] }),
   );
 
-  for (const m of matches) {
-    if (m.status !== "finished" || !m.winner) continue;
+  // Los terminados en orden de fecha para armar la forma (últimos 5)
+  const finished = matches
+    .filter((m) => m.status === "finished" && m.winner)
+    .sort((x, y) => String(x.scheduled_at).localeCompare(String(y.scheduled_at)));
+
+  for (const m of finished) {
     const a = m.side_a.pair_id;
     const b = m.side_b.pair_id;
     if (!a || !b || !rows.has(a) || !rows.has(b)) continue;
@@ -188,19 +196,31 @@ export function computeStandings(
     for (const s of m.sets) {
       rowA.setsFor += s.a;
       rowA.setsAgainst += s.b;
+      rowA.gamesFor += s.a;
+      rowA.gamesAgainst += s.b;
       rowB.setsFor += s.b;
       rowB.setsAgainst += s.a;
+      rowB.gamesFor += s.b;
+      rowB.gamesAgainst += s.a;
     }
     if (m.winner === "a") {
       rowA.won++;
       rowA.points += 3;
+      rowA.form.push("G");
       rowB.lost++;
+      rowB.form.push("P");
     } else {
       rowB.won++;
       rowB.points += 3;
+      rowB.form.push("G");
       rowA.lost++;
+      rowA.form.push("P");
     }
   }
+
+  rows.forEach((r) => {
+    r.form = r.form.slice(-5);
+  });
 
   return [...rows.values()].sort(
     (x, y) =>
