@@ -31,8 +31,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { sexLabel } from "@/lib/format";
+import { FilterBar } from "@/components/ui/filter-bar";
 
 const SEX_OPTIONS = [
   { value: "M", label: "Varonil" },
@@ -139,30 +140,26 @@ export default function AdminPlayers() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm">{filtered.length} de {list?.length ?? 0} jugadores</CardTitle>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={tid} onValueChange={setTid}>
-                <SelectTrigger className="h-9 w-56" aria-label="Filtrar por torneo">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todo el directorio</SelectItem>
-                  {tournaments.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>Juega en: {t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar jugador…"
-                className="h-9 w-52 pl-8"
-                aria-label="Buscar jugadores"
-              />
-            </div>
-            </div>
+            <CardTitle className="text-sm">Jugadores</CardTitle>
+            <FilterBar
+              search={query}
+              onSearch={setQuery}
+              searchPlaceholder="Buscar jugador…"
+              selects={[
+                {
+                  key: "tid",
+                  ariaLabel: "Filtrar por torneo",
+                  allLabel: "Todo el directorio",
+                  value: tid,
+                  onChange: setTid,
+                  options: tournaments.map((t) => ({ value: t.id, label: `Juega en: ${t.name}` })),
+                  className: "w-60",
+                },
+              ]}
+              resultCount={filtered.length}
+              resultLabel="de"
+              onClear={() => { setQuery(""); setTid("all"); }}
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">

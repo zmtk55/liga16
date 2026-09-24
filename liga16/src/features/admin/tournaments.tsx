@@ -5,14 +5,6 @@ import type { Tournament } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -22,7 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { tournamentStatusLabel } from "@/lib/format";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { toast } from "sonner";
 
 export default function AdminTournaments() {
@@ -66,32 +59,26 @@ export default function AdminTournaments() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm">
-              {filtered.length} de {list?.length ?? 0} torneos
-            </CardTitle>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar torneo o sede…"
-                  className="h-9 w-52 pl-8"
-                  aria-label="Buscar torneos"
-                />
-              </div>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="h-9 w-44" aria-label="Filtrar por estado">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  {Object.entries(tournamentStatusLabel).map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <CardTitle className="text-sm">Torneos</CardTitle>
+            <FilterBar
+              search={query}
+              onSearch={setQuery}
+              searchPlaceholder="Buscar torneo o sede…"
+              selects={[
+                {
+                  key: "status",
+                  ariaLabel: "Filtrar por estado",
+                  allLabel: "Todos los estados",
+                  value: status,
+                  onChange: setStatus,
+                  options: Object.entries(tournamentStatusLabel).map(([v, l]) => ({ value: v, label: l })),
+                  className: "w-44",
+                },
+              ]}
+              resultCount={filtered.length}
+              resultLabel="de"
+              onClear={() => { setQuery(""); setStatus("all"); }}
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">

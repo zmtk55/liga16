@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import type { MatchStatus } from "@/types";
+import { FilterBar } from "@/components/ui/filter-bar";
 import {
   determineMatchWinner,
   formatMatchScore,
@@ -55,6 +56,18 @@ export default function AdminResults() {
   const [tournaments, setTournaments] = useState<Record<string, Tournament>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Filtros
+  const [query, setQuery] = useState("");
+  const [fTournament, setFTournament] = useState("all");
+  const [fStatus, setFStatus] = useState("all");
+
+  const filtered = (list ?? []).filter((m) => {
+    const q = query.trim().toLowerCase();
+    if (q && !`${m.tournament_name} ${m.round} ${m.side_a.pair_name} ${m.side_b.pair_name}`.toLowerCase().includes(q)) return false;
+    if (fTournament !== "all" && m.tournament_id !== fTournament) return false;
+    if (fStatus !== "all" && m.status !== fStatus) return false;
+    return true;
+  });
 
   useEffect(() => {
     load();
@@ -109,7 +122,37 @@ export default function AdminResults() {
       </div>
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Últimos partidos</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-sm">Resultados</CardTitle>
+            <FilterBar
+              search={query}
+              onSearch={setQuery}
+              searchPlaceholder="Buscar equipo, torneo o ronda…"
+              selects={[
+                {
+                  key: "tournament",
+                  ariaLabel: "Filtrar por torneo",
+                  allLabel: "Todos los torneos",
+                  value: fTournament,
+                  onChange: setFTournament,
+                  options: Object.entries(tournaments).map(([id, t]) => ({ value: id, label: t.name })),
+                  className: "w-52",
+                },
+                {
+                  key: "status",
+                  ariaLabel: "Filtrar por estado",
+                  allLabel: "Todos los estados",
+                  value: fStatus,
+                  onChange: setFStatus,
+                  options: STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
+                  className: "w-40",
+                },
+              ]}
+              resultCount={filtered.length}
+              resultLabel="de"
+              onClear={() => { setQuery(""); setFTournament("all"); setFStatus("all"); }}
+            />
+          </div>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
@@ -131,7 +174,7 @@ export default function AdminResults() {
                   </TableCell>
                 </TableRow>
               )}
-              {list?.map((m) => (
+              {filtered.map((m) => (
                 <TableRow key={m.id}>
                   <TableCell className="font-medium">{m.tournament_name}</TableCell>
                   <TableCell className="hidden sm:table-cell">{m.category_name}</TableCell>

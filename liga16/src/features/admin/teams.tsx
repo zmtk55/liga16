@@ -33,9 +33,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
+import { FilterBar } from "@/components/ui/filter-bar";
 
 interface EquipoForm {
   name: string;
@@ -202,30 +203,26 @@ export default function AdminTeams() {
         <Card>
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <CardTitle className="text-sm">{filtered.length} de {pairs?.length ?? 0} equipos</CardTitle>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Buscar equipo o jugador…"
-                    className="h-9 w-56 pl-8"
-                    aria-label="Buscar equipos"
-                  />
-                </div>
-                <Select value={cat} onValueChange={setCat}>
-                  <SelectTrigger className="h-9 w-44" aria-label="Filtrar por categoría">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las categorías</SelectItem>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <CardTitle className="text-sm">Equipos inscritos</CardTitle>
+              <FilterBar
+                search={query}
+                onSearch={setQuery}
+                searchPlaceholder="Buscar equipo o jugador…"
+                selects={[
+                  {
+                    key: "cat",
+                    ariaLabel: "Filtrar por categoría",
+                    allLabel: "Todas las categorías",
+                    value: cat,
+                    onChange: setCat,
+                    options: categories.map((c) => ({ value: c.id, label: c.name })),
+                    className: "w-48",
+                  },
+                ]}
+                resultCount={filtered.length}
+                resultLabel="de"
+                onClear={() => { setQuery(""); setCat("all"); }}
+              />
             </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">

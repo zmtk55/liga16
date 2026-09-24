@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import CategoryMatrix, { type CategoryValue } from "@/components/ui/category-matrix";
+import { DatePicker } from "@/components/ui/date-picker";
 import { categoriasValidas } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { DEFAULT_SCORING } from "@/lib/scoring";
@@ -729,16 +730,16 @@ export default function TournamentWizard() {
                   <Input id="t-name" value={tournament.name} onChange={(e) => setTournament((t) => ({ ...t, name: e.target.value }))} placeholder="Copa Liga16 Apertura 2026" />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="t-start">Inicio</Label>
-                  <Input id="t-start" type="date" value={tournament.start_date} onChange={(e) => setTournament((t) => ({ ...t, start_date: e.target.value }))} />
+                  <Label>Inicio</Label>
+                  <DatePicker id="t-start" value={tournament.start_date} onChange={(v) => setTournament((t) => ({ ...t, start_date: v ?? t.start_date }))} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="t-end">Fin</Label>
-                  <Input id="t-end" type="date" value={tournament.end_date} onChange={(e) => setTournament((t) => ({ ...t, end_date: e.target.value }))} />
+                  <Label>Fin</Label>
+                  <DatePicker id="t-end" value={tournament.end_date} onChange={(v) => setTournament((t) => ({ ...t, end_date: v ?? t.end_date }))} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="t-deadline">Cierre de inscripción</Label>
-                  <Input id="t-deadline" type="date" value={tournament.registration_deadline} onChange={(e) => setTournament((t) => ({ ...t, registration_deadline: e.target.value }))} />
+                  <Label>Cierre de inscripción</Label>
+                  <DatePicker id="t-deadline" value={tournament.registration_deadline} onChange={(v) => setTournament((t) => ({ ...t, registration_deadline: v ?? t.registration_deadline }))} />
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="t-price">Precio por equipo (MXN)</Label>

@@ -64,6 +64,8 @@ import {
 } from "@/components/ui/table";
 import type { Court } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { DatePicker } from "@/components/ui/date-picker";
 
 function SortablePair({
   id,
@@ -518,13 +520,11 @@ export default function AdminTournamentDetail() {
         {/* ============ JORNADA ============ */}
         <TabsContent value="jornada" className="space-y-4 pt-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor="jornada-day" className="text-sm text-muted-foreground">Día:</Label>
-            <Input
-              id="jornada-day"
-              type="date"
+            <span className="text-sm text-muted-foreground">Día:</span>
+            <DatePicker
               value={jornadaDay}
-              onChange={(e) => setJornadaDay(e.target.value)}
-              className="w-40"
+              onChange={(v) => setJornadaDay(v ?? new Date().toISOString().split("T")[0])}
+              ariaLabel="Elegir día de la jornada"
             />
             <Badge variant="outline">
               {matches.filter((m) => (m.scheduled_at ?? "").startsWith(jornadaDay)).length} partidos
@@ -839,64 +839,71 @@ export default function AdminTournamentDetail() {
             </Card>
           ) : (
             <>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={matchQuery}
-                    onChange={(e) => setMatchQuery(e.target.value)}
-                    placeholder="Buscar equipo o jugador…"
-                    className="h-9 w-52 pl-8"
-                    aria-label="Buscar partidos"
-                  />
-                </div>
-                <Select value={matchCategory} onValueChange={setMatchCategory}>
-                  <SelectTrigger className="h-9 w-40" aria-label="Filtrar por categoría"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las categorías</SelectItem>
-                    {matchCategories.filter(Boolean).map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={matchPlayer} onValueChange={setMatchPlayer}>
-                  <SelectTrigger className="h-9 w-44" aria-label="Filtrar por jugador"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los jugadores</SelectItem>
-                    {matchPlayerList.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={matchDay} onValueChange={setMatchDay}>
-                  <SelectTrigger className="h-9 w-40" aria-label="Filtrar por día"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los días</SelectItem>
-                    {matchDays.map((d) => (
-                      <SelectItem key={d} value={d}>{new Date(`${d}T12:00:00`).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={matchCourt} onValueChange={setMatchCourt}>
-                  <SelectTrigger className="h-9 w-36" aria-label="Filtrar por cancha"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las canchas</SelectItem>
-                    {matchCourtsList.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={matchRound} onValueChange={setMatchRound}>
-                  <SelectTrigger className="h-9 w-44" aria-label="Filtrar por ronda">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las rondas</SelectItem>
-                    {rounds.map((r) => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <FilterBar
+                search={matchQuery}
+                onSearch={setMatchQuery}
+                searchPlaceholder="Buscar equipo o jugador…"
+                selects={[
+                  {
+                    key: "cat",
+                    ariaLabel: "Filtrar por categoría",
+                    allLabel: "Todas las categorías",
+                    value: matchCategory,
+                    onChange: setMatchCategory,
+                    options: matchCategories.filter(Boolean).map((c) => ({ value: c, label: c })),
+                    className: "w-44",
+                  },
+                  {
+                    key: "player",
+                    ariaLabel: "Filtrar por jugador",
+                    allLabel: "Todos los jugadores",
+                    value: matchPlayer,
+                    onChange: setMatchPlayer,
+                    options: matchPlayerList.map((p) => ({ value: p, label: p })),
+                    className: "w-48",
+                  },
+                  {
+                    key: "day",
+                    ariaLabel: "Filtrar por día",
+                    allLabel: "Todos los días",
+                    value: matchDay,
+                    onChange: setMatchDay,
+                    options: matchDays.map((d) => ({
+                      value: d,
+                      label: new Date(`${d}T12:00:00`).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" }),
+                    })),
+                    className: "w-44",
+                  },
+                  {
+                    key: "court",
+                    ariaLabel: "Filtrar por cancha",
+                    allLabel: "Todas las canchas",
+                    value: matchCourt,
+                    onChange: setMatchCourt,
+                    options: matchCourtsList.map((c) => ({ value: c, label: c })),
+                    className: "w-40",
+                  },
+                  {
+                    key: "round",
+                    ariaLabel: "Filtrar por ronda",
+                    allLabel: "Todas las rondas",
+                    value: matchRound,
+                    onChange: setMatchRound,
+                    options: rounds.map((r) => ({ value: r, label: r })),
+                    className: "w-48",
+                  },
+                ]}
+                resultCount={filteredMatches.length}
+                resultLabel="partidos"
+                onClear={() => {
+                  setMatchQuery("");
+                  setMatchCategory("all");
+                  setMatchPlayer("all");
+                  setMatchDay("all");
+                  setMatchCourt("all");
+                  setMatchRound("all");
+                }}
+              >
                 <div className="ml-auto flex items-center gap-1 rounded-lg border p-1">
                   {(["lista", "timeline"] as const).map((v) => (
                     <Button key={v} type="button" size="sm" variant={calView === v ? "secondary" : "ghost"} className="h-7 text-xs capitalize" onClick={() => setCalView(v)}>
@@ -904,8 +911,7 @@ export default function AdminTournamentDetail() {
                     </Button>
                   ))}
                 </div>
-                <Badge variant="outline">{filteredMatches.length} partidos</Badge>
-              </div>
+              </FilterBar>
               {calView === "timeline" ? (
                 (() => {
                   const days = matchDay !== "all" ? [matchDay] : matchDays;
@@ -1010,16 +1016,16 @@ export default function AdminTournamentDetail() {
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="d-start">Inicio</Label>
-              <Input id="d-start" type="date" value={datesForm.start_date} onChange={(e) => setDatesForm((f) => ({ ...f, start_date: e.target.value }))} />
+              <Label>Inicio</Label>
+              <DatePicker value={datesForm.start_date} onChange={(v) => setDatesForm((f) => ({ ...f, start_date: v ?? f.start_date }))} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="d-end">Fin</Label>
-              <Input id="d-end" type="date" value={datesForm.end_date} onChange={(e) => setDatesForm((f) => ({ ...f, end_date: e.target.value }))} />
+              <Label>Fin</Label>
+              <DatePicker value={datesForm.end_date} onChange={(v) => setDatesForm((f) => ({ ...f, end_date: v ?? f.end_date }))} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="d-deadline">Cierre de inscripción</Label>
-              <Input id="d-deadline" type="date" value={datesForm.registration_deadline} onChange={(e) => setDatesForm((f) => ({ ...f, registration_deadline: e.target.value }))} />
+              <Label>Cierre de inscripción</Label>
+              <DatePicker value={datesForm.registration_deadline} onChange={(v) => setDatesForm((f) => ({ ...f, registration_deadline: v ?? f.registration_deadline }))} clearable />
             </div>
           </div>
           <DialogFooter>
