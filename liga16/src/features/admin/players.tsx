@@ -58,15 +58,40 @@ export default function AdminPlayers() {
   const [editing, setEditing] = useState<PlayerProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState("");
+  // Filtro por torneo: los jugadores que juegan en él (via equipos inscritos)
+  const [tournaments, setTournaments] = useState<Array<{ id: string; name: string }>>([]);
+  const [tid, setTid] = useState("all");
+  const [tournamentPlayers, setTournamentPlayers] = useState<Set<string>>(new Set());
 
   const filtered = (list ?? []).filter((p) => {
     const q = query.trim().toLowerCase();
-    return !q || p.display_name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q);
+    if (q && !p.display_name.toLowerCase().includes(q) && !p.username.toLowerCase().includes(q)) return false;
+    if (tid !== "all" && !tournamentPlayers.has(p.display_name.trim().toLowerCase())) return false;
+    return true;
   });
 
   useEffect(() => {
     db.listPlayers().then(setList);
+    db.listTournaments().then((ts) => setTournaments(ts.map((t) => ({ id: t.id, name: t.name })))).catch(() => setTournaments([]));
   }, []);
+
+  useEffect(() => {
+    if (tid === "all") {
+      setTournamentPlayers(new Set());
+      return;
+    }
+    // Jugadores del torneo = jugadores de sus equipos inscritos ("A / B")
+    db.getTournamentPairs(tid).then((ps) => {
+      const names = new Set<string>();
+      (ps as unknown as Array<{ name: string }>).forEach((p) => {
+        p.name.split(" /").forEach((n) => {
+          const clean = n.trim().toLowerCase();
+          if (clean) names.add(clean);
+        });
+      });
+      setTournamentPlayers(names);
+    }).catch(() => setTournamentPlayers(new Set()));
+  }, [tid]);
 
   const load = () => db.listPlayers().then(setList);
 
@@ -115,7 +140,19 @@ export default function AdminPlayers() {
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-sm">{filtered.length} de {list?.length ?? 0} jugadores</CardTitle>
-            <div className="relative">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={tid} onValueChange={setTid}>
+                <SelectTrigger className="h-9 w-56" aria-label="Filtrar por torneo">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todo el directorio</SelectItem>
+                  {tournaments.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>Juega en: {t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
@@ -124,6 +161,7 @@ export default function AdminPlayers() {
                 className="h-9 w-52 pl-8"
                 aria-label="Buscar jugadores"
               />
+            </div>
             </div>
           </div>
         </CardHeader>

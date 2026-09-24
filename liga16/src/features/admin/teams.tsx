@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+// Admin → Equipos: los equipos son POR TORNEO (tabla `pairs` con tournament_id).
+// Un jugador pertenece al directorio global (player_profiles) pero su equipo
+// solo existe dentro del torneo elegido. Otro torneo = otros equipos.
+import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
-import type { Team, PlayerProfile } from "@/types";
+import type { PlayerProfile, Tournament, TournamentCategory } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -30,83 +34,82 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { Link } from "react-router";
-import { sexShort } from "@/lib/format";
 import PlayerSlot from "@/components/players/player-slot";
-import ImageUpload from "@/components/ui/image-upload";
 import { ensurePlayer } from "@/lib/players";
-
-// Categorías cerradas del ranking: 4ta, 5ta, 6ta… (nombres libres como "Suma Nueve" viven en el torneo)
-const DIVISIONS = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
 
 interface EquipoForm {
   name: string;
-  division: string;
-  sex: string;
-  logo: string | null;
+  category_id: string;
   player1_name: string;
   player2_name: string;
 }
 
-const EMPTY_FORM: EquipoForm = {
-  name: "",
-  division: "4ta",
-  sex: "M",
-  logo: null,
-  player1_name: "",
-  player2_name: "",
-};
-
 /** Nombre automático con los jugadores; respeta edición manual. */
-function autoName(f: EquipoForm): string {
+function autoName(f: { player1_name: string; player2_name: string }): string {
   return [f.player1_name.trim(), f.player2_name.trim()].filter(Boolean).join(" / ");
 }
 
 export default function AdminTeams() {
-  const [list, setList] = useState<Team[] | null>(null);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [tid, setTid] = useState<string>("");
+  const [categories, setCategories] = useState<TournamentCategory[]>([]);
+  const [pairs, setPairs] = useState<Array<{ id: string; name: string; category_id: string | null }> | null>(null);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
-  const [editing, setEditing] = useState<Team | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; category_id: string | null } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState("");
-  const [division, setDivision] = useState("all");
+  const [cat, setCat] = useState("all");
 
   useEffect(() => {
-    db.listTeams().then(setList);
+    db.listTournaments().then((ts) => {
+      setTournaments(ts);
+      // Selecciona el torneo activo más reciente por defecto
+      const active = ts.find((t) => t.status === "published") ?? ts[0];
+      if (active) setTid(active.id);
+    }).catch(() => setTournaments([]));
     db.listPlayers().then((p) => setPlayers(p)).catch(() => setPlayers([]));
   }, []);
 
-  const load = () => db.listTeams().then(setList);
+  useEffect(() => {
+    if (!tid) return;
+    setPairs(null);
+    db.getTournamentCategories(tid).then(setCategories).catch(() => setCategories([]));
+    db.getTournamentPairs(tid)
+      .then((ps) => setPairs(ps as unknown as Array<{ id: string; name: string; category_id: string | null }>))
+      .catch(() => setPairs([]));
+  }, [tid]);
 
-  const filtered = (list ?? []).filter((t) => {
+  const load = () => {
+    db.getTournamentPairs(tid)
+      .then((ps) => setPairs(ps as unknown as Array<{ id: string; name: string; category_id: string | null }>))
+      .catch(() => setPairs([]));
+  };
+
+  const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+
+  const filtered = (pairs ?? []).filter((p) => {
     const q = query.trim().toLowerCase();
-    if (q && !t.name.toLowerCase().includes(q) && !(t.player1?.name ?? "").toLowerCase().includes(q) && !(t.player2?.name ?? "").toLowerCase().includes(q)) return false;
-    if (division !== "all" && t.division !== division) return false;
+    if (q && !p.name.toLowerCase().includes(q)) return false;
+    if (cat !== "all" && (p.category_id ?? "") !== cat) return false;
     return true;
   });
 
   async function handleSave(form: EquipoForm) {
     setSubmitting(true);
     try {
-      // Registrar perfiles de jugadores nuevos (si no existen)
-      const [p1, p2] = await Promise.all([
-        ensurePlayer(form.player1_name, form.division),
-        ensurePlayer(form.player2_name, form.division),
+      // Los jugadores se registran/reutilizan en el directorio global
+      await Promise.all([
+        ensurePlayer(form.player1_name).catch(() => null),
+        ensurePlayer(form.player2_name).catch(() => null),
       ]);
-      const payload = {
-        name: form.name.trim(),
-        division: form.division,
-        sex: form.sex,
-        crest_url: form.logo,
-        player1: p1 ? { player_id: p1.id, name: p1.display_name, level: p1.declared_level } : null,
-        player2: p2 ? { player_id: p2.id, name: p2.display_name, level: p2.declared_level } : null,
-      };
+      const name = form.name.trim() || autoName(form);
       if (editing) {
-        await db.updateTeam(editing.slug, payload as unknown as Partial<Team>);
-        toast.success(`Equipo "${payload.name}" actualizado`);
+        await db.updatePair(editing.id, { name, category_id: form.category_id || null });
+        toast.success(`Equipo "${name}" actualizado`);
       } else {
-        await db.createTeam(payload as unknown as Omit<Team, "id" | "slug">);
-        toast.success(`Equipo "${payload.name}" creado`);
+        await db.createPair({ tournament_id: tid, category_id: form.category_id || null, name });
+        toast.success(`Equipo "${name}" inscrito en el torneo`);
       }
       setOpenCreate(false);
       setEditing(null);
@@ -118,11 +121,11 @@ export default function AdminTeams() {
     }
   }
 
-  async function handleDelete(t: Team) {
-    if (!confirm(`¿Eliminar el equipo "${t.name}"?`)) return;
+  async function handleDelete(p: { id: string; name: string }) {
+    if (!confirm(`¿Eliminar el equipo "${p.name}" de este torneo?`)) return;
     try {
-      await db.deleteTeam(t.slug);
-      toast.success(`Equipo "${t.name}" eliminado`);
+      await db.deletePair(p.id);
+      toast.success(`Equipo "${p.name}" eliminado`);
       load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al eliminar");
@@ -134,105 +137,127 @@ export default function AdminTeams() {
   return (
     <div className="animate-fade-in space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Equipos</h1>
-        <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Nuevo equipo
+        <h1 className="text-2xl font-bold tracking-tight">Equipos del torneo</h1>
+        <Button size="sm" disabled={!tid} onClick={() => { setEditing(null); setOpenCreate(true); }}>
+          <Plus className="h-4 w-4 mr-1" /> Inscribir equipo
         </Button>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm">{filtered.length} de {list?.length ?? 0} equipos</CardTitle>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar equipo o jugador…"
-                  className="h-9 w-56 pl-8"
-                  aria-label="Buscar equipos"
-                />
+      {/* Selector de torneo: cada torneo tiene sus propios equipos */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Label className="text-sm text-muted-foreground">Torneo:</Label>
+        <Select value={tid} onValueChange={setTid}>
+          <SelectTrigger className="h-9 w-72" aria-label="Elegir torneo">
+            <SelectValue placeholder="Elige un torneo" />
+          </SelectTrigger>
+          <SelectContent>
+            {tournaments.map((t) => (
+              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {tournaments.length === 0 && (
+          <p className="text-sm text-muted-foreground">No hay torneos aún — crea uno en Torneos → Nuevo torneo.</p>
+        )}
+      </div>
+
+      {!tid ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Elige un torneo para ver e inscribir sus equipos.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-sm">{filtered.length} de {pairs?.length ?? 0} equipos</CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Buscar equipo o jugador…"
+                    className="h-9 w-56 pl-8"
+                    aria-label="Buscar equipos"
+                  />
+                </div>
+                <Select value={cat} onValueChange={setCat}>
+                  <SelectTrigger className="h-9 w-44" aria-label="Filtrar por categoría">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las categorías</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={division} onValueChange={setDivision}>
-                <SelectTrigger className="h-9 w-40" aria-label="Filtrar por categoría">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las categorías</SelectItem>
-                  {DIVISIONS.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Equipo</TableHead>
-                <TableHead className="hidden sm:table-cell">Categoría</TableHead>
-                <TableHead className="hidden md:table-cell">Jugadores</TableHead>
-                <TableHead className="text-right">PJ</TableHead>
-                <TableHead className="text-right">G</TableHead>
-                <TableHead className="text-right pr-4">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list === null && (
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">Cargando…</TableCell>
+                  <TableHead className="pl-4">Equipo</TableHead>
+                  <TableHead className="hidden sm:table-cell">Categoría</TableHead>
+                  <TableHead className="hidden md:table-cell">Jugadores</TableHead>
+                  <TableHead className="text-right pr-4">Acciones</TableHead>
                 </TableRow>
-              )}
-              {list !== null && list.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                    No hay equipos todavía. Registra el primero con "Nuevo equipo".
-                  </TableCell>
-                </TableRow>
-              )}
-              {list !== null && list.length > 0 && filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                    Ningún equipo coincide con el filtro.
-                  </TableCell>
-                </TableRow>
-              )}
-              {filtered.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="pl-4 font-medium">
-                    <span className="flex items-center gap-2">
-                      {t.crest_url ? (
-                        <img src={t.crest_url} alt="" className="h-7 w-7 rounded object-contain" />
-                      ) : null}
-                      <Link to={`/equipos/${t.slug}`} className="hover:underline">{t.name}</Link>
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badgeish division={t.division} sex={t.sex} />
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {[t.player1?.name, t.player2?.name].filter(Boolean).join(" · ") || "—"}
-                  </TableCell>
-                  <TableCell className="text-right">{t.played}</TableCell>
-                  <TableCell className="text-right text-emerald-600">{t.won}</TableCell>
-                  <TableCell className="pr-4 text-right space-x-1">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(t); setOpenCreate(true); }} aria-label={`Editar ${t.name}`}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(t)} aria-label={`Eliminar ${t.name}`}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {pairs === null && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">Cargando…</TableCell>
+                  </TableRow>
+                )}
+                {pairs !== null && pairs.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                      Sin equipos en este torneo. Inscribe el primero con "Inscribir equipo".
+                    </TableCell>
+                  </TableRow>
+                )}
+                {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                      Ningún equipo coincide con el filtro.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filtered.map((p) => {
+                  const [p1, p2] = p.name.split(" / ");
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="pl-4 font-medium">{p.name}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {p.category_id ? (
+                          <Badge variant="secondary">{catNameById.get(p.category_id) ?? "—"}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sin categoría</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {[p1, p2].filter(Boolean).join(" · ") || "—"}
+                      </TableCell>
+                      <TableCell className="pr-4 text-right space-x-1">
+                        <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setOpenCreate(true); }} aria-label={`Editar ${p.name}`}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(p)} aria-label={`Eliminar ${p.name}`}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <EquipoDialog
         key={dialogKey}
@@ -242,16 +267,9 @@ export default function AdminTeams() {
         editing={editing}
         submitting={submitting}
         players={players}
+        categories={categories}
       />
     </div>
-  );
-}
-
-function Badgeish({ division, sex }: { division: string; sex: string }) {
-  return (
-    <span className="text-sm">
-      {division} · {sexShort(sex)}
-    </span>
   );
 }
 
@@ -262,26 +280,27 @@ function EquipoDialog({
   editing,
   submitting,
   players,
+  categories,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: EquipoForm) => void;
-  editing: Team | null;
+  editing: { id: string; name: string; category_id: string | null } | null;
   submitting: boolean;
   players: PlayerProfile[];
+  categories: TournamentCategory[];
 }) {
   const [form, setForm] = useState<EquipoForm>(() => {
     if (editing) {
+      const [p1, p2] = editing.name.split(" / ");
       return {
         name: editing.name,
-        division: editing.division,
-        sex: editing.sex,
-        logo: editing.crest_url ?? null,
-        player1_name: editing.player1?.name ?? "",
-        player2_name: editing.player2?.name ?? "",
+        category_id: editing.category_id ?? "",
+        player1_name: p1 ?? "",
+        player2_name: p2 ?? "",
       };
     }
-    return EMPTY_FORM;
+    return { name: "", category_id: categories[0]?.id ?? "", player1_name: "", player2_name: "" };
   });
   // El nombre dejó de ser automático cuando el usuario lo edita a mano
   const [manualName, setManualName] = useState(Boolean(editing?.name));
@@ -289,51 +308,23 @@ function EquipoDialog({
   function setPlayers(slot: 1 | 2, name: string) {
     setForm((f) => {
       const next = { ...f, [slot === 1 ? "player1_name" : "player2_name"]: name };
-      // Si el nombre no fue tocado a mano, se arma solo
-      const wasAuto = !manualName;
-      return { ...next, name: wasAuto ? autoName(next) : next.name };
+      return { ...next, name: manualName ? next.name : autoName(next) };
     });
   }
 
-  const valid = form.name.trim() && form.player1_name.trim() && form.player2_name.trim();
+  const valid = form.player1_name.trim() && form.player2_name.trim();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editing ? "Editar equipo" : "Nuevo equipo"}</DialogTitle>
+          <DialogTitle>{editing ? "Editar equipo" : "Inscribir equipo"}</DialogTitle>
           <DialogDescription>
-            Un equipo es una pareja de 2 jugadores. Busca a los registrados o escribe nombres nuevos.
+            Un equipo es una pareja de 2 jugadores. Busca a los registrados o escribe nombres nuevos — el perfil se crea solo.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
-          {/* Logo + nombre */}
-          <div className="flex items-start gap-3">
-            <ImageUpload
-              id="equipo-logo"
-              value={form.logo}
-              label="Logo del equipo"
-              onChange={(dataUrl) => setForm((f) => ({ ...f, logo: dataUrl }))}
-            />
-            <div className="grid flex-1 gap-1.5">
-              <Label htmlFor="equipo-name">Nombre del equipo</Label>
-              <Input
-                id="equipo-name"
-                value={form.name}
-                onChange={(e) => {
-                  setManualName(true);
-                  setForm((f) => ({ ...f, name: e.target.value }));
-                }}
-                placeholder={autoName(form) || "Se arma solo con los jugadores"}
-              />
-              {!manualName && autoName(form) && (
-                <p className="text-xs text-muted-foreground">Automático — edítalo si quieres otro nombre</p>
-              )}
-            </div>
-          </div>
-
-          {/* Jugadores */}
           <div className="grid gap-3 sm:grid-cols-2">
             <PlayerSlot
               label="Jugador 1"
@@ -351,37 +342,37 @@ function EquipoDialog({
             />
           </div>
 
-          {/* Categoría + rama */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>Categoría</Label>
-              <Select value={form.division} onValueChange={(v) => setForm((f) => ({ ...f, division: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DIVISIONS.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Rama</Label>
-              <Select value={form.sex} onValueChange={(v) => setForm((f) => ({ ...f, sex: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="M">Varonil</SelectItem>
-                  <SelectItem value="F">Femenil</SelectItem>
-                  <SelectItem value="X">Mixto</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="eq-name">Nombre del equipo</Label>
+            <Input
+              id="eq-name"
+              value={form.name}
+              onChange={(e) => { setManualName(true); setForm((f) => ({ ...f, name: e.target.value })); }}
+              placeholder={autoName(form) || "Se arma solo con los jugadores"}
+            />
+            {!manualName && autoName(form) && (
+              <p className="text-xs text-muted-foreground">Automático — edítalo si quieres otro nombre</p>
+            )}
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>Categoría</Label>
+            <Select value={form.category_id || "__none__"} onValueChange={(v) => setForm((f) => ({ ...f, category_id: v === "__none__" ? "" : v }))}>
+              <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Sin categoría</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={() => onSave(form)} disabled={submitting || !valid}>
-            {submitting ? "Guardando…" : editing ? "Actualizar" : "Crear equipo"}
+            {submitting ? "Guardando…" : editing ? "Actualizar" : "Inscribir equipo"}
           </Button>
         </DialogFooter>
       </DialogContent>
