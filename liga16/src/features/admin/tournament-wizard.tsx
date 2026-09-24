@@ -71,6 +71,8 @@ interface TeamInput {
   player2: string;
   logo: string | null;
   group: string | null; // "Grupo A"… si el admin lo asigna a mano
+  /** id real en BD cuando el equipo ya fue persistido (modo edición). */
+  id?: string;
 }
 
 function addDays(date: string, days: number) {
@@ -255,7 +257,23 @@ export default function TournamentWizard() {
           sex: c.sex,
         }));
         setCategories(rows);
+        const catIdsCache = new Map((cats as unknown as Array<{ id: string; name: string }>).map((c) => [c.id, c.name.toLowerCase()]));
+        const catNamesCache = new Map((cats as unknown as Array<{ id: string; name: string; sex: string }>).map((c) => [c.id, c.name]));
         setCatIds(new Map((cats as unknown as Array<{ id: string; name: string }>).map((c) => [c.name.toLowerCase(), c.id])));
+        // Equipos ya guardados → lista del paso 4 (con su grupo si el sorteo venía hecho)
+        db.getTournamentPairs(t.id).then((saved) => {
+          const loaded: TeamInput[] = (saved as unknown as Array<{ id: string; name: string; category_id: string | null; seed: number | null }>).map((p) => ({
+            division: (catIdsCache.get(p.category_id ?? "") ?? (rows[0]?.label ?? "4ta")) as PadelDivision,
+            sex: (rows.find((r) => r.label === (catNamesCache.get(p.category_id ?? "")))?.sex ?? "M") as Sex,
+            name: p.name,
+            player1: p.name.includes(" / ") ? p.name.split(" /")[0].trim() : "",
+            player2: p.name.includes(" / ") ? p.name.split(" /").slice(1).join("/").trim() : "",
+            logo: null,
+            group: null,
+            id: p.id,
+          }));
+          setTeams(loaded);
+        }).catch(() => undefined);
       });
     }
   }, [slug, navigate]);

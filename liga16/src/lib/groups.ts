@@ -97,6 +97,61 @@ export function matchIsBetween(m: Match, a: UUID, b: UUID) {
   );
 }
 
+export interface AvailabilityConfig {
+  /** Fechas YYYY-MM-DD en las que hay juego. */
+  days: string[];
+  /** Horas de inicio permitidas (0–23). */
+  hours: number[];
+  /** Nombres de canchas disponibles, en orden. */
+  courtNames: string[];
+  minutesPerMatch: number;
+}
+
+/**
+ * Round-robin por grupo respetando disponibilidad real:
+ * solo agenda en los días/horas marcados y reparte por cancha.
+ * Devuelve partidos planos con cancha y fecha/hora asignadas.
+ */
+export function scheduleWithAvailability(
+  pairIds: UUID[],
+  cfg: AvailabilityConfig,
+): Array<{ a: UUID; b: UUID; court: string; scheduled_at: string }> {
+  const rounds = roundRobinRounds(pairIds);
+  const courtNames = cfg.courtNames.length > 0 ? cfg.courtNames : ["Cancha 1"];
+  const hours = [...cfg.hours].sort((x, y) => x - y);
+  const days = [...cfg.days].sort();
+  if (hours.length === 0 || days.length === 0) return rounds.flat().map(([a, b]) => ({ a, b, court: courtNames[0], scheduled_at: new Date().toISOString() }));
+
+  // Slots disponibles en orden: día → hora → cancha
+  const slots: Array<{ court: string; at: Date }> = [];
+  for (const day of days) {
+    for (const hour of hours) {
+      for (const court of courtNames) {
+        slots.push({ court, at: new Date(`${day}T${String(hour).padStart(2, "0")}:00:00`) });
+      }
+    }
+  }
+
+  const out: Array<{ a: UUID; b: UUID; court: string; scheduled_at: string }> = [];
+  let s = 0;
+  for (const round of rounds) {
+    for (const [a, b] of round) {
+      if (s >= slots.length) {
+        // Sin disponibilidad suficiente: agenda restante al final del último día
+        const last = slots[slots.length - 1];
+        const at = new Date(last.at.getTime() + (s - slots.length + 1) * cfg.minutesPerMatch * 60000);
+        out.push({ a, b, court: last.court, scheduled_at: at.toISOString() });
+        s++;
+        continue;
+      }
+      const slot = slots[s];
+      out.push({ a, b, court: slot.court, scheduled_at: slot.at.toISOString() });
+      s++;
+    }
+  }
+  return out;
+}
+
 export interface StandingRow {
   pairId: UUID;
   played: number;

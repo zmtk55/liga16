@@ -44,7 +44,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
-import { drawGroups, suggestGroupCount, scheduleRounds, computeStandings, type Group } from "@/lib/groups";
+import { drawGroups, suggestGroupCount, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
 import {
   Select,
   SelectContent,
@@ -61,6 +61,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Court } from "@/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function SortablePair({
   id,
@@ -111,7 +112,19 @@ export default function AdminTournamentDetail() {
   const [newPairCategory, setNewPairCategory] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [scheduleConfig, setScheduleConfig] = useState({ courts: 2, minutesPerMatch: 60, startHour: 9 });
+  const [scheduleConfig, setScheduleConfig] = useState<AvailabilityConfig & { dayInput: string }>({
+    days: [],
+    hours: [9, 11, 13, 16, 18, 20],
+    courtNames: [],
+    minutesPerMatch: 60,
+    dayInput: "",
+  });
+  // Vista del calendario: lista filtrable o timeline por día
+  const [calView, setCalView] = useState<"lista" | "timeline">("lista");
+  const [matchDay, setMatchDay] = useState("all");
+  const [matchCourt, setMatchCourt] = useState("all");
+  const [matchCategory, setMatchCategory] = useState("all");
+  const [matchPlayer, setMatchPlayer] = useState("all");
   const [courts, setCourts] = useState<Court[]>([]);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [jornadaDay, setJornadaDay] = useState<string>(() => new Date().toISOString().split("T")[0]);
@@ -161,6 +174,20 @@ export default function AdminTournamentDetail() {
   }, [pairs]);
 
   const rounds = useMemo(() => [...new Set(matches.map((m) => m.round))].sort(), [matches]);
+
+  const matchDays = useMemo(() => [...new Set(matches.map((m) => (m.scheduled_at ?? "").slice(0, 10)).filter(Boolean))].sort(), [matches]);
+  const matchCourtsList = useMemo(() => [...new Set(matches.map((m) => m.court_name).filter(Boolean))] as string[], [matches]);
+  const matchCategories = useMemo(() => [...new Set(matches.map((m) => m.round.split(" ·")[0]))].sort(), [matches]);
+  /** Nombres de los jugadores de un partido (desde los nombres de equipos "A / B"). */
+  function matchPlayerTeamNames(m: Match): string[] {
+    const split = (n: string | null) => (n ?? "").split(" /").map((s) => s.trim()).filter(Boolean);
+    return [...split(m.side_a.pair_name), ...split(m.side_b.pair_name)];
+  }
+  const matchPlayerList = useMemo(() => {
+    const set = new Set<string>();
+    matches.forEach((m) => matchPlayerTeamNames(m).forEach((n) => set.add(n)));
+    return [...set].sort();
+  }, [matches]);
 
   const assignedIds = useMemo(() => new Set(groups.flatMap((g) => g.pairIds)), [groups]);
   const unassigned = useMemo(
@@ -311,39 +338,59 @@ export default function AdminTournamentDetail() {
 
   async function handleGenerateSchedule() {
     if (!tournament || groups.length === 0) return;
+    if (scheduleConfig.days.length === 0) {
+      toast.error("Marca al menos un día disponible antes de generar");
+      return;
+    }
+    if (scheduleConfig.hours.length === 0) {
+      toast.error("Marca al menos una hora disponible antes de generar");
+      return;
+    }
+    const courtNames = scheduleConfig.courtNames.length > 0 ? scheduleConfig.courtNames : courts.map((c) => c.name);
+    if (courtNames.length === 0) {
+      toast.error("Registra canchas en la sección Sede primero");
+      return;
+    }
     setSaving(true);
     try {
       await db.deleteMatchesByTournament(tournament.id);
       const allScheduled: Array<Omit<Match, "id">> = [];
-      for (const group of groups) {
-        const rounds = scheduleRounds(
-          group.pairIds,
-          scheduleConfig.courts,
-          tournament.start_date,
-          scheduleConfig.minutesPerMatch,
-          scheduleConfig.startHour,
-        );
-        rounds.forEach((roundMatches, ri) => {
-          roundMatches.forEach((m) => {
-            allScheduled.push({
-              tournament_id: tournament.id,
-              tournament_name: tournament.name,
-              round: `${group.name} · J${ri + 1}`,
-              court_name: `Cancha ${m.court}`,
-              scheduled_at: m.scheduled_at,
-              status: "scheduled",
-              side_a: { pair_id: m.a, pair_name: nameById[m.a] ?? "?" },
-              side_b: { pair_id: m.b, pair_name: nameById[m.b] ?? "?" },
-              sets: [],
-              winner: null,
-            });
+      // Reparto justo: intercalar los grupos para que las primeras jornadas de cada
+      // grupo no se peleen por los mismos slots. Recorrido por ronda.
+      const perGroup = groups.map((g) =>
+        scheduleWithAvailability(g.pairIds, { ...scheduleConfig, courtNames, minutesPerMatch: scheduleConfig.minutesPerMatch }),
+      );
+      const maxLen = Math.max(0, ...perGroup.map((r) => r.length));
+      const usedCourts = new Map<string, number>();
+      for (let ri = 0; ri < maxLen; ri++) {
+        for (let gi = 0; gi < groups.length; gi++) {
+          const m = perGroup[gi][ri];
+          if (!m) continue;
+          // Evitar doble ocupación de cancha+hora: desplazar en minutos si choca
+          const key = `${m.court}|${m.scheduled_at}`;
+          const clash = usedCourts.get(key) ?? 0;
+          if (clash > 0) {
+            m.scheduled_at = new Date(new Date(m.scheduled_at).getTime() + clash * scheduleConfig.minutesPerMatch * 60000).toISOString();
+          }
+          usedCourts.set(key, clash + 1);
+          allScheduled.push({
+            tournament_id: tournament.id,
+            tournament_name: tournament.name,
+            round: `${groups[gi].name} · J${ri + 1}`,
+            court_name: m.court,
+            scheduled_at: m.scheduled_at,
+            status: "scheduled",
+            side_a: { pair_id: m.a, pair_name: nameById[m.a] ?? "?" },
+            side_b: { pair_id: m.b, pair_name: nameById[m.b] ?? "?" },
+            sets: [],
+            winner: null,
           });
-        });
+        }
       }
       const created = await db.createMatches(allScheduled);
       setMatches(created);
       setScheduleOpen(false);
-      toast.success(`Calendario generado: ${created.length} partidos`);
+      toast.success(`Calendario generado: ${created.length} partidos en ${scheduleConfig.days.length} día(s)`);
     } catch (e) {
       toast.error((e as Error).message ?? "Error al generar el calendario");
     } finally {
@@ -364,6 +411,15 @@ export default function AdminTournamentDetail() {
       const q = matchQuery.trim().toLowerCase();
       if (q && !m.side_a.pair_name.toLowerCase().includes(q) && !m.side_b.pair_name.toLowerCase().includes(q)) return false;
       if (matchRound !== "all" && m.round !== matchRound) return false;
+      if (matchDay !== "all" && !(m.scheduled_at ?? "").startsWith(matchDay)) return false;
+      if (matchCourt !== "all" && m.court_name !== matchCourt) return false;
+      if (matchCategory !== "all" && !m.round.startsWith(`${matchCategory} ·`)) return false;
+      if (matchPlayer !== "all") {
+        // Un equipo puede tener 2 jugadores con nombres distintos en cada lado — buscamos por nombre contenido
+        const pl = matchPlayer.toLowerCase();
+        const inA = matchPlayerTeamNames(m).some((n) => n.toLowerCase().includes(pl));
+        if (!inA) return false;
+      }
       return true;
     })
     .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
@@ -748,13 +804,49 @@ export default function AdminTournamentDetail() {
                   <Input
                     value={matchQuery}
                     onChange={(e) => setMatchQuery(e.target.value)}
-                    placeholder="Buscar pareja…"
+                    placeholder="Buscar equipo o jugador…"
                     className="h-9 w-52 pl-8"
                     aria-label="Buscar partidos"
                   />
                 </div>
+                <Select value={matchCategory} onValueChange={setMatchCategory}>
+                  <SelectTrigger className="h-9 w-40" aria-label="Filtrar por categoría"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las categorías</SelectItem>
+                    {matchCategories.filter(Boolean).map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={matchPlayer} onValueChange={setMatchPlayer}>
+                  <SelectTrigger className="h-9 w-44" aria-label="Filtrar por jugador"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los jugadores</SelectItem>
+                    {matchPlayerList.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={matchDay} onValueChange={setMatchDay}>
+                  <SelectTrigger className="h-9 w-40" aria-label="Filtrar por día"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los días</SelectItem>
+                    {matchDays.map((d) => (
+                      <SelectItem key={d} value={d}>{new Date(`${d}T12:00:00`).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={matchCourt} onValueChange={setMatchCourt}>
+                  <SelectTrigger className="h-9 w-36" aria-label="Filtrar por cancha"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las canchas</SelectItem>
+                    {matchCourtsList.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={matchRound} onValueChange={setMatchRound}>
-                  <SelectTrigger className="h-9 w-52" aria-label="Filtrar por ronda">
+                  <SelectTrigger className="h-9 w-44" aria-label="Filtrar por ronda">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -764,9 +856,78 @@ export default function AdminTournamentDetail() {
                     ))}
                   </SelectContent>
                 </Select>
+                <div className="ml-auto flex items-center gap-1 rounded-lg border p-1">
+                  {(["lista", "timeline"] as const).map((v) => (
+                    <Button key={v} type="button" size="sm" variant={calView === v ? "secondary" : "ghost"} className="h-7 text-xs capitalize" onClick={() => setCalView(v)}>
+                      {v}
+                    </Button>
+                  ))}
+                </div>
                 <Badge variant="outline">{filteredMatches.length} partidos</Badge>
               </div>
-              <div className="space-y-2">
+              {calView === "timeline" ? (
+                (() => {
+                  const days = matchDay !== "all" ? [matchDay] : matchDays;
+                  const courtCols = matchCourt !== "all" ? [matchCourt] : matchCourtsList;
+                  if (days.length === 0 || courtCols.length === 0) {
+                    return <p className="py-6 text-center text-sm text-muted-foreground">Sin partidos para este filtro.</p>;
+                  }
+                  return (
+                    <div className="space-y-6">
+                      {days.map((day) => {
+                        const dayMatches = filteredMatches.filter((m) => (m.scheduled_at ?? "").startsWith(day));
+                        if (dayMatches.length === 0) return null;
+                        const times = [...new Set(dayMatches.map((m) => (m.scheduled_at ?? "").slice(11, 16)))].sort();
+                        return (
+                          <div key={day} className="overflow-x-auto rounded-xl border">
+                            <p className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold">
+                              {new Date(`${day}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">{dayMatches.length} partidos</span>
+                            </p>
+                            <table className="w-full min-w-160 text-sm">
+                              <thead>
+                                <tr className="border-b text-left text-xs text-muted-foreground">
+                                  <th className="w-16 px-3 py-2 font-medium">Hora</th>
+                                  {courtCols.map((c) => (
+                                    <th key={c} className="px-3 py-2 font-medium">{c}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {times.map((t) => (
+                                  <tr key={t} className="border-b last:border-0">
+                                    <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{t}</td>
+                                    {courtCols.map((c) => {
+                                      const m = dayMatches.find((x) => x.court_name === c && (x.scheduled_at ?? "").slice(11, 16) === t);
+                                      if (!m) return <td key={c} className="px-3 py-2" />;
+                                      const done = m.status === "finished" && m.winner;
+                                      return (
+                                        <td key={c} className="px-2 py-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditingMatchId(m.id)}
+                                            className={`w-full rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors hover:border-primary/40 hover:bg-muted/40 ${done ? "bg-emerald-50 dark:bg-emerald-950/40" : "bg-card"}`}
+                                          >
+                                            <span className={`block truncate font-medium ${done ? "line-through decoration-border" : ""}`}>
+                                              {m.side_a.pair_name} vs {m.side_b.pair_name}
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground">{m.round}{done ? ` · ${m.sets.map((s) => `${s.a}-${s.b}`).join(" ")}` : ""}</span>
+                                          </button>
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="space-y-2">
                 {filteredMatches.map((m) => (
                   <Card key={m.id}>
                     <CardContent className="flex flex-wrap items-center gap-3 py-3 text-sm">
@@ -792,7 +953,8 @@ export default function AdminTournamentDetail() {
                     </CardContent>
                   </Card>
                 ))}
-              </div>
+                </div>
+              )}
             </>
           )}
         </TabsContent>
@@ -864,27 +1026,113 @@ export default function AdminTournamentDetail() {
 
       {/* Diálogo de configuración del calendario */}
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Generar calendario</DialogTitle>
             <DialogDescription>
-              Round-robin dentro de cada grupo: todos contra todos. Se reemplazan los partidos anteriores.
+              Define la disponibilidad real: qué días y qué horas hay juego, y con qué canchas. Se reemplazan los partidos anteriores.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="courts">Canchas disponibles</Label>
-              <Input
-                id="courts"
-                type="number"
-                min={1}
-                value={scheduleConfig.courts}
-                onChange={(e) => setScheduleConfig((c) => ({ ...c, courts: Number(e.target.value) }))}
-              />
-              <p className="text-xs text-muted-foreground">
-                {club ? `${club.name}` : "Sede del torneo"} — edítalas en la sección Sede si falta alguna.
-              </p>
+          <div className="grid gap-4 py-2">
+            {/* Días disponibles */}
+            <div className="grid gap-2">
+              <Label>Días con juego</Label>
+              {(() => {
+                const start = new Date(`${tournament?.start_date ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
+                const end = new Date(`${tournament?.end_date ?? tournament?.start_date ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
+                const options: string[] = [];
+                for (let d = new Date(start); d <= end && options.length < 21; d.setDate(d.getDate() + 1)) {
+                  options.push(d.toISOString().slice(0, 10));
+                }
+                const toggle = (day: string, on: boolean) =>
+                  setScheduleConfig((c) => ({ ...c, days: on ? [...c.days, day].sort() : c.days.filter((x) => x !== day) }));
+                return (
+                  <>
+                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                      {options.map((day) => (
+                        <label key={day} className="flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-muted/50 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5">
+                          <Checkbox checked={scheduleConfig.days.includes(day)} onCheckedChange={(v) => toggle(day, v === true)} />
+                          {new Date(`${day}T12:00:00`).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="date"
+                        value={scheduleConfig.dayInput}
+                        onChange={(e) => setScheduleConfig((c) => ({ ...c, dayInput: e.target.value }))}
+                        className="h-8 w-40 text-xs"
+                        aria-label="Añadir otro día"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!scheduleConfig.dayInput}
+                        onClick={() => {
+                          if (scheduleConfig.dayInput && !scheduleConfig.days.includes(scheduleConfig.dayInput)) {
+                            toggle(scheduleConfig.dayInput, true);
+                          }
+                          setScheduleConfig((c) => ({ ...c, dayInput: "" }));
+                        }}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Añadir día
+                      </Button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
+
+            {/* Horas disponibles */}
+            <div className="grid gap-2">
+              <Label>Horas disponibles</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {Array.from({ length: 15 }, (_, i) => i + 8).map((h) => (
+                  <label key={h} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/50 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5">
+                    <Checkbox
+                      checked={scheduleConfig.hours.includes(h)}
+                      onCheckedChange={(v) =>
+                        setScheduleConfig((c) => ({
+                          ...c,
+                          hours: v === true ? [...c.hours, h].sort((a, b) => a - b) : c.hours.filter((x) => x !== h),
+                        }))
+                      }
+                    />
+                    {String(h).padStart(2, "0")}:00
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Canchas */}
+            <div className="grid gap-2">
+              <Label>Canchas a usar</Label>
+              {courts.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No hay canchas registradas — se usará "Cancha 1". Regístralas en la sección Sede.</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {courts.map((c) => (
+                    <label key={c.id} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/50 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5">
+                      <Checkbox
+                        checked={scheduleConfig.courtNames.includes(c.name)}
+                        onCheckedChange={(v) =>
+                          setScheduleConfig((cfg) => ({
+                            ...cfg,
+                            courtNames: v === true ? [...cfg.courtNames, c.name] : cfg.courtNames.filter((x) => x !== c.name),
+                          }))
+                        }
+                      />
+                      {c.name}
+                    </label>
+                  ))}
+                  {scheduleConfig.courtNames.length === 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">Sin canchas marcadas se usarán todas.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="mins">Minutos por partido</Label>
@@ -896,16 +1144,11 @@ export default function AdminTournamentDetail() {
                   onChange={(e) => setScheduleConfig((c) => ({ ...c, minutesPerMatch: Number(e.target.value) }))}
                 />
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="hour">Hora de inicio</Label>
-                <Input
-                  id="hour"
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={scheduleConfig.startHour}
-                  onChange={(e) => setScheduleConfig((c) => ({ ...c, startHour: Number(e.target.value) }))}
-                />
+              <div className="grid items-end">
+                <p className="text-xs text-muted-foreground">
+                  Capacidad: {scheduleConfig.days.length} día(s) × {scheduleConfig.hours.length} hora(s) × {scheduleConfig.courtNames.length || courts.length || 1} cancha(s) ={" "}
+                  <strong>{scheduleConfig.days.length * scheduleConfig.hours.length * (scheduleConfig.courtNames.length || courts.length || 1)}</strong> partidos posibles
+                </p>
               </div>
             </div>
           </div>
