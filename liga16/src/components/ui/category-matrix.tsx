@@ -67,6 +67,12 @@ export default function CategoryMatrix({
 
   return (
     <div className="space-y-3">
+      {/* Sugerencias básicas: aparecen al enfocar el input, junto con texto libre */}
+      <datalist id="categorias-basicas">
+        {["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"].map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
       <div className="hidden grid-cols-[1fr_140px_36px] items-center gap-2 px-1 sm:grid">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Categoría</span>
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rama</span>
@@ -80,8 +86,9 @@ export default function CategoryMatrix({
               <Input
                 value={c.label}
                 onChange={(e) => update(i, { label: e.target.value })}
-                placeholder='Nombre — ej. "4ta Varonil" o "Suma Nueve"'
+                placeholder='Teclea o elige — 1ra, 2da… o "Suma Nueve"'
                 aria-label={`Nombre de la categoría ${i + 1}`}
+                list="categorias-basicas"
                 className="h-9"
               />
             </div>
