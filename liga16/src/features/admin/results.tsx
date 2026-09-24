@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import type { MatchStatus } from "@/types";
 import { FilterBar } from "@/components/ui/filter-bar";
 import {
@@ -169,8 +170,13 @@ export default function AdminResults() {
             <TableBody>
               {list !== null && list.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No hay resultados todavía. Usa el botón "el calendario del torneo" para agregar el primero.
+                  <TableCell colSpan={8} className="p-0">
+                    <Empty className="py-8">
+                      <EmptyHeader>
+                        <EmptyTitle>No hay resultados todavía</EmptyTitle>
+                        <EmptyDescription>Captúralos desde el calendario de cada torneo (pestaña Jornada).</EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   </TableCell>
                 </TableRow>
               )}

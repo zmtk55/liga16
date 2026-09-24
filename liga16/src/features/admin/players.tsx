@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Plus, Trash2 } from "lucide-react";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -177,15 +178,25 @@ export default function AdminPlayers() {
             <TableBody>
               {list !== null && list.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No hay jugadores todavía. Usa el botón "Nuevo jugador" para agregar el primero.
+                  <TableCell colSpan={8} className="p-0">
+                    <Empty className="py-8">
+                      <EmptyHeader>
+                        <EmptyTitle>No hay jugadores todavía</EmptyTitle>
+                        <EmptyDescription>Usa el botón "Nuevo jugador" para agregar el primero.</EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   </TableCell>
                 </TableRow>
               )}
               {list !== null && list.length > 0 && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    Ningún jugador coincide con la búsqueda.
+                  <TableCell colSpan={8} className="p-0">
+                    <Empty className="py-8">
+                      <EmptyHeader>
+                        <EmptyTitle>Sin coincidencias</EmptyTitle>
+                        <EmptyDescription>Ningún jugador coincide con la búsqueda.</EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   </TableCell>
                 </TableRow>
               )}

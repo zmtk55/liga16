@@ -19,6 +19,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 
 export default function AdminTournaments() {
   const [list, setList] = useState<Tournament[] | null>(null);
@@ -107,15 +108,25 @@ export default function AdminTournaments() {
               )}
               {list !== null && list.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                    No hay torneos todavía. Crea el primero con el asistente.
+                  <TableCell colSpan={5} className="p-0">
+                    <Empty className="py-8">
+                      <EmptyHeader>
+                        <EmptyTitle>No hay torneos todavía</EmptyTitle>
+                        <EmptyDescription>Crea el primero con el asistente.</EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   </TableCell>
                 </TableRow>
               )}
               {list !== null && list.length > 0 && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                    Ningún torneo coincide con el filtro.
+                  <TableCell colSpan={5} className="p-0">
+                    <Empty className="py-8">
+                      <EmptyHeader>
+                        <EmptyTitle>Sin coincidencias</EmptyTitle>
+                        <EmptyDescription>Ningún torneo coincide con el filtro.</EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   </TableCell>
                 </TableRow>
               )}

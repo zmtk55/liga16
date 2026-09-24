@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { drawGroups, suggestGroupCount, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
 import { ensurePlayer } from "@/lib/players";
 import {
@@ -660,13 +661,23 @@ export default function AdminTournamentDetail() {
             </CardHeader>
             <CardContent className="p-0">
               {!pairs ? (
-                <p className="p-4 text-sm text-muted-foreground">Cargando…</p>
+                <div className="space-y-2 p-4">
+                  {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                </div>
               ) : pairs.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">
-                  Aún no hay equipos. Registra el primero con el formulario de arriba.
-                </p>
+                <Empty className="py-10">
+                  <EmptyHeader>
+                    <EmptyTitle>Aún no hay equipos</EmptyTitle>
+                    <EmptyDescription>Registra el primero con el formulario de arriba.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : filteredPairs.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">Ningún equipo coincide con la búsqueda.</p>
+                <Empty className="py-10">
+                  <EmptyHeader>
+                    <EmptyTitle>Sin coincidencias</EmptyTitle>
+                    <EmptyDescription>Ningún equipo coincide con la búsqueda.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 <Table>
                   <TableHeader>

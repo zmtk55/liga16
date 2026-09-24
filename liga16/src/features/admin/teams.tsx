@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
@@ -200,8 +201,13 @@ export default function AdminTeams() {
 
       {!tid ? (
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Elige un torneo para ver e inscribir sus equipos.
+          <CardContent className="p-0">
+            <Empty className="py-10">
+              <EmptyHeader>
+                <EmptyTitle>Elige un torneo</EmptyTitle>
+                <EmptyDescription>Cada torneo tiene sus propios equipos. Selecciona uno arriba.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : (
@@ -250,15 +256,25 @@ export default function AdminTeams() {
                 )}
                 {pairs !== null && pairs.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                      Sin equipos en este torneo. Inscribe el primero con "Inscribir equipo".
+                    <TableCell colSpan={4} className="p-0">
+                      <Empty className="py-8">
+                        <EmptyHeader>
+                          <EmptyTitle>Sin equipos en este torneo</EmptyTitle>
+                          <EmptyDescription>Inscribe el primero con "Inscribir equipo".</EmptyDescription>
+                        </EmptyHeader>
+                      </Empty>
                     </TableCell>
                   </TableRow>
                 )}
                 {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                      Ningún equipo coincide con el filtro.
+                    <TableCell colSpan={4} className="p-0">
+                      <Empty className="py-8">
+                        <EmptyHeader>
+                          <EmptyTitle>Sin coincidencias</EmptyTitle>
+                          <EmptyDescription>Ningún equipo coincide con el filtro.</EmptyDescription>
+                        </EmptyHeader>
+                      </Empty>
                     </TableCell>
                   </TableRow>
                 )}
