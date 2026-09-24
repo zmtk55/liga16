@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile, Pair } from "@/types";
@@ -169,40 +169,45 @@ export default function TournamentWizard() {
   // ids reales de categorías ya guardadas (para editar/sincronizar)
   const [catIds, setCatIds] = useState<Map<string, string>>(new Map());
 
-  // Paso 4: equipos
+  // Paso 4: equipos — formulario único (draft) + lista compacta de agregados
   const [teams, setTeams] = useState<TeamInput[]>([]);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
+  const emptyDraft = (): TeamInput => ({
+    division: (categories[0]?.label ?? "4ta") as PadelDivision,
+    sex: categories[0]?.sex ?? "M",
+    name: "",
+    player1: "",
+    player2: "",
+    logo: null,
+    group: null,
+  });
+  const [draft, setDraft] = useState<TeamInput>(emptyDraft);
+  const draftWasManual = useRef(false);
+
+  /** Auto-nombre del draft con los jugadores; respeta edición manual. */
+  function updateDraftPlayers(slot: 1 | 2, name: string) {
+    setDraft((d) => {
+      const next = { ...d, [slot === 1 ? "player1" : "player2"]: name };
+      const auto = [next.player1.trim(), next.player2.trim()].filter(Boolean).join(" / ");
+      return { ...next, name: draftWasManual.current ? next.name : auto };
+    });
+  }
+
+  /** Agrega el draft a la lista y limpia el formulario para el siguiente. */
+  function commitDraft() {
+    const t = { ...draft, name: draft.name.trim() || [draft.player1.trim(), draft.player2.trim()].filter(Boolean).join(" / ") };
+    if (!t.player1.trim() || !t.player2.trim() || !t.division) return;
+    setTeams((prev) => [...prev, t]);
+    setDraft(emptyDraft());
+    draftWasManual.current = false;
+  }
+
+  function initialsEquipo(t: TeamInput) {
+    return (t.player1 || "?").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  }
 
   // Paso 5: sorteo
   const [groups, setGroups] = useState<Group[]>([]);
-
-  function addTeam() {
-    setTeams((prev) => [
-      ...prev,
-      {
-        division: (categories[0]?.label ?? "4ta") as PadelDivision,
-        sex: categories[0]?.sex ?? "M",
-        name: "",
-        player1: "",
-        player2: "",
-        logo: null,
-        group: null,
-      },
-    ]);
-  }
-
-  /** Auto-nombre del equipo con los jugadores; respeta edición manual. */
-  function updateTeamPlayers(index: number, slot: 1 | 2, name: string) {
-    setTeams((prev) =>
-      prev.map((x, j) => {
-        if (j !== index) return x;
-        const next = { ...x, [slot === 1 ? "player1" : "player2"]: name };
-        const auto = [next.player1.trim(), next.player2.trim()].filter(Boolean).join(" / ");
-        const prevAuto = [x.player1.trim(), x.player2.trim()].filter(Boolean).join(" / ");
-        return { ...next, name: !x.name || x.name === prevAuto ? auto : x.name };
-      }),
-    );
-  }
 
   // Cargar contexto (sede, canchas, jugadores) y, en edición, el torneo completo
   useEffect(() => {
@@ -760,125 +765,143 @@ export default function TournamentWizard() {
             </div>
           )}
 
-          {/* ============ PASO 4: EQUIPOS ============ */}
+          {/* ============ PASO 4: EQUIPOS — formulario único + lista compacta ============ */}
           {step === 3 && (
             <div className="space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-lg font-bold">Equipos ({teams.length})</h2>
-                <Button type="button" size="sm" onClick={addTeam} disabled={categories.length === 0}>
-                  <Plus className="h-4 w-4 mr-1" /> Añadir equipo
-                </Button>
+              {/* Formulario de captura (se limpia al agregar) */}
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="mb-3 text-sm font-semibold">Agregar equipo</p>
+                <div className="flex flex-wrap items-start gap-3">
+                  <input
+                    type="file"
+                    id="logo-nuevo"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => setDraft((d) => ({ ...d, logo: String(reader.result) }));
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("logo-nuevo")?.click()}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background transition-colors hover:border-primary/60"
+                    aria-label="Subir logo del equipo"
+                    title="Subir logo"
+                  >
+                    {draft.logo ? (
+                      <img src={draft.logo} alt="" className="h-full w-full object-contain p-1" />
+                    ) : (
+                      <ImagePlus className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1 grid gap-3 sm:grid-cols-2">
+                    <PlayerSlot
+                      label="Jugador 1"
+                      value={draft.player1}
+                      players={players}
+                      onPick={(name) => updateDraftPlayers(1, name)}
+                      onType={(name) => updateDraftPlayers(1, name)}
+                    />
+                    <PlayerSlot
+                      label="Jugador 2"
+                      value={draft.player2}
+                      players={players}
+                      onPick={(name) => updateDraftPlayers(2, name)}
+                      onType={(name) => updateDraftPlayers(2, name)}
+                    />
+                  </div>
+                  <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2 sm:min-w-[340px]">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-muted-foreground">Categoría</Label>
+                      <Select
+                        value={categories.some((c) => `${c.label}|${c.sex}` === `${draft.division}|${draft.sex}`) ? `${draft.division}|${draft.sex}` : ""}
+                        onValueChange={(v) => {
+                          const [division, sex] = v.split("|") as [PadelDivision, Sex];
+                          setDraft((d) => ({ ...d, division, sex }));
+                        }}
+                      >
+                        <SelectTrigger className="h-9 bg-background">
+                          <SelectValue placeholder="Elegir categoría" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c) => (
+                            <SelectItem key={`${c.label}-${c.sex}`} value={`${c.label}|${c.sex}`}>
+                              {c.label} · {sexShort(c.sex)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-muted-foreground">Grupo (opcional)</Label>
+                      <Select
+                        value={draft.group ?? "none"}
+                        onValueChange={(v) => setDraft((d) => ({ ...d, group: v === "none" ? null : v }))}
+                      >
+                        <SelectTrigger className="h-9 bg-background">
+                          <SelectValue placeholder="Sin grupo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin grupo</SelectItem>
+                          {GRUPO_LETRAS.map((l) => (
+                            <SelectItem key={l} value={`Grupo ${l}`}>Grupo {l}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={commitDraft}
+                    disabled={!draft.player1.trim() || !draft.player2.trim() || !draft.division}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Agregar a la lista
+                  </Button>
+                </div>
+                {draft.name && <p className="mt-1 text-xs text-muted-foreground text-right">Se agregará como "{draft.name}"</p>}
               </div>
 
-              {teams.length === 0 ? (
-                <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  Añade el primer equipo: sus 2 jugadores, logo, categoría y grupo.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {teams.map((t, i) => (
-                    <div key={i} className="rounded-xl border p-4">
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="file"
-                          id={`logo-${i}`}
-                          accept="image/*"
-                          className="sr-only"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = () =>
-                              setTeams((prev) => prev.map((x, j) => (j === i ? { ...x, logo: String(reader.result) } : x)));
-                            reader.readAsDataURL(file);
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => document.getElementById(`logo-${i}`)?.click()}
-                          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/50 transition-colors hover:border-primary/60"
-                          aria-label="Subir logo del equipo"
-                          title="Subir logo"
-                        >
-                          {t.logo ? (
-                            <img src={t.logo} alt="" className="h-full w-full object-contain p-1" />
-                          ) : (
-                            <ImagePlus className="h-5 w-5 text-muted-foreground" />
-                          )}
-                        </button>
-                        <div className="min-w-0 flex-1 grid gap-3 sm:grid-cols-2">
-                          <PlayerSlot
-                            label="Jugador 1"
-                            value={t.player1}
-                            players={players}
-                            onPick={(name) => updateTeamPlayers(i, 1, name)}
-                            onType={(name) => updateTeamPlayers(i, 1, name)}
-                          />
-                          <PlayerSlot
-                            label="Jugador 2"
-                            value={t.player2}
-                            players={players}
-                            onPick={(name) => updateTeamPlayers(i, 2, name)}
-                            onType={(name) => updateTeamPlayers(i, 2, name)}
-                          />
-                        </div>
+              {/* Lista compacta de agregados */}
+              <div>
+                <p className="mb-2 text-sm font-semibold">Equipos inscritos ({teams.length})</p>
+                {teams.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    Llena el formulario de arriba y presiona "Agregar a la lista". Puedes inscribir todos los que necesites seguidos.
+                  </p>
+                ) : (
+                  <ul className="divide-y rounded-lg border">
+                    {teams.map((t, i) => (
+                      <li key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
+                        <span className="w-6 text-center text-xs tabular-nums text-muted-foreground">{i + 1}</span>
+                        {t.logo ? (
+                          <img src={t.logo} alt="" className="h-7 w-7 rounded object-contain" />
+                        ) : (
+                          <span className="flex h-7 w-7 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">{initialsEquipo(t)}</span>
+                        )}
+                        <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
+                        <Badge variant="outline" className="shrink-0">{t.division} · {sexShort(t.sex)}</Badge>
+                        {t.group && <Badge variant="secondary" className="shrink-0">{t.group}</Badge>}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 shrink-0"
+                          className="h-7 w-7 shrink-0"
                           onClick={() => setTeams((prev) => prev.filter((_, j) => j !== i))}
-                          aria-label="Quitar equipo"
+                          aria-label={`Quitar ${t.name}`}
                         >
                           ×
                         </Button>
-                      </div>
-                      <div className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2">
-                        <div className="grid gap-1.5">
-                          <Label htmlFor={`cat-${i}`} className="text-xs text-muted-foreground">Categoría del equipo</Label>
-                          <Select
-                            value={categories.some((c) => `${c.label}|${c.sex}` === `${t.division}|${t.sex}`) ? `${t.division}|${t.sex}` : ""}
-                            onValueChange={(v) => {
-                              const [division, sex] = v.split("|") as [PadelDivision, Sex];
-                              setTeams((prev) => prev.map((x, j) => (j === i ? { ...x, division, sex } : x)));
-                            }}
-                          >
-                            <SelectTrigger id={`cat-${i}`} className="h-9">
-                              <SelectValue placeholder="Elegir categoría" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {categories.map((c) => (
-                                <SelectItem key={`${c.label}-${c.sex}`} value={`${c.label}|${c.sex}`}>
-                                  {c.label} · {sexShort(c.sex)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label htmlFor={`grupo-${i}`} className="text-xs text-muted-foreground">Grupo (opcional)</Label>
-                          <Select
-                            value={t.group ?? "none"}
-                            onValueChange={(v) =>
-                              setTeams((prev) => prev.map((x, j) => (j === i ? { ...x, group: v === "none" ? null : v } : x)))
-                            }
-                          >
-                            <SelectTrigger id={`grupo-${i}`} className="h-9">
-                              <SelectValue placeholder="Sin grupo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Sin grupo</SelectItem>
-                              {GRUPO_LETRAS.map((l) => (
-                                <SelectItem key={l} value={`Grupo ${l}`}>Grupo {l}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           )}
 
