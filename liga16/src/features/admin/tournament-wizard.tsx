@@ -284,8 +284,9 @@ export default function TournamentWizard() {
       if (missingReason) toast.warning(missingReason);
       return;
     }
-    await persistStep(step + 1);
+    // Navegar al instante; la persistencia corre en segundo plano con toasts de error.
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
+    void persistStep(step + 1);
   }
 
   function addCourt() {
@@ -771,7 +772,9 @@ export default function TournamentWizard() {
               {/* Formulario de captura (se limpia al agregar) */}
               <div className="rounded-xl border bg-muted/30 p-4">
                 <p className="mb-3 text-sm font-semibold">Agregar equipo</p>
-                <div className="flex flex-wrap items-start gap-3">
+                <div className="space-y-3">
+                  {/* Fila 1: logo + jugadores */}
+                  <div className="flex items-center gap-3">
                   <input
                     type="file"
                     id="logo-nuevo"
@@ -814,7 +817,9 @@ export default function TournamentWizard() {
                       onType={(name) => updateDraftPlayers(2, name)}
                     />
                   </div>
-                  <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2 sm:min-w-[340px]">
+                  </div>
+                  {/* Fila 2: categoría + grupo, siempre a lo ancho */}
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <div className="grid gap-1.5">
                       <Label className="text-xs text-muted-foreground">Categoría</Label>
                       <Select
@@ -854,17 +859,20 @@ export default function TournamentWizard() {
                       </Select>
                     </div>
                   </div>
+                  {/* Fila 3: acción */}
+                  <div className="flex items-center justify-between gap-3">
+                    {draft.name ? (
+                      <p className="min-w-0 truncate text-xs text-muted-foreground">Se agregará como "{draft.name}"</p>
+                    ) : <span />}
+                    <Button
+                      type="button"
+                      onClick={commitDraft}
+                      disabled={!draft.player1.trim() || !draft.player2.trim() || !draft.division}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Agregar a la lista
+                    </Button>
+                  </div>
                 </div>
-                <div className="mt-3 flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={commitDraft}
-                    disabled={!draft.player1.trim() || !draft.player2.trim() || !draft.division}
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> Agregar a la lista
-                  </Button>
-                </div>
-                {draft.name && <p className="mt-1 text-xs text-muted-foreground text-right">Se agregará como "{draft.name}"</p>}
               </div>
 
               {/* Lista compacta de agregados */}
@@ -1018,12 +1026,12 @@ export default function TournamentWizard() {
 
       {/* Navegación */}
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={back} disabled={step === 0 || saving}>
+        <Button variant="outline" onClick={back} disabled={step === 0}>
           <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
         </Button>
         {step < STEPS.length - 1 ? (
-          <Button onClick={next} disabled={saving} title={missingReason ?? undefined} variant={canAdvance ? "default" : "outline"}>
-            {saving ? "Guardando…" : canAdvance ? ("Siguiente") : missingReason} <ChevronRight className="h-4 w-4 ml-1" />
+          <Button onClick={next} title={missingReason ?? undefined} variant={canAdvance ? "default" : "outline"}>
+            {canAdvance ? ("Siguiente") : missingReason} <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         ) : (
           <Button onClick={generateCalendarAndFinish} disabled={!groups.length || saving}>
