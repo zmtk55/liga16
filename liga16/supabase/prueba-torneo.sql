@@ -82,13 +82,13 @@ where not exists (
   where lower(pp.display_name) = lower(j.display_name)
 );
 
--- Snapshots de ids (un solo perfil por nombre, con limit 1 por si ya había duplicados)
-create temp table _pp as
+-- Snapshots de ids (un solo perfil por nombre, con min(id) por si ya había duplicados)
+create temp table _pp
+on commit drop as
 select min(pp.id) as id, lower(pp.display_name) as name_key
 from public.player_profiles pp
 join _jugadores j on lower(pp.display_name) = lower(j.display_name)
-group by lower(pp.display_name)
-on commit drop;
+group by lower(pp.display_name);
 
 -- 5) Parejas (8: 3 varoniles, 3 femeniles, 2 mixtas — ningún jugador repetido)
 with t as (select id from public.tournaments where slug = 'prueba-torneo'),
