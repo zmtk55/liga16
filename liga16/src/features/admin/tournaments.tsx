@@ -16,6 +16,7 @@ import {
 import { tournamentStatusLabel } from "@/lib/format";
 import { Plus, Trash2 } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 export default function AdminTournaments() {
@@ -34,14 +35,17 @@ export default function AdminTournaments() {
     return true;
   });
 
+  const [deleting, setDeleting] = useState<Tournament | null>(null);
+
   async function handleDelete(t: Tournament) {
-    if (!confirm(`¿Eliminar el torneo "${t.name}"? Se borran sus partidos y categorías.`)) return;
     try {
       await db.deleteTournament(t.slug);
       toast.success(`Torneo "${t.name}" eliminado`);
       db.listTournaments().then(setList);
     } catch (e) {
       toast.error((e as Error).message ?? "Error al eliminar");
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -131,7 +135,7 @@ export default function AdminTournaments() {
                     <Button variant="ghost" size="sm" asChild>
                       <Link to={`/admin/torneos/${t.slug}/editar`}>Editar</Link>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(t)} aria-label={`Eliminar ${t.name}`}>
+                    <Button variant="ghost" size="sm" onClick={() => setDeleting(t)} aria-label={`Eliminar ${t.name}`}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </TableCell>
@@ -141,6 +145,14 @@ export default function AdminTournaments() {
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(o) => { if (!o) setDeleting(null); }}
+        onConfirm={() => deleting && handleDelete(deleting)}
+        title={`¿Eliminar el torneo "${deleting?.name ?? ""}"?`}
+        description="Se borran sus partidos, equipos y categorías. No se puede deshacer."
+      />
     </div>
   );
 }

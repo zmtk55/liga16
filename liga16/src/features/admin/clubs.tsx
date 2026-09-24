@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MapPin, Phone, Edit3, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function AdminClubs() {
   const [club, setClub] = useState<Club | null>(null);
+  const [deletingCourt, setDeletingCourt] = useState<{ id: string; name: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ClubForm>({ name: "", address: "", phone: "", description: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -48,13 +50,14 @@ export default function AdminClubs() {
   }
 
   async function removeCourt(id: string, name: string) {
-    if (!confirm(`¿Quitar la cancha "${name}"?`)) return;
     try {
       await db.deleteCourt(id);
       setCourts((cs) => cs.filter((c) => c.id !== id));
       toast.success(`Cancha "${name}" eliminada`);
     } catch (e) {
       toast.error((e as Error).message ?? "No se pudo eliminar");
+    } finally {
+      setDeletingCourt(null);
     }
   }
 
@@ -152,6 +155,13 @@ export default function AdminClubs() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Canchas disponibles ({courts.length})</CardTitle>
         </CardHeader>
+        <ConfirmDialog
+          open={!!deletingCourt}
+          onOpenChange={(o) => { if (!o) setDeletingCourt(null); }}
+          onConfirm={() => deletingCourt && removeCourt(deletingCourt.id, deletingCourt.name)}
+          title={`¿Quitar la cancha "${deletingCourt?.name ?? ""}"?`}
+          description="Los partidos agendados en ella conservan el nombre, pero ya no aparece como disponible."
+        />
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <Input
@@ -173,7 +183,7 @@ export default function AdminClubs() {
                   <span className="font-medium">{c.name}</span>
                   <span className="flex items-center gap-2">
                     {c.surface && <Badge variant="outline">{c.surface}</Badge>}
-                    <Button variant="ghost" size="icon" onClick={() => removeCourt(c.id, c.name)} aria-label={`Eliminar ${c.name}`}>
+                    <Button variant="ghost" size="icon" onClick={() => setDeletingCourt({ id: c.id, name: c.name })} aria-label={`Eliminar ${c.name}`}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </span>

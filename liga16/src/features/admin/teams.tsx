@@ -37,6 +37,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface EquipoForm {
   name: string;
@@ -153,14 +154,17 @@ export default function AdminTeams() {
     }
   }
 
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
+
   async function handleDelete(p: { id: string; name: string }) {
-    if (!confirm(`¿Eliminar el equipo "${p.name}" de este torneo?`)) return;
     try {
       await db.deletePair(p.id);
       toast.success(`Equipo "${p.name}" eliminado`);
       load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al eliminar");
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -274,7 +278,7 @@ export default function AdminTeams() {
                         <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setOpenCreate(true); }} aria-label={`Editar ${p.name}`}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(p)} aria-label={`Eliminar ${p.name}`}>
+                        <Button variant="ghost" size="sm" onClick={() => setDeleting(p)} aria-label={`Eliminar ${p.name}`}>
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
                       </TableCell>
@@ -286,6 +290,14 @@ export default function AdminTeams() {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(o) => { if (!o) setDeleting(null); }}
+        onConfirm={() => deleting && handleDelete(deleting)}
+        title={`¿Eliminar el equipo "${deleting?.name ?? ""}"?`}
+        description="Se quita de este torneo. Sus perfiles de jugador no se borran."
+      />
 
       <EquipoDialog
         key={dialogKey}
