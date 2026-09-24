@@ -12,6 +12,36 @@ function client() {
 }
 
 // Mapea una fila de la tabla `teams` (columnas normalizadas) al tipo Team.
+function slugifyName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+/** Convierte una fila de `pairs` (equipos por torneo) al tipo Team que consume la UI. */
+function pairToTeam(row: Record<string, unknown>, categoryName: string | null): Team {
+  const name = row.name as string;
+  const [p1 = '', p2 = ''] = name.split('/').map((s) => s.trim());
+  return {
+    id: row.id as string,
+    slug: slugifyName(name),
+    name,
+    crest_url: null,
+    city: '',
+    club_id: null,
+    division: (categoryName as PadelDivision) || '4ta',
+    sex: 'X',
+    player1: p1 ? { player_id: (row.player1_id as string) ?? '', name: p1, level: 0 } : null,
+    player2: p2 ? { player_id: (row.player2_id as string) ?? '', name: p2, level: 0 } : null,
+    position: 0,
+    points: 0,
+    played: 0,
+    won: 0,
+    lost: 0,
+    sets_for: 0,
+    sets_against: 0,
+    titles: 0,
+  };
+}
+
 function teamFromRow(row: Record<string, unknown>): Team {
   const p1Name = row.player1_name as string | null ?? null;
   const p1Level = row.player1_level as number | null ?? null;
@@ -148,10 +178,10 @@ export const supabaseProvider: DataProvider = {
     return (data ?? []) as never;
   },
 
-  async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null }) {
+  async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null; player1_id?: string | null; player2_id?: string | null }) {
     const { data: result, error } = await client()
       .from('pairs')
-      .insert({ tournament_id: data.tournament_id, category_id: data.category_id ?? null, name: data.name, seed: data.seed ?? null, status: 'confirmed' })
+      .insert({ tournament_id: data.tournament_id, category_id: data.category_id ?? null, name: data.name, seed: data.seed ?? null, status: 'confirmed', player1_id: data.player1_id ?? null, player2_id: data.player2_id ?? null })
       .select()
       .single();
     if (error) throw error;
@@ -342,19 +372,26 @@ export const supabaseProvider: DataProvider = {
     return data as never;
   },
 
-  // Equipos: en padel, un equipo es una pareja de 2 jugadores.
-  // La DB usa columnas normalizadas (player1_name/player1_level/player2_name/player2_level).
+  // Equipos: leen de `pairs` (equipos POR TORNEO). La tabla global `teams` quedó obsoleta.
+  // slug se deriva del nombre; player1_id/player2_id de pairs ligan al perfil real.
   async listTeams() {
-    const { data, error } = await client().from('teams').select('*');
+    const { data, error } = await client()
+      .from('pairs').select('*, tournament_categories(name)');
     if (error) throw error;
-    return (data ?? []).map((r: Record<string, unknown>) => teamFromRow(r)) as never;
+    return (data ?? []).map((r: Record<string, unknown>) =>
+      pairToTeam(r, (r.tournament_categories as { name: string } | null)?.name ?? null),
+    ) as never;
   },
 
   async getTeam(slug: string) {
-    const { data, error } = await client().from('teams').select('*').eq('slug', slug).maybeSingle();
+    const { data, error } = await client()
+      .from('pairs').select('*, tournament_categories(name)').limit(200);
     if (error) throw error;
-    if (!data) return null;
-    return teamFromRow(data as Record<string, unknown>) as never;
+    const found = (data ?? []).find(
+      (r: Record<string, unknown>) => slugifyName(r.name as string) === slug,
+    );
+    if (!found) return null;
+    return pairToTeam(found, (found.tournament_categories as { name: string } | null)?.name ?? null) as never;
   },
 
   async createTeam(data: Omit<import('@/types').Team, 'id' | 'slug'>) {

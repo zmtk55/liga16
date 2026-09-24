@@ -319,11 +319,13 @@ export default function AdminTournamentDetail() {
     setSaving(true);
     try {
       // Perfiles de jugador nuevos se crean si no existen
-      await Promise.all([ensurePlayer(parts[0]).catch(() => null), ensurePlayer(parts[1]).catch(() => null)]);
+      const [prof1, prof2] = await Promise.all([ensurePlayer(parts[0]).catch(() => null), ensurePlayer(parts[1]).catch(() => null)]);
       await db.createPair({
         tournament_id: tournament.id,
         category_id: newPairCategory || categories[0]?.id || null,
         name: parts.join(" / "),
+        player1_id: prof1?.id ?? null,
+        player2_id: prof2?.id ?? null,
       });
       setNewPairName("");
       setNewPairP1("");

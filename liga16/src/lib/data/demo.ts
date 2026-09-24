@@ -91,15 +91,15 @@ export const demoProvider: DataProvider = {
     return store.pairs.filter((p) => p.tournament_id === tournamentId);
   },
 
-  async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null }) {
+  async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null; player1_id?: string | null; player2_id?: string | null }) {
     await delay();
     const pair = {
       id: `pair-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       tournament_id: data.tournament_id,
       category_id: data.category_id ?? null,
       name: data.name,
-      player1_id: "",
-      player2_id: "",
+      player1_id: data.player1_id ?? "",
+      player2_id: data.player2_id ?? "",
       seed: data.seed ?? null,
     } as unknown as Pair;
     store.pairs.push(pair);

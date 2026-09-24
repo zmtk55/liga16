@@ -131,7 +131,7 @@ export default function AdminTeams() {
     setSubmitting(true);
     try {
       // Los jugadores se registran/reutilizan en el directorio global
-      await Promise.all([
+      const [prof1, prof2] = await Promise.all([
         ensurePlayer(p1).catch(() => null),
         ensurePlayer(p2).catch(() => null),
       ]);
@@ -140,7 +140,7 @@ export default function AdminTeams() {
         await db.updatePair(editing.id, { name, category_id: form.category_id || null });
         toast.success(`Equipo "${name}" actualizado`);
       } else {
-        await db.createPair({ tournament_id: tid, category_id: form.category_id || null, name });
+        await db.createPair({ tournament_id: tid, category_id: form.category_id || null, name, player1_id: prof1?.id ?? null, player2_id: prof2?.id ?? null });
         toast.success(`Equipo "${name}" inscrito en el torneo`);
       }
       setOpenCreate(false);

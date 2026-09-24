@@ -430,7 +430,7 @@ export default function TournamentWizard() {
           const name = t.name.trim();
           if (!name || existingNames.has(name.toLowerCase())) continue;
           // Perfiles de jugadores nuevos se crean aquí si no existen
-          await Promise.all([
+          const [prof1, prof2] = await Promise.all([
             ensurePlayer(t.player1, t.division).catch(() => null),
             ensurePlayer(t.player2, t.division).catch(() => null),
           ]);
@@ -439,6 +439,8 @@ export default function TournamentWizard() {
               tournament_id: String(tournamentId),
               category_id: catIds.get(t.division.toLowerCase()) ?? null,
               name,
+              player1_id: prof1?.id ?? null,
+              player2_id: prof2?.id ?? null,
             })
             .catch((e: Error) => toast.error(`${name}: ${e.message ?? "no se pudo registrar"}`));
         }
