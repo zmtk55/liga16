@@ -8,6 +8,22 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -64,18 +80,55 @@ function addDays(date: string, days: number) {
 }
 
 function SortablePairCard({
+  id,
   name,
   onRemove,
+  groups,
+  currentGroup,
+  onReassign,
 }: {
+  id: string;
   name: string;
   onRemove: () => void;
+  groups: string[];
+  currentGroup: string;
+  onReassign: (target: string) => void;
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
-      <span className="flex-1 truncate">{name}</span>
-      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove} aria-label={`Quitar ${name}`}>
-        ×
-      </Button>
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`space-y-1 ${isDragging ? "opacity-60 shadow-lg z-10 relative" : ""}`}
+    >
+      <div className="flex items-center gap-1 rounded-lg border bg-card px-2 py-2 text-sm">
+        <button
+          type="button"
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+          aria-label={`Arrastrar ${name}`}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <span className="flex-1 truncate">{name}</span>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove} aria-label={`Quitar ${name}`}>
+          ×
+        </Button>
+      </div>
+      {groups.length > 1 && (
+        <Select value={currentGroup} onValueChange={onReassign}>
+          <SelectTrigger className="h-6 border-none bg-transparent px-1 text-[11px] text-muted-foreground shadow-none" aria-label={`Mover ${name} a otro grupo`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {groups.map((g) => (
+              <SelectItem key={g} value={g}>{g}{g === currentGroup ? " (actual)" : ""}</SelectItem>
+            ))}
+            <SelectItem value="__pool__">Sin grupo</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
     </div>
   );
 }
@@ -400,6 +453,70 @@ export default function TournamentWizard() {
 
   function removeTeamFromGroups(index: string) {
     setGroups((gs) => gs.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== index) })));
+  }
+
+  /** Reasignar equipo entre grupos (o al pool) con el selector — sin depender del drag. */
+  function reassignTeam(teamIdx: string, target: string) {
+    setGroups((gs) => {
+      const without = gs.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== teamIdx) }));
+      if (target === "__pool__") return without;
+      return without.map((g) => (g.name === target ? { ...g, pairIds: [...g.pairIds, teamIdx] } : g));
+    });
+    // Sincronizar el grupo asignado del equipo
+    setTeams((prev) =>
+      prev.map((t, i) => (String(i) === teamIdx ? { ...t, group: target === "__pool__" ? null : target } : t)),
+    );
+  }
+
+  function addGroupManual() {
+    setGroups((gs) => {
+      const multiCat = new Set(teams.map((t) => `${t.division}|${t.sex}`)).size > 1;
+      const catLabel = multiCat ? (categories[0]?.label ? `${categories[0].label} · ` : "") : "";
+      return [...gs, { name: `${catLabel}Grupo ${GRUPO_LETRAS[gs.length % GRUPO_LETRAS.length]}`, pairIds: [] }];
+    });
+  }
+
+  function renameGroupInWizard(index: number, name: string) {
+    setGroups((gs) => gs.map((g, i) => (i === index ? { ...g, name } : g)));
+  }
+
+  const wizardSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleWizardDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) return;
+
+    const findGroupOf = (id: string) => groups.findIndex((g) => g.pairIds.includes(id));
+
+    if (overId === "__pool__") {
+      reassignTeam(activeId, "__pool__");
+      return;
+    }
+
+    const from = findGroupOf(activeId);
+    const to = findGroupOf(overId);
+    if (from === -1 && to >= 0) {
+      const targetName = groups[to]?.name ?? null;
+      setGroups((gs) => gs.map((g, i) => (i === to ? { ...g, pairIds: [...g.pairIds, activeId] } : g)));
+      setTeams((prev) => prev.map((t, i) => (String(i) === activeId ? { ...t, group: targetName } : t)));
+    } else if (from >= 0 && to >= 0 && from !== to) {
+      const targetName = groups[to]?.name ?? null;
+      setGroups((gs) =>
+        gs.map((g, i) => {
+          if (i === from) return { ...g, pairIds: g.pairIds.filter((x) => x !== activeId) };
+          if (i === to) return { ...g, pairIds: [...g.pairIds, activeId] };
+          return g;
+        }),
+      );
+      setTeams((prev) => prev.map((t, i) => (String(i) === activeId ? { ...t, group: targetName } : t)));
+    } else if (from >= 0 && from === to) {
+      setGroups((gs) =>
+        gs.map((g, i) => (i === from ? { ...g, pairIds: arrayMove(g.pairIds, g.pairIds.indexOf(activeId), g.pairIds.indexOf(overId)) } : g)),
+      );
+    }
   }
 
   function teamName(i: string | number) {
@@ -776,41 +893,100 @@ export default function TournamentWizard() {
                 <Button type="button" onClick={handleDraw} disabled={teams.length < 2} title={teams.length < 2 ? "Necesitas al menos 2 equipos" : undefined}>
                   <Dice5 className="h-4 w-4 mr-1" /> Sortear al azar
                 </Button>
-                {teams.length < 2 && (
-                  <p className="self-center text-sm text-amber-600 dark:text-amber-400">Añade al menos 2 equipos para poder sortear.</p>
-                )}
+                <Button type="button" variant="outline" onClick={addGroupManual} disabled={teams.length === 0}>
+                  <Plus className="h-4 w-4 mr-1" /> Crear grupo vacío
+                </Button>
                 {groups.length > 0 && (
                   <Button type="button" variant="outline" size="sm" onClick={() => setGroups([])}>
                     <RotateCcw className="h-3.5 w-3.5 mr-1" /> Vaciar
                   </Button>
                 )}
+                {teams.length < 2 && (
+                  <p className="self-center text-sm text-amber-600 dark:text-amber-400">Añade al menos 2 equipos para poder sortear.</p>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">
-                El sorteo baraja dentro de cada categoría y respeta los grupos que asignaste a mano. Los equipos sin
-                grupo se reparten parejo (~4 por grupo).
+                El sorteo baraja dentro de cada categoría y respeta los grupos que asignaste a mano. Después mueve
+                equipos arrastrándolos entre grupos o con el selector de cada tarjeta. Puedes crear más grupos en cualquier momento.
               </p>
 
               {groups.length === 0 ? (
-                <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  Sortea los grupos y luego genera el calendario.
-                </p>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {groups.map((g) => (
-                    <div key={g.name} className="rounded-xl border p-3">
-                      <p className="mb-2 flex items-center justify-between text-sm font-semibold">
-                        {g.name}
-                        <Badge variant="outline">{g.pairIds.length}</Badge>
-                      </p>
-                      <div className="min-h-12 space-y-2">
-                        {g.pairIds.length === 0 && <p className="py-1 text-xs text-muted-foreground">Vacío</p>}
-                        {g.pairIds.map((id) => (
-                          <SortablePairCard key={id} name={teamName(id)} onRemove={() => removeTeamFromGroups(id)} />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                <div className="rounded-lg border border-dashed p-6 text-center">
+                  <p className="text-sm text-muted-foreground">Sin grupos todavía: sortea o crea grupos vacíos y arrastra los equipos.</p>
                 </div>
+              ) : (
+                <DndContext sensors={wizardSensors} collisionDetection={closestCenter} onDragEnd={handleWizardDragEnd}>
+                  {/* Pool: equipos sin grupo */}
+                  {(() => {
+                    const assigned = new Set(groups.flatMap((g) => g.pairIds));
+                    const pool = teams.map((_, i) => String(i)).filter((i) => !assigned.has(i));
+                    if (pool.length === 0) return null;
+                    return (
+                      <div className="rounded-xl border border-dashed p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sin grupo ({pool.length}) — arrástralos a un grupo</p>
+                        <SortableContext items={pool} strategy={verticalListSortingStrategy}>
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {pool.map((idx) => (
+                              <SortablePairCard
+                                key={idx}
+                                id={idx}
+                                name={teamName(idx)}
+                                onRemove={() => setTeams((prev) => prev.filter((_, j) => j !== Number(idx)))}
+                                groups={groups.map((g) => g.name)}
+                                currentGroup="__pool__"
+                                onReassign={(target) => reassignTeam(idx, target)}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {groups.map((g, gi) => (
+                      <div key={g.name} className="rounded-xl border p-3">
+                        <p className="mb-2 flex items-center justify-between gap-2 text-sm font-semibold">
+                          <Input
+                            value={g.name}
+                            onChange={(e) => renameGroupInWizard(gi, e.target.value)}
+                            className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
+                            aria-label={`Nombre del grupo ${gi + 1}`}
+                          />
+                          <span className="flex items-center gap-1">
+                            <Badge variant="outline">{g.pairIds.length}</Badge>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => setGroups((gs) => gs.filter((_, i) => i !== gi))}
+                              aria-label={`Eliminar ${g.name}`}
+                            >
+                              ×
+                            </Button>
+                          </span>
+                        </p>
+                        <SortableContext items={g.pairIds} strategy={verticalListSortingStrategy}>
+                          <div className="min-h-16 space-y-2 rounded-lg p-1">
+                            {g.pairIds.length === 0 && <p className="py-2 text-xs text-muted-foreground">Arrastra equipos aquí</p>}
+                            {g.pairIds.map((id) => (
+                              <SortablePairCard
+                                key={id}
+                                id={id}
+                                name={teamName(id)}
+                                onRemove={() => removeTeamFromGroups(id)}
+                                groups={groups.map((x) => x.name)}
+                                currentGroup={g.name}
+                                onReassign={(target) => reassignTeam(id, target)}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </div>
+                    ))}
+                  </div>
+                </DndContext>
               )}
             </div>
           )}

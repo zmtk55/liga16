@@ -219,10 +219,6 @@ export default function PlayerDetailPage() {
                     <p className="text-[11px] text-muted-foreground">{team?.division ?? "Libre"} {team ? `· #${team.position}` : ""}</p>
                   </div>
                 </div>
-                <div className="absolute -top-3 -right-3 rounded-2xl bg-primary px-4 py-2 text-center text-white shadow-xl">
-                  <p className="text-[10px] uppercase tracking-widest opacity-80">Dorsal Liga</p>
-                  <p className="text-xl font-black">#{ranking?.position ?? "—"}</p>
-                </div>
               </div>
             </div>
           </div>
