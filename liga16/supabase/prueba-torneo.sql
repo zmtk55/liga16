@@ -1,24 +1,25 @@
 -- ============================================================================
 -- PRUEBA TORNEO — torneo de simulación con datos completos y coherentes.
--- Ejecutar en Supabase → SQL Editor.
+-- Ejecutar en Supabase → SQL Editor (una sola corrida, todo el archivo).
+--
+-- SIN tablas temporales: el SQL Editor usa pooler en modo transacción y cada
+-- statement puede caer en una conexión distinta (las temp tables desaparecen).
+-- Todo se resuelve con CTEs dentro de cada INSERT.
 --
 -- Genera:
---   1 torneo      : PRUEBA TORNEO (slug prueba-torneo, published)
---   3 categorías  : 4ta Varonil / 3ra Femenil / 4ta Mixto
---   8 parejas     : 3 varoniles + 3 femeniles + 2 mixtas (sin jugador repetido)
---   7 partidos    : round robin por categoría (3 + 3 + 1), TODOS finished,
---                   winner SIEMPRE coherente con los sets,
---                   canchas y horarios sin choques (numeración global).
+--   1 torneo    : PRUEBA TORNEO (slug prueba-torneo, published)
+--   3 categorías: 4ta Varonil / 3ra Femenil / 4ta Mixto
+--   8 parejas   : 3 varoniles + 3 femeniles + 2 mixtas (ningún jugador repetido)
+--   7 partidos  : round robin por categoría (3+3+1), todos finished,
+--                 winner SIEMPRE coherente con los sets,
+--                 canchas y horarios sin choques (numeración global).
 --
--- Es idempotente: borra y recrea el torneo. Los perfiles de jugadores nuevos
--- se conservan entre corridas (se reutilizan por nombre).
+-- Idempotente: borra y recrea el torneo. Los perfiles nuevos se reutilizan
+-- por nombre en corridas siguientes.
 -- ============================================================================
 
-begin;
-
--- 1) Recrear limpio (idempotente).
---    OJO: matches.tournament_id es ON DELETE SET NULL (no cascade), así que
---    hay que borrar los partidos explícitamente o quedan huérfanos.
+-- 1) Limpieza previa. OJO: matches.tournament_id es ON DELETE SET NULL (no
+--    cascade) — hay que borrar los partidos explícitamente o quedan huérfanos.
 delete from public.matches
 where tournament_id = (select id from public.tournaments where slug = 'prueba-torneo');
 delete from public.tournaments where slug = 'prueba-torneo';
@@ -36,102 +37,83 @@ values (
 );
 
 -- 3) Categorías
-with t as (select id from public.tournaments where slug = 'prueba-torneo')
 insert into public.tournament_categories (tournament_id, name, category, sex, price_cents)
 select t.id, c.name, c.category::padel_division, c.sex::sex_type, 50000
-from t, (values
+from (select id from public.tournaments where slug = 'prueba-torneo') t,
+(values
   ('4ta Varonil', '4ta', 'M'),
   ('3ra Femenil', '3ra', 'F'),
   ('4ta Mixto',   '4ta', 'X')
 ) as c(name, category, sex);
 
--- 4) Perfiles de jugadores (reutiliza existentes por nombre, crea los nuevos)
---    Nota: sin ON COMMIT DROP — el SQL Editor corre con autocommit y la tabla
---    moriría al instante. drop if exists mantiene la re-ejecución segura.
-drop table if exists _jugadores;
-create temp table _jugadores (
-  display_name text primary key,
-  sex          sex_type,
-  level        numeric(3,1)
-);
-
-insert into _jugadores values
-  ('Diego Fuentes',    'M', 4.7),
-  ('Martín Rojas',     'M', 4.5),
-  ('Emilio Garza',     'M', 4.6),
-  ('Valeria Montes',   'F', 4.4),
-  ('Sofía Camacho',    'F', 4.3),
-  ('Lucía Herrera',    'F', 4.2),
-  ('Paola Suárez',     'F', 4.1),
-  ('Andrés Valle',     'M', 4.0),
-  ('Ricardo Anaya',    'M', 4.4),
-  ('Daniela Cervantes','F', 4.0),
-  ('Fernando Lira',    'M', 3.9),
-  ('Javier Quintana',  'M', 3.8),
-  ('Ximena Ortega',    'F', 3.8),
-  ('Tomás Ledesma',    'M', 3.7),
-  ('Renata Peralta',   'F', 3.6),
-  ('Bruno Salinas',    'M', 3.5),
-  ('Ximena Navarro',   'F', 3.6)
-on conflict (display_name) do nothing;
-
+-- 4) Perfiles de jugadores: crea solo los que no existen (match por nombre,
+--    sin distinguir mayúsculas). Los existentes se reutilizan.
 insert into public.player_profiles (display_name, username, sex, declared_level, is_public, role)
-select j.display_name,
-  lower(regexp_replace(j.display_name, '[^a-zA-Z0-9]', '', 'g')) || '_' || substr(md5(random()::text), 1, 4),
-  j.sex, j.level, true, 'player'
-from _jugadores j
+select j.name,
+  lower(regexp_replace(j.name, '[^a-zA-Z0-9]', '', 'g')) || '_' || substr(md5(random()::text), 1, 4),
+  j.sex::sex_type, j.level, true, 'player'
+from (values
+  ('Diego Fuentes',     'M', 4.7),
+  ('Martín Rojas',      'M', 4.5),
+  ('Emilio Garza',      'M', 4.6),
+  ('Valeria Montes',    'F', 4.4),
+  ('Sofía Camacho',     'F', 4.3),
+  ('Lucía Herrera',     'F', 4.2),
+  ('Paola Suárez',      'F', 4.1),
+  ('Andrés Valle',      'M', 4.0),
+  ('Ricardo Anaya',     'M', 4.4),
+  ('Daniela Cervantes', 'F', 4.0),
+  ('Fernando Lira',     'M', 3.9),
+  ('Javier Quintana',   'M', 3.8),
+  ('Ximena Ortega',     'F', 3.8),
+  ('Tomás Ledesma',     'M', 3.7),
+  ('Renata Peralta',    'F', 3.6),
+  ('Bruno Salinas',     'M', 3.5),
+  ('Ximena Navarro',    'F', 3.6)
+) as j(name, sex, level)
 where not exists (
   select 1 from public.player_profiles pp
-  where lower(pp.display_name) = lower(j.display_name)
+  where lower(pp.display_name) = lower(j.name)
 );
 
--- Snapshots de ids (un solo perfil por nombre, con array_agg[1] por si ya había duplicados)
-drop table if exists _pp;
-create temp table _pp as
-select (array_agg(pp.id))[1] as id, lower(pp.display_name) as name_key
-from public.player_profiles pp
-join _jugadores j on lower(pp.display_name) = lower(j.display_name)
-group by lower(pp.display_name);
-
--- 5) Parejas (8: 3 varoniles, 3 femeniles, 2 mixtas — ningún jugador repetido)
-with t as (select id from public.tournaments where slug = 'prueba-torneo'),
-cats as (
-  select id, name from public.tournament_categories
-  where tournament_id = (select id from t)
-)
+-- 5) Parejas (8: 3 varoniles, 3 femeniles, 2 mixtas — ningún jugador repetido).
+--    Lookup de perfil por nombre con order by created_at limit 1 (tolera duplicados).
 insert into public.pairs (tournament_id, category_id, name, player1_id, player2_id, status)
 select
-  (select id from t),
-  (select id from cats where name = v.cat),
-  v.pair_name,
-  (select id from _pp where name_key = lower(v.j1) limit 1),
-  (select id from _pp where name_key = lower(v.j2) limit 1),
+  t.id,
+  (select c.id from public.tournament_categories c where c.tournament_id = t.id and c.name = v.cat),
+  v.j1 || ' / ' || v.j2,
+  (select pp.id from public.player_profiles pp where lower(pp.display_name) = lower(v.j1) order by pp.created_at limit 1),
+  (select pp.id from public.player_profiles pp where lower(pp.display_name) = lower(v.j2) order by pp.created_at limit 1),
   'confirmed'
-from (values
-  ('4ta Varonil', 'Diego Fuentes / Martín Rojas',     'Diego Fuentes',    'Martín Rojas'),
-  ('4ta Varonil', 'Emilio Garza / Ricardo Anaya',     'Emilio Garza',     'Ricardo Anaya'),
-  ('4ta Varonil', 'Andrés Valle / Fernando Lira',     'Andrés Valle',     'Fernando Lira'),
-  ('3ra Femenil', 'Valeria Montes / Sofía Camacho',   'Valeria Montes',   'Sofía Camacho'),
-  ('3ra Femenil', 'Lucía Herrera / Daniela Cervantes','Lucía Herrera',    'Daniela Cervantes'),
-  ('3ra Femenil', 'Paola Suárez / Ximena Ortega',     'Paola Suárez',     'Ximena Ortega'),
-  ('4ta Mixto',   'Tomás Ledesma / Renata Peralta',   'Tomás Ledesma',    'Renata Peralta'),
-  ('4ta Mixto',   'Bruno Salinas / Ximena Navarro',   'Bruno Salinas',    'Ximena Navarro')
-) as v(cat, pair_name, j1, j2);
+from (select id from public.tournaments where slug = 'prueba-torneo') t,
+(values
+  ('4ta Varonil', 'Diego Fuentes',    'Martín Rojas'),
+  ('4ta Varonil', 'Emilio Garza',     'Ricardo Anaya'),
+  ('4ta Varonil', 'Andrés Valle',     'Fernando Lira'),
+  ('3ra Femenil', 'Valeria Montes',   'Sofía Camacho'),
+  ('3ra Femenil', 'Lucía Herrera',    'Daniela Cervantes'),
+  ('3ra Femenil', 'Paola Suárez',     'Ximena Ortega'),
+  ('4ta Mixto',   'Tomás Ledesma',    'Renata Peralta'),
+  ('4ta Mixto',   'Bruno Salinas',    'Ximena Navarro')
+) as v(cat, j1, j2);
 
 -- 6) Partidos round robin por categoría, todos finished con marcador.
---    rn  = numeración GLOBAL (sin reiniciar por categoría) → cancha y hora únicas.
+--    rn    = numeración GLOBAL → cancha y hora únicas (sin choques entre categorías).
 --    cat_n = numeración por categoría → solo para el número de jornada.
---    winner derivado del patrón de sets (rn % 4 = 3 gana B, el resto gana A):
---      0: 6-4, 6-3            → A
---      1: 4-6, 6-4, 10-8      → A
---      2: 6-2, 3-6, 7-5       → A
---      3: 6-4, 2-6, 4-6       → B
-with t as (select id from public.tournaments where slug = 'prueba-torneo'),
-pares as (
+--    Winner derivado del patrón de sets ((rn-1) % 4):
+--      0: 6-4, 6-3        → A   | 1: 4-6, 6-4, 10-8 → A
+--      2: 6-2, 3-6, 7-5   → A   | 3: 6-4, 2-6, 4-6  → B
+insert into public.matches (
+  tournament_id, tournament_name, category_name, round, court_name,
+  scheduled_at, status, side_a_pair_id, side_b_pair_id,
+  side_a_name, side_b_name, winner, sets
+)
+with pares as (
   select p.id, p.name, c.name as cat
   from public.pairs p
+  join public.tournaments t on t.id = p.tournament_id and t.slug = 'prueba-torneo'
   join public.tournament_categories c on c.id = p.category_id
-  where p.tournament_id = (select id from t)
 ),
 enfre as (
   select
@@ -141,13 +123,8 @@ enfre as (
   from pares a
   join pares b on b.cat = a.cat and a.name < b.name
 )
-insert into public.matches (
-  tournament_id, tournament_name, category_name, round, court_name,
-  scheduled_at, status, side_a_pair_id, side_b_pair_id,
-  side_a_name, side_b_name, winner, sets
-)
 select
-  (select id from t),
+  t.id,
   'PRUEBA TORNEO',
   enfre.cat,
   enfre.cat || ' · J' || ((enfre.cat_n - 1) / 2 + 1),
@@ -163,9 +140,8 @@ select
     when 2 then '[{"a":6,"b":2},{"a":3,"b":6},{"a":7,"b":5}]'::jsonb
     else        '[{"a":6,"b":4},{"a":2,"b":6},{"a":4,"b":6}]'::jsonb
   end
-from enfre;
-
-commit;
+from enfre
+cross join (select id from public.tournaments where slug = 'prueba-torneo') t;
 
 -- ============================================================================
 -- Verificación (correr aparte):
