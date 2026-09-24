@@ -82,10 +82,10 @@ where not exists (
   where lower(pp.display_name) = lower(j.display_name)
 );
 
--- Snapshots de ids (un solo perfil por nombre, con min(id) por si ya había duplicados)
+-- Snapshots de ids (un solo perfil por nombre, con array_agg[1] por si ya había duplicados)
 create temp table _pp
 on commit drop as
-select min(pp.id) as id, lower(pp.display_name) as name_key
+select (array_agg(pp.id))[1] as id, lower(pp.display_name) as name_key
 from public.player_profiles pp
 join _jugadores j on lower(pp.display_name) = lower(j.display_name)
 group by lower(pp.display_name);
