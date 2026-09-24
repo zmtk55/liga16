@@ -185,10 +185,21 @@ export function computeStandings(
     .filter((m) => m.status === "finished" && m.winner)
     .sort((x, y) => String(x.scheduled_at).localeCompare(String(y.scheduled_at)));
 
+  // Índice por nombre normalizado: partidos viejos sin pair_id se resuelven por nombre.
+  const nameToId = new Map<string, UUID>();
+  pairIds.forEach((id) => {
+    const n = (pairNameById[id] ?? "").trim().toLowerCase();
+    if (n) nameToId.set(n, id);
+  });
+  const resolve = (side: { pair_id: UUID | null; pair_name: string | null }): UUID | null =>
+    side.pair_id && rows.has(side.pair_id)
+      ? side.pair_id
+      : nameToId.get((side.pair_name ?? "").trim().toLowerCase()) ?? null;
+
   for (const m of finished) {
-    const a = m.side_a.pair_id;
-    const b = m.side_b.pair_id;
-    if (!a || !b || !rows.has(a) || !rows.has(b)) continue;
+    const a = resolve(m.side_a);
+    const b = resolve(m.side_b);
+    if (!a || !b || a === b) continue;
     const rowA = rows.get(a)!;
     const rowB = rows.get(b)!;
     rowA.played++;

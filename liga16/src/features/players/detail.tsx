@@ -3,13 +3,12 @@ import { Link, useParams } from "react-router";
 import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
-import type { PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
+import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDate, initials, sexLabel } from "@/lib/format";
 import ImageUpload from "@/components/ui/image-upload";
@@ -31,6 +30,7 @@ export default function PlayerDetailPage() {
   const [events, setEvents] = useState<import("@/types").RankingEvent[]>([]);
   const [ranking, setRanking] = useState<RankingEntry | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
+  const [myMatches, setMyMatches] = useState<Match[]>([]);
   const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>([]);
   const [compareId, setCompareId] = useState<string>("");
   const [compareData, setCompareData] = useState<{ p: PlayerProfile; c: PlayerCard | null; r: RankingEntry | null; jev: JevAnalysis } | null>(null);
@@ -41,14 +41,29 @@ export default function PlayerDetailPage() {
   useEffect(() => {
     if (!id) return;
     let active = true;
-    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers()])
-      .then(([p, c, e, rks, teams, pls]) => {
+    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers(), db.listRecentMatches()])
+      .then(([p, c, e, rks, teams, pls, allMatches]) => {
         if (!active || !p) return;
         setPlayer(p); setCard(c); setEvents(e);
         const rk = rks.find((r) => r.player_id === p.id) ?? null;
         setRanking(rk);
-        const t = teams.find((tm) => tm.player1?.player_id === p.id || tm.player2?.player_id === p.id) ?? null;
+        // Equipo por ID real o, si el pair viejo no lo liga, por nombre en el roster
+        const norm = (s: string) => s.trim().toLowerCase();
+        const t =
+          teams.find((tm) => tm.player1?.player_id === p.id || tm.player2?.player_id === p.id) ??
+          teams.find((tm) => [tm.player1?.name, tm.player2?.name].some((n) => n && norm(n) === norm(p.display_name))) ?? null;
         setTeam(t);
+        // Partidos reales del jugador (por pair_id o por nombre en el marcador)
+        const nameIn = (side: { pair_name: string } | null) =>
+          (side?.pair_name ?? "").split("/").some((n) => n && norm(n) === norm(p.display_name));
+        const mine = allMatches
+          .filter((m) =>
+            m.side_a.pair_id && teams.some((tm) => tm.id === m.side_a.pair_id && (tm.player1?.player_id === p.id || tm.player2?.player_id === p.id)) ||
+            m.side_b.pair_id && teams.some((tm) => tm.id === m.side_b.pair_id && (tm.player1?.player_id === p.id || tm.player2?.player_id === p.id)) ||
+            (!m.side_a.pair_id || !m.side_b.pair_id) && (nameIn(m.side_a) || nameIn(m.side_b)),
+          )
+          .sort((a, b) => String(b.scheduled_at).localeCompare(String(a.scheduled_at)));
+        setMyMatches(mine);
         setAllPlayers(pls.filter((x) => x.id !== p.id));
       })
       .finally(() => { if (active) setLoading(false); });
@@ -212,12 +227,9 @@ export default function PlayerDetailPage() {
                     <span className="text-6xl font-black text-white/90">{initials(player.display_name)}</span>
                   </div>
                 )}
-                <div className="absolute -bottom-3 -left-3 flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-black shadow-xl">
-                  <Avatar className="h-8 w-8"><AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${player.display_name}`} /><AvatarFallback>{initials(player.display_name)}</AvatarFallback></Avatar>
-                  <div className="leading-tight">
-                    <p className="text-xs font-bold">{team?.name ?? "Sin equipo"}</p>
-                    <p className="text-[11px] text-muted-foreground">{team?.division ?? "Libre"} {team ? `· #${team.position}` : ""}</p>
-                  </div>
+                <div className="absolute -bottom-3 -left-3 rounded-2xl bg-white px-3 py-2 text-black shadow-xl">
+                  <p className="text-xs font-bold">{team?.name ?? "Sin equipo"}</p>
+                  <p className="text-[11px] text-muted-foreground">{team?.division ?? "Libre"}</p>
                 </div>
               </div>
             </div>
@@ -303,21 +315,29 @@ export default function PlayerDetailPage() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="overflow-hidden">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between"><CardTitle className="text-base">Últimos juegos</CardTitle><Badge variant="outline">{card?.recent_results.length ?? 0} registrados</Badge></CardHeader>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between"><CardTitle className="text-base">Últimos partidos</CardTitle><Badge variant="outline">{myMatches.length} en el sistema</Badge></CardHeader>
             <CardContent className="space-y-2">
-              {card?.recent_results.length ? card.recent_results.map((r, i) => {
-                const win = r.startsWith("G");
+              {myMatches.length ? myMatches.slice(0, 10).map((m) => {
+                const isA = (m.side_a.pair_name ?? "").split("/").some((n) => n.trim().toLowerCase() === player.display_name.trim().toLowerCase());
+                const win = m.winner === (isA ? "a" : "b");
+                const rival = isA ? m.side_b.pair_name : m.side_a.pair_name;
+                const score = m.sets.map((s) => `${isA ? s.a : s.b}-${isA ? s.b : s.a}`).join(" ");
+                const pending = m.status !== "finished";
                 return (
-                  <div key={i} className="group flex items-center gap-3 rounded-xl border p-3 transition-all hover:shadow-sm hover:border-primary/20" style={{ animationDelay: `${i * 80}ms` }}>
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${win ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white"}`}>{win ? "G" : "P"}</span>
-                    <div className="flex-1">
-                      <p className="font-mono text-sm font-bold tracking-wide">{r.replace("G ", "").replace("P ", "")}</p>
-                      <p className="text-xs text-muted-foreground">Jornada {i + 1} · Liga16 · {win ? "Victoria" : "Derrota"}</p>
+                  <div key={m.id} className="group flex items-center gap-3 rounded-xl border p-3 transition-all hover:shadow-sm hover:border-primary/20">
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${pending ? "bg-muted text-muted-foreground" : win ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white"}`}>{pending ? "·" : win ? "G" : "P"}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">vs {rival || "?"}</p>
+                      <p className="text-xs text-muted-foreground">{m.round}{m.tournament_name ? ` · ${m.tournament_name}` : ""}{m.scheduled_at ? ` · ${formatDate(m.scheduled_at.slice(0, 10))}` : ""}</p>
                     </div>
-                    <Badge variant={win ? "default" : "outline"} className="transition-transform group-hover:scale-105">{win ? "+25" : "0"} pts</Badge>
+                    {pending ? (
+                      <Badge variant="outline">Por jugar</Badge>
+                    ) : (
+                      <Badge variant={win ? "default" : "outline"} className="font-mono">{score}</Badge>
+                    )}
                   </div>
                 );
-              }) : <p className="text-sm text-muted-foreground">Sin historial reciente.</p>}
+              }) : <p className="text-sm text-muted-foreground">Sin partidos todavía — aparecen cuando tu equipo tenga partidos en un torneo.</p>}
             </CardContent>
           </Card>
 
