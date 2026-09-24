@@ -46,11 +46,14 @@ from t, (values
 ) as c(name, category, sex);
 
 -- 4) Perfiles de jugadores (reutiliza existentes por nombre, crea los nuevos)
+--    Nota: sin ON COMMIT DROP — el SQL Editor corre con autocommit y la tabla
+--    moriría al instante. drop if exists mantiene la re-ejecución segura.
+drop table if exists _jugadores;
 create temp table _jugadores (
   display_name text primary key,
   sex          sex_type,
   level        numeric(3,1)
-) on commit drop;
+);
 
 insert into _jugadores values
   ('Diego Fuentes',    'M', 4.7),
@@ -83,8 +86,8 @@ where not exists (
 );
 
 -- Snapshots de ids (un solo perfil por nombre, con array_agg[1] por si ya había duplicados)
-create temp table _pp
-on commit drop as
+drop table if exists _pp;
+create temp table _pp as
 select (array_agg(pp.id))[1] as id, lower(pp.display_name) as name_key
 from public.player_profiles pp
 join _jugadores j on lower(pp.display_name) = lower(j.display_name)
