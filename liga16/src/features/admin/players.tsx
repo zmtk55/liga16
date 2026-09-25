@@ -208,8 +208,8 @@ export default function AdminPlayers() {
                   <TableCell className="hidden md:table-cell">{sexLabel(p.sex)}</TableCell>
                   <TableCell className="hidden md:table-cell">{{ right: "Diestro", left: "Zurdo", both: "Ambidiestro" }[p.dominant_hand]}</TableCell>
                   <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setOpenCreate(true); }}>Editar</Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(p)}><Trash2 className="h-3.5 w-3.5" /></Button>
+<Button variant="ghost" size="sm" onClick={() => { setEditing(p); setOpenCreate(true); }} aria-label={`Editar ${p.display_name}`}>Editar</Button>
+                     <Button variant="ghost" size="sm" onClick={() => handleDelete(p)} aria-label={`Eliminar ${p.display_name}`}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </TableCell>
                 </TableRow>
               ))}

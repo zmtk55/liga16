@@ -188,10 +188,9 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-3 md:flex-col md:items-end">
                 {featured.status === "registration_open" ? (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                  <Badge variant="default" className="bg-emerald-600 animate-pulse">
                     Inscripciones abiertas
-                  </span>
+                  </Badge>
                 ) : (
                   <Badge variant="outline" className="border-white/20 text-white/80">
                     Próximamente

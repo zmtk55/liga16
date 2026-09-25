@@ -140,8 +140,8 @@ export default function AdminRanking() {
                     {r.delta === 0 ? "—" : r.delta > 0 ? `+${r.delta}` : r.delta}
                   </TableCell>
                   <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(r); setOpenCreate(true); }}>Editar</Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
+<Button variant="ghost" size="sm" onClick={() => { setEditing(r); setOpenCreate(true); }} aria-label={`Editar ${r.player_name}`}>Editar</Button>
+                     <Button variant="ghost" size="sm" onClick={() => handleDelete(r)} aria-label={`Eliminar ${r.player_name}`}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </TableCell>
                 </TableRow>
               ))}

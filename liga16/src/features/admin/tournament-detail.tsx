@@ -550,36 +550,35 @@ export default function AdminTournamentDetail() {
                 </Card>
               );
             }
-            return (
-              <div className="space-y-2">
-                {dayMatches.map((m) => {
-                  const done = m.status === "finished" && m.winner;
-                  const score = m.sets.map((x) => `${x.a}-${x.b}`).join(" ");
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setEditingMatchId(m.id)}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-muted/40 ${
-                        done ? "opacity-75" : ""
-                      }`}
-                    >
-                      <Badge variant="secondary" className="shrink-0">{m.court_name ?? "—"}</Badge>
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        {m.scheduled_at ? new Date(m.scheduled_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—"}
-                      </span>
-                      <span className={`flex-1 truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
-                        {m.side_a.pair_name} <span className="text-muted-foreground">vs</span> {m.side_b.pair_name}
-                      </span>
-                      {done ? (
-                        <Badge className="bg-emerald-600 font-mono">{score}</Badge>
-                      ) : (
-                        <Badge variant="outline" className="font-mono text-muted-foreground">— : —</Badge>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+return (
+                <div className="space-y-2">
+                  {dayMatches.map((m) => {
+                    const done = m.status === "finished" && m.winner;
+                    const score = m.sets.map((x) => `${x.a}-${x.b}`).join(" ");
+                    return (
+                      <Button
+                        key={m.id}
+                        type="button"
+                        variant="outline"
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:border-primary/40 hover:bg-muted/40 justify-start"
+                        onClick={() => setEditingMatchId(m.id)}
+                      >
+                        <Badge variant="secondary" className="shrink-0">{m.court_name ?? "—"}</Badge>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {m.scheduled_at ? new Date(m.scheduled_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                        </span>
+                        <span className={`flex-1 truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
+                          {m.side_a.pair_name} <span className="text-muted-foreground">vs</span> {m.side_b.pair_name}
+                        </span>
+                        {done ? (
+                          <Badge variant="default" className="font-mono">{score}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="font-mono text-muted-foreground">— : —</Badge>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
             );
           })()}
         </TabsContent>
@@ -1341,11 +1340,11 @@ function MatchResultDialog({
             >
               <Plus className="h-4 w-4 mr-1" /> Añadir set
             </Button>
-            {winner && (
-              <Badge className="bg-emerald-600">
-                Gana: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
-              </Badge>
-            )}
+{winner && (
+                <Badge variant="default">
+                  Gana: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
+                </Badge>
+              )}
           </div>
           <div className="grid grid-cols-2 gap-3 border-t pt-3">
             <div className="grid gap-1.5">

@@ -52,7 +52,15 @@ import {
   RotateCcw,
   Trophy,
   Users,
+  X,
 } from "lucide-react";
+
+const FORMAT_OPTIONS = [
+  { v: "groups_knockout", l: "Grupos + eliminación" },
+  { v: "round_robin", l: "Round robin" },
+  { v: "single_elimination", l: "Eliminación directa" },
+  { v: "americano", l: "Americano" },
+] as const;
 
 const STEPS = [
   { id: "sede", label: "Sede y canchas", icon: Building2 },
@@ -725,19 +733,21 @@ export default function TournamentWizard() {
               <div className="space-y-2">
                 <Label>Canchas disponibles ({courts.length})</Label>
                 <div className="flex flex-wrap gap-2">
-                  {courts.map((c) => (
-                    <Badge key={c.id} variant="secondary" className="gap-1 py-1.5 pl-3 pr-1.5">
-                      {c.name}
-                      <button
-                        type="button"
-                        onClick={() => removeCourt(c.id)}
-                        aria-label={`Quitar ${c.name}`}
-                        className="ml-0.5 rounded-full p-0.5 hover:bg-muted"
-                      >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
+{courts.map((c) => (
+                      <Badge key={c.id} variant="secondary" className="gap-1 py-1.5 pl-3 pr-1.5">
+                        {c.name}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4"
+                          onClick={() => removeCourt(c.id)}
+                          aria-label={`Quitar ${c.name}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
                   {courts.length === 0 && <p className="text-xs text-muted-foreground">Registra al menos una cancha para generar el calendario.</p>}
                 </div>
                 <div className="flex gap-2">
@@ -782,28 +792,20 @@ export default function TournamentWizard() {
                   <Input id="t-price" type="number" min={0} value={tournament.price_mxn} onChange={(e) => setTournament((t) => ({ ...t, price_mxn: Number(e.target.value) }))} />
                 </div>
                 <div className="grid gap-1.5 sm:col-span-2">
-                  <Label>Formato</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { v: "groups_knockout", l: "Grupos + eliminación" },
-                      { v: "round_robin", l: "Round robin" },
-                      { v: "single_elimination", l: "Eliminación directa" },
-                      { v: "americano", l: "Americano" },
-                    ].map((f) => (
-                      <button
-                        key={f.v}
-                        type="button"
-                        onClick={() => setTournament((t) => ({ ...t, format: f.v }))}
-                        className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                          tournament.format === f.v
-                            ? "border-primary bg-primary/10 font-medium text-primary"
-                            : "hover:bg-muted"
-                        }`}
-                      >
-                        {f.l}
-                      </button>
-                    ))}
-                  </div>
+<Label>Formato</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {FORMAT_OPTIONS.map((f) => (
+                          <Button
+                            key={f.v}
+                            type="button"
+                            variant={tournament.format === f.v ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setTournament((t) => ({ ...t, format: f.v }))}
+                          >
+                            {f.l}
+                          </Button>
+                        ))}
+                      </div>
                 </div>
                 <div className="grid gap-1.5 sm:col-span-2">
                   <Label htmlFor="t-rules">Reglamento resumido</Label>

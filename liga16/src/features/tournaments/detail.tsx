@@ -163,7 +163,7 @@ export default function TournamentDetailPage() {
       <header className="space-y-3 rounded-2xl border bg-gradient-to-br from-card to-muted/30 p-6 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{tournament.name}</h1>
-          <Badge className={tournament.status === "registration_open" ? "bg-emerald-600" : undefined}>
+          <Badge variant={tournament.status === "registration_open" ? "default" : "secondary"}>
             {tournamentStatusLabel[tournament.status]}
           </Badge>
         </div>

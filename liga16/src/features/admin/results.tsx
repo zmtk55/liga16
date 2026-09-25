@@ -194,7 +194,7 @@ export default function AdminResults() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingId(m.id)}>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingId(m.id)} aria-label={`Editar resultado de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}>
                       Editar
                     </Button>
                   </TableCell>
@@ -395,7 +395,7 @@ function MatchEditDialog({
                 <span className="font-mono font-medium">{scorePreview}</span>
               </div>
               {winner ? (
-                <Badge className="bg-emerald-600">
+                <Badge variant="default">
                   Ganador: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
                 </Badge>
               ) : (

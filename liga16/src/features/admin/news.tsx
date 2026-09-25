@@ -124,8 +124,8 @@ export default function AdminNews() {
                   <TableCell><Badge variant="secondary">{n.tag}</Badge></TableCell>
                   <TableCell className="hidden sm:table-cell">{formatDate(n.published_at)}</TableCell>
                   <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(n); setOpenCreate(true); }}>Editar</Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(n)}><Trash2 className="h-3.5 w-3.5" /></Button>
+<Button variant="ghost" size="sm" onClick={() => { setEditing(n); setOpenCreate(true); }} aria-label={`Editar ${n.title}`}>Editar</Button>
+                     <Button variant="ghost" size="sm" onClick={() => handleDelete(n)} aria-label={`Eliminar ${n.title}`}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </TableCell>
                 </TableRow>
               ))}

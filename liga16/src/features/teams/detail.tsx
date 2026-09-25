@@ -142,7 +142,7 @@ export default function TeamDetailPage() {
                   <p className="text-sm tracking-widest text-white/60 uppercase">{team.city} · Categoría {team.division}</p>
                   <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">{team.name}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge className="bg-white text-black hover:bg-white">#{team.position || "—"} de la categoría</Badge>
+                    <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{team.position || "—"} de la categoría</Badge>
                     <Badge variant="outline" className="border-white/20 text-white">{team.division} · {sexLabel(team.sex)}</Badge>
                     {streak && (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs backdrop-blur">
