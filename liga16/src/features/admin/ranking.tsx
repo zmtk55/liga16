@@ -31,7 +31,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function AdminRanking() {
   const [list, setList] = useState<RankingEntry[] | null>(null);
@@ -139,9 +145,22 @@ export default function AdminRanking() {
                   <TableCell className={`text-right ${r.delta > 0 ? "text-emerald-600" : r.delta < 0 ? "text-red-500" : ""}`}>
                     {r.delta === 0 ? "—" : r.delta > 0 ? `+${r.delta}` : r.delta}
                   </TableCell>
-                  <TableCell className="text-right space-x-1">
-<Button variant="ghost" size="sm" onClick={() => { setEditing(r); setOpenCreate(true); }} aria-label={`Editar ${r.player_name}`}>Editar</Button>
-                     <Button variant="ghost" size="sm" onClick={() => handleDelete(r)} aria-label={`Eliminar ${r.player_name}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <TableCell className="pr-2 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${r.player_name}`}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => { setEditing(r); setOpenCreate(true); }}>
+                          <Pencil className="h-4 w-4" /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDelete(r)} className="text-destructive focus:text-destructive">
+                          <Trash2 className="h-4 w-4" /> Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}

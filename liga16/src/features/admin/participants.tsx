@@ -34,7 +34,20 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/u
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FolderInput, MoveRight, Trash2 } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { FolderInput, MoreHorizontal, Trash2 } from "lucide-react";
 
 interface AllPair {
   id: UUID;
@@ -223,31 +236,53 @@ export default function AdminParticipants() {
                 </TableRow>
               )}
               {filtered.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="pl-4 font-medium">{p.name}</TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {p.tournament_name ? (
-                      <Badge variant="outline">{p.tournament_name}</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {p.category_id ? (
-                      <Badge variant="secondary">{p.category_name ?? catNameById.get(p.category_id) ?? "—"}</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Sin categoría</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="pr-4 text-right space-x-1">
-                    <Button variant="ghost" size="sm" onClick={() => openMove(p)} aria-label={`Mover ${p.name}`}>
-                      <MoveRight className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setDeleting(p)} aria-label={`Eliminar ${p.name}`}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                <ContextMenu key={p.id}>
+                  <ContextMenuTrigger asChild>
+                    <TableRow className="cursor-context-menu">
+                      <TableCell className="pl-4 font-medium">{p.name}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {p.tournament_name ? (
+                          <Badge variant="outline">{p.tournament_name}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {p.category_id ? (
+                          <Badge variant="secondary">{p.category_name ?? catNameById.get(p.category_id) ?? "—"}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sin categoría</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="pr-2 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${p.name}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openMove(p)}>
+                              <FolderInput className="h-4 w-4" /> Mover a otro torneo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setDeleting(p)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="h-4 w-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => openMove(p)}>
+                      <FolderInput className="h-4 w-4" /> Mover a otro torneo
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => setDeleting(p)} className="text-destructive focus:text-destructive">
+                      <Trash2 className="h-4 w-4" /> Eliminar pareja
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
             </TableBody>
           </Table>

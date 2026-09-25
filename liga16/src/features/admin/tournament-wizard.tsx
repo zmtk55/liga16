@@ -868,19 +868,20 @@ export default function TournamentWizard() {
                       reader.readAsDataURL(file);
                     }}
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => document.getElementById("logo-nuevo")?.click()}
-                    className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background transition-colors hover:border-primary/60"
+                    className="h-12 w-12 shrink-0 overflow-hidden p-1"
                     aria-label="Subir logo del equipo"
                     title="Subir logo"
                   >
                     {draft.logo ? (
-                      <img src={draft.logo} alt="" className="h-full w-full object-contain p-1" />
+                      <img src={draft.logo} alt="" className="h-full w-full object-contain" />
                     ) : (
                       <ImagePlus className="h-5 w-5 text-muted-foreground" />
                     )}
-                  </button>
+                  </Button>
                   <div className="min-w-0 flex-1 grid gap-3 sm:grid-cols-2">
                     <PlayerSlot
                       label="Jugador 1"

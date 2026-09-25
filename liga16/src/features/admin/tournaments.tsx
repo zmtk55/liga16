@@ -14,7 +14,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { tournamentStatusLabel } from "@/lib/format";
-import { Plus, Trash2 } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ExternalLink, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -131,27 +145,61 @@ export default function AdminTournaments() {
                 </TableRow>
               )}
               {filtered.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="pl-4 font-medium">
-                    <Link to={`/admin/torneos/${t.slug}`} className="hover:underline">{t.name}</Link>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">{t.club_name ?? t.city}</TableCell>
-                  <TableCell><Badge variant="outline">{tournamentStatusLabel[t.status]}</Badge></TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground text-xs">
-                    {t.start_date} → {t.end_date}
-                  </TableCell>
-                  <TableCell className="pr-4 text-right space-x-1">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/admin/torneos/${t.slug}`}>Abrir</Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/admin/torneos/${t.slug}/editar`}>Editar</Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setDeleting(t)} aria-label={`Eliminar ${t.name}`}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                <ContextMenu key={t.id}>
+                  <ContextMenuTrigger asChild>
+                    <TableRow className="cursor-context-menu">
+                      <TableCell className="pl-4 font-medium">
+                        <Link to={`/admin/torneos/${t.slug}`} className="hover:underline">{t.name}</Link>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{t.club_name ?? t.city}</TableCell>
+                      <TableCell><Badge variant="outline">{tournamentStatusLabel[t.status]}</Badge></TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-xs">
+                        {t.start_date} → {t.end_date}
+                      </TableCell>
+                      <TableCell className="pr-2 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${t.name}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link to={`/admin/torneos/${t.slug}`}>
+                                <ExternalLink className="h-4 w-4" /> Abrir
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to={`/admin/torneos/${t.slug}/editar`}>
+                                <Pencil className="h-4 w-4" /> Editar
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setDeleting(t)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="h-4 w-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem asChild>
+                      <Link to={`/admin/torneos/${t.slug}`}>
+                        <ExternalLink className="h-4 w-4" /> Abrir
+                      </Link>
+                    </ContextMenuItem>
+                    <ContextMenuItem asChild>
+                      <Link to={`/admin/torneos/${t.slug}/editar`}>
+                        <Pencil className="h-4 w-4" /> Editar
+                      </Link>
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => setDeleting(t)} className="text-destructive focus:text-destructive">
+                      <Trash2 className="h-4 w-4" /> Eliminar torneo
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
             </TableBody>
           </Table>

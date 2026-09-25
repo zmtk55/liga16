@@ -32,7 +32,13 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 
@@ -207,9 +213,22 @@ export default function AdminPlayers() {
                   <TableCell>{p.declared_level.toFixed(1)}</TableCell>
                   <TableCell className="hidden md:table-cell">{sexLabel(p.sex)}</TableCell>
                   <TableCell className="hidden md:table-cell">{{ right: "Diestro", left: "Zurdo", both: "Ambidiestro" }[p.dominant_hand]}</TableCell>
-                  <TableCell className="text-right space-x-1">
-<Button variant="ghost" size="sm" onClick={() => { setEditing(p); setOpenCreate(true); }} aria-label={`Editar ${p.display_name}`}>Editar</Button>
-                     <Button variant="ghost" size="sm" onClick={() => handleDelete(p)} aria-label={`Eliminar ${p.display_name}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <TableCell className="pr-2 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${p.display_name}`}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => { setEditing(p); setOpenCreate(true); }}>
+                          <Pencil className="h-4 w-4" /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDelete(p)} className="text-destructive focus:text-destructive">
+                          <Trash2 className="h-4 w-4" /> Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}

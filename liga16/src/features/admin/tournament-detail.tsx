@@ -67,6 +67,7 @@ import {
 import type { Court } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 
 function SortablePair({
@@ -87,15 +88,17 @@ function SortablePair({
         isDragging ? "opacity-60 shadow-lg" : ""
       }`}
     >
-      <button
+      <Button
         type="button"
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 cursor-grab touch-none text-muted-foreground hover:text-foreground"
         aria-label="Arrastrar para mover"
         {...attributes}
         {...listeners}
       >
         <GripVertical className="h-4 w-4" />
-      </button>
+      </Button>
       <span className="flex-1 truncate">{name}</span>
       {onRemove && (
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove} aria-label="Quitar equipo">
@@ -963,16 +966,17 @@ return (
                                       const done = m.status === "finished" && m.winner;
                                       return (
                                         <td key={c} className="px-2 py-1.5">
-                                          <button
+                                          <Button
                                             type="button"
+                                            variant={done ? "secondary" : "outline"}
+                                            className="w-full flex-col items-start gap-0.5 px-2.5 py-1.5 text-left text-xs hover:border-primary/40 hover:bg-muted/40"
                                             onClick={() => setEditingMatchId(m.id)}
-                                            className={`w-full rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors hover:border-primary/40 hover:bg-muted/40 ${done ? "bg-emerald-50 dark:bg-emerald-950/40" : "bg-card"}`}
                                           >
-                                            <span className={`block truncate font-medium ${done ? "line-through decoration-border" : ""}`}>
+                                            <span className={`block max-w-full truncate font-normal ${done ? "line-through decoration-border" : ""}`}>
                                               {m.side_a.pair_name} vs {m.side_b.pair_name}
                                             </span>
-                                            <span className="text-[10px] text-muted-foreground">{m.round}{done ? ` · ${m.sets.map((s) => `${s.a}-${s.b}`).join(" ")}` : ""}</span>
-                                          </button>
+                                            <span className="block max-w-full truncate text-[10px] font-normal text-muted-foreground">{m.round}{done ? ` · ${m.sets.map((s) => `${s.a}-${s.b}`).join(" ")}` : ""}</span>
+                                          </Button>
                                         </td>
                                       );
                                     })}
@@ -1360,10 +1364,10 @@ function MatchResultDialog({
             </div>
             <div className="grid gap-1.5">
               <Label className="text-xs">Fecha y hora</Label>
-              <Input
-                type="datetime-local"
+              <DateTimePicker
                 value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
+                onChange={(v) => setScheduledAt(v ?? "")}
+                ariaLabel="Fecha y hora del partido"
               />
             </div>
           </div>

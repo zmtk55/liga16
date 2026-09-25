@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import type { MatchStatus } from "@/types";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { DateTimePicker } from "@/components/ui/date-picker";
 import {
   determineMatchWinner,
   formatMatchScore,
@@ -341,7 +342,11 @@ function MatchEditDialog({
             </div>
             <div className="grid gap-1.5">
               <Label>Fecha y hora</Label>
-              <Input type="datetime-local" value={form.scheduled_at} onChange={(e) => update("scheduled_at", e.target.value)} />
+              <DateTimePicker
+                value={form.scheduled_at}
+                onChange={(v) => update("scheduled_at", v ?? "")}
+                ariaLabel="Fecha y hora del partido"
+              />
             </div>
           </div>
 

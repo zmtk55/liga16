@@ -34,7 +34,13 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -293,13 +299,22 @@ export default function AdminTeams() {
                       <TableCell className="hidden md:table-cell text-muted-foreground">
                         {[p1, p2].filter(Boolean).join(" · ") || "—"}
                       </TableCell>
-                      <TableCell className="pr-4 text-right space-x-1">
-                        <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setOpenCreate(true); }} aria-label={`Editar ${p.name}`}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setDeleting(p)} aria-label={`Eliminar ${p.name}`}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
+                      <TableCell className="pr-2 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${p.name}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => { setEditing(p); setOpenCreate(true); }}>
+                              <Pencil className="h-4 w-4" /> Editar equipo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setDeleting(p)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="h-4 w-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );

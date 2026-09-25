@@ -105,13 +105,16 @@ export default function LoginPage() {
                   minLength={6}
                   className="pr-10"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -122,17 +125,18 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-muted-foreground">
             {mode === "login" ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?"}{" "}
-            <button
+            <Button
               type="button"
+              variant="link"
+              className="h-auto p-0 font-medium"
               onClick={() => {
                 setMode(mode === "login" ? "register" : "login");
                 setError(null);
                 setSuccess(null);
               }}
-              className="font-medium text-primary hover:underline"
             >
               {mode === "login" ? "Regístrate" : "Inicia sesión"}
-            </button>
+            </Button>
           </p>
 
           <p className="text-center text-xs text-muted-foreground">
