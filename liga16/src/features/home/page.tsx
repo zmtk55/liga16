@@ -9,6 +9,7 @@ import {
   Clock,
   Sparkles,
   Flame,
+  Users2,
 } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Match, NewsItem, Sponsor, Team, Tournament, RankingEntry } from "@/types";
@@ -88,7 +89,7 @@ export default function Home() {
         {/* 16 fantasma: el dorsal de la liga */}
         <span
           aria-hidden
-          className="pointer-events-none absolute -right-6 -top-14 select-none font-display text-[16rem] leading-none text-white/[0.04] md:-right-10 md:text-[24rem]"
+          className="pointer-events-none absolute -right-6 -top-14 select-none font-display text-[10rem] leading-none text-white/[0.04] sm:text-[16rem] md:-right-10 md:text-[24rem]"
         >
           16
         </span>
@@ -109,11 +110,13 @@ export default function Home() {
             />
           </form>
 
-          <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-            <Flame className="h-3.5 w-3.5" />
-            {liveCount > 0 ? `${liveCount} partidos en juego ahora` : "Circuito de pádel por divisiones"}
+          <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary sm:tracking-[0.25em]">
+            <Flame className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0">
+              {liveCount > 0 ? `${liveCount} partidos en juego ahora` : "Circuito de pádel por divisiones"}
+            </span>
           </p>
-          <h1 className="max-w-3xl font-display text-5xl uppercase leading-[0.95] tracking-tight md:text-7xl">
+          <h1 className="max-w-3xl font-display text-[2.75rem] uppercase leading-[0.95] tracking-tight sm:text-6xl md:text-7xl">
             Tu nombre
             <br />
             <span className="text-primary">en el muro</span>{" "}
@@ -124,16 +127,38 @@ export default function Home() {
             gana partidos y sube de división.
           </p>
 
-          {/* Scoreboard: las cifras reales del circuito */}
+          {/* CTAs gamificados: competir o buscar tu lugar */}
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+            <Button asChild size="lg" className="h-12 w-full font-bold uppercase tracking-wide sm:w-auto">
+              <Link to="/torneos">
+                <Trophy className="h-4 w-4" /> Inscribirme a un torneo
+              </Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="h-12 w-full border-white/20 bg-white/5 font-bold uppercase tracking-wide text-white hover:bg-white/10 hover:text-white sm:w-auto"
+            >
+              <Link to="/ranking">
+                <Sparkles className="h-4 w-4" /> Ver mi ranking
+              </Link>
+            </Button>
+          </div>
+
+          {/* Scoreboard: las cifras reales del circuito, estilo marcador */}
           <dl className="mt-8 grid max-w-xl grid-cols-3 divide-x divide-white/10 rounded-xl border border-white/10 bg-white/[0.03]">
             {[
-              { k: "Jugadores rankeados", v: stats.rankings.length },
-              { k: "Parejas inscritas", v: stats.teams.length },
-              { k: "Torneos jugados", v: stats.tournaments.length },
+              { k: "En el ranking", v: stats.rankings.length, icon: Sparkles },
+              { k: "Parejas activas", v: stats.teams.length, icon: Users2 },
+              { k: "Torneos", v: stats.tournaments.length, icon: Trophy },
             ].map((s) => (
-              <div key={s.k} className="px-4 py-3 text-center md:px-6 md:text-left">
-                <dd className="font-display text-3xl tabular-nums md:text-4xl">{s.v}</dd>
-                <dt className="mt-0.5 text-[10px] uppercase tracking-widest text-white/50 md:text-xs">
+              <div key={s.k} className="px-3 py-3 text-center sm:px-4 md:px-6 md:text-left">
+                <dd className="flex items-center justify-center gap-1.5 font-display text-2xl tabular-nums sm:text-3xl md:justify-start md:text-4xl">
+                  <s.icon className="h-4 w-4 text-primary md:hidden" />
+                  {s.v}
+                </dd>
+                <dt className="mt-0.5 text-[9px] uppercase tracking-widest text-white/50 sm:text-[10px] md:text-xs">
                   {s.k}
                 </dt>
               </div>
@@ -142,7 +167,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── PRÓXIMO TORNEO: convocatoria ── */}
+      {/* ── PRÓXIMO TORNEO: convocatoria con póster ── */}
       {featured && (
         <section>
           <div className="mb-3 flex items-end justify-between">
@@ -159,22 +184,39 @@ export default function Home() {
             to={`/torneos/${featured.slug}`}
             className="group relative block overflow-hidden rounded-2xl bg-[#141414] text-white transition-shadow hover:shadow-xl"
           >
+            {/* Póster de fondo (subido por el organizador) o gradiente por formato */}
+            {featured.cover_url ? (
+              <>
+                <img
+                  src={featured.cover_url}
+                  alt=""
+                  aria-hidden
+                  className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-105"
+                />
+                <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/80 to-transparent" />
+              </>
+            ) : (
+              <div
+                aria-hidden
+                className="absolute inset-0 bg-gradient-to-br from-primary/25 via-transparent to-transparent"
+              />
+            )}
             <div aria-hidden className="absolute inset-y-0 left-0 w-1 bg-primary transition-all group-hover:w-1.5" />
-            <div className="relative grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8">
+            <div className="relative grid gap-5 p-5 sm:p-6 md:grid-cols-[1fr_auto] md:items-center md:gap-6 md:p-8">
               <div className="min-w-0">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary sm:text-xs sm:tracking-[0.25em]">
                   {featured.club_name ?? "Club Pádel Reforma"} · {featured.city}
                 </p>
-                <h3 className="font-display text-3xl uppercase leading-none md:text-5xl">
+                <h3 className="font-display text-2xl uppercase leading-none sm:text-3xl md:text-5xl">
                   {featured.name}
                 </h3>
                 <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/70">
                   <span className="flex items-center gap-1.5">
-                    <CalendarDays className="h-4 w-4 text-primary" />
+                    <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
                     {formatMatchDateTime(featured.start_date)}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Trophy className="h-4 w-4 text-primary" />
+                    <Trophy className="h-4 w-4 shrink-0 text-primary" />
                     {formatLabel[featured.format] ?? featured.format}
                   </span>
                   <span className="font-mono tabular-nums">
@@ -186,9 +228,9 @@ export default function Home() {
                   </span>
                 </p>
               </div>
-              <div className="flex items-center gap-3 md:flex-col md:items-end">
+              <div className="flex items-center justify-between gap-3 max-sm:pt-1 md:flex-col md:items-end">
                 {featured.status === "registration_open" ? (
-                  <Badge variant="default" className="bg-emerald-600 animate-pulse">
+                  <Badge variant="default" className="animate-pulse bg-emerald-600">
                     Inscripciones abiertas
                   </Badge>
                 ) : (
@@ -196,8 +238,11 @@ export default function Home() {
                     Próximamente
                   </Badge>
                 )}
-                <span className="inline-flex items-center gap-2 text-sm font-bold text-white transition-colors group-hover:text-primary">
-                  Ver torneo <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-transform group-hover:scale-105 max-sm:hidden">
+                  Inscribir mi pareja <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-primary sm:hidden">
+                  Inscribirme <ArrowRight className="h-4 w-4" />
                 </span>
               </div>
             </div>
@@ -238,17 +283,17 @@ export default function Home() {
                 return (
                   <div
                     key={m.id}
-                    className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:border-primary/30 hover:bg-muted/50"
+                    className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:border-primary/30 hover:bg-muted/50 sm:gap-3 sm:p-3"
                   >
-                    <div className="flex -space-x-2">
+                    <div className="hidden -space-x-2 sm:flex">
                       {aNames.slice(0, 2).map((n, i) => (
                         <Avatar key={i} className="h-8 w-8 border-2 border-background">
                           <AvatarFallback className="text-xs">{initialsOf(n)}</AvatarFallback>
                         </Avatar>
                       ))}
                     </div>
-                    <span className="text-xs font-medium text-muted-foreground">vs</span>
-                    <div className="flex -space-x-2">
+                    <span className="hidden text-xs font-medium text-muted-foreground sm:inline">vs</span>
+                    <div className="hidden -space-x-2 sm:flex">
                       {bNames.slice(0, 2).map((n, i) => (
                         <Avatar key={i} className="h-8 w-8 border-2 border-background">
                           <AvatarFallback className="text-xs">{initialsOf(n)}</AvatarFallback>

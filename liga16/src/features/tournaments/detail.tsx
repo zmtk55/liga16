@@ -160,13 +160,35 @@ export default function TournamentDetailPage() {
         </Link>
       </Button>
 
-      <header className="space-y-3 rounded-2xl border bg-gradient-to-br from-card to-muted/30 p-6 md:p-8">
-        <div className="flex flex-wrap items-center gap-2">
+      <header className="overflow-hidden rounded-2xl border bg-gradient-to-br from-card to-muted/30">
+        {tournament.cover_url && (
+          <div className="relative">
+            <img
+              src={tournament.cover_url}
+              alt={tournament.name}
+              className="aspect-video max-h-72 w-full object-cover md:max-h-96"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            <Badge
+              variant={tournament.status === "registration_open" ? "default" : "secondary"}
+              className="absolute left-4 top-4 shadow-md"
+            >
+              {tournamentStatusLabel[tournament.status]}
+            </Badge>
+          </div>
+        )}
+        <div className="space-y-3 p-6 md:p-8">
+        {!tournament.cover_url && (
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{tournament.name}</h1>
+            <Badge variant={tournament.status === "registration_open" ? "default" : "secondary"}>
+              {tournamentStatusLabel[tournament.status]}
+            </Badge>
+          </div>
+        )}
+        {tournament.cover_url && (
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{tournament.name}</h1>
-          <Badge variant={tournament.status === "registration_open" ? "default" : "secondary"}>
-            {tournamentStatusLabel[tournament.status]}
-          </Badge>
-        </div>
+        )}
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <span className="flex items-center gap-1.5 font-medium">
             <CalendarDays className="h-4 w-4 text-primary" />
@@ -196,6 +218,7 @@ export default function TournamentDetailPage() {
             <p className="text-xs text-muted-foreground">{tournament.rules_summary}</p>
           </div>
         )}
+        </div>
       </header>
 
       <div className="grid gap-4 md:grid-cols-2">

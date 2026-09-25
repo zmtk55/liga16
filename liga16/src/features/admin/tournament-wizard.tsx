@@ -162,6 +162,7 @@ export default function TournamentWizard() {
   const [tournamentId, setTournamentId] = useState<string | null>(null);
   const [tournament, setTournament] = useState({
     name: "",
+    cover_url: null as string | null,
     start_date: addDays(new Date().toISOString().split("T")[0], 14),
     end_date: addDays(new Date().toISOString().split("T")[0], 16),
     registration_deadline: addDays(new Date().toISOString().split("T")[0], 7),
@@ -271,6 +272,7 @@ export default function TournamentWizard() {
         setTournament((prev) => ({
           ...prev,
           name: t.name,
+          cover_url: t.cover_url ?? null,
           start_date: t.start_date,
           end_date: t.end_date,
           registration_deadline: t.registration_deadline,
@@ -382,7 +384,7 @@ export default function TournamentWizard() {
     if (target >= 2 && !tournamentId) {
         const payload = {
           name: tournament.name,
-          cover_url: null,
+          cover_url: tournament.cover_url,
           club_id: null,
           city: club.city,
           state: club.state,
@@ -775,6 +777,17 @@ export default function TournamentWizard() {
                   <Label htmlFor="t-name">Nombre</Label>
                   <Input id="t-name" value={tournament.name} onChange={(e) => setTournament((t) => ({ ...t, name: e.target.value }))} placeholder="Copa Liga16 Apertura 2026" />
                 </div>
+                {/* Póster del torneo: aparece en cards públicas, home y detalle */}
+                <div className="sm:col-span-2">
+                  <Label>Póster del torneo</Label>
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Imagen 16:9 (1200×675 recomendado). Se muestra en la landing, el listado de torneos y el detalle.
+                  </p>
+                  <CoverUpload
+                    value={tournament.cover_url}
+                    onChange={(v) => setTournament((t) => ({ ...t, cover_url: v }))}
+                  />
+                </div>
                 <div className="grid gap-1.5">
                   <Label>Inicio</Label>
                   <DatePicker id="t-start" value={tournament.start_date} onChange={(v) => setTournament((t) => ({ ...t, start_date: v ?? t.start_date }))} />
@@ -1121,6 +1134,70 @@ export default function TournamentWizard() {
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Póster 16:9 del torneo: click para subir, con preview y opción de quitar. */
+function CoverUpload({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  function pick(file: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onChange(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+  return (
+    <div className="space-y-2">
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(e) => pick(e.target.files?.[0] ?? null)}
+      />
+      {value ? (
+        <div className="group relative overflow-hidden rounded-xl border">
+          <img src={value} alt="Póster del torneo" className="aspect-video w-full object-cover" />
+          <div className="absolute right-2 top-2 flex gap-1.5">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => ref.current?.click()}
+            >
+              Cambiar
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onChange(null)}
+              aria-label="Quitar póster"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => ref.current?.click()}
+          className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-muted/30 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+          aria-label="Subir póster del torneo"
+        >
+          <ImagePlus className="h-8 w-8" />
+          <span className="text-sm font-medium">Subir póster del torneo</span>
+          <span className="text-xs">JPG o PNG · 16:9 se ve mejor</span>
+        </button>
+      )}
     </div>
   );
 }
