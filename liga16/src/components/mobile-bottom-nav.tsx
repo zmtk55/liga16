@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Home, Trophy, Users, BarChart3, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,28 @@ function buzz() {
 export function MobileBottomNav() {
   const { pathname } = useLocation();
   const [liveCount, setLiveCount] = useState(0);
+  // La nav se esconde al bajar y reaparece al subir: nunca tapa el contenido
+  const [hidden, setHidden] = useState(false);
+  const lastY = useRef(0);
+
+  useEffect(() => {
+    lastY.current = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - lastY.current;
+      // Umbral para evitar parpadeo con micro-scrolls
+      if (delta > 6 && y > 80) setHidden(true);
+      else if (delta < -6) setHidden(false);
+      lastY.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Al cambiar de ruta la nav vuelve a ser visible
+  useEffect(() => {
+    setHidden(false);
+  }, [pathname]);
 
   // Badge EN VIVO en la pestaña Agenda (solo móvil; polling suave)
   useEffect(() => {
@@ -46,7 +68,14 @@ export function MobileBottomNav() {
   }, []);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden" aria-label="Navegación principal">
+    <nav
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-out md:hidden",
+        hidden ? "pointer-events-none translate-y-full" : "translate-y-0",
+      )}
+      aria-label="Navegación principal"
+      aria-hidden={hidden}
+    >
       <div className="mx-auto max-w-md px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {/* Píldora flotante con borde luminoso y sombra profunda */}
         <ul className="flex items-stretch justify-between gap-0.5 rounded-2xl border border-white/10 bg-[#141414]/95 p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-lg">
