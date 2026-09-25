@@ -136,7 +136,7 @@ export default function AdminClubs() {
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary" className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {club.city}, {club.state}</Badge>
               <Badge variant="outline" className="flex items-center gap-1"><Phone className="h-3 w-3" /> {club.phone ?? "Sin teléfono"}</Badge>
-              <Badge className="bg-emerald-600 text-white">Activo</Badge>
+              <Badge variant="default">Activo</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">

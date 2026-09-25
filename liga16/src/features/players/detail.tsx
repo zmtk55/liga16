@@ -157,7 +157,7 @@ export default function PlayerDetailPage() {
                     <span className="text-white">{player.display_name.split(" ").slice(1).join(" ") || player.display_name}</span>
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge className="bg-white text-black hover:bg-white">#{ranking?.position ?? "—"} Liga16</Badge>
+                    <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{ranking?.position ?? "—"} Liga16</Badge>
                     <Badge variant="outline" className="border-white/20 text-white">{sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}</Badge>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs backdrop-blur">
                       <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> {jev.racha.label}

@@ -66,7 +66,7 @@ export default function ClubsPage() {
               {club.phone && (
                 <Badge variant="outline" className="flex items-center gap-1"><Phone className="h-3 w-3" /> {club.phone}</Badge>
               )}
-              <Badge className="bg-emerald-600 text-white">Activo</Badge>
+              <Badge variant="default">Activo</Badge>
             </div>
           </div>
         </div>
