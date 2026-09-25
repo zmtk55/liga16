@@ -1,41 +1,99 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import {
   ArrowRight,
   CalendarDays,
-  Search,
-  Trophy,
   ChevronRight,
   Clock,
-  Sparkles,
   Flame,
-  Users2,
+  MapPin,
 } from "lucide-react";
 import { db } from "@/lib/data";
-import type { Match, NewsItem, Sponsor, Team, Tournament, RankingEntry } from "@/types";
+import type { Match, NewsItem, RankingEntry, Sponsor, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { tierLabel, formatLabel, formatMatchDateTime } from "@/lib/format";
 
+const HERO_IMAGE = "/images/hero-padel.jpg";
+
+type HomeData = {
+  tournaments: Tournament[];
+  teams: Team[];
+  matches: Match[];
+  news: NewsItem[];
+  sponsors: Sponsor[];
+  rankings: RankingEntry[];
+};
+
 function initialsOf(name: string) {
-  return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  to,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  to: string;
+  action: string;
+}) {
+  return (
+    <div className="mb-4 flex items-end justify-between gap-4">
+      <div>
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.24em] text-primary">
+          {eyebrow}
+        </p>
+        <h2 className="font-display text-3xl uppercase leading-none tracking-tight sm:text-4xl">
+          {title}
+        </h2>
+      </div>
+      <Button asChild variant="ghost" size="sm" className="shrink-0 rounded-none px-1">
+        <Link to={to}>
+          {action} <ChevronRight className="ml-1 h-3.5 w-3.5" />
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
+function PairMark({ team }: { team: Team }) {
+  if (team.crest_url) {
+    return (
+      <img
+        src={team.crest_url}
+        alt=""
+        className="h-full w-full object-contain"
+      />
+    );
+  }
+
+  return (
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#141414] text-white">
+      <span className="absolute -right-5 -top-12 font-display text-[11rem] leading-none text-white/[0.07]">
+        16
+      </span>
+      <span className="relative font-display text-6xl uppercase leading-none text-primary sm:text-7xl">
+        {initialsOf(team.name.replace("/", " "))}
+      </span>
+      <span className="absolute bottom-3 left-4 text-[9px] font-bold uppercase tracking-[0.28em] text-white/45">
+        Liga16
+      </span>
+    </div>
+  );
 }
 
 export default function Home() {
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [stats, setStats] = useState<{
-    tournaments: Tournament[];
-    teams: Team[];
-    matches: Match[];
-    news: NewsItem[];
-    sponsors: Sponsor[];
-    rankings: RankingEntry[];
-  } | null>(null);
+  const [stats, setStats] = useState<HomeData | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -54,24 +112,22 @@ export default function Home() {
     };
   }, []);
 
-  const topPlayers = useMemo(() => stats?.rankings.slice(0, 5) ?? [], [stats]);
-
-  function onSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const q = searchQuery.trim();
-    navigate(q ? `/jugadores?q=${encodeURIComponent(q)}` : "/jugadores");
-  }
+  const topPlayers = useMemo(() => stats?.rankings.slice(0, 3) ?? [], [stats]);
+  const featuredTeam = useMemo(() => {
+    if (!stats) return null;
+    return [...stats.teams].sort(
+      (a, b) => b.titles - a.titles || b.won - a.won || a.position - b.position,
+    )[0] ?? null;
+  }, [stats]);
 
   if (!stats) {
     return (
-      <div className="space-y-8">
-        <Skeleton className="h-[420px] w-full rounded-2xl" />
-        <div className="grid gap-4 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-56 w-full" />
-          ))}
+      <div className="space-y-6">
+        <Skeleton className="h-[620px] w-full rounded-b-[2rem]" />
+        <div className="grid gap-5 lg:grid-cols-5">
+          <Skeleton className="h-[420px] rounded-2xl lg:col-span-3" />
+          <Skeleton className="h-[420px] rounded-2xl lg:col-span-2" />
         </div>
-        <Skeleton className="h-72 w-full" />
       </div>
     );
   }
@@ -81,85 +137,105 @@ export default function Home() {
   );
   const featured = openTournaments[0] ?? stats.tournaments[0];
   const liveCount = stats.matches.filter((m) => m.status === "live").length;
+  const featuredMatch =
+    stats.matches.find((m) => m.status === "live") ??
+    stats.matches.find((m) => m.status === "scheduled") ??
+    stats.matches[0];
+  const activityMatches = stats.matches
+    .filter((m) => m.id !== featuredMatch?.id)
+    .slice(0, 2);
+  const featuredIsOpen = featured?.status === "registration_open";
 
   return (
-    <div className="space-y-14">
-      {/* ── HERO PÓSTER ── */}
-      <section className="relative -mx-4 -mt-8 overflow-hidden bg-[#141414] text-white md:-mx-6 md:rounded-b-[2rem]">
-        {/* 16 fantasma: el dorsal de la liga */}
+    <div className="space-y-16 md:space-y-20">
+      {/* HERO — una sola composición, sin dashboard */}
+      <section className="relative -mx-4 -mt-8 min-h-[620px] overflow-hidden bg-[#111] text-white md:-mx-6 md:rounded-b-[2rem]">
+        <img
+          src={featured?.cover_url || HERO_IMAGE}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-[62%_center] opacity-75 grayscale contrast-125"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/15" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
+        <div className="absolute inset-0 bg-primary/20 mix-blend-color" />
         <span
           aria-hidden
-          className="pointer-events-none absolute -right-6 -top-14 select-none font-display text-[10rem] leading-none text-white/[0.04] sm:text-[16rem] md:-right-10 md:text-[24rem]"
+          className="pointer-events-none absolute -bottom-14 -right-8 select-none font-display text-[13rem] leading-none text-white/[0.08] sm:text-[18rem] md:-right-4 md:text-[25rem]"
         >
           16
         </span>
-        {/* línea de orbe: la franja del circuito */}
-        <div aria-hidden className="absolute inset-x-0 top-0 h-1 bg-primary" />
 
-        <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6 md:pb-14 md:pt-10">
-          <Button asChild variant="ghost" size="sm" className="sr-only">
-            <Link to="/">Ir al inicio</Link>
-          </Button>
-          <form onSubmit={onSearch} className="relative mb-8 max-w-md">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-            <Input
-              placeholder="Busca tu nombre en el ranking…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-11 border-white/15 bg-white/5 pl-11 text-base text-white placeholder:text-white/40 focus-visible:ring-primary/50"
-            />
-          </form>
-
-          <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary sm:tracking-[0.25em]">
-            <Flame className="h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0">
-              {liveCount > 0 ? `${liveCount} partidos en juego ahora` : "Circuito de pádel por divisiones"}
-            </span>
-          </p>
-          <h1 className="max-w-3xl font-display text-[2.75rem] uppercase leading-[0.95] tracking-tight sm:text-6xl md:text-7xl">
-            Tu nombre
-            <br />
-            <span className="text-primary">en el muro</span>{" "}
-            de campeones
-          </h1>
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 md:text-base">
-            Liga16 rankea a las parejas del circuito semana a semana. Inscríbete al próximo torneo,
-            gana partidos y sube de división.
-          </p>
-
-          {/* CTAs gamificados: competir o buscar tu lugar */}
-          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-            <Button asChild size="lg" className="h-12 w-full font-bold uppercase tracking-wide sm:w-auto">
-              <Link to="/torneos">
-                <Trophy className="h-4 w-4" /> Inscribirme a un torneo
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="h-12 w-full border-white/20 bg-white/5 font-bold uppercase tracking-wide text-white hover:bg-white/10 hover:text-white sm:w-auto"
-            >
-              <Link to="/ranking">
-                <Sparkles className="h-4 w-4" /> Ver mi ranking
-              </Link>
-            </Button>
+        <div className="relative mx-auto flex min-h-[620px] max-w-7xl flex-col justify-between px-4 pb-7 pt-8 md:px-8 md:pb-8 md:pt-10">
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.24em] text-white/70 sm:text-xs">
+              <Flame className="h-3.5 w-3.5 text-primary" />
+              {liveCount > 0
+                ? `${liveCount} ${liveCount === 1 ? "partido en vivo" : "partidos en vivo"}`
+                : "Circuito de pádel"}
+            </p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
+              Ciudad de México
+            </p>
           </div>
 
-          {/* Scoreboard: las cifras reales del circuito, estilo marcador */}
-          <dl className="mt-8 grid max-w-xl grid-cols-3 divide-x divide-white/10 rounded-xl border border-white/10 bg-white/[0.03]">
+          <div className="max-w-3xl pb-7 pt-20 sm:pb-10 sm:pt-28">
+            <h1 className="font-display text-[4.25rem] uppercase leading-[0.82] tracking-[-0.035em] sm:text-[7rem] md:text-[9rem]">
+              Pádel
+              <br />
+              <span className="text-primary">en juego.</span>
+            </h1>
+
+            {featured && (
+              <div className="mt-7 border-l-2 border-primary pl-4 sm:mt-9 sm:pl-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+                  Próximo torneo
+                </p>
+                <p className="mt-1 max-w-xl text-lg font-semibold leading-tight sm:text-2xl">
+                  {featured.name}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button
+                asChild
+                size="lg"
+                className="h-12 w-full rounded-none px-6 font-bold uppercase tracking-wide sm:w-auto"
+              >
+                <Link to={featured ? `/torneos/${featured.slug}` : "/torneos"}>
+                  {featuredIsOpen ? "Ver inscripción" : "Ver torneo"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Link
+                to="/torneos"
+                className="inline-flex h-12 items-center justify-center border-b border-white/25 text-sm font-semibold uppercase tracking-wide text-white/75 transition-colors hover:border-white hover:text-white sm:justify-start"
+              >
+                Todos los torneos
+              </Link>
+            </div>
+          </div>
+
+          <dl className="grid grid-cols-3 border-y border-white/15 bg-black/15 backdrop-blur-sm">
             {[
-              { k: "En el ranking", v: stats.rankings.length, icon: Sparkles },
-              { k: "Parejas activas", v: stats.teams.length, icon: Users2 },
-              { k: "Torneos", v: stats.tournaments.length, icon: Trophy },
-            ].map((s) => (
-              <div key={s.k} className="px-3 py-3 text-center sm:px-4 md:px-6 md:text-left">
-                <dd className="flex items-center justify-center gap-1.5 font-display text-2xl tabular-nums sm:text-3xl md:justify-start md:text-4xl">
-                  <s.icon className="h-4 w-4 text-primary md:hidden" />
-                  {s.v}
+              { label: "Parejas", value: stats.teams.length },
+              { label: "Torneos", value: stats.tournaments.length },
+              {
+                label: "Sede",
+                value: featured?.city ?? stats.tournaments[0]?.city ?? "CDMX",
+              },
+            ].map((item, index) => (
+              <div
+                key={item.label}
+                className={`px-3 py-3 sm:px-5 sm:py-4 ${
+                  index > 0 ? "border-l border-white/15" : ""
+                }`}
+              >
+                <dd className="truncate font-display text-xl uppercase sm:text-3xl">
+                  {item.value}
                 </dd>
-                <dt className="mt-0.5 text-[9px] uppercase tracking-widest text-white/50 sm:text-[10px] md:text-xs">
-                  {s.k}
+                <dt className="mt-1 text-[8px] font-bold uppercase tracking-[0.22em] text-white/45 sm:text-[10px]">
+                  {item.label}
                 </dt>
               </div>
             ))}
@@ -167,263 +243,332 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── PRÓXIMO TORNEO: convocatoria con póster ── */}
+      {/* PRÓXIMO TORNEO — póster */}
       {featured && (
         <section>
-          <div className="mb-3 flex items-end justify-between">
-            <h2 className="font-display text-2xl uppercase tracking-tight md:text-3xl">
-              {featured.status === "registration_open" ? "Convocatoria abierta" : "Próximo en el circuito"}
-            </h2>
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/torneos">
-                Todos los torneos <ChevronRight className="ml-1 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
+          <SectionHeading
+            eyebrow="En agenda"
+            title="Próximo torneo"
+            to="/torneos"
+            action="Ver todos"
+          />
           <Link
             to={`/torneos/${featured.slug}`}
-            className="group relative block overflow-hidden rounded-2xl bg-[#141414] text-white transition-shadow hover:shadow-xl"
+            className="group grid min-h-[390px] overflow-hidden rounded-2xl bg-[#141414] text-white md:grid-cols-[0.9fr_1.1fr]"
           >
-            {/* Póster de fondo (subido por el organizador) o gradiente por formato */}
-            {featured.cover_url ? (
-              <>
-                <img
-                  src={featured.cover_url}
-                  alt=""
-                  aria-hidden
-                  className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-105"
-                />
-                <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/80 to-transparent" />
-              </>
-            ) : (
-              <div
-                aria-hidden
-                className="absolute inset-0 bg-gradient-to-br from-primary/25 via-transparent to-transparent"
-              />
-            )}
-            <div aria-hidden className="absolute inset-y-0 left-0 w-1 bg-primary transition-all group-hover:w-1.5" />
-            <div className="relative grid gap-5 p-5 sm:p-6 md:grid-cols-[1fr_auto] md:items-center md:gap-6 md:p-8">
-              <div className="min-w-0">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary sm:text-xs sm:tracking-[0.25em]">
-                  {featured.club_name ?? "Club Pádel Reforma"} · {featured.city}
-                </p>
-                <h3 className="font-display text-2xl uppercase leading-none sm:text-3xl md:text-5xl">
+            <div className="flex flex-col justify-between p-6 sm:p-8 lg:p-10">
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center bg-primary font-display text-xl">
+                    16
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
+                    Liga16
+                    <br />
+                    Torneo oficial
+                  </span>
+                </div>
+                <h3 className="mt-9 max-w-xl font-display text-4xl uppercase leading-[0.92] tracking-tight sm:text-5xl lg:text-6xl">
                   {featured.name}
                 </h3>
-                <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/70">
-                  <span className="flex items-center gap-1.5">
-                    <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+              </div>
+
+              <div className="mt-10">
+                <div className="mb-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/65">
+                  <span className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-primary" />
                     {formatMatchDateTime(featured.start_date)}
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <Trophy className="h-4 w-4 shrink-0 text-primary" />
-                    {formatLabel[featured.format] ?? featured.format}
+                  <span className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    {featured.club_name ?? featured.city}
                   </span>
-                  <span className="font-mono tabular-nums">
-                    {(featured.price_cents / 100).toLocaleString("es-MX", {
-                      style: "currency",
-                      currency: featured.currency,
-                    })}{" "}
-                    por pareja
-                  </span>
-                </p>
-              </div>
-              <div className="flex items-center justify-between gap-3 max-sm:pt-1 md:flex-col md:items-end">
-                {featured.status === "registration_open" ? (
-                  <Badge variant="default" className="animate-pulse bg-emerald-600">
-                    Inscripciones abiertas
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="border-white/20 text-white/80">
-                    Próximamente
-                  </Badge>
-                )}
-                <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-transform group-hover:scale-105 max-sm:hidden">
-                  Inscribir mi pareja <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-primary sm:hidden">
-                  Inscribirme <ArrowRight className="h-4 w-4" />
+                </div>
+                <span className="inline-flex items-center gap-2 border-b border-primary pb-1 text-sm font-bold uppercase tracking-wide">
+                  {featuredIsOpen ? "Inscripciones abiertas" : "Ver convocatoria"}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </span>
               </div>
             </div>
+
+            {featured.cover_url ? (
+              <div className="relative min-h-72 overflow-hidden border-t border-white/10 md:border-l md:border-t-0">
+                <img
+                  src={featured.cover_url}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
+              </div>
+            ) : (
+              <div className="relative min-h-72 overflow-hidden bg-primary md:border-l md:border-white/10">
+                <span className="absolute -bottom-16 -right-3 font-display text-[19rem] leading-none text-black/[0.13]">
+                  16
+                </span>
+                <span className="absolute left-8 top-8 text-[10px] font-bold uppercase tracking-[0.3em] text-black/55">
+                  Ciudad de México
+                </span>
+                <div className="absolute inset-y-0 left-[34%] w-px rotate-[18deg] bg-black/20" />
+                <div className="absolute inset-y-0 left-[54%] w-px rotate-[18deg] bg-black/20" />
+                <div className="absolute inset-y-0 left-[74%] w-px rotate-[18deg] bg-black/20" />
+                <p className="absolute bottom-7 left-7 right-7 font-display text-3xl uppercase leading-none text-black/75 sm:text-4xl">
+                  {formatLabel[featured.format] ?? featured.format}
+                  <br />
+                  <span className="text-black/45">Temporada 26/27</span>
+                </p>
+              </div>
+            )}
           </Link>
         </section>
       )}
 
-      {/* ── AGENDA + ACTIVIDAD ── */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarDays className="h-4 w-4 text-primary" /> Siguientes partidos
-            </CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/calendario">
-                Ver agenda <ChevronRight className="ml-1 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {(() => {
-              const next = stats.matches
-                .filter((m) => m.status === "live" || m.status === "scheduled")
-                .slice(0, 5);
-              const list = next.length ? next : stats.matches.slice(0, 4);
-              if (list.length === 0) {
-                return (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
-                    No hay partidos agendados. Los próximos torneos definen el calendario.
+      {/* PAREJA + TOP 3 — dos piezas, no más tarjetas */}
+      <section className="grid gap-8 lg:grid-cols-5 lg:gap-5">
+        {featuredTeam && (
+          <div className="lg:col-span-3">
+            <SectionHeading
+              eyebrow="Pareja destacada"
+              title="En dupla"
+              to={`/equipos/${featuredTeam.slug}`}
+              action="Ver pareja"
+            />
+            <Link
+              to={`/equipos/${featuredTeam.slug}`}
+              className="group grid min-h-[390px] overflow-hidden rounded-2xl bg-primary text-primary-foreground sm:grid-cols-[0.85fr_1.15fr]"
+            >
+              <div className="min-h-64 border-b border-black/15 sm:border-b-0 sm:border-r">
+                <PairMark team={featuredTeam} />
+              </div>
+              <div className="flex flex-col justify-between p-6 sm:p-8">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-black/50">
+                    {featuredTeam.division} · Ciudad de México
                   </p>
-                );
-              }
-              return list.map((m) => {
-                const aNames = m.side_a.pair_name.split("/").map((s) => s.trim());
-                const bNames = m.side_b.pair_name.split("/").map((s) => s.trim());
-                const isLive = m.status === "live";
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:border-primary/30 hover:bg-muted/50 sm:gap-3 sm:p-3"
-                  >
-                    <div className="hidden -space-x-2 sm:flex">
-                      {aNames.slice(0, 2).map((n, i) => (
-                        <Avatar key={i} className="h-8 w-8 border-2 border-background">
-                          <AvatarFallback className="text-xs">{initialsOf(n)}</AvatarFallback>
-                        </Avatar>
-                      ))}
-                    </div>
-                    <span className="hidden text-xs font-medium text-muted-foreground sm:inline">vs</span>
-                    <div className="hidden -space-x-2 sm:flex">
-                      {bNames.slice(0, 2).map((n, i) => (
-                        <Avatar key={i} className="h-8 w-8 border-2 border-background">
-                          <AvatarFallback className="text-xs">{initialsOf(n)}</AvatarFallback>
-                        </Avatar>
-                      ))}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {m.side_a.pair_name} vs {m.side_b.pair_name}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {m.tournament_name} · {m.round}
-                        {m.court_name ? ` · ${m.court_name}` : ""}
-                      </p>
-                    </div>
-                    {isLive ? (
-                      <Badge variant="destructive" className="animate-pulse">
-                        EN VIVO
-                      </Badge>
-                    ) : (
-                      <span className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:flex">
-                        <Clock className="h-3 w-3" />
-                        {m.scheduled_at ? formatMatchDateTime(m.scheduled_at) : "Por definir"}
-                      </span>
-                    )}
-                  </div>
-                );
-              });
-            })()}
-          </CardContent>
-        </Card>
-
-        {/* Top jugadores */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Trophy className="h-4 w-4 text-primary" /> Top del circuito
-            </CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/ranking">Ranking</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {topPlayers.map((p) => (
-              <div
-                key={p.player_id}
-                className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50"
-              >
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center font-display text-lg ${
-                    p.position === 1
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-primary/10 text-primary"
-                  }`}
-                >
-                  {p.position}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{p.player_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {p.points.toLocaleString("es-MX")} pts · {p.won} victorias
-                  </p>
+                  <h3 className="mt-4 font-display text-4xl uppercase leading-[0.94] sm:text-5xl">
+                    {featuredTeam.name}
+                  </h3>
                 </div>
-                {p.delta !== 0 && (
+                <div className="mt-10">
+                  <div className="grid grid-cols-2 gap-4 border-y border-black/20 py-4">
+                    <div>
+                      <p className="font-display text-4xl">{featuredTeam.won}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/55">
+                        Victorias
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-display text-4xl">{featuredTeam.titles}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/55">
+                        Títulos
+                      </p>
+                    </div>
+                  </div>
+                  <span className="mt-5 inline-flex items-center text-sm font-bold uppercase tracking-wide">
+                    Ver perfil
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        )}
+
+        <div className="lg:col-span-2">
+          <SectionHeading
+            eyebrow="Clasificación"
+            title="Top 3"
+            to="/ranking"
+            action="Ver todo"
+          />
+          <div className="grid min-h-[390px] grid-cols-2 gap-2 overflow-hidden rounded-2xl bg-muted p-2">
+            {topPlayers.map((player, index) => (
+              <Link
+                key={player.player_id}
+                to={`/jugadores/${player.player_id}`}
+                className={`group flex flex-col justify-between overflow-hidden rounded-xl p-4 transition-transform hover:-translate-y-0.5 sm:p-5 ${
+                  index === 0
+                    ? "col-span-2 min-h-44 bg-[#141414] text-white"
+                    : "min-h-36 bg-card text-foreground"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
                   <span
-                    className={`shrink-0 font-mono text-xs tabular-nums ${
-                      p.delta > 0 ? "text-emerald-600" : "text-red-500"
+                    className={`font-display text-5xl leading-none ${
+                      index === 0 ? "text-primary" : "text-primary/35"
                     }`}
                   >
-                    {p.delta > 0 ? "▲" : "▼"}
-                    {Math.abs(p.delta)}
+                    {String(player.position).padStart(2, "0")}
                   </span>
+                  <ChevronRight className="h-4 w-4 opacity-35 transition-transform group-hover:translate-x-1" />
+                </div>
+                <div className="mt-6">
+                  <p
+                    className={`font-semibold leading-tight ${
+                      index === 0 ? "text-xl sm:text-2xl" : "text-base"
+                    }`}
+                  >
+                    {player.player_name}
+                  </p>
+                  <p
+                    className={`mt-1 text-[10px] font-bold uppercase tracking-[0.15em] ${
+                      index === 0 ? "text-white/45" : "text-muted-foreground"
+                    }`}
+                  >
+                    {player.city} · {player.won} victorias
+                  </p>
+                </div>
+              </Link>
+            ))}
+            {topPlayers.length === 0 && (
+              <p className="col-span-2 self-center p-8 text-center text-sm text-muted-foreground">
+                La clasificación estará disponible muy pronto.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* CANCHA — un partido protagonista, no una tabla de partidos */}
+      {featuredMatch && (
+        <section>
+          <SectionHeading
+            eyebrow={featuredMatch.status === "live" ? "En vivo" : "En la cancha"}
+            title="Ahora en juego"
+            to="/calendario"
+            action="Ver agenda"
+          />
+          <div className="grid overflow-hidden rounded-2xl bg-[#141414] text-white lg:grid-cols-[1.45fr_0.55fr]">
+            <div className="p-6 sm:p-8 lg:p-10">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+                  {featuredMatch.tournament_name} · {featuredMatch.round}
+                </p>
+                {featuredMatch.status === "live" && (
+                  <Badge className="animate-pulse rounded-none bg-primary text-[10px] uppercase tracking-widest">
+                    En vivo
+                  </Badge>
                 )}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </section>
+              <div className="mt-9 grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-8">
+                <p className="text-lg font-semibold leading-tight sm:text-2xl">
+                  {featuredMatch.side_a.pair_name}
+                </p>
+                <span className="font-display text-xl text-primary sm:text-3xl">VS</span>
+                <p className="text-right text-lg font-semibold leading-tight sm:text-2xl">
+                  {featuredMatch.side_b.pair_name}
+                </p>
+              </div>
+              <p className="mt-8 font-mono text-sm tabular-nums text-white/55">
+                {featuredMatch.sets.length > 0
+                  ? featuredMatch.sets.map((set) => `${set.a}–${set.b}`).join("   /   ")
+                  : "Por comenzar"}
+              </p>
+            </div>
 
-      {/* ── NOTICIAS + PATROCINADORES ── */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between py-3">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Sparkles className="h-4 w-4 text-primary" /> Noticias del circuito
-            </CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/noticias">Ver todo</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {stats.news.slice(0, 3).map((n) => (
-              <div
-                key={n.id}
-                className="flex gap-3 rounded-lg border p-2.5 transition-colors hover:bg-muted/40"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Sparkles className="h-4 w-4" />
+            <div className="border-t border-white/10 lg:border-l lg:border-t-0">
+              {activityMatches.map((match) => (
+                <div
+                  key={match.id}
+                  className="flex min-h-28 flex-col justify-center border-b border-white/10 p-5 last:border-b-0 sm:p-6"
+                >
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35">
+                    {match.tournament_name}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-snug">
+                    {match.side_a.pair_name} vs {match.side_b.pair_name}
+                  </p>
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-white/45">
+                    <Clock className="h-3 w-3" />
+                    {match.scheduled_at
+                      ? formatMatchDateTime(match.scheduled_at)
+                      : "Por definir"}
+                  </p>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium leading-tight">{n.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{n.excerpt}</p>
+              ))}
+              {activityMatches.length === 0 && (
+                <div className="flex min-h-28 items-center p-6 text-sm text-white/45">
+                  La agenda del circuito aparecerá aquí.
                 </div>
-                <Badge variant="outline" className="h-fit text-xs">
-                  {n.tag}
-                </Badge>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* NOTICIAS — imágenes cuando existan, marca editorial cuando no */}
+      {stats.news.length > 0 && (
+        <section>
+          <SectionHeading
+            eyebrow="Del circuito"
+            title="Últimas noticias"
+            to="/noticias"
+            action="Ver todas"
+          />
+          <div className="grid gap-5 md:grid-cols-3">
+            {stats.news.slice(0, 3).map((item) => (
+              <article key={item.id} className="group border-t-2 border-foreground pt-3">
+                <div className="relative mb-4 aspect-[16/9] overflow-hidden rounded-xl bg-muted">
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <div className="relative h-full w-full overflow-hidden bg-neutral-900 text-white">
+                      <span className="absolute -bottom-8 -right-1 font-display text-[9rem] leading-none text-primary/35">
+                        16
+                      </span>
+                      <span className="absolute left-4 top-4 text-[9px] font-bold uppercase tracking-[0.24em] text-white/45">
+                        Liga16
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-primary">
+                    {item.tag}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {new Date(item.published_at).getFullYear()}
+                  </span>
+                </div>
+                <h3 className="text-lg font-semibold leading-tight">{item.title}</h3>
+                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                  {item.excerpt}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Patrocinadores como créditos, no como dashboard */}
+      {stats.sponsors.length > 0 && (
+        <section className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
+            Con el apoyo de
+          </p>
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
+            {stats.sponsors.map((sponsor) => (
+              <div key={sponsor.id} className="flex items-center gap-2">
+                {sponsor.logo_url ? (
+                  <img
+                    src={sponsor.logo_url}
+                    alt={sponsor.name}
+                    className="h-7 w-auto max-w-28 object-contain"
+                  />
+                ) : (
+                  <span className="text-sm font-bold tracking-tight">{sponsor.name}</span>
+                )}
+                <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {tierLabel[sponsor.tier]}
+                </span>
               </div>
             ))}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-muted/30">
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm">Patrocinadores</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {stats.sponsors.slice(0, 4).map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between rounded-lg border bg-card p-2.5"
-              >
-                <span className="text-sm font-semibold">{s.name}</span>
-                <Badge variant="outline" className="text-xs">
-                  {tierLabel[s.tier]}
-                </Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </section>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
