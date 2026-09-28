@@ -9,6 +9,7 @@ import { PlayerAvatar } from "@/components/cards/card-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, TrendingUp } from "lucide-react";
+import { PageHero } from "@/components/page-hero";
 
 const handLabel: Record<PlayerProfile["dominant_hand"], string> = {
   right: "Diestro",
@@ -58,13 +59,22 @@ export default function PlayersPage() {
   }, [players, query]);
 
   return (
-    <section className="animate-fade-in space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Jugadores</h1>
-        <p className="text-muted-foreground">Directorio de jugadores del padel Reforma</p>
-      </header>
+    <div className="animate-fade-in space-y-8">
+      <PageHero
+        eyebrow="La comunidad"
+        title="Jugadores"
+        subtitle="El directorio del circuito: nivel, puntos y rumbo al muro de campeones."
+        ghost="16"
+        stats={[
+          { k: "Jugadores", v: players?.length ?? "…" },
+          { k: "Rankeados", v: rankings?.length ?? "…" },
+          { k: "En búsqueda", v: query.trim() ? filtered.length : "—" },
+        ]}
+      />
 
-      <Input placeholder="Buscar por nombre…" value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-sm" />
+      <div className="relative z-10 -mt-4">
+        <Input placeholder="Buscar por nombre…" value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-sm" />
+      </div>
 
       {players === null ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -134,6 +144,6 @@ export default function PlayersPage() {
           })}
         </div>
       )}
-    </section>
+    </div>
   );
 }

@@ -13,33 +13,199 @@ function client() {
 
 // Mapea una fila de la tabla `teams` (columnas normalizadas) al tipo Team.
 function slugifyName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
-/** Convierte una fila de `pairs` (equipos por torneo) al tipo Team que consume la UI. */
-function pairToTeam(row: Record<string, unknown>, categoryName: string | null): Team {
-  const name = row.name as string;
-  const [p1 = '', p2 = ''] = name.split('/').map((s) => s.trim());
-  return {
-    id: row.id as string,
-    slug: slugifyName(name),
-    name,
-    crest_url: null,
-    city: '',
-    club_id: null,
-    division: (categoryName as PadelDivision) || '4ta',
-    sex: 'X',
-    player1: p1 ? { player_id: (row.player1_id as string) ?? '', name: p1, level: 0 } : null,
-    player2: p2 ? { player_id: (row.player2_id as string) ?? '', name: p2, level: 0 } : null,
-    position: 0,
-    points: 0,
-    played: 0,
-    won: 0,
-    lost: 0,
-    sets_for: 0,
-    sets_against: 0,
-    titles: 0,
+const DIVISION_ORDER: PadelDivision[] = ['1ra', '2da', '3ra', '4ta', '5ta', '6ta', 'Novatos'];
+
+function divisionFromCategoryName(name: string | null | undefined): PadelDivision {
+  const n = (name ?? '').toLowerCase();
+  if (n.includes('novato')) return 'Novatos';
+  const m = n.match(/1ra|2da|3ra|4ta|5ta|6ta/);
+  return (m ? m[0] : '4ta') as PadelDivision;
+}
+
+function sexFromCategory(sex: string | null | undefined, name: string | null | undefined): Sex | null {
+  if (sex === 'M' || sex === 'F' || sex === 'X') return sex;
+  const n = (name ?? '').toLowerCase();
+  if (n.includes('femenil')) return 'F';
+  if (n.includes('varonil')) return 'M';
+  if (n.includes('mixto')) return 'X';
+  return null;
+}
+
+interface PairRow {
+  id: string;
+  name: string;
+  player1_id: string | null;
+  player2_id: string | null;
+  created_at: string | null;
+  tournament_categories: { id: string; name: string; sex: string | null } | null;
+  tournaments: { id: string; name: string; city: string | null } | null;
+}
+
+interface PairAcc {
+  played: number;
+  won: number;
+  lost: number;
+  sets_for: number;
+  sets_against: number;
+  points: number;
+}
+
+/**
+ * Construye los "equipos" públicos desde `pairs` (equipos POR TORNEO).
+ * Une perfiles reales (player_profiles) para niveles y links al dashboard,
+ * toma división/rama/sede de la categoría y torneo, y calcula récord,
+ * sets y puntos desde los partidos terminados.
+ */
+async function buildTeamsFromPairs(): Promise<Team[]> {
+  const [pairsRes, matchesRes] = await Promise.all([
+    client()
+      .from('pairs')
+      .select('id, name, category_id, player1_id, player2_id, created_at, tournament_categories(id, name, sex), tournaments(id, name, city)')
+      .order('created_at', { ascending: false }),
+    client()
+      .from('matches')
+      .select('id, status, winner, side_a_pair_id, side_b_pair_id, side_a_name, side_b_name, sets'),
+  ]);
+  if (pairsRes.error) throw pairsRes.error;
+  if (matchesRes.error) throw matchesRes.error;
+
+  const rows = (pairsRes.data ?? []) as unknown as PairRow[];
+
+  // Perfiles reales: niveles, ciudad y sexo de cada jugador
+  const playerIds = Array.from(
+    new Set(rows.flatMap((r) => [r.player1_id, r.player2_id]).filter(Boolean) as string[]),
+  );
+  const playersById = new Map<
+    string,
+    { display_name: string; city: string | null; sex: string | null; level: number }
+  >();
+  if (playerIds.length) {
+    const { data: profs, error: profErr } = await client()
+      .from('player_profiles')
+      .select('id, display_name, city, sex, declared_level, official_level')
+      .in('id', playerIds);
+    if (profErr) throw profErr;
+    for (const p of (profs ?? []) as Array<Record<string, unknown>>) {
+      playersById.set(p.id as string, {
+        display_name: (p.display_name as string) ?? '',
+        city: (p.city as string) ?? null,
+        sex: (p.sex as string) ?? null,
+        level:
+          typeof p.official_level === 'number'
+            ? p.official_level
+            : typeof p.declared_level === 'number'
+              ? p.declared_level
+              : 0,
+      });
+    }
+  }
+
+  // Récord por pareja desde partidos terminados (por pair_id, con fallback por nombre)
+  const finished = ((matchesRes.data ?? []) as Array<Record<string, unknown>>).filter(
+    (m) => m.status === 'finished' && m.winner,
+  );
+  const accFor = new Map<string, PairAcc>();
+  const getAcc = (row: PairRow): PairAcc => {
+    let acc = accFor.get(row.id);
+    if (acc) return acc;
+    acc = { played: 0, won: 0, lost: 0, sets_for: 0, sets_against: 0, points: 0 };
+    accFor.set(row.id, acc);
+    const myName = row.name.trim().toLowerCase();
+    for (const m of finished) {
+      const aId = (m.side_a_pair_id as string | null) ?? null;
+      const bId = (m.side_b_pair_id as string | null) ?? null;
+      const aName = String(m.side_a_name ?? '').trim().toLowerCase();
+      const bName = String(m.side_b_name ?? '').trim().toLowerCase();
+      const isA = aId === row.id || (!aId && aName === myName);
+      const isB = bId === row.id || (!bId && bName === myName);
+      if (!isA && !isB) continue;
+      acc.played++;
+      const won = isA ? m.winner === 'a' : m.winner === 'b';
+      if (won) acc.won++;
+      else acc.lost++;
+      const sets = (m.sets as Array<{ a?: number; b?: number }> | null) ?? [];
+      for (const s of sets) {
+        const my = isA ? (s.a ?? 0) : (s.b ?? 0);
+        const their = isA ? (s.b ?? 0) : (s.a ?? 0);
+        if (my > their) acc.sets_for++;
+        else if (their > my) acc.sets_against++;
+      }
+    }
+    acc.points = acc.won * 3;
+    return acc;
   };
+
+  // Construir equipos; la misma pareja puede estar en varios torneos: se deduplica por slug
+  const teams = new Map<string, Team>();
+  for (const row of rows) {
+    const slug = slugifyName(row.name);
+    if (teams.has(slug)) continue;
+    const acc = getAcc(row);
+    const catName = row.tournament_categories?.name ?? null;
+    const p1 = row.player1_id ? playersById.get(row.player1_id) : undefined;
+    const p2 = row.player2_id ? playersById.get(row.player2_id) : undefined;
+    const sexes = [p1?.sex, p2?.sex].filter(Boolean) as string[];
+    const sex =
+      sexFromCategory(row.tournament_categories?.sex, catName) ??
+      (sexes.length ? (sexes.every((s) => s === sexes[0]) ? (sexes[0] as Sex) : 'X') : 'X');
+    const city = row.tournaments?.city || p1?.city || p2?.city || '';
+    teams.set(slug, {
+      id: row.id,
+      slug,
+      name: row.name,
+      crest_url: null,
+      city,
+      club_id: null,
+      division: divisionFromCategoryName(catName),
+      sex,
+      player1: p1 ? { player_id: row.player1_id as string, name: p1.display_name, level: p1.level } : null,
+      player2: p2 ? { player_id: row.player2_id as string, name: p2.display_name, level: p2.level } : null,
+      position: 0,
+      points: acc.points,
+      played: acc.played,
+      won: acc.won,
+      lost: acc.lost,
+      sets_for: acc.sets_for,
+      sets_against: acc.sets_against,
+      titles: 0,
+    });
+  }
+
+  // Posición dentro de cada división+rama: puntos, desempate por diferencia de sets
+  const list = [...teams.values()];
+  const groups = new Map<string, Team[]>();
+  for (const t of list) {
+    const k = `${t.division}|${t.sex}`;
+    const g = groups.get(k) ?? [];
+    g.push(t);
+    groups.set(k, g);
+  }
+  for (const g of groups.values()) {
+    g.sort(
+      (a, b) =>
+        b.points - a.points ||
+        b.sets_for - b.sets_against - (a.sets_for - a.sets_against) ||
+        b.won - a.won,
+    );
+    g.forEach((t, i) => {
+      t.position = i + 1;
+    });
+  }
+  list.sort(
+    (a, b) =>
+      DIVISION_ORDER.indexOf(a.division) - DIVISION_ORDER.indexOf(b.division) ||
+      a.sex.localeCompare(b.sex) ||
+      a.position - b.position,
+  );
+  return list;
 }
 
 function teamFromRow(row: Record<string, unknown>): Team {
@@ -393,23 +559,12 @@ export const supabaseProvider: DataProvider = {
   },
 
   async listTeams() {
-    const { data, error } = await client()
-      .from('pairs').select('*, tournament_categories(name)');
-    if (error) throw error;
-    return (data ?? []).map((r: Record<string, unknown>) =>
-      pairToTeam(r, (r.tournament_categories as { name: string } | null)?.name ?? null),
-    ) as never;
+    return (await buildTeamsFromPairs()) as never;
   },
 
   async getTeam(slug: string) {
-    const { data, error } = await client()
-      .from('pairs').select('*, tournament_categories(name)').limit(200);
-    if (error) throw error;
-    const found = (data ?? []).find(
-      (r: Record<string, unknown>) => slugifyName(r.name as string) === slug,
-    );
-    if (!found) return null;
-    return pairToTeam(found, (found.tournament_categories as { name: string } | null)?.name ?? null) as never;
+    const teams = await buildTeamsFromPairs();
+    return (teams.find((t) => t.slug === slug) ?? null) as never;
   },
 
   async createTeam(data: Omit<import('@/types').Team, 'id' | 'slug'>) {

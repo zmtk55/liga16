@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
 import { formatMatchDateTime, initials, sexLabel, winRate } from "@/lib/format";
 
 const TeamCompareChart = lazy(() => import("./compare-chart").then((m) => ({ default: m.TeamCompareChart })));
@@ -176,12 +176,12 @@ export default function TeamDetailPage() {
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
                   <p className="text-xs text-white/50">Récord</p>
                   <p className="text-lg font-black tabular-nums">{team.won} – {team.lost} <span className="text-xs font-normal text-white/60">/ {team.played} PJ</span></p>
-                  <p className="text-xs text-white/50">{setStats.sf}–{setStats.sa} sets ({setStats.diff >= 0 ? "+" : ""}{setStats.diff})</p>
+                  <p className="text-xs text-white/50">{winRatePct}% de efectividad</p>
                 </div>
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Títulos</p>
-                  <p className="text-2xl font-black flex items-center gap-1"><Trophy className="h-5 w-5 text-amber-400" /> {team.titles}</p>
-                  <p className="text-xs text-white/50">Circuito</p>
+                  <p className="text-xs text-white/50">Sets</p>
+                  <p className="text-2xl font-black tabular-nums">{setStats.sf}–{setStats.sa}</p>
+                  <p className="text-xs text-white/50">Diferencia {setStats.diff >= 0 ? "+" : ""}{setStats.diff}</p>
                 </div>
               </div>
 

@@ -101,7 +101,7 @@ describe("Liga16 Scoring Algorithm", () => {
       }, "b");
 
       // Stats para equipo 2 (lado A, perdió)
-      const stats2 = computePairStatsLiga16("eq2", 2, "Equipo 2", [match], {});
+      const stats2 = computePairStatsLiga16("eq2", 2, "Equipo 2", [match]);
       expect(stats2.PJ).toBe(1);
       expect(stats2.PG).toBe(0);
       expect(stats2.RENDIMIENTO_PG).toBe(0);
@@ -114,7 +114,7 @@ describe("Liga16 Scoring Algorithm", () => {
       expect(stats2.RENDIMIENTO_PTS).toBeCloseTo(0.46511627906976744, 10);
 
       // Stats para equipo 3 (lado B, ganó)
-      const stats3 = computePairStatsLiga16("eq3", 3, "Equipo 3", [match], {});
+      const stats3 = computePairStatsLiga16("eq3", 3, "Equipo 3", [match]);
       expect(stats3.PJ).toBe(1);
       expect(stats3.PG).toBe(1);
       expect(stats3.RENDIMIENTO_PG).toBe(1);
@@ -130,7 +130,7 @@ describe("Liga16 Scoring Algorithm", () => {
         tiebreak: { a: 3, b: 10 },
       }, "b");
 
-      const stats3 = computePairStatsLiga16("eq3", 3, "Equipo 3", [match], {});
+      const stats3 = computePairStatsLiga16("eq3", 3, "Equipo 3", [match]);
       expect(stats3.PJ).toBe(1);
       expect(stats3.PG).toBe(0);
       expect(stats3.RENDIMIENTO_PG).toBe(0);
@@ -138,7 +138,7 @@ describe("Liga16 Scoring Algorithm", () => {
       // 12/31 = 0.387096... ✓
       expect(stats3.RENDIMIENTO_PTS).toBeCloseTo(0.3870967741935484, 10);
 
-      const stats5 = computePairStatsLiga16("eq5", 5, "Equipo 5", [match], {});
+      const stats5 = computePairStatsLiga16("eq5", 5, "Equipo 5", [match]);
       expect(stats5.PJ).toBe(1);
       expect(stats5.PG).toBe(1);
       expect(stats5.RENDIMIENTO_PG).toBe(1);
@@ -154,7 +154,7 @@ describe("Liga16 Scoring Algorithm", () => {
         tiebreak: null,
       }, "a");
 
-      const stats4 = computePairStatsLiga16("eq4", 4, "Equipo 4", [match], {});
+      const stats4 = computePairStatsLiga16("eq4", 4, "Equipo 4", [match]);
       expect(stats4.PJ).toBe(1);
       expect(stats4.PG).toBe(1);
       expect(stats4.RENDIMIENTO_PG).toBe(1);
@@ -162,7 +162,7 @@ describe("Liga16 Scoring Algorithm", () => {
       // 12/15 = 0.8 ✓
       expect(stats4.RENDIMIENTO_PTS).toBeCloseTo(0.8, 10);
 
-      const stats5 = computePairStatsLiga16("eq5", 5, "Equipo 5", [match], {});
+      const stats5 = computePairStatsLiga16("eq5", 5, "Equipo 5", [match]);
       expect(stats5.PJ).toBe(1);
       expect(stats5.PG).toBe(0);
       expect(stats5.RENDIMIENTO_PG).toBe(0);
@@ -172,7 +172,7 @@ describe("Liga16 Scoring Algorithm", () => {
     });
 
     it("Equipo sin partidos: PJ=0, PG=0, RENDIMIENTO=null, JERARQUIA=0", () => {
-      const stats = computePairStatsLiga16("eq1", 1, "Equipo 1", [], {});
+      const stats = computePairStatsLiga16("eq1", 1, "Equipo 1", []);
       expect(stats.PJ).toBe(0);
       expect(stats.PG).toBe(0);
       expect(stats.RENDIMIENTO_PG).toBeNull();

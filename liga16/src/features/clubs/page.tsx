@@ -8,6 +8,7 @@ import type { Club } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHero } from "@/components/page-hero";
 
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<Club[] | null>(null);
@@ -30,24 +31,30 @@ export default function ClubsPage() {
 
   if (!club) {
     return (
-      <section className="space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Sede</h1>
-          <p className="text-muted-foreground">La sede oficial de Liga16</p>
-        </header>
+      <div className="space-y-6">
+        <PageHero
+          eyebrow="Casa del circuito"
+          title="Sede"
+          subtitle="La sede oficial de Liga16"
+        />
         <p className="text-sm text-muted-foreground">Aún no hay sede configurada.</p>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Sede</h1>
-        <p className="text-muted-foreground">
-          La sede oficial de Liga16
-        </p>
-      </header>
+    <div className="space-y-8">
+      <PageHero
+        eyebrow="Casa del circuito"
+        title="Sede"
+        subtitle={club.description ?? "La sede oficial de Liga16"}
+        ghost="16"
+        stats={[
+          { k: "Ciudad", v: club.city || "—" },
+          { k: "Estado", v: club.state || "—" },
+          { k: "Canchas", v: "8" },
+        ]}
+      />
 
       {/* Hero banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/5 to-background px-6 py-8 md:px-10 md:py-12 animate-slide-up">
@@ -118,6 +125,6 @@ export default function ClubsPage() {
           </CardContent>
         </Card>
       </div>
-    </section>
+    </div>
   );
 }

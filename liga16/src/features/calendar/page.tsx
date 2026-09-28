@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PageHero } from "@/components/page-hero";
 import { Clock, MapPin, Radio } from "lucide-react";
 import { formatMatchScore } from "@/lib/scoring";
 import { formatMatchDateTime, initials } from "@/lib/format";
@@ -32,14 +33,21 @@ export default function CalendarPage() {
   const agenda = [...live, ...upcoming].slice(0, 8);
 
   return (
-    <section className="animate-fade-in space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Agenda</h1>
-        <p className="text-muted-foreground">Próximos partidos y partidos en juego</p>
-      </header>
+    <div className="animate-fade-in space-y-8">
+      <PageHero
+        eyebrow="Agenda"
+        title="Calendario"
+        subtitle="Próximos partidos y duelos en juego, hora por hora."
+        ghost="16"
+        stats={[
+          { k: "En juego", v: live.length },
+          { k: "Programados", v: upcoming.length },
+          { k: "Sedes", v: new Set(matches.map((m) => m.tournament_name).filter(Boolean)).size },
+        ]}
+      />
 
       {live.length > 0 && (
-        <div className="flex items-center gap-2">
+        <div className="relative z-10 -mt-4 flex items-center gap-2">
           <Badge variant="destructive" className="animate-pulse"><Radio className="mr-1 h-3 w-3" /> {live.length} en vivo</Badge>
           <span className="text-xs text-muted-foreground">Actualizado ahora</span>
         </div>
@@ -102,6 +110,6 @@ export default function CalendarPage() {
           })
         )}
       </div>
-    </section>
+    </div>
   );
 }

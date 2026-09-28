@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
 import { TournamentCard } from "@/components/cards/resource-card";
+import { PageHero } from "@/components/page-hero";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -36,16 +37,23 @@ export default function TournamentsPage() {
     );
   }, [tournaments, status, format]);
 
-  return (
-    <section className="animate-fade-in space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Torneos</h1>
-        <p className="text-muted-foreground">
-          Calendario del circuito — inscríbete en las fechas abiertas
-        </p>
-      </header>
+  const abiertos = tournaments?.filter((t) => t.status === "registration_open").length ?? 0;
 
-      <div className="flex flex-wrap gap-2">
+  return (
+    <div className="animate-fade-in space-y-8">
+      <PageHero
+        eyebrow="Calendario"
+        title="Torneos"
+        subtitle="Las fechas del circuito. Inscripciones abiertas, sedes y formatos de cada evento."
+        ghost="16"
+        stats={[
+          { k: "Torneos", v: tournaments?.length ?? "…" },
+          { k: "Inscripción abierta", v: abiertos },
+          { k: "Formatos", v: tournaments ? new Set(tournaments.map((t) => t.format)).size : "…" },
+        ]}
+      />
+
+      <div className="relative z-10 -mt-4 flex flex-wrap gap-2">
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-[220px]">
             <SelectValue placeholder="Estado" />
@@ -92,6 +100,6 @@ export default function TournamentsPage() {
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 }

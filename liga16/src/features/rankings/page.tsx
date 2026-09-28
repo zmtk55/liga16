@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
+import { PageHero } from "@/components/page-hero";
 import { Users } from "lucide-react";
 
 export default function RankingsPage() {
@@ -56,15 +57,20 @@ export default function RankingsPage() {
   }, [teams, division, sex]);
 
   return (
-    <section className="animate-fade-in space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Ranking</h1>
-        <p className="text-muted-foreground">
-          Clasificación oficial de parejas por división y rama
-        </p>
-      </header>
+    <div className="animate-fade-in space-y-8">
+      <PageHero
+        eyebrow="Clasificación oficial"
+        title="Ranking"
+        subtitle="Parejas ordenadas por puntos dentro de su división y rama. Gana partidos y sube."
+        ghost="16"
+        stats={[
+          { k: "Parejas", v: teams?.length ?? "…" },
+          { k: "División", v: division === "all" ? "Todas" : division },
+          { k: "Rama", v: sex === "all" ? "Todas" : sexLabel(sex) },
+        ]}
+      />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="relative z-10 -mt-4 flex flex-wrap gap-2">
         <Select value={division} onValueChange={setDivision}>
           <SelectTrigger className="w-[220px]">
             <SelectValue placeholder="División" />
@@ -155,6 +161,6 @@ export default function RankingsPage() {
           </CardContent>
         </Card>
       )}
-    </section>
+    </div>
   );
 }

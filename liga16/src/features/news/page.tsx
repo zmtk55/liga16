@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NewsThumbnail } from "@/components/cards/card-image";
+import { PageHero } from "@/components/page-hero";
 import { formatDate } from "@/lib/format";
 
 const tagColors: Record<string, "default" | "secondary" | "destructive" | "outline" | null | undefined> = {
@@ -32,13 +33,17 @@ export default function NewsPage() {
   }, []);
 
   return (
-    <section className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Noticias</h1>
-        <p className="text-muted-foreground">
-          Novedades y resultados del padel Reforma
-        </p>
-      </header>
+    <div className="animate-fade-in space-y-8">
+      <PageHero
+        eyebrow="Prensa del circuito"
+        title="Noticias"
+        subtitle="Novedades, resultados y las historias que mueven a Liga16."
+        ghost="16"
+        stats={[
+          { k: "Publicaciones", v: news?.length ?? "…" },
+          { k: "Última", v: news?.[0] ? formatDate(news[0].published_at) : "—" },
+        ]}
+      />
 
       {news === null ? (
         <div className="space-y-4">
@@ -70,6 +75,6 @@ export default function NewsPage() {
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 }
