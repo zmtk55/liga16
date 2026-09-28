@@ -1,5 +1,6 @@
 // Tests para validar el algoritmo Liga16 contra los casos de prueba del Excel
 import { describe, it, expect } from "vitest";
+import type { Match } from "@/types";
 import {
   countSetsWonLiga16,
   determineMatchWinnerLiga16,
@@ -17,7 +18,7 @@ function createMockMatch(
   sideBId: string,
   sets: Liga16MatchSets,
   winner: "a" | "b"
-) {
+): Match {
   return {
     id,
     tournament_id: "test",
@@ -35,7 +36,7 @@ function createMockMatch(
       ...(sets.tiebreak ? [{ a: 0, b: 0, tiebreak_a: sets.tiebreak.a, tiebreak_b: sets.tiebreak.b }] : []),
     ],
     winner,
-  } as any;
+  };
 }
 
 describe("Liga16 Scoring Algorithm", () => {
