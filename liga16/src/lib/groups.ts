@@ -167,7 +167,8 @@ export interface StandingRow {
   /** Para ranking_method = 'points_percentage' (Liga16) */
   pointsFor?: number;
   pointsTotal?: number;
-  pointsPercentage?: number;
+  /** `null` cuando el jugador no tiene puntos disputables; el ordenamiento lo trata aparte. */
+  pointsPercentage?: number | null;
   /** Posición estilo Excel RANK (1,1,3...) para points_percentage */
   jerarquia?: number;
 }
@@ -255,7 +256,7 @@ export function computeStandings(
   rows.forEach((r) => {
     r.form = r.form.slice(-5);
     if (rankingMethod === 'points_percentage') {
-      r.pointsPercentage = r.pointsTotal && r.pointsTotal > 0 ? r.pointsFor! / r.pointsTotal! : null as any;
+      r.pointsPercentage = r.pointsTotal && r.pointsTotal > 0 ? r.pointsFor! / r.pointsTotal! : null;
       // points se usa para sort descendente
       r.points = r.pointsPercentage ? Math.round(r.pointsPercentage * 10000) : 0;
     }
