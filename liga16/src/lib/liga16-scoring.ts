@@ -51,6 +51,16 @@ export const LIGA16_CATEGORIES: Record<Liga16Category, Liga16CategoryConfig> = {
   },
 };
 
+/** Mapea nombre de categoría del sistema a categoría Liga16 */
+export function getLiga16Category(catName: string): Liga16Category | null {
+  const name = catName.toLowerCase();
+  if (name.includes("4ta") || name.includes("cuarta")) return "4TA";
+  if (name.includes("5ta") || name.includes("quinta")) return "5TA";
+  if (name.includes("6ta") || name.includes("sexta")) return "6TA";
+  if (name.includes("suma 9") || name.includes("+9") || name.includes("suma9")) return "SUMA9";
+  return null;
+}
+
 /** SetScore específico para Liga16: set1, set2 y tiebreak opcional */
 export interface Liga16MatchSets {
   set1: { a: number; b: number };

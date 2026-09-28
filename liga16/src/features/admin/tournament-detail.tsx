@@ -47,7 +47,8 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { drawGroups, suggestGroupCount, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
-import { computeLiga16Standings, type Liga16Category } from "@/lib/liga16-scoring";
+import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
+import { DEFAULT_SCORING } from "@/lib/scoring";
 import { ensurePlayer } from "@/lib/players";
 import {
   Select,
@@ -72,16 +73,6 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { formatDateRange, formatLabel } from "@/lib/format";
-
-/** Mapea categorías del sistema a categorías Liga16 */
-function getLiga16Category(catName: string): Liga16Category | null {
-  const name = catName.toLowerCase();
-  if (name.includes("4ta") || name.includes("cuarta")) return "4TA";
-  if (name.includes("5ta") || name.includes("quinta")) return "5TA";
-  if (name.includes("6ta") || name.includes("sexta")) return "6TA";
-  if (name.includes("suma 9") || name.includes("+9") || name.includes("suma9")) return "SUMA9";
-  return null;
-}
 
 function SortablePair({
   id,
@@ -856,6 +847,7 @@ return (
                   nameById={nameById}
                   pairs={pairs ?? []}
                   categories={categories}
+                  tournament={tournament}
                 />
               ))}
             </div>
@@ -1412,12 +1404,14 @@ function GroupStandingsCard({
   nameById,
   pairs,
   categories,
+  tournament,
 }: {
   group: Group;
   matches: Match[];
   nameById: Record<string, string>;
   pairs: Pair[];
   categories: TournamentCategory[];
+  tournament: Tournament | null;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -1429,46 +1423,29 @@ function GroupStandingsCard({
     : "";
   const liga16Cat = getLiga16Category(catName);
 
-  // Usar algoritmo Liga16 si es categoría correspondiente, sino algoritmo genérico
-  let standings: Array<{ pairId: string; played: number; won: number; lost: number; setsFor: number; setsAgainst: number; gamesFor: number; gamesAgainst: number; points: number; form: Array<"G" | "P">; JERARQUIA?: number }> = [];
-  let isLiga16 = false;
-  let jornadaSummary: { JUEGOS_JUGADOS: number; TOTAL_JUEGOS: number; JUEGOS_FALTANTES: number } | null = null;
+  // Usar computeStandings unificado con el scoring del torneo
+  // Para categorías Liga16, forzar ranking_method = 'points_percentage'
+  const baseScoring = tournament?.scoring ?? undefined;
+  const effectiveScoring = liga16Cat
+    ? { ...DEFAULT_SCORING, ...baseScoring, ranking_method: 'points_percentage' as const }
+    : baseScoring;
 
-  if (liga16Cat) {
-    // Preparar datos para algoritmo Liga16
-    const liga16Pairs = group.pairIds.map((id, idx) => {
-      const p = pairs.find((pp) => pp.id === id);
-      return { id, number: p ? idx + 1 : idx + 1, name: nameById[id] ?? "?" };
-    });
-    const result = computeLiga16Standings(liga16Pairs, matches, liga16Cat);
-    standings = result.standings.map((s) => ({
-      pairId: s.pairId,
-      played: s.PJ,
-      won: s.PG,
-      lost: s.PJ - s.PG,
-      setsFor: 0, // No disponible en stats Liga16
-      setsAgainst: 0,
-      gamesFor: s.PUNTOS_A_FAVOR,
-      gamesAgainst: s.PUNTOS_TOTALES - s.PUNTOS_A_FAVOR,
-      points: Math.round((s.RENDIMIENTO_PTS ?? 0) * 10000), // Para ordenamiento
-      form: [], // No disponible en stats Liga16
-      JERARQUIA: s.JERARQUIA,
-    }));
-    isLiga16 = true;
-    jornadaSummary = result.jornada;
-  } else {
-    // Algoritmo genérico actual
-    const genericStandings = computeStandings(group.pairIds, matches, nameById);
-    standings = genericStandings.map((s) => ({
-      ...s,
-      JERARQUIA: 0,
-    }));
-  }
+  const standings = computeStandings(group.pairIds, matches, nameById, effectiveScoring);
 
   const groupMatches = matches.filter(
     (m) => group.pairIds.includes(m.side_a.pair_id ?? "") && group.pairIds.includes(m.side_b.pair_id ?? ""),
   );
   const played = groupMatches.filter((m) => m.status === "finished").length;
+
+  // Jornada summary solo para Liga16
+  const isLiga16 = liga16Cat !== null;
+  let jornadaSummary: { JUEGOS_JUGADOS: number; TOTAL_JUEGOS: number; JUEGOS_FALTANTES: number } | null = null;
+  if (isLiga16) {
+    const totalPJ = standings.reduce((sum, s) => sum + s.played, 0);
+    const JUEGOS_JUGADOS = Math.floor(totalPJ / 2);
+    const TOTAL_JUEGOS = LIGA16_CATEGORIES[liga16Cat!].totalMatchesRoundRobin;
+    jornadaSummary = { JUEGOS_JUGADOS, TOTAL_JUEGOS, JUEGOS_FALTANTES: TOTAL_JUEGOS - JUEGOS_JUGADOS };
+  }
 
   return (
     <Card>
@@ -1539,7 +1516,7 @@ function GroupStandingsCard({
             {standings.map((row, i) => {
               const difSets = row.setsFor - row.setsAgainst;
               const difGames = row.gamesFor - row.gamesAgainst;
-              const position = row.JERARQUIA ?? i + 1;
+              const position = row.jerarquia ?? i + 1;
               return (
                 <TableRow key={row.pairId} className={position === 1 ? "bg-primary/5" : ""}>
                   <TableCell className="pl-4 font-medium">{position}</TableCell>

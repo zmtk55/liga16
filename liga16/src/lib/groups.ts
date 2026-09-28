@@ -1,5 +1,5 @@
 // Liga16 — utilidades del sistema de grupos de un torneo
-import type { Match, UUID } from "@/types";
+import type { Match, UUID, TournamentScoring } from "@/types";
 
 export interface Group {
   name: string; // "Grupo A", "Grupo B"…
@@ -164,28 +164,36 @@ export interface StandingRow {
   points: number;
   /** Últimos 5 resultados: 'G' victoria, 'P' derrota (más reciente al final). */
   form: Array<"G" | "P">;
+  /** Para ranking_method = 'points_percentage' (Liga16) */
+  pointsFor?: number;
+  pointsTotal?: number;
+  pointsPercentage?: number;
+  /** Posición estilo Excel RANK (1,1,3...) para points_percentage */
+  jerarquia?: number;
 }
 
 /**
- * Tabla de posiciones de un grupo calculada desde los partidos terminados.
- * Orden: puntos (3 por victoria de partido), diferencia de sets, sets ganados.
+ * Tabla de posiciones unificada configurable por TournamentScoring.
+ * - ranking_method = 'match_points' (default): 3 pts/win, desempate por sets/games
+ * - ranking_method = 'points_percentage' (Liga16): % puntos (pts_favor/pts_total), RANK estilo Excel
  */
 export function computeStandings(
   pairIds: UUID[],
   matches: Match[],
   pairNameById: Record<string, string>,
+  scoring?: TournamentScoring,
 ): StandingRow[] {
+  const rankingMethod = scoring?.ranking_method ?? 'match_points';
+
   const rows = new Map<UUID, StandingRow>();
   pairIds.forEach((id) =>
-    rows.set(id, { pairId: id, played: 0, won: 0, lost: 0, setsFor: 0, setsAgainst: 0, gamesFor: 0, gamesAgainst: 0, points: 0, form: [] }),
+    rows.set(id, { pairId: id, played: 0, won: 0, lost: 0, setsFor: 0, setsAgainst: 0, gamesFor: 0, gamesAgainst: 0, points: 0, form: [], pointsFor: 0, pointsTotal: 0, pointsPercentage: 0, jerarquia: 0 }),
   );
 
-  // Los terminados en orden de fecha para armar la forma (últimos 5)
   const finished = matches
     .filter((m) => m.status === "finished" && m.winner)
     .sort((x, y) => String(x.scheduled_at).localeCompare(String(y.scheduled_at)));
 
-  // Índice por nombre normalizado: partidos viejos sin pair_id se resuelven por nombre.
   const nameToId = new Map<string, UUID>();
   pairIds.forEach((id) => {
     const n = (pairNameById[id] ?? "").trim().toLowerCase();
@@ -204,6 +212,8 @@ export function computeStandings(
     const rowB = rows.get(b)!;
     rowA.played++;
     rowB.played++;
+
+    // sumar juegos/sets
     for (const s of m.sets) {
       rowA.setsFor += s.a;
       rowA.setsAgainst += s.b;
@@ -214,32 +224,70 @@ export function computeStandings(
       rowB.gamesFor += s.b;
       rowB.gamesAgainst += s.a;
     }
-    if (m.winner === "a") {
+
+    const aWon = m.winner === "a";
+    if (aWon) {
       rowA.won++;
-      rowA.points += 3;
-      rowA.form.push("G");
       rowB.lost++;
+      rowA.form.push("G");
       rowB.form.push("P");
     } else {
       rowB.won++;
-      rowB.points += 3;
-      rowB.form.push("G");
       rowA.lost++;
+      rowB.form.push("G");
       rowA.form.push("P");
+    }
+
+    if (rankingMethod === 'match_points') {
+      // 3 puntos por victoria
+      rowA.points += aWon ? 3 : 0;
+      rowB.points += aWon ? 0 : 3;
+    } else {
+      // points_percentage (Liga16): sumar puntos de todos los sets
+      // Los puntos ya están en gamesFor/gamesAgainst
+      rowA.pointsFor = (rowA.pointsFor ?? 0) + rowA.gamesFor;
+      rowA.pointsTotal = (rowA.pointsTotal ?? 0) + rowA.gamesFor + rowA.gamesAgainst;
+      rowB.pointsFor = (rowB.pointsFor ?? 0) + rowB.gamesFor;
+      rowB.pointsTotal = (rowB.pointsTotal ?? 0) + rowB.gamesFor + rowB.gamesAgainst;
     }
   }
 
   rows.forEach((r) => {
     r.form = r.form.slice(-5);
+    if (rankingMethod === 'points_percentage') {
+      r.pointsPercentage = r.pointsTotal && r.pointsTotal > 0 ? r.pointsFor! / r.pointsTotal! : null as any;
+      // points se usa para sort descendente
+      r.points = r.pointsPercentage ? Math.round(r.pointsPercentage * 10000) : 0;
+    }
   });
 
-  return [...rows.values()].sort(
-    (x, y) =>
-      y.points - x.points ||
-      y.setsFor - y.setsAgainst - (x.setsFor - x.setsAgainst) ||
-      y.setsFor - x.setsFor ||
-      (pairNameById[x.pairId] ?? "").localeCompare(pairNameById[y.pairId] ?? ""),
-  );
+  let result = [...rows.values()];
+
+  if (rankingMethod === 'points_percentage') {
+    // Liga16: ordenar por % puntos descendente, RANK estilo Excel (1,1,3...)
+    const withPct = result.filter((r) => r.pointsPercentage !== null && r.pointsPercentage !== undefined);
+    const withoutPct = result.filter((r) => r.pointsPercentage === null || r.pointsPercentage === undefined);
+    withPct.sort((x, y) => (y.pointsPercentage ?? 0) - (x.pointsPercentage ?? 0));
+    for (const r of withPct) {
+      const higher = withPct.filter((o) => (o.pointsPercentage ?? 0) > (r.pointsPercentage ?? 0)).length;
+      r.jerarquia = 1 + higher;
+    }
+    for (const r of withoutPct) {
+      r.jerarquia = 0;
+    }
+    result = [...withPct.sort((a, b) => a.jerarquia! - b.jerarquia!), ...withoutPct];
+  } else {
+    // match_points: ordenar por puntos, diff sets, sets ganados
+    result.sort(
+      (x, y) =>
+        y.points - x.points ||
+        y.setsFor - y.setsAgainst - (x.setsFor - x.setsAgainst) ||
+        y.setsFor - x.setsFor ||
+        (pairNameById[x.pairId] ?? "").localeCompare(pairNameById[y.pairId] ?? ""),
+    );
+  }
+
+  return result;
 }
 
 const LETTERS = "ABCDEFGHIJ";

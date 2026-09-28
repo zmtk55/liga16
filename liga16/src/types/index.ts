@@ -179,6 +179,8 @@ export type TieBreakerRule =
   | 'head_to_head'
   | 'tiebreak_won';
 
+export type RankingMethod = 'match_points' | 'points_percentage';
+
 export interface SetScore {
   a: number; // juegos del lado A
   b: number; // juegos del lado B
@@ -187,12 +189,13 @@ export interface SetScore {
 }
 
 export interface TournamentScoring {
-  sets_to_win: number; // sets necesarios para ganar el partido (ej. 2)
-  games_per_set: number; // juegos por set (ej. 6)
-  tie_break_at: number; // juegos para activar tie-break (ej. 6)
-  tie_break_points: number; // puntos para ganar tie-break (ej. 7)
-  win_by_two_tiebreak?: boolean; // ganar tie-break por diferencia de 2 (default true)
-  tie_breaker_rules?: TieBreakerRule[]; // orden de criterios de desempate
+  sets_to_win: number;
+  games_per_set: number;
+  tie_break_at: number;
+  tie_break_points: number;
+  win_by_two_tiebreak?: boolean;
+  tie_breaker_rules?: TieBreakerRule[];
+  ranking_method?: RankingMethod; // 'match_points' (3 pts/win) | 'points_percentage' (Liga16: pts_for/pts_total)
 }
 
 
