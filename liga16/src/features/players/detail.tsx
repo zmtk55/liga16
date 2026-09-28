@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, Info, HelpCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
@@ -8,10 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDate, initials, sexLabel } from "@/lib/format";
 import ImageUpload from "@/components/ui/image-upload";
+import { MatchScoreboard } from "@/components/match-scoreboard";
 import { toast } from "sonner";
 import { analyzePlayerLocal, type JevAnalysis } from "@/lib/jev";
 
@@ -22,6 +26,78 @@ const positionLabel: Record<PlayerProfile["preferred_position"], string> = { dri
 function cardWon(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; won?: number })?.record?.won ?? (c as unknown as { won?: number })?.won ?? 0; }
 function cardPlayed(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; played?: number })?.record?.played ?? (c as unknown as { played?: number })?.played ?? 0; }
 function cardPartner(c: PlayerCard | null | undefined) { return (c as unknown as { frequent_partner?: string; partner?: string })?.frequent_partner ?? (c as unknown as { partner?: string })?.partner ?? null; }
+
+// Tooltip component for JEV metrics
+function Tooltip({ children, content }: { children: React.ReactNode; content: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative inline-flex" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      {children}
+      {open && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 rounded-lg bg-zinc-900 px-3 py-2 text-xs text-white/90 shadow-lg animate-fade-in">
+          {content}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Animated bar component
+function AnimatedBar({ value, max = 100, color = "primary", className = "" }: { value: number; max?: number; color?: string; className?: string }) {
+  const [animated, setAnimated] = useState(0);
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimated(value), 100);
+    return () => clearTimeout(timer);
+  }, [value]);
+  return (
+    <div className={`h-2 rounded-full bg-muted overflow-hidden ${className}`}>
+      <div
+        className={`h-full rounded-full transition-all duration-1000 ease-out ${color === "primary" ? "bg-primary" : color === "emerald" ? "bg-emerald-500" : color === "amber" ? "bg-amber-500" : color === "red" ? "bg-red-500" : "bg-primary"}`}
+        style={{ width: `${Math.min(100, (animated / max) * 100)}%` }}
+      />
+    </div>
+  );
+}
+
+// ComparisonRow component for player comparison table
+function ComparisonRow({ label, valueA, valueB, higherIsBetter, unit, isStyle = false, tooltip }: { label: string; valueA: string | number; valueB: string | number; higherIsBetter: boolean; unit?: string; isStyle?: boolean; tooltip?: string }) {
+  // For style comparison, no "winner" - just show both
+  const isNumeric = !isNaN(Number(valueA)) && !isNaN(Number(valueB));
+  let winner: 'A' | 'B' | 'tie' = 'tie';
+  
+  if (!isStyle) {
+    const numA = isNumeric ? Number(valueA) : parseFloat(String(valueA).replace(/[^0-9.-]/g, '')) || 0;
+    const numB = isNumeric ? Number(valueB) : parseFloat(String(valueB).replace(/[^0-9.-]/g, '')) || 0;
+    if (numA > numB) winner = higherIsBetter ? 'A' : 'B';
+    else if (numB > numA) winner = higherIsBetter ? 'B' : 'A';
+  }
+
+  return (
+    <tr className="transition-colors hover:bg-muted/30">
+      <td className="py-3 px-2">
+        <Tooltip content={tooltip || label}>
+          <span className="flex items-center gap-1.5 font-medium text-sm">
+            {label}
+            {tooltip && <HelpCircle className="h-3 w-3 text-muted-foreground/50" />}
+          </span>
+        </Tooltip>
+      </td>
+      <td className={`py-3 px-2 text-center font-mono tabular-nums ${winner === 'A' ? 'text-emerald-600 font-bold' : ''}`}>
+        <div className="flex items-center justify-center gap-1">
+          {valueA} {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+          {winner === 'A' && <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
+        </div>
+      </td>
+      <td className={`py-3 px-2 text-center font-mono tabular-nums ${winner === 'B' ? 'text-emerald-600 font-bold' : ''}`}>
+        <div className="flex items-center justify-center gap-1">
+          {valueB} {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+          {winner === 'B' && <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +110,7 @@ export default function PlayerDetailPage() {
   const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>([]);
   const [compareId, setCompareId] = useState<string>("");
   const [compareData, setCompareData] = useState<{ p: PlayerProfile; c: PlayerCard | null; r: RankingEntry | null; jev: JevAnalysis } | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const { user, isConfigured } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "organizer";
@@ -198,6 +275,19 @@ export default function PlayerDetailPage() {
                 <span className="rounded-full bg-white/10 px-3 py-1 border border-white/10 flex items-center gap-1"><MapPin className="h-3 w-3" /> {player.country}</span>
                 <span className="rounded-full bg-white/10 px-3 py-1 border border-white/10">{player.bio ?? "Padel desde 2024"}</span>
               </div>
+
+              {canEditPhoto && (
+                <div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-white/20 bg-white/10 font-semibold text-white hover:bg-white/20 hover:text-white"
+                    onClick={() => setEditOpen(true)}
+                  >
+                    <Pencil className="h-4 w-4" /> Editar perfil
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="relative flex justify-center lg:justify-end">
@@ -237,6 +327,15 @@ export default function PlayerDetailPage() {
         </div>
       </section>
 
+      {editOpen && (
+        <ProfileEditDialog
+          player={player}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSaved={(p) => setPlayer(p)}
+        />
+      )}
+
       <section className="mx-auto max-w-7xl px-4 md:px-6">
         <Card className="overflow-hidden">
           <CardContent className="p-0">
@@ -261,52 +360,110 @@ export default function PlayerDetailPage() {
 
       <section className="mx-auto max-w-7xl space-y-6 px-4 md:px-6">
         <div>
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground"><Sparkles className="h-4 w-4 text-primary" /> Insights JEV — System One</h3>
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+            <Sparkles className="h-4 w-4 text-primary" /> Insights JEV — System One
+            <Tooltip content="JEV (System One) analiza tu forma, estilo y racha usando heurísticas determinísticas basadas en tu récord, partidos recientes y tendencia de nivel. No requiere IA externa.">
+              <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-primary cursor-help" />
+            </Tooltip>
+          </h3>
           <div className="grid gap-4 md:grid-cols-3">
+            {/* FORMA COMPETITIVA */}
             <Card className="group relative overflow-hidden border-primary/20 transition-all hover:shadow-md hover:-translate-y-0.5">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-amber-400" />
-              <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Zap className="h-4 w-4 text-primary" /> Forma competitiva <Badge variant={jev.forma.score >= 4 ? "default" : jev.forma.score <= 2 ? "destructive" : "secondary"}>{jev.forma.score}/5</Badge></CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-lg font-bold">{jev.forma.label}</p>
-                <Progress value={(jev.forma.score / 5) * 100} className="h-2" />
-                <p className="text-xs text-muted-foreground">Confianza {(jev.forma.confidence * 100).toFixed(0)}% · {jev.ritmo}</p>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Zap className="h-4 w-4 text-primary" />
+                  Forma competitiva
+                  <Tooltip content="Score 1-5 basado en: win rate global, victorias recientes (últimos 5), y pendiente de tendencia de nivel. 5=Pico competitivo, 4=En forma, 3=Estable, 2=Irregular, 1=Bajón">
+                    <Badge variant={jev.forma.score >= 4 ? "default" : jev.forma.score <= 2 ? "destructive" : "secondary"}>{jev.forma.score}/5</Badge>
+                  </Tooltip>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-lg font-bold">{jev.forma.label}</p>
+                  <AnimatedBar value={jev.forma.score} max={5} color="primary" className="mt-1" />
+                  <p className="mt-1 text-xs text-muted-foreground">Confianza {(jev.forma.confidence * 100).toFixed(0)}% · Ritmo: {jev.ritmo}</p>
+                </div>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <div key={n} className="flex-1">
-                      <div className="h-1.5 rounded-full bg-muted" style={{ opacity: (jev.forma.distribution[n as 1 | 2 | 3 | 4 | 5] ?? 0) * 2 }} />
-                      <p className="mt-1 text-center text-[10px] text-muted-foreground">{n}</p>
-                    </div>
+                    <Tooltip key={n} content={`Nivel ${n}: ${["Bajón","Irregular","Estable","En forma","Pico"][n-1]}. Distribución de probabilidad del modelo.`}>
+                      <div className="flex-1">
+                        <AnimatedBar value={(jev.forma.distribution[n as 1|2|3|4|5] ?? 0) * 100} max={100} color="primary" className="h-1.5" />
+                        <p className="mt-1 text-center text-[10px] text-muted-foreground">{n}</p>
+                      </div>
+                    </Tooltip>
                   ))}
                 </div>
               </CardContent>
             </Card>
 
+            {/* ESTILO */}
             <Card className="group transition-all hover:shadow-md hover:-translate-y-0.5">
-              <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Target className="h-4 w-4 text-primary" /> Estilo <Badge variant="outline">{jev.estilo.choice}</Badge></CardTitle></CardHeader>
-              <CardContent className="space-y-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Target className="h-4 w-4 text-primary" />
+                  Estilo
+                  <Tooltip content="Predicción de estilo basada en: posición preferida (drive/revés), mano dominante, y nivel. Los porcentajes son probabilidades del modelo.">
+                    <Badge variant="outline">{jev.estilo.choice}</Badge>
+                  </Tooltip>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <p className="text-sm font-medium capitalize">{jev.estilo.choice} · padel {player.preferred_position}</p>
                 {Object.entries(jev.estilo.probabilities).map(([k, v]) => (
-                  <div key={k} className="flex items-center gap-2 text-xs">
-                    <span className="w-20 capitalize text-muted-foreground">{k}</span>
-                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary transition-all duration-700" style={{ width: `${(v as number) * 100}%` }} /></div>
-                    <span className="w-10 text-right tabular-nums">{((v as number) * 100).toFixed(0)}%</span>
-                  </div>
+                  <Tooltip key={k} content={`Probabilidad ${((v as number)*100).toFixed(0)}% de estilo ${k}.`}>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-20 capitalize text-muted-foreground">{k}</span>
+                      <AnimatedBar value={(v as number) * 100} max={100} color="primary" className="flex-1 h-2" />
+                      <span className="w-10 text-right tabular-nums">{((v as number) * 100).toFixed(0)}%</span>
+                    </div>
+                  </Tooltip>
                 ))}
-                <p className="text-xs text-muted-foreground">Confianza {(jev.estilo.confidence * 100).toFixed(0)}%</p>
+                <p className="text-xs text-muted-foreground">Confianza del modelo: {(jev.estilo.confidence * 100).toFixed(0)}%</p>
               </CardContent>
             </Card>
 
+            {/* RACHA + CONSISTENCIA + RITMO */}
             <Card className="group transition-all hover:shadow-md hover:-translate-y-0.5">
-              <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Activity className="h-4 w-4 text-primary" /> Racha <Badge variant={jev.racha.label === "en racha" ? "default" : jev.racha.label === "bache" ? "destructive" : "secondary"}>{jev.racha.label}</Badge></CardTitle></CardHeader>
-              <CardContent className="space-y-3">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Activity className="h-4 w-4 text-primary" />
+                  Racha
+                  <Tooltip content="Noul = probabilidad de estar en racha positiva. Fórmula: 35% base + winRate×50% + victoriasRecientes/3×20% + deltaRanking×10%. >65%=en racha, <35%=bache.">
+                    <Badge variant={jev.racha.label === "en racha" ? "default" : jev.racha.label === "bache" ? "destructive" : "secondary"}>{jev.racha.label}</Badge>
+                  </Tooltip>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div>
-                  <p className="text-2xl font-black tabular-nums">{(jev.racha.probYes * 100).toFixed(0)}%</p>
-                  <p className="text-xs text-muted-foreground">Prob. en racha positiva (Noul)</p>
-                  <Progress value={jev.racha.probYes * 100} className="mt-2 h-2" />
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-3xl font-black tabular-nums">{(jev.racha.probYes * 100).toFixed(0)}%</p>
+                    <span className="text-xs text-muted-foreground">Prob. racha positiva (Noul)</span>
+                  </div>
+                  <AnimatedBar value={jev.racha.probYes * 100} max={100} color={jev.racha.label === "en racha" ? "emerald" : jev.racha.label === "bache" ? "red" : "amber"} className="mt-2 h-2.5" />
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="rounded-lg bg-muted p-2"><p className="text-muted-foreground">Consistencia</p><p className="font-bold">{jev.consistencia.score}/100</p></div>
-                  <div className="rounded-lg bg-muted p-2"><p className="text-muted-foreground">Ritmo</p><p className="font-bold capitalize">{jev.ritmo}</p></div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <Tooltip content="Consistencia = estabilidad del rendimiento. Basada solo en win rate: >70%=88 (Muy consistente), >55%=72 (Consistente), >40%=54, <40%=38 (Volátil).">
+                    <div className="rounded-lg bg-muted p-3">
+                      <p className="text-muted-foreground">Consistencia</p>
+                      <p className="text-2xl font-black">{jev.consistencia.score}/100</p>
+                      <p className="text-[10px] text-muted-foreground">{jev.consistencia.label}</p>
+                    </div>
+                  </Tooltip>
+                  <Tooltip content="Ritmo = dirección de la tendencia de nivel. trendSlope >1=ascendente, <-1=descendente, else=estable. Basado en historial de nivel (card.trend).">
+                    <div className="rounded-lg bg-muted p-3">
+                      <p className="text-muted-foreground">Ritmo</p>
+                      <p className="text-2xl font-black capitalize">{jev.ritmo}</p>
+                    </div>
+                  </Tooltip>
+                  <Tooltip content="Forma = score 1-5 (ver tarjeta Forma). Resumen rápido.">
+                    <div className="rounded-lg bg-muted p-3">
+                      <p className="text-muted-foreground">Forma</p>
+                      <p className="text-2xl font-black">{jev.forma.score}/5</p>
+                      <p className="text-[10px] text-muted-foreground">{jev.forma.label}</p>
+                    </div>
+                  </Tooltip>
                 </div>
               </CardContent>
             </Card>
@@ -321,7 +478,6 @@ export default function PlayerDetailPage() {
                 const isA = (m.side_a.pair_name ?? "").split("/").some((n) => n.trim().toLowerCase() === player.display_name.trim().toLowerCase());
                 const win = m.winner === (isA ? "a" : "b");
                 const rival = isA ? m.side_b.pair_name : m.side_a.pair_name;
-                const score = m.sets.map((s) => `${isA ? s.a : s.b}-${isA ? s.b : s.a}`).join(" ");
                 const pending = m.status !== "finished";
                 return (
                   <div key={m.id} className="group flex items-center gap-3 rounded-xl border p-3 transition-all hover:shadow-sm hover:border-primary/20">
@@ -333,7 +489,14 @@ export default function PlayerDetailPage() {
                     {pending ? (
                       <Badge variant="outline">Por jugar</Badge>
                     ) : (
-                      <Badge variant={win ? "default" : "outline"} className="font-mono">{score}</Badge>
+                      <MatchScoreboard
+                        sideA={m.side_a.pair_name}
+                        sideB={m.side_b.pair_name}
+                        sets={m.sets}
+                        winner={m.winner}
+                        status={m.status}
+                        size="sm"
+                      />
                     )}
                   </div>
                 );
@@ -407,19 +570,85 @@ export default function PlayerDetailPage() {
                     <thead>
                       <tr className="border-b text-muted-foreground">
                         <th className="py-2 text-left">Métrica</th>
-                        <th className="py-2 text-center font-black">{player.display_name.split(" ")[0]}</th>
-                        <th className="py-2 text-center font-black">{compareData.p.display_name.split(" ")[0]}</th>
+                        <th className="py-2 text-center font-black flex items-center justify-center gap-1">
+                          {player.display_name.split(" ")[0]}
+                          <Tooltip content="Tus estadísticas actuales">
+                            <Info className="h-3 w-3 text-muted-foreground" />
+                          </Tooltip>
+                        </th>
+                        <th className="py-2 text-center font-black flex items-center justify-center gap-1">
+                          {compareData.p.display_name.split(" ")[0]}
+                          <Tooltip content="Estadísticas del jugador comparado">
+                            <Info className="h-3 w-3 text-muted-foreground" />
+                          </Tooltip>
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      <tr><td className="py-2">Nivel</td><td className="py-2 text-center tabular-nums font-bold">{(player.official_level ?? player.declared_level).toFixed(1)}</td><td className="py-2 text-center tabular-nums">{(compareData.p.official_level ?? compareData.p.declared_level).toFixed(1)}</td></tr>
-                      <tr><td className="py-2">Puntos ranking</td><td className="py-2 text-center tabular-nums">{ranking?.points ?? 0}</td><td className="py-2 text-center tabular-nums">{compareData.r?.points ?? 0}</td></tr>
-                      <tr><td className="py-2">PJ / PG</td><td className="py-2 text-center">{played} / {won}</td><td className="py-2 text-center">{cardPlayed(compareData.c)} / {cardWon(compareData.c)}</td></tr>
-                      <tr><td className="py-2">Win %</td><td className="py-2 text-center">{winPct}%</td><td className="py-2 text-center">{Math.round((cardWon(compareData.c) / Math.max(1, cardPlayed(compareData.c))) * 100)}%</td></tr>
-                      <tr><td className="py-2">Títulos</td><td className="py-2 text-center">{card?.titles ?? 0}</td><td className="py-2 text-center">{compareData.c?.titles ?? 0}</td></tr>
-                      <tr><td className="py-2">Forma JEV</td><td className="py-2 text-center">{jev.forma.score}/5 — {jev.forma.label}</td><td className="py-2 text-center">{compareData.jev.forma.score}/5 — {compareData.jev.forma.label}</td></tr>
-                      <tr><td className="py-2">Estilo JEV</td><td className="py-2 text-center capitalize">{jev.estilo.choice}</td><td className="py-2 text-center capitalize">{compareData.jev.estilo.choice}</td></tr>
-                      <tr><td className="py-2">Racha</td><td className="py-2 text-center">{(jev.racha.probYes * 100).toFixed(0)}% {jev.racha.label}</td><td className="py-2 text-center">{(compareData.jev.racha.probYes * 100).toFixed(0)}% {compareData.jev.racha.label}</td></tr>
+                      <ComparisonRow label="Nivel" 
+                        valueA={(player.official_level ?? player.declared_level).toFixed(1)} 
+                        valueB={(compareData.p.official_level ?? compareData.p.declared_level).toFixed(1)} 
+                        higherIsBetter={true} 
+                        unit=""
+                        tooltip="Nivel oficial (o declarado si no hay oficial) del 1.0 al 7.0"
+                      />
+                      <ComparisonRow label="Puntos ranking" 
+                        valueA={ranking?.points.toLocaleString("es-MX") ?? "—"} 
+                        valueB={compareData.r?.points.toLocaleString("es-MX") ?? "—"} 
+                        higherIsBetter={true} 
+                        unit="pts"
+                        tooltip="Puntos acumulados en eventos de ranking"
+                      />
+                      <ComparisonRow label="Partidos" 
+                        valueA={`${played} / ${won}`} 
+                        valueB={`${cardPlayed(compareData.c)} / ${cardWon(compareData.c)}`} 
+                        higherIsBetter={false} 
+                        unit="PJ / PG"
+                        tooltip="Partidos jugados / ganados"
+                      />
+                      <ComparisonRow label="Win %" 
+                        valueA={`${winPct}%`} 
+                        valueB={`${Math.round((cardWon(compareData.c) / Math.max(1, cardPlayed(compareData.c))) * 100)}%`} 
+                        higherIsBetter={true} 
+                        unit="%"
+                        tooltip="Porcentaje de victorias"
+                      />
+                      <ComparisonRow label="Títulos" 
+                        valueA={card?.titles ?? 0} 
+                        valueB={compareData.c?.titles ?? 0} 
+                        higherIsBetter={true} 
+                        unit=""
+                        tooltip="Títulos de circuito ganados"
+                      />
+                      <ComparisonRow label="Forma JEV" 
+                        valueA={`${jev.forma.score}/5 — ${jev.forma.label}`} 
+                        valueB={`${compareData.jev.forma.score}/5 — ${compareData.jev.forma.label}`} 
+                        higherIsBetter={true} 
+                        unit=""
+                        tooltip="Forma competitiva 1-5 (ver tarjeta Forma). Score numérico para comparar."
+                      />
+                      <ComparisonRow label="Estilo JEV" 
+                        valueA={jev.estilo.choice} 
+                        valueB={compareData.jev.estilo.choice} 
+                        higherIsBetter={false} 
+                        unit=""
+                        isStyle={true}
+                        tooltip="Estilo predominante: ofensivo, defensivo, equilibrado o transición"
+                      />
+                      <ComparisonRow label="Racha (Noul)" 
+                        valueA={`${(jev.racha.probYes * 100).toFixed(0)}% ${jev.racha.label}`} 
+                        valueB={`${(compareData.jev.racha.probYes * 100).toFixed(0)}% ${compareData.jev.racha.label}`} 
+                        higherIsBetter={true} 
+                        unit="%"
+                        tooltip="Probabilidad de racha positiva (Noul). >65%=en racha, <35%=bache"
+                      />
+                      <ComparisonRow label="Consistencia" 
+                        valueA={`${jev.consistencia.score}/100`} 
+                        valueB={`${compareData.jev.consistencia.score}/100`} 
+                        higherIsBetter={true} 
+                        unit=""
+                        tooltip="Estabilidad del rendimiento. Basada en win rate: >70%=88, >55%=72, >40%=54, <40%=38"
+                      />
                     </tbody>
                   </table>
                 </div>
@@ -443,5 +672,179 @@ export default function PlayerDetailPage() {
         </Card>
       </section>
     </div>
+  );
+}
+
+/**
+ * Diálogo para que el dueño del perfil (o un admin) edite sus datos personales
+ * y de pádel. El nivel oficial no es editable: lo asigna la organización.
+ */
+function ProfileEditDialog({
+  player,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  player: PlayerProfile;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: (p: PlayerProfile) => void;
+}) {
+  const [form, setForm] = useState({
+    display_name: player.display_name,
+    username: player.username,
+    city: player.city ?? "",
+    state: player.state ?? "",
+    country: player.country ?? "",
+    sex: player.sex,
+    declared_level: String(player.declared_level ?? 4),
+    dominant_hand: player.dominant_hand,
+    preferred_position: player.preferred_position,
+    bio: player.bio ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function save() {
+    setSaving(true);
+    try {
+      const name = form.display_name.trim();
+      const username = form.username.trim().toLowerCase();
+      if (!name) throw new Error("El nombre no puede estar vacío");
+      if (!/^[a-z0-9_-]{3,24}$/.test(username)) {
+        throw new Error("El usuario debe tener 3-24 caracteres (letras, números, - o _)");
+      }
+      const updates = {
+        display_name: name,
+        username,
+        city: form.city.trim(),
+        state: form.state.trim(),
+        country: form.country.trim(),
+        sex: form.sex,
+        declared_level: Number(form.declared_level) || 0,
+        dominant_hand: form.dominant_hand,
+        preferred_position: form.preferred_position,
+        bio: form.bio.trim() || null,
+      };
+      const updated = await db.updatePlayer(player.id, updates);
+      onSaved(updated as PlayerProfile);
+      toast.success("Perfil actualizado");
+      onOpenChange(false);
+    } catch (e) {
+      toast.error((e as Error).message ?? "No se pudo guardar el perfil");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4" /> Editar perfil
+          </DialogTitle>
+          <DialogDescription>
+            Estos datos se muestran en tu dashboard público.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 py-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="pp-name">Nombre</Label>
+              <Input id="pp-name" value={form.display_name} onChange={(e) => set("display_name", e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="pp-username">Usuario</Label>
+              <Input id="pp-username" value={form.username} onChange={(e) => set("username", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="pp-city">Ciudad</Label>
+              <Input id="pp-city" value={form.city} onChange={(e) => set("city", e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="pp-state">Estado</Label>
+              <Input id="pp-state" value={form.state} onChange={(e) => set("state", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="pp-country">País</Label>
+            <Input id="pp-country" value={form.country} onChange={(e) => set("country", e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-1.5">
+              <Label>Rama</Label>
+              <Select value={form.sex} onValueChange={(v) => set("sex", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M">Varonil</SelectItem>
+                  <SelectItem value="F">Femenil</SelectItem>
+                  <SelectItem value="X">Mixto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="pp-level">Nivel (1–7)</Label>
+              <Input
+                id="pp-level"
+                type="number"
+                min={1}
+                max={7}
+                step={0.1}
+                value={form.declared_level}
+                onChange={(e) => set("declared_level", e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Mano</Label>
+              <Select value={form.dominant_hand} onValueChange={(v) => set("dominant_hand", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="right">Diestro</SelectItem>
+                  <SelectItem value="left">Zurdo</SelectItem>
+                  <SelectItem value="both">Ambidiestro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>Posición</Label>
+            <Select value={form.preferred_position} onValueChange={(v) => set("preferred_position", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="drive">Drive</SelectItem>
+                <SelectItem value="reves">Revés</SelectItem>
+                <SelectItem value="both">Ambos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="pp-bio">Bio</Label>
+            <Textarea
+              id="pp-bio"
+              rows={3}
+              maxLength={280}
+              placeholder="Cuéntale al circuito quién eres…"
+              value={form.bio}
+              onChange={(e) => set("bio", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Guardando…" : "Guardar"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
