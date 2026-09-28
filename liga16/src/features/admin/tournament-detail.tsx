@@ -47,6 +47,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { drawGroups, suggestGroupCount, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
+import { computeLiga16Standings, type Liga16Category } from "@/lib/liga16-scoring";
 import { ensurePlayer } from "@/lib/players";
 import {
   Select,
@@ -71,6 +72,16 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { formatDateRange, formatLabel } from "@/lib/format";
+
+/** Mapea categorías del sistema a categorías Liga16 */
+function getLiga16Category(catName: string): Liga16Category | null {
+  const name = catName.toLowerCase();
+  if (name.includes("4ta") || name.includes("cuarta")) return "4TA";
+  if (name.includes("5ta") || name.includes("quinta")) return "5TA";
+  if (name.includes("6ta") || name.includes("sexta")) return "6TA";
+  if (name.includes("suma 9") || name.includes("+9") || name.includes("suma9")) return "SUMA9";
+  return null;
+}
 
 function SortablePair({
   id,
@@ -838,7 +849,14 @@ return (
           ) : (
             <div className="space-y-4">
               {groups.map((g) => (
-                <GroupStandingsCard key={g.name} group={g} matches={matches} nameById={nameById} />
+                <GroupStandingsCard
+                  key={g.name}
+                  group={g}
+                  matches={matches}
+                  nameById={nameById}
+                  pairs={pairs ?? []}
+                  categories={categories}
+                />
               ))}
             </div>
           )}
@@ -1392,13 +1410,61 @@ function GroupStandingsCard({
   group,
   matches,
   nameById,
+  pairs,
+  categories,
 }: {
   group: Group;
   matches: Match[];
   nameById: Record<string, string>;
+  pairs: Pair[];
+  categories: TournamentCategory[];
 }) {
   const [expanded, setExpanded] = useState(false);
-  const standings = computeStandings(group.pairIds, matches, nameById);
+
+  // Determinar categoría del grupo (asumimos que todos los pares del grupo son de la misma categoría)
+  const firstPairId = group.pairIds[0];
+  const firstPair = pairs.find((p) => p.id === firstPairId);
+  const catName = firstPair
+    ? categories.find((c) => c.id === firstPair.category_id)?.name ?? ""
+    : "";
+  const liga16Cat = getLiga16Category(catName);
+
+  // Usar algoritmo Liga16 si es categoría correspondiente, sino algoritmo genérico
+  let standings: Array<{ pairId: string; played: number; won: number; lost: number; setsFor: number; setsAgainst: number; gamesFor: number; gamesAgainst: number; points: number; form: Array<"G" | "P">; JERARQUIA?: number }> = [];
+  let isLiga16 = false;
+  let jornadaSummary: { JUEGOS_JUGADOS: number; TOTAL_JUEGOS: number; JUEGOS_FALTANTES: number } | null = null;
+
+  if (liga16Cat) {
+    // Preparar datos para algoritmo Liga16
+    const liga16Pairs = group.pairIds.map((id, idx) => {
+      const p = pairs.find((pp) => pp.id === id);
+      return { id, number: p ? idx + 1 : idx + 1, name: nameById[id] ?? "?" };
+    });
+    const result = computeLiga16Standings(liga16Pairs, matches, liga16Cat);
+    standings = result.standings.map((s) => ({
+      pairId: s.pairId,
+      played: s.PJ,
+      won: s.PG,
+      lost: s.PJ - s.PG,
+      setsFor: 0, // No disponible en stats Liga16
+      setsAgainst: 0,
+      gamesFor: s.PUNTOS_A_FAVOR,
+      gamesAgainst: s.PUNTOS_TOTALES - s.PUNTOS_A_FAVOR,
+      points: Math.round((s.RENDIMIENTO_PTS ?? 0) * 10000), // Para ordenamiento
+      form: [], // No disponible en stats Liga16
+      JERARQUIA: s.JERARQUIA,
+    }));
+    isLiga16 = true;
+    jornadaSummary = result.jornada;
+  } else {
+    // Algoritmo genérico actual
+    const genericStandings = computeStandings(group.pairIds, matches, nameById);
+    standings = genericStandings.map((s) => ({
+      ...s,
+      JERARQUIA: 0,
+    }));
+  }
+
   const groupMatches = matches.filter(
     (m) => group.pairIds.includes(m.side_a.pair_id ?? "") && group.pairIds.includes(m.side_b.pair_id ?? ""),
   );
@@ -1410,8 +1476,14 @@ function GroupStandingsCard({
         <CardTitle className="flex items-center justify-between gap-2 text-sm">
           <span className="flex items-center gap-2">
             {group.name}
+            {liga16Cat && <Badge variant="secondary" className="text-xs">Liga16: {liga16Cat}</Badge>}
             <Badge variant="outline">{played}/{groupMatches.length} jugados</Badge>
           </span>
+          {jornadaSummary && (
+            <span className="text-xs text-muted-foreground">
+              Jornada: {jornadaSummary.JUEGOS_JUGADOS}/{jornadaSummary.TOTAL_JUEGOS} · Faltan {jornadaSummary.JUEGOS_FALTANTES}
+            </span>
+          )}
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setExpanded((e) => !e)}>
             {expanded ? "Ver básico" : "Ver completa"}
             <ChevronDown className={`ml-1 h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
@@ -1424,14 +1496,27 @@ function GroupStandingsCard({
             <TableRow>
               <TableHead className="pl-4 w-8">#</TableHead>
               <TableHead>Equipo</TableHead>
-              {/* Compacta: PJ · Sets · Pts. Completa: todo. */}
-              {!expanded && (
-                <>
-                  <TableHead className="text-center w-28">Forma</TableHead>
-                  <TableHead className="text-right">PJ</TableHead>
-                  <TableHead className="text-right">Sets</TableHead>
-                  <TableHead className="text-right pr-4">Pts</TableHead>
-                </>
+              {isLiga16 ? (
+                // Columnas Liga16: PJ, PG, %PG, %PTS, JERARQUIA
+                !expanded && (
+                  <>
+                    <TableHead className="text-right">PJ</TableHead>
+                    <TableHead className="text-right">PG</TableHead>
+                    <TableHead className="text-right">%PG</TableHead>
+                    <TableHead className="text-right">%PTS</TableHead>
+                    <TableHead className="text-right pr-4">Pos</TableHead>
+                  </>
+                )
+              ) : (
+                // Columnas genéricas
+                !expanded && (
+                  <>
+                    <TableHead className="text-center w-28">Forma</TableHead>
+                    <TableHead className="text-right">PJ</TableHead>
+                    <TableHead className="text-right">Sets</TableHead>
+                    <TableHead className="text-right pr-4">Pts</TableHead>
+                  </>
+                )
               )}
               {expanded && (
                 <>
@@ -1454,35 +1539,72 @@ function GroupStandingsCard({
             {standings.map((row, i) => {
               const difSets = row.setsFor - row.setsAgainst;
               const difGames = row.gamesFor - row.gamesAgainst;
+              const position = row.JERARQUIA ?? i + 1;
               return (
-                <TableRow key={row.pairId} className={i === 0 ? "bg-primary/5" : ""}>
-                  <TableCell className="pl-4 font-medium">{i + 1}</TableCell>
+                <TableRow key={row.pairId} className={position === 1 ? "bg-primary/5" : ""}>
+                  <TableCell className="pl-4 font-medium">{position}</TableCell>
                   <TableCell className="font-medium max-w-52 truncate">{nameById[row.pairId] ?? "?"}</TableCell>
-                  <TableCell className="text-center">
-                    <span className="inline-flex gap-0.5">
-                      {row.form.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                      {row.form.map((f, fi) => (
-                        <span
-                          key={fi}
-                          className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[9px] font-bold text-white ${
-                            f === "G" ? "bg-emerald-600" : "bg-rose-500"
-                          }`}
-                          title={f === "G" ? "Victoria" : "Derrota"}
-                        >
-                          {f}
-                        </span>
-                      ))}
-                    </span>
-                  </TableCell>
-                  {!expanded && (
-                    <>
-                      <TableCell className="text-right tabular-nums">{row.played}</TableCell>
-                      <TableCell className="text-right tabular-nums">{row.setsFor}-{row.setsAgainst}</TableCell>
-                      <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>
-                    </>
+                  {isLiga16 ? (
+                    // Vista compacta Liga16
+                    !expanded && (
+                      <>
+                        <TableCell className="text-right tabular-nums">{row.played}</TableCell>
+                        <TableCell className="text-right tabular-nums text-emerald-600">{row.won}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {row.played > 0 ? ((row.won / row.played) * 100).toFixed(1) + "%" : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {row.gamesFor > 0 || row.gamesAgainst > 0
+                            ? ((row.gamesFor / (row.gamesFor + row.gamesAgainst)) * 100).toFixed(1) + "%"
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right pr-4 font-bold tabular-nums">{position}</TableCell>
+                      </>
+                    )
+                  ) : (
+                    // Vista compacta genérica
+                    !expanded && (
+                      <>
+                        <TableCell className="text-center">
+                          <span className="inline-flex gap-0.5">
+                            {row.form.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                            {row.form.map((f, fi) => (
+                              <span
+                                key={fi}
+                                className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[9px] font-bold text-white ${
+                                  f === "G" ? "bg-emerald-600" : "bg-rose-500"
+                                }`}
+                                title={f === "G" ? "Victoria" : "Derrota"}
+                              >
+                                {f}
+                              </span>
+                            ))}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{row.played}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.setsFor}-{row.setsAgainst}</TableCell>
+                        <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>
+                      </>
+                    )
                   )}
                   {expanded && (
                     <>
+                      <TableCell className="text-center">
+                        <span className="inline-flex gap-0.5">
+                          {row.form.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                          {row.form.map((f, fi) => (
+                            <span
+                              key={fi}
+                              className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[9px] font-bold text-white ${
+                                f === "G" ? "bg-emerald-600" : "bg-rose-500"
+                              }`}
+                              title={f === "G" ? "Victoria" : "Derrota"}
+                            >
+                              {f}
+                            </span>
+                          ))}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">{row.played}</TableCell>
                       <TableCell className="text-right tabular-nums text-emerald-600">{row.won}</TableCell>
                       <TableCell className="text-right tabular-nums text-rose-600">{row.lost}</TableCell>
