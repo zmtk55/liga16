@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
 import type { Match, SetScore, Tournament } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,10 +32,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import type { MatchStatus } from "@/types";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
+import { MatchStatusBadge } from "@/components/admin/status-badge";
+import { matchStatusLabel } from "@/lib/format";
 import {
   determineMatchWinner,
   formatMatchScore,
@@ -44,14 +47,7 @@ import {
 } from "@/lib/scoring";
 import { Plus, Trash2, Trophy } from "lucide-react";
 
-const STATUS_OPTIONS = [
-  { value: "scheduled", label: "Programado" },
-  { value: "live", label: "En vivo" },
-  { value: "finished", label: "Terminado" },
-  { value: "walkover", label: "Walkover" },
-  { value: "disputed", label: "Disputado" },
-  { value: "cancelled", label: "Cancelado" },
-];
+const STATUS_OPTIONS = Object.entries(matchStatusLabel).map(([value, label]) => ({ value, label }));
 
 export default function AdminResults() {
   const [list, setList] = useState<Match[] | null>(null);
@@ -117,46 +113,43 @@ export default function AdminResults() {
   const editingMatch = list?.find((m) => m.id === editingId) ?? null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Resultados</h1>
-        <p className="text-sm text-muted-foreground">Gestiona resultados con sets, juegos y tie-breaks</p>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="Resultados"
+        description="Captura sets, juegos y tie-breaks de cada partido."
+      />
       <Card>
-        <CardHeader className="pb-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm">Resultados</CardTitle>
-            <FilterBar
-              search={query}
-              onSearch={setQuery}
-              searchPlaceholder="Buscar equipo, torneo o ronda…"
-              selects={[
-                {
-                  key: "tournament",
-                  ariaLabel: "Filtrar por torneo",
-                  allLabel: "Todos los torneos",
-                  value: fTournament,
-                  onChange: setFTournament,
-                  options: Object.entries(tournaments).map(([id, t]) => ({ value: id, label: t.name })),
-                  className: "w-52",
-                },
-                {
-                  key: "status",
-                  ariaLabel: "Filtrar por estado",
-                  allLabel: "Todos los estados",
-                  value: fStatus,
-                  onChange: setFStatus,
-                  options: STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
-                  className: "w-40",
-                },
-              ]}
-              resultCount={filtered.length}
-              resultLabel="de"
-              onClear={() => { setQuery(""); setFTournament("all"); setFStatus("all"); }}
-            />
-          </div>
+        <CardHeader className="gap-3">
+          <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar equipo, torneo o ronda…"
+            selects={[
+              {
+                key: "tournament",
+                ariaLabel: "Filtrar por torneo",
+                allLabel: "Todos los torneos",
+                value: fTournament,
+                onChange: setFTournament,
+                options: Object.entries(tournaments).map(([id, t]) => ({ value: id, label: t.name })),
+                className: "sm:w-52",
+              },
+              {
+                key: "status",
+                ariaLabel: "Filtrar por estado",
+                allLabel: "Todos los estados",
+                value: fStatus,
+                onChange: setFStatus,
+                options: STATUS_OPTIONS,
+                className: "sm:w-44",
+              },
+            ]}
+            resultCount={filtered.length}
+            resultLabel="partidos"
+            onClear={() => { setQuery(""); setFTournament("all"); setFStatus("all"); }}
+          />
         </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
+        <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -169,33 +162,35 @@ export default function AdminResults() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {list === null && <AdminTableSkeleton columns={6} />}
               {list !== null && list.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="p-0">
-                    <Empty className="py-8">
-                      <EmptyHeader>
-                        <EmptyTitle>No hay resultados todavía</EmptyTitle>
-                        <EmptyDescription>Captúralos desde el calendario de cada torneo (pestaña Jornada).</EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  </TableCell>
-                </TableRow>
+                <AdminTableEmpty
+                  colSpan={6}
+                  icon={<Trophy className="h-5 w-5" />}
+                  title="No hay resultados todavía"
+                  description="Los partidos se capturan desde la pestaña Jornada de cada torneo."
+                />
+              )}
+              {list !== null && list.length > 0 && filtered.length === 0 && (
+                <AdminTableEmpty
+                  colSpan={6}
+                  title="Sin coincidencias"
+                  description="Ningún partido coincide con la búsqueda o el filtro."
+                />
               )}
               {filtered.map((m) => (
                 <TableRow key={m.id}>
                   <TableCell className="font-medium">{m.tournament_name}</TableCell>
-                  <TableCell className="hidden sm:table-cell">{m.category_name}</TableCell>
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">{m.category_name}</TableCell>
                   <TableCell className="hidden md:table-cell">{m.round}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {formatMatchScore(m.sets, tournaments[m.tournament_id]?.scoring ?? undefined)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={m.status === "finished" ? "default" : m.status === "live" ? "destructive" : "outline"}>
-                      {STATUS_OPTIONS.find((s) => s.value === m.status)?.label ?? m.status}
-                    </Badge>
+                    <MatchStatusBadge status={m.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingId(m.id)} aria-label={`Editar resultado de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}>
+                    <Button variant="outline" size="sm" onClick={() => setEditingId(m.id)} aria-label={`Editar resultado de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}>
                       Editar
                     </Button>
                   </TableCell>

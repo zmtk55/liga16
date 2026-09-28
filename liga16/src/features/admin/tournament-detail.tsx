@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router";
+import { useParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Pair, Match, Tournament, TournamentCategory, Club } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  ArrowLeft,
   ChevronDown,
   Dice5,
   GripVertical,
@@ -69,6 +68,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { TournamentStatusBadge } from "@/components/admin/status-badge";
+import { formatDateRange, formatLabel } from "@/lib/format";
 
 function SortablePair({
   id,
@@ -492,35 +494,29 @@ export default function AdminTournamentDetail() {
     .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
 
   return (
-    <div className="animate-fade-in space-y-4">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/admin/torneos"><ArrowLeft className="h-4 w-4" /> Torneos</Link>
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title={tournament.name}
+        description={`${club?.name ?? tournament.city} · ${formatDateRange(tournament.start_date, tournament.end_date)} · ${formatLabel[tournament.format] ?? tournament.format}`}
+        backTo="/admin/torneos"
+        backLabel="Torneos"
+        action={
+          <>
+            <TournamentStatusBadge status={tournament.status} />
+            <Badge variant="outline">{(pairs ?? []).length} parejas</Badge>
+            <Button variant="outline" size="sm" onClick={openEditDates}>
+              <Pencil className="h-3.5 w-3.5" /> Fechas
+            </Button>
+          </>
+        }
+      />
 
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{tournament.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {club?.name ?? tournament.city} · {tournament.start_date} → {tournament.end_date} ·{" "}
-            {tournament.format === "groups_knockout" ? "Grupos + eliminación" : tournament.format}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline">{(pairs ?? []).length} equipos</Badge>
-          <Button variant="outline" size="sm" onClick={openEditDates}>
-            <Pencil className="h-3.5 w-3.5 mr-1" /> Fechas
-          </Button>
-        </div>
-      </header>
-
-      <Tabs defaultValue="parejas">
-        <TabsList>
+      <Tabs defaultValue="jornada">
+        <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="jornada">Jornada</TabsTrigger>
-          <TabsTrigger value="parejas">Equipos</TabsTrigger>
+          <TabsTrigger value="parejas">Parejas</TabsTrigger>
           <TabsTrigger value="grupos">Grupos y sorteo</TabsTrigger>
-          <TabsTrigger value="posiciones">Tablas de posiciones</TabsTrigger>
+          <TabsTrigger value="posiciones">Posiciones</TabsTrigger>
           <TabsTrigger value="calendario">Calendario ({matches.length})</TabsTrigger>
         </TabsList>
 
@@ -546,11 +542,14 @@ export default function AdminTournamentDetail() {
               );
             if (dayMatches.length === 0) {
               return (
-                <Card>
-                  <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                    Sin partidos este día. Genera el calendario en "Grupos y sorteo" o elige otra fecha.
-                  </CardContent>
-                </Card>
+                <Empty className="border bg-card py-10">
+                  <EmptyHeader>
+                    <EmptyTitle>Sin partidos este día</EmptyTitle>
+                    <EmptyDescription>
+                      Genera el calendario en “Grupos y sorteo” o elige otra fecha.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               );
             }
 return (

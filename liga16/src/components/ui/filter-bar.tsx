@@ -26,7 +26,7 @@ export interface FilterSelect {
   value: string;
   onChange: (value: string) => void;
   options: FilterOption[];
-  /** Ancho aproximado, ej. "w-44". */
+  /** Ancho en escritorio, ej. "sm:w-60". En móvil siempre ocupa el ancho completo. */
   className?: string;
 }
 
@@ -56,22 +56,25 @@ export function FilterBar({
     (search ?? "") !== "" || selects.some((s) => s.value !== "all" && s.value !== "");
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+    <div className={cn("flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center", className)}>
       {onSearch && (
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder={searchPlaceholder}
-            className="h-9 w-56 pl-8"
+            className="h-9 w-full pl-8 sm:w-60"
             aria-label={searchPlaceholder}
           />
         </div>
       )}
       {selects.map((s) => (
         <Select key={s.key} value={s.value} onValueChange={s.onChange}>
-          <SelectTrigger className={cn("h-9", s.className ?? "w-44")} aria-label={s.ariaLabel}>
+          <SelectTrigger
+            className={cn("h-9 w-full", s.className ?? "sm:w-44")}
+            aria-label={s.ariaLabel}
+          >
             <SelectValue placeholder={s.placeholder ?? s.ariaLabel} />
           </SelectTrigger>
           <SelectContent>
@@ -86,13 +89,13 @@ export function FilterBar({
       ))}
       {children}
       {typeof resultCount === "number" && (
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span aria-live="polite" className="text-xs tabular-nums text-muted-foreground sm:ml-auto">
           {resultCount} {resultLabel}
         </span>
       )}
       {onClear && hasFilters && (
         <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={onClear}>
-          <X className="h-3.5 w-3.5 mr-1" /> Limpiar
+          <X className="mr-1 h-3.5 w-3.5" /> Limpiar
         </Button>
       )}
     </div>

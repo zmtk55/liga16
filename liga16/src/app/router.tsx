@@ -56,29 +56,29 @@ export const router = createBrowserRouter([
       { path: "jugadores/:id", element: <PlayerDetail /> },
       { path: "padel", element: <Clubs /> },
       { path: "noticias", element: <News /> },
-      {
-        path: "admin",
-        element: (
-          <AdminRoute>
-            <AdminLayout />
-          </AdminRoute>
-        ),
-        children: [
-          { index: true, element: <AdminDashboard /> },
-          { path: "torneos", element: <AdminTournaments /> },
-          { path: "torneos/nuevo", element: <AdminTournamentWizard /> },
-          { path: "torneos/:slug", element: <AdminTournamentDetail /> },
-          { path: "torneos/:slug/editar", element: <AdminTournamentWizard /> },
-          { path: "equipos", element: <AdminTeams /> },
-          { path: "participantes", element: <AdminParticipants /> },
-          { path: "jugadores", element: <AdminPlayers /> },
-          { path: "ranking", element: <AdminRanking /> },
-          { path: "resultados", element: <AdminResults /> },
-          { path: "padel", element: <AdminClubs /> },
-          { path: "noticias", element: <AdminNews /> },
-          { path: "onboarding", element: <Navigate to="/admin/torneos/nuevo" replace /> },
-        ],
-      },
+    ],
+  },
+  {
+    path: "/admin",
+    element: (
+      <AdminRoute>
+        <AdminLayout />
+      </AdminRoute>
+    ),
+    children: [
+      { index: true, element: <AdminDashboard /> },
+      { path: "torneos", element: <AdminTournaments /> },
+      { path: "torneos/nuevo", element: <AdminTournamentWizard /> },
+      { path: "torneos/:slug", element: <AdminTournamentDetail /> },
+      { path: "torneos/:slug/editar", element: <AdminTournamentWizard /> },
+      { path: "equipos", element: <AdminTeams /> },
+      { path: "participantes", element: <AdminParticipants /> },
+      { path: "jugadores", element: <AdminPlayers /> },
+      { path: "ranking", element: <AdminRanking /> },
+      { path: "resultados", element: <AdminResults /> },
+      { path: "padel", element: <AdminClubs /> },
+      { path: "noticias", element: <AdminNews /> },
+      { path: "onboarding", element: <Navigate to="/admin/torneos/nuevo" replace /> },
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },

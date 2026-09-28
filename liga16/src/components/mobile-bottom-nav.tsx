@@ -44,11 +44,6 @@ export function MobileBottomNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Al cambiar de ruta la nav vuelve a ser visible
-  useEffect(() => {
-    setHidden(false);
-  }, [pathname]);
-
   // Badge EN VIVO en la pestaña Agenda (solo móvil; polling suave)
   useEffect(() => {
     let active = true;
@@ -86,7 +81,11 @@ export function MobileBottomNav() {
               <li key={to} className="flex-1">
                 <Link
                   to={to}
-                  onClick={buzz}
+                  onClick={() => {
+                    buzz();
+                    // Navegar siempre muestra la nav, sin un setState dentro de un efecto.
+                    setHidden(false);
+                  }}
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "group relative flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 outline-none transition-transform duration-150",

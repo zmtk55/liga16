@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
 import type { RankingEntry, PlayerProfile } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,13 +31,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { BarChart3, MoreHorizontal, Pencil, Plus, RotateCcw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 
 export default function AdminRanking() {
   const [list, setList] = useState<RankingEntry[] | null>(null);
@@ -88,31 +91,32 @@ export default function AdminRanking() {
     }
   }
 
-  async function handleDelete(r: RankingEntry) {
+  async function handleReset(r: RankingEntry) {
     try {
       await db.updateRanking(r.player_id, { points: 0, played: 0, won: 0, delta: 0 });
-      toast.success(`Ranking de "${r.player_name}" reseteado`);
+      toast.success(`Ranking de "${r.player_name}" reiniciado`);
       load();
     } catch (e) {
-      toast.error((e as Error).message ?? "Error al eliminar");
+      toast.error((e as Error).message ?? "Error al reiniciar");
     }
   }
 
   const dialogKey = editing?.player_id ?? "new";
+  const [resetting, setResetting] = useState<RankingEntry | null>(null);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Ranking</h1>
-        <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Agregar jugador
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="Ranking"
+        description="Puntos, partidos jugados y variación de cada jugador."
+        action={
+          <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+            <Plus className="h-4 w-4" /> Agregar jugador
+          </Button>
+        }
+      />
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Clasificación</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
+        <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -127,22 +131,29 @@ export default function AdminRanking() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {list === null && <AdminTableSkeleton columns={8} />}
               {list !== null && list.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No hay ranking todavía. Usa el botón "Agregar jugador" para agregar el primero.
-                  </TableCell>
-                </TableRow>
+                <AdminTableEmpty
+                  colSpan={8}
+                  icon={<BarChart3 className="h-5 w-5" />}
+                  title="No hay ranking todavía"
+                  description="Agrega a un jugador para comenzar la clasificación."
+                  action={
+                    <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+                      Agregar jugador
+                    </Button>
+                  }
+                />
               )}
               {list?.map((r) => (
                 <TableRow key={r.player_id}>
-                  <TableCell className="font-medium">{r.position}</TableCell>
-                  <TableCell>{r.player_name}</TableCell>
-                  <TableCell>{r.level.toFixed(1)}</TableCell>
-                  <TableCell className="text-right font-semibold">{r.points.toLocaleString("es-MX")}</TableCell>
-                  <TableCell className="text-right">{r.played}</TableCell>
-                  <TableCell className="text-right">{r.won}</TableCell>
-                  <TableCell className={`text-right ${r.delta > 0 ? "text-emerald-600" : r.delta < 0 ? "text-red-500" : ""}`}>
+                  <TableCell className="font-medium tabular-nums text-muted-foreground">{r.position}</TableCell>
+                  <TableCell className="font-medium">{r.player_name}</TableCell>
+                  <TableCell className="tabular-nums">{r.level.toFixed(1)}</TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">{r.points.toLocaleString("es-MX")}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.played}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.won}</TableCell>
+                  <TableCell className={`text-right tabular-nums ${r.delta > 0 ? "text-emerald-600" : r.delta < 0 ? "text-destructive" : "text-muted-foreground"}`}>
                     {r.delta === 0 ? "—" : r.delta > 0 ? `+${r.delta}` : r.delta}
                   </TableCell>
                   <TableCell className="pr-2 text-right">
@@ -156,8 +167,11 @@ export default function AdminRanking() {
                         <DropdownMenuItem onClick={() => { setEditing(r); setOpenCreate(true); }}>
                           <Pencil className="h-4 w-4" /> Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(r)} className="text-destructive focus:text-destructive">
-                          <Trash2 className="h-4 w-4" /> Eliminar
+                        <DropdownMenuItem
+                          onClick={() => setResetting(r)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <RotateCcw className="h-4 w-4" /> Reiniciar puntos
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -168,6 +182,14 @@ export default function AdminRanking() {
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!resetting}
+        onOpenChange={(o) => { if (!o) setResetting(null); }}
+        onConfirm={() => resetting && handleReset(resetting)}
+        title={`¿Reiniciar el ranking de ${resetting?.player_name ?? "este jugador"}?`}
+        description="Puntos, partidos jugados, victorias y variación volverán a cero. Esta acción no se puede deshacer."
+      />
 
       <RankingFormDialog
         key={dialogKey}

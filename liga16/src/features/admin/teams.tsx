@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { PlayerProfile, Tournament, TournamentCategory } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,19 +33,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 interface EquipoForm {
   name: string;
@@ -74,8 +75,11 @@ export default function AdminTeams() {
   useEffect(() => {
     db.listTournaments().then((ts) => {
       setTournaments(ts);
-      // Selecciona el torneo activo más reciente por defecto
-      const active = ts.find((t) => t.status === "published") ?? ts[0];
+      // Selecciona el torneo con inscripción abierta; si no, el primero disponible.
+      const active =
+        ts.find((t) => t.status === "registration_open") ??
+        ts.find((t) => t.status === "in_progress") ??
+        ts[0];
       if (active) setTid(active.id);
     }).catch(() => setTournaments([]));
     db.listPlayers().then((p) => setPlayers(p)).catch(() => setPlayers([]));
@@ -179,19 +183,22 @@ export default function AdminTeams() {
   const dialogKey = editing?.id ?? "new";
 
   return (
-    <div className="animate-fade-in space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Equipos del torneo</h1>
-        <Button size="sm" disabled={!tid} onClick={() => { setEditing(null); setOpenCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Inscribir equipo
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="Equipos"
+        description="Las parejas inscritas viven dentro de cada torneo."
+        action={
+          <Button size="sm" disabled={!tid} onClick={() => { setEditing(null); setOpenCreate(true); }}>
+            <Plus className="h-4 w-4" /> Inscribir pareja
+          </Button>
+        }
+      />
 
-      {/* Selector de torneo: cada torneo tiene sus propios equipos */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Label className="text-sm text-muted-foreground">Torneo:</Label>
-        <Select value={tid} onValueChange={setTid}>
-          <SelectTrigger className="h-9 w-72" aria-label="Elegir torneo">
+      {/* Cada torneo tiene sus propios equipos: el selector es contexto, no un filtro más. */}
+      <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-center">
+        <Trophy className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
+        <Select value={tid || undefined} onValueChange={setTid}>
+          <SelectTrigger className="h-9 w-full sm:w-80" aria-label="Elegir torneo">
             <SelectValue placeholder="Elige un torneo" />
           </SelectTrigger>
           <SelectContent>
@@ -201,7 +208,7 @@ export default function AdminTeams() {
           </SelectContent>
         </Select>
         {tournaments.length === 0 && (
-          <p className="text-sm text-muted-foreground">No hay torneos aún — crea uno en Torneos → Nuevo torneo.</p>
+          <p className="text-sm text-muted-foreground">Crea un torneo para poder inscribir parejas.</p>
         )}
       </div>
 
@@ -218,31 +225,28 @@ export default function AdminTeams() {
         </Card>
       ) : (
         <Card>
-          <CardHeader className="pb-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <CardTitle className="text-sm">Equipos inscritos</CardTitle>
-              <FilterBar
-                search={query}
-                onSearch={setQuery}
-                searchPlaceholder="Buscar equipo o jugador…"
-                selects={[
-                  {
-                    key: "cat",
-                    ariaLabel: "Filtrar por categoría",
-                    allLabel: "Todas las categorías",
-                    value: cat,
-                    onChange: setCat,
-                    options: categories.map((c) => ({ value: c.id, label: c.name })),
-                    className: "w-48",
-                  },
-                ]}
-                resultCount={filtered.length}
-                resultLabel="de"
-                onClear={() => { setQuery(""); setCat("all"); }}
-              />
-            </div>
+          <CardHeader className="gap-3">
+            <FilterBar
+              search={query}
+              onSearch={setQuery}
+              searchPlaceholder="Buscar pareja o jugador…"
+              selects={[
+                {
+                  key: "cat",
+                  ariaLabel: "Filtrar por categoría",
+                  allLabel: "Todas las categorías",
+                  value: cat,
+                  onChange: setCat,
+                  options: categories.map((c) => ({ value: c.id, label: c.name })),
+                  className: "sm:w-48",
+                },
+              ]}
+              resultCount={filtered.length}
+              resultLabel="parejas"
+              onClear={() => { setQuery(""); setCat("all"); }}
+            />
           </CardHeader>
-          <CardContent className="p-0 overflow-x-auto">
+          <CardContent className="overflow-x-auto p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -253,36 +257,26 @@ export default function AdminTeams() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pairs === null && (
-                  <TableRow>
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <TableCell key={i} className="py-4"><Skeleton className="h-4 w-full" /></TableCell>
-                    ))}
-                  </TableRow>
-                )}
+                {pairs === null && <AdminTableSkeleton columns={4} />}
                 {pairs !== null && pairs.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="p-0">
-                      <Empty className="py-8">
-                        <EmptyHeader>
-                          <EmptyTitle>Sin equipos en este torneo</EmptyTitle>
-                          <EmptyDescription>Inscribe el primero con "Inscribir equipo".</EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
-                    </TableCell>
-                  </TableRow>
+                  <AdminTableEmpty
+                    colSpan={4}
+                    icon={<Users className="h-5 w-5" />}
+                    title="Sin parejas en este torneo"
+                    description="Inscribe la primera pareja para empezar."
+                    action={
+                      <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+                        Inscribir pareja
+                      </Button>
+                    }
+                  />
                 )}
                 {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="p-0">
-                      <Empty className="py-8">
-                        <EmptyHeader>
-                          <EmptyTitle>Sin coincidencias</EmptyTitle>
-                          <EmptyDescription>Ningún equipo coincide con el filtro.</EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
-                    </TableCell>
-                  </TableRow>
+                  <AdminTableEmpty
+                    colSpan={4}
+                    title="Sin coincidencias"
+                    description="Ninguna pareja coincide con la búsqueda o el filtro."
+                  />
                 )}
                 {filtered.map((p) => {
                   const [p1, p2] = p.name.split(" / ");

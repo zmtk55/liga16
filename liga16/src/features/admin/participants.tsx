@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { Tournament, TournamentCategory, UUID } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,24 +30,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FolderInput, MoreHorizontal, Trash2 } from "lucide-react";
+import { FolderInput, MoreHorizontal, Trash2, UsersRound } from "lucide-react";
 
 interface AllPair {
   id: UUID;
@@ -151,49 +144,44 @@ export default function AdminParticipants() {
   }
 
   return (
-    <div className="animate-fade-in space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Participantes</h1>
-        <p className="text-sm text-muted-foreground">
-          Todas las parejas de todos los torneos. Filtra, mueve entre torneos o elimina.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="Participantes"
+        description="Todas las parejas de todos los torneos, en una sola vista."
+      />
 
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm">Parejas inscritas</CardTitle>
-            <FilterBar
-              search={query}
-              onSearch={setQuery}
-              searchPlaceholder="Buscar pareja o torneo…"
-              selects={[
-                {
-                  key: "tournament",
-                  ariaLabel: "Filtrar por torneo",
-                  allLabel: "Todos los torneos",
-                  value: fTournament,
-                  onChange: (v) => { setFTournament(v); setFCategory("all"); },
-                  options: tournaments.map((t) => ({ value: t.id, label: t.name })),
-                  className: "w-52",
-                },
-                {
-                  key: "category",
-                  ariaLabel: "Filtrar por categoría",
-                  allLabel: "Todas las categorías",
-                  value: fCategory,
-                  onChange: setFCategory,
-                  options: filterCats.map((c) => ({ value: c.id, label: c.name })),
-                  className: "w-48",
-                },
-              ]}
-              resultCount={filtered.length}
-              resultLabel="de"
-              onClear={() => { setQuery(""); setFTournament("all"); setFCategory("all"); }}
-            />
-          </div>
+        <CardHeader className="gap-3">
+          <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar pareja o torneo…"
+            selects={[
+              {
+                key: "tournament",
+                ariaLabel: "Filtrar por torneo",
+                allLabel: "Todos los torneos",
+                value: fTournament,
+                onChange: (v) => { setFTournament(v); setFCategory("all"); },
+                options: tournaments.map((t) => ({ value: t.id, label: t.name })),
+                className: "sm:w-52",
+              },
+              {
+                key: "category",
+                ariaLabel: "Filtrar por categoría",
+                allLabel: "Todas las categorías",
+                value: fCategory,
+                onChange: setFCategory,
+                options: filterCats.map((c) => ({ value: c.id, label: c.name })),
+                className: "sm:w-48",
+              },
+            ]}
+            resultCount={filtered.length}
+            resultLabel="parejas"
+            onClear={() => { setQuery(""); setFTournament("all"); setFCategory("all"); }}
+          />
         </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
+        <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -204,85 +192,60 @@ export default function AdminParticipants() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pairs === null && (
-                <TableRow>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <TableCell key={i} className="py-4"><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              )}
+              {pairs === null && <AdminTableSkeleton columns={4} />}
               {pairs !== null && pairs.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="p-0">
-                    <Empty className="py-8">
-                      <EmptyHeader>
-                        <EmptyTitle>No hay participantes todavía</EmptyTitle>
-                        <EmptyDescription>Inscribe parejas desde el asistente de torneos o desde Equipos.</EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  </TableCell>
-                </TableRow>
+                <AdminTableEmpty
+                  colSpan={4}
+                  icon={<UsersRound className="h-5 w-5" />}
+                  title="No hay participantes todavía"
+                  description="Las parejas se inscriben desde el asistente de torneos o desde Equipos."
+                />
               )}
               {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="p-0">
-                    <Empty className="py-8">
-                      <EmptyHeader>
-                        <EmptyTitle>Sin coincidencias</EmptyTitle>
-                        <EmptyDescription>Ningún participante coincide con el filtro.</EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  </TableCell>
-                </TableRow>
+                <AdminTableEmpty
+                  colSpan={4}
+                  title="Sin coincidencias"
+                  description="Ninguna pareja coincide con la búsqueda o el filtro."
+                />
               )}
               {filtered.map((p) => (
-                <ContextMenu key={p.id}>
-                  <ContextMenuTrigger asChild>
-                    <TableRow className="cursor-context-menu">
-                      <TableCell className="pl-4 font-medium">{p.name}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {p.tournament_name ? (
-                          <Badge variant="outline">{p.tournament_name}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {p.category_id ? (
-                          <Badge variant="secondary">{p.category_name ?? catNameById.get(p.category_id) ?? "—"}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Sin categoría</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="pr-2 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${p.name}`}>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openMove(p)}>
-                              <FolderInput className="h-4 w-4" /> Mover a otro torneo
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setDeleting(p)} className="text-destructive focus:text-destructive">
-                              <Trash2 className="h-4 w-4" /> Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    <ContextMenuItem onClick={() => openMove(p)}>
-                      <FolderInput className="h-4 w-4" /> Mover a otro torneo
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem onClick={() => setDeleting(p)} className="text-destructive focus:text-destructive">
-                      <Trash2 className="h-4 w-4" /> Eliminar pareja
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
+                <TableRow key={p.id}>
+                  <TableCell className="pl-4 font-medium">{p.name}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {p.tournament_name ? (
+                      <Badge variant="outline">{p.tournament_name}</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {p.category_id ? (
+                      <Badge variant="secondary">{p.category_name ?? catNameById.get(p.category_id) ?? "—"}</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin categoría</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="pr-2 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${p.name}`}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openMove(p)}>
+                          <FolderInput className="h-4 w-4" /> Mover a otro torneo
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setDeleting(p)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" /> Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
               ))}
             </TableBody>
           </Table>

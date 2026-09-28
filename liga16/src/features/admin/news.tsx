@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
 import type { NewsItem } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +40,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 
 const TAG_OPTIONS = ["General", "Resultados", "Torneos", "Ligas", "Jugadores", "Clubs"];
 
@@ -93,20 +96,21 @@ export default function AdminNews() {
   }
 
   const dialogKey = editing?.id ?? "new";
+  const [deleting, setDeleting] = useState<NewsItem | null>(null);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Noticias</h1>
-        <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Nueva noticia
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="Noticias"
+        description="Publica novedades y resultados del circuito."
+        action={
+          <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+            <Plus className="h-4 w-4" /> Nueva noticia
+          </Button>
+        }
+      />
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Contenido publicado</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
+        <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -117,18 +121,36 @@ export default function AdminNews() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {list === null && <AdminTableSkeleton columns={4} />}
               {list !== null && list.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No hay news todavía. Usa el botón "Nueva noticia" para agregar el primero.
-                  </TableCell>
-                </TableRow>
+                <AdminTableEmpty
+                  colSpan={4}
+                  icon={<Newspaper className="h-5 w-5" />}
+                  title="No hay noticias todavía"
+                  description="Publica la primera novedad del circuito."
+                  action={
+                    <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+                      Crear noticia
+                    </Button>
+                  }
+                />
               )}
               {list?.map((n) => (
                 <TableRow key={n.id}>
-                  <TableCell className="font-medium max-w-[200px] truncate sm:max-w-[320px]">{n.title}</TableCell>
+                  <TableCell>
+                    <div className="flex min-w-0 items-center gap-3">
+                      {n.image_url ? (
+                        <img src={n.image_url} alt="" className="h-10 w-16 shrink-0 rounded object-cover" />
+                      ) : (
+                        <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">
+                          SIN
+                        </span>
+                      )}
+                      <span className="truncate font-medium">{n.title}</span>
+                    </div>
+                  </TableCell>
                   <TableCell><Badge variant="secondary">{n.tag}</Badge></TableCell>
-                  <TableCell className="hidden sm:table-cell">{formatDate(n.published_at)}</TableCell>
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(n.published_at)}</TableCell>
                   <TableCell className="pr-2 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -140,7 +162,10 @@ export default function AdminNews() {
                         <DropdownMenuItem onClick={() => { setEditing(n); setOpenCreate(true); }}>
                           <Pencil className="h-4 w-4" /> Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(n)} className="text-destructive focus:text-destructive">
+                        <DropdownMenuItem
+                          onClick={() => setDeleting(n)}
+                          className="text-destructive focus:text-destructive"
+                        >
                           <Trash2 className="h-4 w-4" /> Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -152,6 +177,14 @@ export default function AdminNews() {
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(o) => { if (!o) setDeleting(null); }}
+        onConfirm={() => deleting && handleDelete(deleting)}
+        title={`¿Eliminar “${deleting?.title ?? ""}”?`}
+        description="La noticia desaparecerá del sitio público. Esta acción no se puede deshacer."
+      />
 
       <NewsFormDialog
         key={dialogKey}

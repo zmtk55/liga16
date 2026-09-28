@@ -7,11 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MapPin, Phone, Edit3, Plus, Trash2 } from "lucide-react";
+import { MapPin, Phone, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 export default function AdminClubs() {
   const [club, setClub] = useState<Club | null>(null);
@@ -91,15 +94,18 @@ export default function AdminClubs() {
   if (!club) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Sede</h1>
-        {!editing ? (
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-            <Edit3 className="h-4 w-4 mr-1" /> Editar
-          </Button>
-        ) : null}
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="Sede"
+        description="Datos del club y canchas disponibles."
+        action={
+          !editing ? (
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+              <Pencil className="h-4 w-4" /> Editar sede
+            </Button>
+          ) : undefined
+        }
+      />
 
       {editing ? (
         <Card>
@@ -118,13 +124,34 @@ export default function AdminClubs() {
               <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+52 55 1234 0001" />
             </div>
             <div className="grid gap-1.5">
-              <Label>Descripción</Label>
-              <Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Descripción del club" />
+              <Label htmlFor="club-description">Descripción</Label>
+              <Textarea
+                id="club-description"
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Descripción del club"
+              />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { setEditing(false); if (club) setForm({ name: club.name, address: club.address ?? "", phone: club.phone ?? "", description: club.description ?? "" }); }}>Cancelar</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditing(false);
+                  if (club) {
+                    setForm({
+                      name: club.name,
+                      address: club.address ?? "",
+                      phone: club.phone ?? "",
+                      description: club.description ?? "",
+                    });
+                  }
+                }}
+              >
+                Cancelar
+              </Button>
               <Button onClick={handleSave} disabled={submitting || !form.name.trim()}>
-                {submitting ? "Guardando…" : "Guardar"}
+                {submitting ? "Guardando…" : "Guardar cambios"}
               </Button>
             </div>
           </CardContent>
@@ -176,7 +203,12 @@ export default function AdminClubs() {
             </Button>
           </div>
           {courts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin canchas registradas todavía.</p>
+            <Empty className="border-0 py-8">
+              <EmptyHeader>
+                <EmptyTitle>Sin canchas registradas</EmptyTitle>
+                <EmptyDescription>Agrega la primera cancha con el campo de arriba.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <ul className="divide-y rounded-lg border">
               {courts.map((c) => (

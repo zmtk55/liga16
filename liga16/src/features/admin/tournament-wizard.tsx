@@ -40,7 +40,6 @@ import { sexShort } from "@/lib/format";
 import { toast } from "sonner";
 import { ensurePlayer } from "@/lib/players";
 import {
-  ArrowLeft,
   Building2,
   Check,
   ChevronLeft,
@@ -54,6 +53,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/page-header";
 
 const FORMAT_OPTIONS = [
   { v: "groups_knockout", l: "Grupos + eliminación" },
@@ -672,42 +672,48 @@ export default function TournamentWizard() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => navigate("/admin/torneos")}>
-        <ArrowLeft className="h-4 w-4" /> Torneos
-      </Button>
+      <AdminPageHeader
+        title={editMode ? "Editar torneo" : "Nuevo torneo"}
+        description={
+          editMode
+            ? "Cada paso se guarda al avanzar."
+            : "Sede, torneo, categorías, parejas y calendario en un solo flujo."
+        }
+        backTo="/admin/torneos"
+        backLabel="Torneos"
+      />
 
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">
-          {editMode ? "Editar torneo" : "Nuevo torneo"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {editMode ? "Cada paso se guarda al avanzar." : "Sede, torneo, categorías, equipos y calendario en un solo flujo."}
-        </p>
-      </header>
+      {/* Progreso: los números ganan lugar porque el flujo sí es una secuencia. */}
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-sm font-medium">
+            Paso {step + 1} de {STEPS.length}
+          </p>
+          <p className="text-xs text-muted-foreground">{STEPS[step].label}</p>
+        </div>
+        <ol className="flex items-center gap-1.5 text-xs">
+          {STEPS.map((s, i) => (
+            <li key={s.id} className="flex flex-1 items-center gap-1.5">
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                  i < step
+                    ? "bg-emerald-600 text-white"
+                    : i === step
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                }`}
+                aria-current={i === step ? "step" : undefined}
+                aria-label={`Paso ${i + 1}: ${s.label}`}
+              >
+                {i < step ? <Check className="h-3 w-3" /> : i + 1}
+              </span>
+              {i < STEPS.length - 1 && <span className="h-px flex-1 bg-border" />}
+            </li>
+          ))}
+        </ol>
+      </div>
 
-      {/* Progreso */}
-      <ol className="flex items-center gap-1.5 text-xs">
-        {STEPS.map((s, i) => (
-          <li key={s.id} className="flex flex-1 items-center gap-1.5">
-            <span
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
-                i < step
-                  ? "bg-emerald-600 text-white"
-                  : i === step
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-              }`}
-              aria-current={i === step ? "step" : undefined}
-            >
-              {i < step ? <Check className="h-3 w-3" /> : i + 1}
-            </span>
-            <span className={`hidden sm:block ${i === step ? "font-medium" : "text-muted-foreground"}`}>{s.label}</span>
-            {i < STEPS.length - 1 && <span className="h-px flex-1 bg-border" />}
-          </li>
-        ))}
-      </ol>
-
-      <Card className="animate-fade-in">
+      <Card key={step} className="animate-fade-in">
         <CardContent className="p-6">
           {/* ============ PASO 1: SEDE Y CANCHAS ============ */}
           {step === 0 && (
@@ -1118,19 +1124,24 @@ export default function TournamentWizard() {
         </CardContent>
       </Card>
 
-      {/* Navegación */}
-      <div className="flex items-center justify-between">
+      {/* Navegación siempre visible: los pasos largos no deben esconder el botón. */}
+      <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between gap-3 border-t bg-card/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
         <Button variant="outline" onClick={back} disabled={step === 0}>
-          <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+          <ChevronLeft className="h-4 w-4" /> Anterior
         </Button>
         {step < STEPS.length - 1 ? (
-          <Button onClick={next} title={missingReason ?? undefined} variant={canAdvance ? "default" : "outline"}>
-            {canAdvance ? ("Siguiente") : missingReason} <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
+          <div className="text-right">
+            <Button onClick={next} disabled={!canAdvance}>
+              Siguiente <ChevronRight className="h-4 w-4" />
+            </Button>
+            {!canAdvance && missingReason && (
+              <p className="mt-1 max-w-[16rem] text-xs text-muted-foreground">{missingReason}</p>
+            )}
+          </div>
         ) : (
           <Button onClick={generateCalendarAndFinish} disabled={!groups.length || saving}>
             {saving ? "Generando…" : "Generar calendario y terminar"}
-            <Check className="h-4 w-4 ml-1" />
+            <Check className="h-4 w-4" />
           </Button>
         )}
       </div>

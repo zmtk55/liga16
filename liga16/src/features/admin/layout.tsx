@@ -1,113 +1,203 @@
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, NavLink, Outlet } from "react-router";
+import {
+  BarChart3,
+  Building2,
+  ClipboardList,
+  ExternalLink,
+  LayoutDashboard,
+  Menu,
+  Newspaper,
+  Trophy,
+  Users,
+  UsersRound,
+} from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { LayoutDashboard, Trophy, Building2, Newspaper, Users, UsersRound, BarChart3, ClipboardList, Shield, Menu, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster } from "@/components/ui/sonner";
 import {
   Sheet,
   SheetContent,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
-const items = [
-  { to: "/admin", label: "Panel", icon: LayoutDashboard, exact: true },
-  { to: "/admin/torneos", label: "Torneos", icon: Trophy },
-  { to: "/admin/equipos", label: "Equipos", icon: Users },
-  { to: "/admin/participantes", label: "Participantes", icon: UsersRound },
-  { to: "/admin/jugadores", label: "Jugadores", icon: UsersRound },
-  { to: "/admin/ranking", label: "Ranking", icon: BarChart3 },
-  { to: "/admin/resultados", label: "Resultados", icon: ClipboardList },
-  { to: "/admin/padel", label: "Sede", icon: Building2 },
-  { to: "/admin/noticias", label: "Noticias", icon: Newspaper },
+const navGroups = [
+  {
+    label: "Operación",
+    items: [
+      { to: "/admin", label: "Panel", icon: LayoutDashboard, end: true },
+      { to: "/admin/torneos", label: "Torneos", icon: Trophy },
+      { to: "/admin/equipos", label: "Equipos", icon: Users },
+      { to: "/admin/participantes", label: "Participantes", icon: UsersRound },
+      { to: "/admin/resultados", label: "Resultados", icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Directorio",
+    items: [
+      { to: "/admin/jugadores", label: "Jugadores", icon: UsersRound },
+      { to: "/admin/ranking", label: "Ranking", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Contenido",
+    items: [
+      { to: "/admin/padel", label: "Sede", icon: Building2 },
+      { to: "/admin/noticias", label: "Noticias", icon: Newspaper },
+    ],
+  },
 ];
 
-function SidebarContent({ loc, openSidebar, setOpenSidebar }: { loc: ReturnType<typeof useLocation>; openSidebar: boolean; setOpenSidebar: (v: boolean) => void }) {
+function AdminBrand() {
   return (
-    <>
-      <div className="lg:hidden flex items-center justify-between px-4 pt-4">
-        <Sheet open={openSidebar} onOpenChange={setOpenSidebar}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm"><Menu className="h-4 w-4" /></Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[260px] p-0">
-            <div className="flex items-center justify-between p-4 border-b">
-              <p className="flex items-center gap-2 text-sm font-bold"><Shield className="h-4 w-4 text-primary" /> Admin Liga16</p>
-              <Button variant="ghost" size="sm" onClick={() => setOpenSidebar(false)}><X className="h-4 w-4" /></Button>
-            </div>
-            <nav className="grid gap-1 p-2">
-              {items.map(({ to, label, icon: Icon, exact }) => {
-                const active = exact ? loc.pathname === to : loc.pathname.startsWith(to);
-                return (
-                  <Link key={to} to={to} onClick={() => setOpenSidebar(false)} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}>
-                    <Icon className="h-4 w-4" /> {label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </SheetContent>
-        </Sheet>
-        <Badge variant="outline" className="text-xs">Demo mode</Badge>
-      </div>
+    <Link to="/admin" className="flex items-center gap-2.5">
+      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+        16
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold leading-tight">Liga16</span>
+        <span className="block text-[11px] leading-tight text-muted-foreground">Administración</span>
+      </span>
+    </Link>
+  );
+}
 
-      <aside className="space-y-4 hidden lg:block">
-        <div className="rounded-xl border bg-card p-4">
-          <p className="flex items-center gap-2 text-sm font-bold"><Shield className="h-4 w-4 text-primary" /> Admin Liga16</p>
-          <p className="mt-1 text-xs text-muted-foreground">Centro operativo — demo sin auth real</p>
-          <Badge variant="outline" className="mt-2 text-xs">Demo mode</Badge>
+function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <nav className="space-y-5 px-3 py-4" aria-label="Navegación del admin">
+      {navGroups.map((group) => (
+        <div key={group.label}>
+          <p className="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>
+          <div className="space-y-0.5">
+            {group.items.map(({ to, label, icon: Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )
+                }
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </NavLink>
+            ))}
+          </div>
         </div>
-        <nav className="grid gap-1">
-          {items.map(({ to, label, icon: Icon, exact }) => {
-            const active = exact ? loc.pathname === to : loc.pathname.startsWith(to);
-            return (
-              <Link key={to} to={to} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}>
-                <Icon className="h-4 w-4" /> {label}
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
-    </>
+      ))}
+    </nav>
+  );
+}
+
+function AccountPanel() {
+  const { user, isConfigured } = useAuth();
+
+  return (
+    <div className="space-y-3 border-t p-3">
+      <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-medium">{user?.email ?? "Sesión no iniciada"}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {isConfigured ? `Rol: ${user?.role ?? "—"}` : "Modo demo local"}
+          </p>
+        </div>
+        <ThemeToggle />
+      </div>
+      <Button asChild variant="outline" size="sm" className="w-full justify-start">
+        <Link to="/">
+          <ExternalLink className="h-4 w-4" />
+          Ver sitio público
+        </Link>
+      </Button>
+    </div>
   );
 }
 
 export default function AdminLayout() {
-  const loc = useLocation();
-  const { user, isConfigured, loading } = useAuth();
-  const [openSidebar, setOpenSidebar] = useState(false);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Cargando...</p>
-      </div>
-    );
-  }
-
-  const role = (user as unknown as { role?: string })?.role;
-  const isDemo = !isConfigured || !user || (role !== "admin" && role !== "organizer");
-  const warningMsg = !isConfigured
-    ? "Demo mode — las operaciones son locales sin persistencia."
-    : !user
-      ? "Modo demo — sin sesión. Todos los cambios son locales."
-      : `Tu rol es "${role}" — en Supabase real necesitarías admin, aquí tienes acceso demo.`;
-  const badgeVariant = !isConfigured ? "outline" : !user ? "outline" : "secondary";
-  const badgeLabel = !isConfigured ? "Demo mode" : !user ? "Demo" : role ?? "player";
-  void badgeVariant;
-  void badgeLabel;
+  const [openNav, setOpenNav] = useState(false);
+  const { loading, isConfigured } = useAuth();
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-      <SidebarContent loc={loc} openSidebar={openSidebar} setOpenSidebar={setOpenSidebar} />
-
-      <section className="min-w-0 px-4 lg:px-0 pt-4 lg:pt-0">
-        {isDemo && (
-          <div className={`mb-4 rounded-lg border p-3 text-xs ${!isConfigured ? "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/10 dark:border-yellow-800 dark:text-yellow-200" : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/10 dark:text-amber-200"}`}>
-            ⚠️ {warningMsg}
+    <div className="min-h-dvh bg-muted/30">
+      <div className="lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
+        <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-card lg:flex">
+          <div className="flex h-16 items-center border-b px-5">
+            <AdminBrand />
           </div>
-        )}
-        <Outlet />
-      </section>
+          <div className="flex-1 overflow-y-auto">
+            <AdminNav />
+          </div>
+          <AccountPanel />
+        </aside>
+
+        <div className="min-w-0">
+          <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-card/95 px-4 backdrop-blur lg:hidden">
+            <Sheet open={openNav} onOpenChange={setOpenNav}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Abrir navegación">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="flex w-[280px] flex-col p-0">
+                <div className="flex h-16 items-center justify-between border-b px-4">
+                  <SheetTitle className="p-0">
+                    <AdminBrand />
+                  </SheetTitle>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <AdminNav onNavigate={() => setOpenNav(false)} />
+                </div>
+                <AccountPanel />
+              </SheetContent>
+            </Sheet>
+            <AdminBrand />
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/">Salir</Link>
+            </Button>
+          </header>
+
+          <main className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            {loading ? (
+              <div className="space-y-6" aria-label="Cargando panel">
+                <Skeleton className="h-20 w-full" />
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-28" />
+                  ))}
+                </div>
+                <Skeleton className="h-72 w-full" />
+              </div>
+            ) : (
+              <>
+                {!isConfigured && (
+                  <div
+                    role="status"
+                    className="mb-6 flex items-start gap-2.5 rounded-lg border bg-card px-3.5 py-2.5 text-sm text-muted-foreground"
+                  >
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    <p>
+                      Modo demo: los cambios se guardan solo en este navegador y no se
+                      sincronizan con Supabase.
+                    </p>
+                  </div>
+                )}
+                <Outlet />
+              </>
+            )}
+          </main>
+        </div>
+      </div>
+      <Toaster />
     </div>
   );
 }

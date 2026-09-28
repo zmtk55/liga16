@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
 import type { PlayerProfile } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,8 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2, Users } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +40,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 
 const SEX_OPTIONS = [
   { value: "M", label: "Varonil" },
@@ -135,41 +137,42 @@ export default function AdminPlayers() {
   }
 
   const dialogKey = editing?.id ?? "new";
+  const [deleting, setDeleting] = useState<PlayerProfile | null>(null);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Jugadores</h1>
-        <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Nuevo jugador
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="Jugadores"
+        description="Directorio de jugadores, nivel y rama de juego."
+        action={
+          <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+            <Plus className="h-4 w-4" /> Nuevo jugador
+          </Button>
+        }
+      />
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm">Jugadores</CardTitle>
-            <FilterBar
-              search={query}
-              onSearch={setQuery}
-              searchPlaceholder="Buscar jugador…"
-              selects={[
-                {
-                  key: "tid",
-                  ariaLabel: "Filtrar por torneo",
-                  allLabel: "Todo el directorio",
-                  value: tid,
-                  onChange: setTid,
-                  options: tournaments.map((t) => ({ value: t.id, label: `Juega en: ${t.name}` })),
-                  className: "w-60",
-                },
-              ]}
-              resultCount={filtered.length}
-              resultLabel="de"
-              onClear={() => { setQuery(""); setTid("all"); }}
-            />
-          </div>
+        <CardHeader className="gap-3">
+          <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar jugador…"
+            selects={[
+              {
+                key: "tid",
+                ariaLabel: "Filtrar por torneo",
+                allLabel: "Todo el directorio",
+                value: tid,
+                onChange: setTid,
+                options: tournaments.map((t) => ({ value: t.id, label: `Juega en: ${t.name}` })),
+                className: "sm:w-60",
+              },
+            ]}
+            resultCount={filtered.length}
+            resultLabel="jugadores"
+            onClear={() => { setQuery(""); setTid("all"); }}
+          />
         </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
+        <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -182,37 +185,36 @@ export default function AdminPlayers() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {list === null && <AdminTableSkeleton columns={6} />}
               {list !== null && list.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="p-0">
-                    <Empty className="py-8">
-                      <EmptyHeader>
-                        <EmptyTitle>No hay jugadores todavía</EmptyTitle>
-                        <EmptyDescription>Usa el botón "Nuevo jugador" para agregar el primero.</EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  </TableCell>
-                </TableRow>
+                <AdminTableEmpty
+                  colSpan={6}
+                  icon={<Users className="h-5 w-5" />}
+                  title="No hay jugadores todavía"
+                  description="Agrega al primer jugador para empezar el directorio."
+                  action={
+                    <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+                      Agregar jugador
+                    </Button>
+                  }
+                />
               )}
               {list !== null && list.length > 0 && filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="p-0">
-                    <Empty className="py-8">
-                      <EmptyHeader>
-                        <EmptyTitle>Sin coincidencias</EmptyTitle>
-                        <EmptyDescription>Ningún jugador coincide con la búsqueda.</EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  </TableCell>
-                </TableRow>
+                <AdminTableEmpty
+                  colSpan={6}
+                  title="Sin coincidencias"
+                  description="Ningún jugador coincide con la búsqueda o el filtro."
+                />
               )}
               {filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.display_name}</TableCell>
-                  <TableCell className="hidden sm:table-cell">@{p.username}</TableCell>
-                  <TableCell>{p.declared_level.toFixed(1)}</TableCell>
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">@{p.username}</TableCell>
+                  <TableCell className="tabular-nums">{p.declared_level.toFixed(1)}</TableCell>
                   <TableCell className="hidden md:table-cell">{sexLabel(p.sex)}</TableCell>
-                  <TableCell className="hidden md:table-cell">{{ right: "Diestro", left: "Zurdo", both: "Ambidiestro" }[p.dominant_hand]}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {{ right: "Diestro", left: "Zurdo", both: "Ambidiestro" }[p.dominant_hand]}
+                  </TableCell>
                   <TableCell className="pr-2 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -224,7 +226,10 @@ export default function AdminPlayers() {
                         <DropdownMenuItem onClick={() => { setEditing(p); setOpenCreate(true); }}>
                           <Pencil className="h-4 w-4" /> Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(p)} className="text-destructive focus:text-destructive">
+                        <DropdownMenuItem
+                          onClick={() => setDeleting(p)}
+                          className="text-destructive focus:text-destructive"
+                        >
                           <Trash2 className="h-4 w-4" /> Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -236,6 +241,14 @@ export default function AdminPlayers() {
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(o) => { if (!o) setDeleting(null); }}
+        onConfirm={() => deleting && handleDelete(deleting)}
+        title={`¿Eliminar a ${deleting?.display_name ?? "este jugador"}?`}
+        description="Se perderá su perfil y sus datos quedaron fuera de los rankings. Esta acción no se puede deshacer."
+      />
 
       <PlayerFormDialog
         key={dialogKey}
