@@ -4,7 +4,7 @@ import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
   rankingEvents, rankings, sponsors, teams, tournaments,
 } from './seed';
-import type { Club, League, Match, NewsItem, Pair, PlayerProfile, RankingEntry, RankingEvent, Registration, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
+import type { Club, League, Match, NewsItem, Pair, PlayerProfile, RankingEntry, RankingEvent, Registration, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
 
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 
@@ -369,6 +369,29 @@ export const demoProvider: DataProvider = {
   async listSponsors() {
     await delay();
     return [...store.sponsors];
+  },
+
+  async createSponsor(data: Omit<Sponsor, 'id'>) {
+    await delay(300);
+    const sponsor: Sponsor = { ...data, id: `sponsor-${Date.now()}` };
+    store.sponsors.push(sponsor);
+    return sponsor;
+  },
+
+  async updateSponsor(id: string, data: Partial<Sponsor>) {
+    await delay(300);
+    const idx = store.sponsors.findIndex((s) => s.id === id);
+    if (idx === -1) return null;
+    store.sponsors[idx] = { ...store.sponsors[idx], ...data };
+    return store.sponsors[idx];
+  },
+
+  async deleteSponsor(id: string) {
+    await delay(300);
+    const idx = store.sponsors.findIndex((s) => s.id === id);
+    if (idx === -1) return false;
+    store.sponsors.splice(idx, 1);
+    return true;
   },
 
   // Registro

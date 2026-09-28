@@ -87,6 +87,9 @@ export interface DataProvider {
   deleteNews(id: string): Promise<boolean>;
   // Sponsors
   listSponsors(): Promise<Sponsor[]>;
+  createSponsor(data: Omit<Sponsor, 'id'>): Promise<Sponsor>;
+  updateSponsor(id: string, data: Partial<Sponsor>): Promise<Sponsor | null>;
+  deleteSponsor(id: string): Promise<boolean>;
   // Registro
   registerPair(input: RegisterPairInput): Promise<{ registration: Registration }>;
 }

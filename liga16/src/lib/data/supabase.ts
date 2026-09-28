@@ -4,7 +4,7 @@
 import { supabase } from '@/lib/supabase';
 import type { DataProvider, RegisterPairInput } from './provider';
 import type { TournamentFilters } from '@/types';
-import type { Team, PadelDivision, Sex, Match, Court } from '@/types';
+import type { Team, PadelDivision, Sex, Match, Court, Sponsor } from '@/types';
 
 function client() {
   if (!supabase) throw new Error('Supabase no está configurado. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
@@ -135,6 +135,8 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       for (const s of sets) {
         const my = isA ? (s.a ?? 0) : (s.b ?? 0);
         const their = isA ? (s.b ?? 0) : (s.a ?? 0);
+        // Ignora filas vacías 0-0; el super tie-break se guarda con juegos reales (ej. 10-8)
+        if (my === 0 && their === 0) continue;
         if (my > their) acc.sets_for++;
         else if (their > my) acc.sets_against++;
       }
@@ -254,7 +256,8 @@ function matchFromRow(row: Record<string, unknown>): Match {
       tiebreak_a: s.tiebreak_a ?? null,
       tiebreak_b: s.tiebreak_b ?? null,
     })),
-    winner: (row.winner as 'a' | 'b' | null) ?? null,
+    // Normaliza winner: en BD puede venir '' (string vacío) de guardados antiguos
+    winner: row.winner === 'a' || row.winner === 'b' ? (row.winner as 'a' | 'b') : null,
   };
 }
 
@@ -708,6 +711,24 @@ export const supabaseProvider: DataProvider = {
     const { data, error } = await client().from('sponsors').select('*');
     if (error) throw error;
     return (data ?? []) as never;
+  },
+
+  async createSponsor(data: Omit<Sponsor, 'id'>) {
+    const { data: result, error } = await client().from('sponsors').insert(data).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async updateSponsor(id: string, data: Partial<Sponsor>) {
+    const { data: result, error } = await client().from('sponsors').update(data).eq('id', id).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async deleteSponsor(id: string) {
+    const { error } = await client().from('sponsors').delete().eq('id', id);
+    if (error) throw error;
+    return true;
   },
 
   // Registro
