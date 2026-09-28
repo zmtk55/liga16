@@ -4,15 +4,11 @@ import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PageHeroProps {
-  /** Texto pequeño en mayúsculas sobre el título (ej. "El circuito"). */
   eyebrow: string;
   title: string;
-  /** Línea descriptiva bajo el título. */
   subtitle?: string;
-  /** Numeral gigante de fondo; el dorsal de la liga por defecto. */
   ghost?: string;
-  /** Estadísticas del circuito mostradas como scoreboard. */
-  stats?: { k: string; v: string | number }[];
+  stats?: { k: string; v: string | number; icon?: React.ReactNode }[];
   className?: string;
 }
 
@@ -52,7 +48,8 @@ export function PageHero({ eyebrow, title, subtitle, ghost = "16", stats, classN
             style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}
           >
             {stats.map((s) => (
-              <div key={s.k} className="px-3 py-2.5 text-center md:px-4 md:text-left">
+              <div key={s.k} className="px-3 py-2.5 text-center md:px-4 md:text-left flex flex-col items-center md:items-start gap-2">
+                {s.icon && <div className="text-primary shrink-0">{s.icon}</div>}
                 <dd className="font-display text-xl tabular-nums sm:text-2xl md:text-3xl">{s.v}</dd>
                 <dt className="mt-0.5 text-[9px] uppercase tracking-widest text-white/50 sm:text-[10px]">{s.k}</dt>
               </div>

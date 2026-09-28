@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { MapPin, Phone, Clock, Users, CalendarDays, ChevronRight } from "lucide-react";
+import { MapPin, Phone, Clock, Users, CalendarDays, ChevronRight, Building2, Target } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Club } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,9 +50,9 @@ export default function ClubsPage() {
         subtitle={club.description ?? "La sede oficial de Liga16"}
         ghost="16"
         stats={[
-          { k: "Ciudad", v: club.city || "—" },
-          { k: "Estado", v: club.state || "—" },
-          { k: "Canchas", v: "8" },
+          { k: "Ciudad", v: club.city || "—", icon: <MapPin className="h-4 w-4" /> },
+          { k: "Estado", v: club.state || "—", icon: <Building2 className="h-4 w-4" /> },
+          { k: "Canchas", v: "8", icon: <Target className="h-4 w-4" /> },
         ]}
       />
 

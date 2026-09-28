@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHero } from "@/components/page-hero";
-import { Clock, MapPin, Radio } from "lucide-react";
+import { Clock, MapPin, Radio, Calendar, Trophy } from "lucide-react";
 import { formatMatchScore } from "@/lib/scoring";
 import { formatMatchDateTime, initials } from "@/lib/format";
 
@@ -40,9 +40,9 @@ export default function CalendarPage() {
         subtitle="Próximos partidos y duelos en juego, hora por hora."
         ghost="16"
         stats={[
-          { k: "En juego", v: live.length },
-          { k: "Programados", v: upcoming.length },
-          { k: "Sedes", v: new Set(matches.map((m) => m.tournament_name).filter(Boolean)).size },
+          { k: "En juego", v: live.length, icon: <Radio className="h-4 w-4" /> },
+          { k: "Programados", v: upcoming.length, icon: <Calendar className="h-4 w-4" /> },
+          { k: "Sedes", v: new Set(matches.map((m) => m.tournament_name).filter(Boolean)).size, icon: <Trophy className="h-4 w-4" /> },
         ]}
       />
 
@@ -55,7 +55,13 @@ export default function CalendarPage() {
 
       <div className="space-y-3">
         {agenda.length === 0 ? (
-          <Card><CardContent className="py-10 text-center text-muted-foreground">No hay partidos programados. Revisa los torneos para ver las próximas fechas.</CardContent></Card>
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground">
+              <Calendar className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
+              <p className="text-lg font-medium">No hay partidos programados</p>
+              <p className="mt-1">Revisa los torneos para ver las próximas fechas.</p>
+            </CardContent>
+          </Card>
         ) : (
           agenda.map((m) => {
             const aNames = m.side_a.pair_name.split("/").map((s) => s.trim());

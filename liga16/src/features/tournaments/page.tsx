@@ -5,6 +5,7 @@ import { TournamentCard } from "@/components/cards/resource-card";
 import { PageHero } from "@/components/page-hero";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar, Trophy, Filter, Users } from "lucide-react";
 
 export default function TournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[] | null>(null);
@@ -60,11 +62,11 @@ export default function TournamentsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los estados</SelectItem>
-            <SelectItem value="registration_open">Inscripciones abiertas</SelectItem>
-            <SelectItem value="registration_closed">Inscripciones cerradas</SelectItem>
-            <SelectItem value="published">Publicado</SelectItem>
-            <SelectItem value="in_progress">En juego</SelectItem>
-            <SelectItem value="finished">Finalizado</SelectItem>
+            <SelectItem value="registration_open"><Calendar className="mr-2 h-3 w-3" /> Inscripciones abiertas</SelectItem>
+            <SelectItem value="registration_closed"><Calendar className="mr-2 h-3 w-3" /> Inscripciones cerradas</SelectItem>
+            <SelectItem value="published"><Trophy className="mr-2 h-3 w-3" /> Publicado</SelectItem>
+            <SelectItem value="in_progress"><Trophy className="mr-2 h-3 w-3" /> En juego</SelectItem>
+            <SelectItem value="finished"><Trophy className="mr-2 h-3 w-3" /> Finalizado</SelectItem>
           </SelectContent>
         </Select>
 
@@ -73,10 +75,10 @@ export default function TournamentsPage() {
             <SelectValue placeholder="Formato" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los formatos</SelectItem>
-            <SelectItem value="single_elimination">Eliminación directa</SelectItem>
-            <SelectItem value="groups_knockout">Grupos + eliminación</SelectItem>
-            <SelectItem value="americano">Americano</SelectItem>
+            <SelectItem value="all"><Filter className="mr-2 h-3 w-3" /> Todos los formatos</SelectItem>
+            <SelectItem value="single_elimination"><Trophy className="mr-2 h-3 w-3" /> Eliminación directa</SelectItem>
+            <SelectItem value="groups_knockout"><Users className="mr-2 h-3 w-3" /> Grupos + eliminación</SelectItem>
+            <SelectItem value="americano"><Trophy className="mr-2 h-3 w-3" /> Americano</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -90,7 +92,9 @@ export default function TournamentsPage() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            No hay torneos con este estado y formato. Prueba otros filtros.
+            <Trophy className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
+            <p className="text-lg font-medium">No hay torneos con este filtro</p>
+            <p className="mt-1">Prueba con otros filtros o <Button variant="ghost" size="sm" onClick={() => { setStatus("all"); setFormat("all"); }}>ver todos</Button></p>
           </CardContent>
         </Card>
       ) : (

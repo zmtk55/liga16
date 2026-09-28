@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
 import { PageHero } from "@/components/page-hero";
-import { Users } from "lucide-react";
+import { Users, Trophy, Target, TrendingUp } from "lucide-react";
 
 export default function RankingsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -64,9 +64,9 @@ export default function RankingsPage() {
         subtitle="Parejas ordenadas por puntos dentro de su división y rama. Gana partidos y sube."
         ghost="16"
         stats={[
-          { k: "Parejas", v: teams?.length ?? "…" },
-          { k: "División", v: division === "all" ? "Todas" : division },
-          { k: "Rama", v: sex === "all" ? "Todas" : sexLabel(sex) },
+          { k: "Parejas", v: teams?.length ?? "…", icon: <Users className="h-4 w-4" /> },
+          { k: "División", v: division === "all" ? "Todas" : division, icon: <Trophy className="h-4 w-4" /> },
+          { k: "Rama", v: sex === "all" ? "Todas" : sexLabel(sex), icon: <Target className="h-4 w-4" /> },
         ]}
       />
 
@@ -99,7 +99,9 @@ export default function RankingsPage() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            No hay equipos en esta división y rama todavía.
+            <Users className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
+            <p className="text-lg font-medium">No hay equipos en esta división</p>
+            <p className="mt-1">Prueba cambiando la división o la rama.</p>
           </CardContent>
         </Card>
       ) : (
@@ -109,11 +111,11 @@ export default function RankingsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
-                  <TableHead>Equipo / Pareja</TableHead>
-                  <TableHead>Jugadores</TableHead>
+                  <TableHead className="flex items-center gap-2"><Trophy className="h-4 w-4" /> Equipo / Pareja</TableHead>
+                  <TableHead className="flex items-center gap-2"><Users className="h-4 w-4" /> Jugadores</TableHead>
                   <TableHead className="text-right">División</TableHead>
-                  <TableHead className="hidden text-right md:table-cell">PJ</TableHead>
-                  <TableHead className="hidden text-right md:table-cell">PG</TableHead>
+                  <TableHead className="hidden text-right md:table-cell flex items-center gap-1"><Target className="h-4 w-4" /> PJ</TableHead>
+                  <TableHead className="hidden text-right md:table-cell flex items-center gap-1"><TrendingUp className="h-4 w-4" /> PG</TableHead>
                   <TableHead className="hidden text-right md:table-cell">Efect.</TableHead>
                   <TableHead className="text-right">Puntos</TableHead>
                 </TableRow>

@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { NewsThumbnail } from "@/components/cards/card-image";
 import { PageHero } from "@/components/page-hero";
 import { formatDate } from "@/lib/format";
+import { Newspaper, Calendar } from "lucide-react";
 
 const tagColors: Record<string, "default" | "secondary" | "destructive" | "outline" | null | undefined> = {
   General: "default",
@@ -61,10 +62,8 @@ export default function NewsPage() {
               <NewsThumbnail news={n} className="transition-all duration-500 group-hover:opacity-90" />
               <CardHeader className="pb-2 pt-3">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge variant={tagColors[n.tag] ?? "secondary"}>{n.tag}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(n.published_at)}
-                  </span>
+                  <Badge variant={tagColors[n.tag] ?? "secondary"}><Newspaper className="mr-1 h-3 w-3" /> {n.tag}</Badge>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(n.published_at)}</span>
                 </div>
                 <CardTitle className="text-base leading-snug">{n.title}</CardTitle>
               </CardHeader>
