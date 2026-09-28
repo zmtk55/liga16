@@ -1078,15 +1078,19 @@ export default function TournamentWizard() {
                 </div>
               ) : (
                 <DndContext sensors={wizardSensors} collisionDetection={closestCenter} onDragEnd={handleWizardDragEnd}>
-                  {/* Pool: equipos sin grupo */}
-                  {(() => {
-                    const assigned = new Set(groups.flatMap((g) => g.pairIds));
-                    const pool = teams.map((_, i) => String(i)).filter((i) => !assigned.has(i));
-                    if (pool.length === 0) return null;
-                    return (
-                      <div className="rounded-xl border border-dashed p-3">
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sin grupo ({pool.length}) — arrástralos a un grupo</p>
-                        <SortableContext items={pool} strategy={verticalListSortingStrategy}>
+                  {/* Pool + all groups in a single SortableContext for cross-group drag */}
+                  <SortableContext items={[
+                    ...teams.map((_, i) => String(i)).filter((idx) => !groups.flatMap((g) => g.pairIds).includes(idx)),
+                    ...groups.flatMap((g) => g.pairIds)
+                  ]} strategy={verticalListSortingStrategy}>
+                    {/* Pool: equipos sin grupo */}
+                    {(() => {
+                      const assigned = new Set(groups.flatMap((g) => g.pairIds));
+                      const pool = teams.map((_, i) => String(i)).filter((i) => !assigned.has(i));
+                      if (pool.length === 0) return null;
+                      return (
+                        <div className="rounded-xl border border-dashed p-3">
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sin grupo ({pool.length}) — arrástralos a un grupo</p>
                           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                             {pool.map((idx) => (
                               <SortablePairCard
@@ -1100,36 +1104,34 @@ export default function TournamentWizard() {
                               />
                             ))}
                           </div>
-                        </SortableContext>
-                      </div>
-                    );
-                  })()}
+                        </div>
+                      );
+                    })()}
 
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {groups.map((g, gi) => (
-                      <div key={g.name} className="rounded-xl border p-3">
-                        <p className="mb-2 flex items-center justify-between gap-2 text-sm font-semibold">
-                          <Input
-                            value={g.name}
-                            onChange={(e) => renameGroupInWizard(gi, e.target.value)}
-                            className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
-                            aria-label={`Nombre del grupo ${gi + 1}`}
-                          />
-                          <span className="flex items-center gap-1">
-                            <Badge variant="outline">{g.pairIds.length}</Badge>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => setGroups((gs) => gs.filter((_, i) => i !== gi))}
-                              aria-label={`Eliminar ${g.name}`}
-                            >
-                              ×
-                            </Button>
-                          </span>
-                        </p>
-                        <SortableContext items={g.pairIds} strategy={verticalListSortingStrategy}>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {groups.map((g, gi) => (
+                        <div key={g.name} className="rounded-xl border p-3">
+                          <p className="mb-2 flex items-center justify-between gap-2 text-sm font-semibold">
+                            <Input
+                              value={g.name}
+                              onChange={(e) => renameGroupInWizard(gi, e.target.value)}
+                              className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
+                              aria-label={`Nombre del grupo ${gi + 1}`}
+                            />
+                            <span className="flex items-center gap-1">
+                              <Badge variant="outline">{g.pairIds.length}</Badge>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => setGroups((gs) => gs.filter((_, i) => i !== gi))}
+                                aria-label={`Eliminar ${g.name}`}
+                              >
+                                ×
+                              </Button>
+                            </span>
+                          </p>
                           <div className="min-h-16 space-y-2 rounded-lg p-1">
                             {g.pairIds.length === 0 && <p className="py-2 text-xs text-muted-foreground">Arrastra equipos aquí</p>}
                             {g.pairIds.map((id) => (
@@ -1144,10 +1146,10 @@ export default function TournamentWizard() {
                               />
                             ))}
                           </div>
-                        </SortableContext>
-                      </div>
-                    ))}
-                  </div>
+                        </div>
+                      ))}
+                    </div>
+                  </SortableContext>
                 </DndContext>
               )}
             </div>

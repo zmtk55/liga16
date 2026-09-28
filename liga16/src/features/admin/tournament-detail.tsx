@@ -750,13 +750,17 @@ return (
           )}
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            {unassigned.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Equipos sin grupo ({unassigned.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <SortableContext items={unassigned.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+            {/* Pool + all groups in a single SortableContext for cross-group drag */}
+            <SortableContext items={[
+              ...unassigned.map((p) => p.id),
+              ...groups.flatMap((g) => g.pairIds)
+            ]} strategy={verticalListSortingStrategy}>
+              {unassigned.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Equipos sin grupo ({unassigned.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {unassigned.map((p) => (
                         <div key={p.id} className="space-y-1">
@@ -774,30 +778,28 @@ return (
                         </div>
                       ))}
                     </div>
-                  </SortableContext>
-                </CardContent>
-              </Card>
-            )}
-            <div
-              className={`grid gap-4 ${
-                groups.length <= 2 ? "sm:grid-cols-2" : groups.length <= 4 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"
-              }`}
-            >
-              {groups.map((g, gi) => (
-                <Card key={g.name}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center justify-between gap-2">
-                      <Input
-                        value={g.name}
-                        onChange={(e) => renameGroup(gi, e.target.value)}
-                        className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
-                        aria-label={`Nombre del grupo ${gi + 1}`}
-                      />
-                      <Badge variant="outline">{g.pairIds.length}</Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <SortableContext items={g.pairIds} strategy={verticalListSortingStrategy}>
+                  </CardContent>
+                </Card>
+              )}
+              <div
+                className={`grid gap-4 ${
+                  groups.length <= 2 ? "sm:grid-cols-2" : groups.length <= 4 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"
+                }`}
+              >
+                {groups.map((g, gi) => (
+                  <Card key={g.name}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center justify-between gap-2">
+                        <Input
+                          value={g.name}
+                          onChange={(e) => renameGroup(gi, e.target.value)}
+                          className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
+                          aria-label={`Nombre del grupo ${gi + 1}`}
+                        />
+                        <Badge variant="outline">{g.pairIds.length}</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
                       <div className="space-y-2 min-h-16">
                         {g.pairIds.length === 0 && (
                           <p className="text-xs text-muted-foreground py-2">Arrastra equipos aquí</p>
@@ -821,11 +823,11 @@ return (
                           </div>
                         ))}
                       </div>
-                    </SortableContext>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </SortableContext>
           </DndContext>
         </TabsContent>
 
