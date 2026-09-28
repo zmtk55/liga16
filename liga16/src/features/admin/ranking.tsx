@@ -189,6 +189,7 @@ export default function AdminRanking() {
         onConfirm={() => resetting && handleReset(resetting)}
         title={`¿Reiniciar el ranking de ${resetting?.player_name ?? "este jugador"}?`}
         description="Puntos, partidos jugados, victorias y variación volverán a cero. Esta acción no se puede deshacer."
+        confirmLabel="Reiniciar"
       />
 
       <RankingFormDialog

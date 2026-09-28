@@ -99,9 +99,17 @@
   }
 }
 
+/* Una sola regla global: si la persona pidió menos movimiento, nada en la app
+   late, pulsa ni se desliza. Antes solo se callaba `.animate-fade-in` y quedaban
+   vivos los pulsos de "en vivo", los pings y las transiciones. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

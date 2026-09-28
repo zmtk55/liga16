@@ -8,6 +8,7 @@ import {
   Menu,
   Newspaper,
   Trophy,
+  User,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -39,7 +40,7 @@ const navGroups = [
   {
     label: "Directorio",
     items: [
-      { to: "/admin/jugadores", label: "Jugadores", icon: UsersRound },
+      { to: "/admin/jugadores", label: "Jugadores", icon: User },
       { to: "/admin/ranking", label: "Ranking", icon: BarChart3 },
     ],
   },
@@ -52,9 +53,9 @@ const navGroups = [
   },
 ];
 
-function AdminBrand() {
+function AdminBrand({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <Link to="/admin" className="flex items-center gap-2.5">
+    <Link to="/admin" onClick={onNavigate} className="flex items-center gap-2.5">
       <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
         16
       </span>
@@ -99,7 +100,7 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function AccountPanel() {
+function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
   const { user, isConfigured } = useAuth();
 
   return (
@@ -114,7 +115,7 @@ function AccountPanel() {
         <ThemeToggle />
       </div>
       <Button asChild variant="outline" size="sm" className="w-full justify-start">
-        <Link to="/">
+        <Link to="/" onClick={onNavigate}>
           <ExternalLink className="h-4 w-4" />
           Ver sitio público
         </Link>
@@ -151,13 +152,13 @@ export default function AdminLayout() {
               <SheetContent side="left" className="flex w-[280px] flex-col p-0">
                 <div className="flex h-16 items-center justify-between border-b px-4">
                   <SheetTitle className="p-0">
-                    <AdminBrand />
+                    <AdminBrand onNavigate={() => setOpenNav(false)} />
                   </SheetTitle>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   <AdminNav onNavigate={() => setOpenNav(false)} />
                 </div>
-                <AccountPanel />
+                <AccountPanel onNavigate={() => setOpenNav(false)} />
               </SheetContent>
             </Sheet>
             <AdminBrand />

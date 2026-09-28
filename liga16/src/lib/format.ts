@@ -1,24 +1,33 @@
 export function formatMoney(cents: number, currency = 'MXN'): string {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(cents / 100);
+     return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(cents / 100);
+}
+
+/**
+ * Una fecha "YYYY-MM-DD" es calendario, no un instante: `new Date()` la interpreta
+ * como UTC midnight y en zonas negativas (CDMX es UTC-7) se muestra del día anterior.
+ * Las fechas con hora sí son instantes y se respetan tal cual.
+ */
+function parseDate(iso: string): Date {
+     return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`) : new Date(iso);
 }
 
 export function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
+     return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(parseDate(iso));
 }
 
 export function formatDateRange(start: string, end: string): string {
-  const s = new Date(start);
-  const e = new Date(end);
-  if (start === end) return formatDate(start);
-  if (s.getMonth() === e.getMonth())
-    return `${s.getDate()} – ${e.getDate()} ${new Intl.DateTimeFormat('es-MX', { month: 'short', year: 'numeric' }).format(e)}`;
-  return `${formatDate(start)} – ${formatDate(end)}`;
+     const s = parseDate(start);
+     const e = parseDate(end);
+     if (start === end) return formatDate(start);
+     if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear())
+          return `${s.getDate()} – ${e.getDate()} ${new Intl.DateTimeFormat('es-MX', { month: 'short', year: 'numeric' }).format(e)}`;
+     return `${formatDate(start)} – ${formatDate(end)}`;
 }
 
 export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat('es-MX', {
-    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-  }).format(new Date(iso));
+     return new Intl.DateTimeFormat('es-MX', {
+          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+     }).format(parseDate(iso));
 }
 
 export const tournamentStatusLabel: Record<string, string> = {
@@ -108,7 +117,7 @@ export function formatMatchDateTime(iso: string): string {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(iso));
+  }).format(parseDate(iso));
 }
 
 export function initials(name: string): string {

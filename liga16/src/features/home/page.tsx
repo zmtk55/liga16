@@ -13,7 +13,7 @@ import type { Match, NewsItem, RankingEntry, Sponsor, Team, Tournament } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { tierLabel, formatLabel, formatMatchDateTime } from "@/lib/format";
+import { tierLabel, formatDateRange, formatLabel, formatMatchDateTime } from "@/lib/format";
 
 const HERO_IMAGE = "/images/hero-padel.jpg";
 
@@ -277,7 +277,7 @@ export default function Home() {
                 <div className="mb-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/65">
                   <span className="flex items-center gap-2">
                     <CalendarDays className="h-4 w-4 text-primary" />
-                    {formatMatchDateTime(featured.start_date)}
+                    {formatDateRange(featured.start_date, featured.end_date)}
                   </span>
                   <span className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-primary" />

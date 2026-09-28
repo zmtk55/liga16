@@ -45,7 +45,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: "login", element: <Login /> },
-      { path: "onboarding", element: <Navigate to="admin/torneos/nuevo" replace /> },
+      { path: "onboarding", element: <Navigate to="/admin/torneos/nuevo" replace /> },
       { path: "torneos", element: <Tournaments /> },
       { path: "torneos/:slug", element: <TournamentDetail /> },
       { path: "calendario", element: <Calendar /> },

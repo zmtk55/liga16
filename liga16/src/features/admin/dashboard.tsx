@@ -54,14 +54,27 @@ export default function AdminDashboard() {
 
   const summary = useMemo(() => {
     const tournaments = data?.tournaments ?? [];
+    const byDate = (a: Tournament, b: Tournament) => a.start_date.localeCompare(b.start_date);
+    // "Próximos" = lo que está pasando ahora + lo que viene. Un torneo viejo sin
+    // cerrar no es "próximo" y no debe empujar hacia abajo los que sí importan.
+    const active = tournaments
+      .filter((t) => t.status === "in_progress" || t.status === "registration_open")
+      .sort(byDate);
+    const today = new Date().toISOString().slice(0, 10);
+    const future = tournaments
+      .filter(
+        (t) =>
+          !active.includes(t) &&
+          t.status !== "cancelled" &&
+          t.status !== "finished" &&
+          t.start_date >= today,
+      )
+      .sort(byDate);
     return {
       open: tournaments.filter((t) => t.status === "registration_open").length,
       live: (data?.matches ?? []).filter((m) => m.status === "live").length,
       finished: tournaments.filter((t) => t.status === "finished").length,
-      upcoming: tournaments
-        .filter((t) => t.status !== "cancelled" && t.status !== "finished")
-        .sort((a, b) => a.start_date.localeCompare(b.start_date))
-        .slice(0, 5),
+      upcoming: [...active, ...future].slice(0, 5),
     };
   }, [data]);
 
