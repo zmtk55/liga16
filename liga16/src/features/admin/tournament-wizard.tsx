@@ -174,6 +174,8 @@ export default function TournamentWizard() {
     games_per_set: String(DEFAULT_SCORING.games_per_set),
     tie_break_at: String(DEFAULT_SCORING.tie_break_at),
     tie_break_points: String(DEFAULT_SCORING.tie_break_points),
+    win_by_two_tiebreak: String(DEFAULT_SCORING.win_by_two_tiebreak),
+    ranking_method: DEFAULT_SCORING.ranking_method ?? "match_points",
   });
 
   // Paso 3: categorías
@@ -283,6 +285,8 @@ export default function TournamentWizard() {
           games_per_set: String(t.scoring?.games_per_set ?? DEFAULT_SCORING.games_per_set),
           tie_break_at: String(t.scoring?.tie_break_at ?? DEFAULT_SCORING.tie_break_at),
           tie_break_points: String(t.scoring?.tie_break_points ?? DEFAULT_SCORING.tie_break_points),
+          win_by_two_tiebreak: String(t.scoring?.win_by_two_tiebreak ?? DEFAULT_SCORING.win_by_two_tiebreak),
+          ranking_method: t.scoring?.ranking_method ?? DEFAULT_SCORING.ranking_method ?? "match_points",
         }));
         // categorías existentes → filas (name libre)
         const cats = await db.getTournamentCategories(t.id).catch(() => []);
@@ -404,8 +408,9 @@ export default function TournamentWizard() {
             games_per_set: Number(tournament.games_per_set) || DEFAULT_SCORING.games_per_set,
             tie_break_at: Number(tournament.tie_break_at) || DEFAULT_SCORING.tie_break_at,
             tie_break_points: Number(tournament.tie_break_points) || DEFAULT_SCORING.tie_break_points,
-            win_by_two_tiebreak: DEFAULT_SCORING.win_by_two_tiebreak,
+            win_by_two_tiebreak: tournament.win_by_two_tiebreak === "true",
             tie_breaker_rules: DEFAULT_SCORING.tie_breaker_rules,
+            ranking_method: tournament.ranking_method || DEFAULT_SCORING.ranking_method,
           },
         } as never;
         if (tournamentId) {
@@ -838,7 +843,7 @@ export default function TournamentWizard() {
                   {[
                     { k: "sets_to_win", l: "Sets para ganar" },
                     { k: "games_per_set", l: "Juegos por set" },
-                    { k: "tie_break_at", l: "Tie-break a" },
+                    { k: "tie_break_at", l: "Tie-break a (juegos)" },
                     { k: "tie_break_points", l: "Puntos TB" },
                   ].map((f) => (
                     <div key={f.k} className="grid gap-1">
@@ -853,6 +858,32 @@ export default function TournamentWizard() {
                     </div>
                   ))}
                 </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid gap-1 sm:col-span-2">
+                    <Label htmlFor="sc-win_by_two" className="text-xs text-muted-foreground">Ganar TB por 2</Label>
+                    <Select value={tournament.win_by_two_tiebreak} onValueChange={(v) => setTournament((t) => ({ ...t, win_by_two_tiebreak: v }))}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Sí (diferencia de 2)</SelectItem>
+                        <SelectItem value="false">No (muerte súbita)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-1 sm:col-span-2">
+                    <Label htmlFor="sc-ranking_method" className="text-xs text-muted-foreground">Método ranking</Label>
+                    <Select value={tournament.ranking_method} onValueChange={(v) => setTournament((t) => ({ ...t, ranking_method: v as "match_points" | "points_percentage" }))}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="match_points">Puntos por partido (3-0-0)</SelectItem>
+                        <SelectItem value="points_percentage">% Puntos (Liga16: pts a favor / total)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Liga16 4TA/5TA/6TA/SUMA9: usa <strong>% Puntos</strong> y tie-break a <strong>10 pts</strong> (super TB).
+                  Otros torneos: <strong>Puntos por partido</strong> y TB a 7 pts.
+                </p>
               </fieldset>
             </div>
           )}
