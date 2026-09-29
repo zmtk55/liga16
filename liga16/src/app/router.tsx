@@ -17,6 +17,7 @@ const Rankings = lazy(() => import("../features/rankings/page"));
 const Clubs = lazy(() => import("../features/clubs/page"));
 const News = lazy(() => import("../features/news/page"));
 const MyProfile = lazy(() => import("../features/players/my-profile"));
+const SystemStatus = lazy(() => import("../features/admin/system-status"));
 const AdminLayout = lazy(() => import("../features/admin/layout"));
 const AdminDashboard = lazy(() => import("../features/admin/dashboard"));
 const AdminTournaments = lazy(() => import("../features/admin/tournaments"));
@@ -76,6 +77,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <AdminDashboard /> },
+      { path: "estado", element: <SystemStatus /> },
       { path: "torneos", element: <AdminTournaments /> },
       { path: "torneos/nuevo", element: <AdminTournamentWizard /> },
       { path: "torneos/:slug", element: <AdminTournamentDetail /> },

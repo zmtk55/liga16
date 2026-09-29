@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router";
 import {
+  Activity,
   BarChart3,
   Building2,
   ClipboardList,
@@ -50,6 +51,10 @@ const navGroups = [
       { to: "/admin/padel", label: "Sede", icon: Building2 },
       { to: "/admin/noticias", label: "Noticias", icon: Newspaper },
     ],
+  },
+  {
+    label: "Sistema",
+    items: [{ to: "/admin/estado", label: "Estado", icon: Activity }],
   },
 ];
 
