@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router";
-import { Search, Menu, X, Shield, User, LogIn } from "lucide-react";
+import { Search, Menu, X, Shield, User, UserCog, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -121,9 +121,16 @@ export function SiteHeader() {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-60">
                 <DropdownMenuItem asChild>
-                  <Link to={profileLink}><User className="h-4 w-4 mr-2" /> Mi perfil</Link>
+                  <Link to="/mi-perfil">
+                    <UserCog className="h-4 w-4 mr-2" /> Editar mi perfil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={profileLink}>
+                    <User className="h-4 w-4 mr-2" /> Ver mi ficha
+                  </Link>
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild>
