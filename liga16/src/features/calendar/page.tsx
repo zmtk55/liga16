@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHero } from "@/components/page-hero";
+import { MatchScoreboard } from "@/components/match-scoreboard";
 import { Clock, MapPin, Radio, Calendar, Trophy } from "lucide-react";
-import { formatMatchScore } from "@/lib/scoring";
 import { formatMatchDateTime, initials } from "@/lib/format";
 
 export default function CalendarPage() {
@@ -103,8 +103,15 @@ export default function CalendarPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
-                    <span className="font-mono tabular-nums font-medium">{formatMatchScore(m.sets)}</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2">
+                    <MatchScoreboard
+                      sideA={m.side_a.pair_name}
+                      sideB={m.side_b.pair_name}
+                      sets={m.sets}
+                      winner={m.winner}
+                      status={m.status}
+                      size="md"
+                    />
                     <span className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {m.scheduled_at ? formatMatchDateTime(m.scheduled_at) : "Sin hora"}</span>
                       {m.court_name && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {m.court_name}</span>}

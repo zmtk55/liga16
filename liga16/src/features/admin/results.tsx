@@ -35,19 +35,27 @@ import { toast } from "sonner";
 import type { MatchStatus } from "@/types";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
+import { MatchScoreboard } from "@/components/match-scoreboard";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { MatchStatusBadge } from "@/components/admin/status-badge";
 import { matchStatusLabel } from "@/lib/format";
 import {
   determineMatchWinner,
-  formatMatchScore,
   normalizeScoring,
   validateScoring,
 } from "@/lib/scoring";
 import { Plus, Trash2, Trophy } from "lucide-react";
 
 const STATUS_OPTIONS = Object.entries(matchStatusLabel).map(([value, label]) => ({ value, label }));
+
+/** "Emilio Garza / Ricardo Anaya" → "Garza / Anaya" — para cabeceras compactas. */
+function shortPairName(pairName: string): string {
+  return pairName
+    .split("/")
+    .map((s) => (s.trim().split(" ").pop() ?? s.trim()) || "?")
+    .join(" / ");
+}
 
 export default function AdminResults() {
   const [list, setList] = useState<Match[] | null>(null);
@@ -91,13 +99,17 @@ export default function AdminResults() {
         return;
       }
 
-      const winner = determineMatchWinner(form.sets, scoring);
+      // El ganador automático (por sets) manda; el manual sólo aplica si los
+      // sets no definen ganador. Nunca guardar "" como winner.
+      const autoWinner = determineMatchWinner(form.sets, scoring);
+      const manualWinner: Match["winner"] =
+        form.winner === "a" || form.winner === "b" ? form.winner : null;
       await db.updateMatch(id, {
         status: form.status as MatchStatus,
         round: form.round,
         court_name: form.court_name,
         scheduled_at: form.scheduled_at || undefined,
-        winner: winner ?? (form.winner as Match["winner"]) ?? undefined,
+        winner: autoWinner ?? manualWinner,
         sets: form.sets,
       });
       toast.success("Partido actualizado");
@@ -183,8 +195,15 @@ export default function AdminResults() {
                   <TableCell className="font-medium">{m.tournament_name}</TableCell>
                   <TableCell className="hidden text-muted-foreground sm:table-cell">{m.category_name}</TableCell>
                   <TableCell className="hidden md:table-cell">{m.round}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {formatMatchScore(m.sets, tournaments[m.tournament_id]?.scoring ?? undefined)}
+                  <TableCell>
+                    <MatchScoreboard
+                      sideA={m.side_a.pair_name}
+                      sideB={m.side_b.pair_name}
+                      sets={m.sets}
+                      winner={m.winner}
+                      status={m.status}
+                      size="sm"
+                    />
                   </TableCell>
                   <TableCell>
                     <MatchStatusBadge status={m.status} />
@@ -297,7 +316,6 @@ function MatchEditDialog({
 
   const currentSets = fromSetInputs(setInputs);
   const winner = determineMatchWinner(currentSets, scoring);
-  const scorePreview = formatMatchScore(currentSets, scoring);
 
   function submit() {
     onSave(match.id, { ...form, sets: currentSets });
@@ -359,44 +377,50 @@ function MatchEditDialog({
             </div>
 
             {setInputs.map((set, i) => (
-              <div key={i} className="grid gap-3 rounded-lg bg-muted/30 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium">Set {i + 1}</span>
+              <div key={i} className="rounded-lg bg-muted/30 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wide">
+                    Set {i + 1}
+                    {i >= 2 && (
+                      <span className="ml-2 text-[10px] font-normal normal-case text-amber-600 dark:text-amber-400">
+                        Super tie-break a 10 (dif. 2)
+                      </span>
+                    )}
+                  </span>
                   {setInputs.length > 1 && (
                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSet(i)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-4 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Juegos A</Label>
-                    <Input type="number" min={0} value={set.a} onChange={(e) => updateSet(i, "a", e.target.value)} />
+                {/* Columnas con el nombre real de cada pareja: siempre se sabe de quién es cada número */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <p className="truncate text-xs font-bold text-primary" title={match.side_a.pair_name}>{shortPairName(match.side_a.pair_name)}</p>
+                    <Input type="number" min={0} aria-label={`Juegos de ${match.side_a.pair_name} en set ${i + 1}`} value={set.a} onChange={(e) => updateSet(i, "a", e.target.value)} />
+                    <Input type="number" min={0} aria-label={`Tie-break de ${match.side_a.pair_name} en set ${i + 1}`} placeholder="TB" className="h-8 text-xs" value={set.tiebreak_a} onChange={(e) => updateSet(i, "tiebreak_a", e.target.value)} />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Juegos B</Label>
-                    <Input type="number" min={0} value={set.b} onChange={(e) => updateSet(i, "b", e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Tie A</Label>
-                    <Input type="number" min={0} placeholder="TB" value={set.tiebreak_a} onChange={(e) => updateSet(i, "tiebreak_a", e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Tie B</Label>
-                    <Input type="number" min={0} placeholder="TB" value={set.tiebreak_b} onChange={(e) => updateSet(i, "tiebreak_b", e.target.value)} />
+                  <div className="space-y-1.5">
+                    <p className="truncate text-xs font-bold text-foreground" title={match.side_b.pair_name}>{shortPairName(match.side_b.pair_name)}</p>
+                    <Input type="number" min={0} aria-label={`Juegos de ${match.side_b.pair_name} en set ${i + 1}`} value={set.b} onChange={(e) => updateSet(i, "b", e.target.value)} />
+                    <Input type="number" min={0} aria-label={`Tie-break de ${match.side_b.pair_name} en set ${i + 1}`} placeholder="TB" className="h-8 text-xs" value={set.tiebreak_b} onChange={(e) => updateSet(i, "tiebreak_b", e.target.value)} />
                   </div>
                 </div>
+                <p className="mt-1.5 text-[10px] text-muted-foreground">Caja grande = juegos ganados · TB = tie-break (solo 6-6)</p>
               </div>
             ))}
 
-            <div className="flex items-center justify-between rounded-lg bg-primary/5 p-3">
-              <div className="text-sm">
-                <span className="text-muted-foreground">Marcador:</span>{" "}
-                <span className="font-mono font-medium">{scorePreview}</span>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary/5 p-3">
+              <MatchScoreboard
+                sideA={match.side_a.pair_name}
+                sideB={match.side_b.pair_name}
+                sets={currentSets}
+                winner={winner}
+                size="md"
+              />
               {winner ? (
                 <Badge variant="default">
-                  Ganador: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
+                  Ganador: {shortPairName(winner === "a" ? match.side_a.pair_name : match.side_b.pair_name)}
                 </Badge>
               ) : (
                 <Badge variant="outline">Aún no hay ganador</Badge>
@@ -405,11 +429,9 @@ function MatchEditDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Ganador manual (opcional)</Label>
-            <Select value={form.winner} onValueChange={(v) => update("winner", v)}>
+            <Label>Ganador manual (opcional)</Label>              <Select value={form.winner || "none"} onValueChange={(v) => update("winner", v === "none" ? "" : v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Automático por sets</SelectItem>
+              <SelectContent>                  <SelectItem value="none">Automático por sets</SelectItem>
                 <SelectItem value="a">{match.side_a.pair_name}</SelectItem>
                 <SelectItem value="b">{match.side_b.pair_name}</SelectItem>
               </SelectContent>

@@ -140,15 +140,24 @@ export function matchToLiga16Sets(match: Match): Liga16MatchSets {
   const sets = match.sets ?? [];
   const set1 = sets[0] ?? { a: 0, b: 0 };
   const set2 = sets[1] ?? { a: 0, b: 0 };
-  const set3 = sets[2]; // tiebreak si existe
+  const set3 = sets[2]; // super tie-break si existe
+
+  let tiebreak: { a: number; b: number } | null = null;
+  if (set3) {
+    // Formato real en BD: el super tie-break se guarda como tercer set con
+    // juegos (ej. {a:10,b:8}). Variante legacy: juegos en 0 y puntos en
+    // tiebreak_a/b. Un tercer set vacío no cuenta.
+    if ((set3.a ?? 0) > 0 || (set3.b ?? 0) > 0) {
+      tiebreak = { a: set3.a ?? 0, b: set3.b ?? 0 };
+    } else if (set3.tiebreak_a != null || set3.tiebreak_b != null) {
+      tiebreak = { a: set3.tiebreak_a ?? 0, b: set3.tiebreak_b ?? 0 };
+    }
+  }
 
   return {
     set1: { a: set1.a ?? 0, b: set1.b ?? 0 },
     set2: { a: set2.a ?? 0, b: set2.b ?? 0 },
-    tiebreak:
-      set3 && (set3.tiebreak_a != null || set3.tiebreak_b != null)
-        ? { a: set3.tiebreak_a ?? 0, b: set3.tiebreak_b ?? 0 }
-        : null,
+    tiebreak,
   };
 }
 
@@ -350,10 +359,16 @@ export function validateLiga16Match(sets: Liga16MatchSets): string | null {
     if (!isValidSet(tb.a, tb.b, true)) return "Tiebreak: marcador inválido (super tie-break a 10, diff 2)";
   }
 
-  // Validar coherencia: si alguien ganó 2-0, no debe haber tiebreak
+  // Coherencia del desempate: si alguien ya ganó 2 sets, el tercer "set" sólo
+  // puede ser super tie-break a 10; un set completo (6-x / 7-5) es inválido.
   const setsWon = countSetsWonLiga16(sets);
   if ((setsWon.a === 2 || setsWon.b === 2) && sets.tiebreak) {
-    return "No debe haber tiebreak si el partido terminó 2-0";
+    const w = Math.max(sets.tiebreak.a, sets.tiebreak.b);
+    const l = Math.min(sets.tiebreak.a, sets.tiebreak.b);
+    const fullSet = (w === 6 && l <= 4) || (w === 7 && l === 5);
+    if (fullSet) {
+      return "El desempate debe ser super tie-break a 10, no un tercer set completo";
+    }
   }
 
   return null;

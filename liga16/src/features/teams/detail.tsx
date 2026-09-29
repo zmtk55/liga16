@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
+import { MatchScoreboard } from "@/components/match-scoreboard";
 import { formatMatchDateTime, initials, sexLabel, winRate } from "@/lib/format";
 
 const TeamCompareChart = lazy(() => import("./compare-chart").then((m) => ({ default: m.TeamCompareChart })));
@@ -282,7 +283,6 @@ export default function TeamDetailPage() {
                   const rival = (isA ? m.side_b.pair_name : m.side_a.pair_name) ?? "?";
                   const isFinished = m.status === "finished" && m.winner;
                   const won = isFinished && ((isA && m.winner === "a") || (!isA && m.winner === "b"));
-                  const scoreline = m.sets.map((s) => `${isA ? s.a : s.b}-${isA ? s.b : s.a}`).join(", ");
                   return (
                     <div key={i} className={`flex items-center gap-3 rounded-xl border p-3 transition-all hover:shadow-sm ${m.status === "live" ? "border-primary/40 bg-primary/5" : "hover:border-primary/20"}`}>
                       <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${
@@ -297,7 +297,16 @@ export default function TeamDetailPage() {
                           {m.round ? `${m.round} · ` : ""}{m.tournament_name ?? "Liga16"}{m.scheduled_at ? ` · ${formatMatchDateTime(m.scheduled_at)}` : ""}
                         </p>
                       </div>
-                      {isFinished && scoreline && <Badge variant={won ? "default" : "outline"} className="font-mono shrink-0">{scoreline}</Badge>}
+                      {isFinished && (
+                        <MatchScoreboard
+                          sideA={m.side_a.pair_name}
+                          sideB={m.side_b.pair_name}
+                          sets={m.sets}
+                          winner={m.winner}
+                          status={m.status}
+                          size="sm"
+                        />
+                      )}
                       {!isFinished && m.status !== "live" && <Badge variant="outline" className="shrink-0">Por jugar</Badge>}
                       {m.status === "live" && <Badge className="shrink-0 animate-pulse">En juego</Badge>}
                     </div>

@@ -1,7 +1,8 @@
 // Scoreboard de partido unificado — se usa en resultados, calendario, rol de
 // equipo y últimos partidos del jugador. Resuelve la ambigüedad de "6-3":
-// siempre muestra el nombre de cada pareja junto a SUS juegos, y resalta
-// el tie-break como número pequeño junto al juego.
+// siempre muestra el nombre de cada pareja junto a SUS juegos, y muestra el
+// tie-break como número pequeño SOLO en sets empatados (6-6). El super
+// tie-break (ej. 10-8) es un set con juegos: caja normal, sin TB falso.
 import type { MatchStatus, SetScore } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,9 @@ export function MatchScoreboard({
             const theirs = side === "a" ? (s.b ?? 0) : (s.a ?? 0);
             const tb = side === "a" ? s.tiebreak_a : s.tiebreak_b;
             const tookSet = mine > theirs;
+            // TB pequeño sólo si el set está empatado (6-6); evita el "tie-break
+            // siempre activo" cuando hay datos con TB en sets que no lo tienen.
+            const showTb = tb != null && (s.a ?? 0) === (s.b ?? 0);
             return (
               <span
                 key={i}
@@ -63,7 +67,7 @@ export function MatchScoreboard({
                 )}
               >
                 {mine}
-                {tb != null && <span className="ml-0.5 text-[8px] font-normal opacity-70">{tb}</span>}
+                {showTb && <span className="ml-0.5 text-[8px] font-normal opacity-70">{tb}</span>}
               </span>
             );
           })}

@@ -46,6 +46,8 @@ export function determineSetWinner(set: SetScore, config: TournamentScoring): "a
     return null;
   }
 
+  // Tie-break de set (6-6). El super tie-break (ej. 10-8) se resuelve arriba
+  // con la regla general: 10 >= games_per_set y 10 >= 8 + 2.
   // Tie-break
   const ta = set.tiebreak_a ?? 0;
   const tb = set.tiebreak_b ?? 0;
@@ -118,6 +120,17 @@ export function validateScoring(sets: SetScore[], config: TournamentScoring): st
     if (set.a < 0 || set.b < 0) return `El set ${i + 1} tiene juegos negativos`;
     if ((set.tiebreak_a ?? 0) < 0 || (set.tiebreak_b ?? 0) < 0) {
       return `El set ${i + 1} tiene puntos de tie-break negativos`;
+    }
+    // El tie-break sólo existe en sets empatados (6-6) o decididos en TB (7-6);
+    // en cualquier otro set (ej. 6-4 con TB 7-3) es dato inválido.
+    const hasTb = set.tiebreak_a != null || set.tiebreak_b != null;
+    if (hasTb && set.a !== set.b) {
+      const max = Math.max(set.a, set.b);
+      const isSuper = max >= 10; // super tie-break guardado como set
+      const isDecidedTbSet = max === cfg.games_per_set + 1 && Math.abs(set.a - set.b) === 1; // 7-6
+      if (!isSuper && !isDecidedTbSet) {
+        return `El set ${i + 1} tiene tie-break pero el marcador no está 6-6`;
+      }
     }
     if (aWon >= cfg.sets_to_win || bWon >= cfg.sets_to_win) {
       return `Hay sets de más después de que el partido ya terminó`;

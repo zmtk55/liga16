@@ -7,6 +7,7 @@ import {
   computePairStatsLiga16,
   computeJerarquiaLiga16,
   computeLiga16Standings,
+  matchToLiga16Sets,
   type Liga16MatchSets,
   type Liga16PairStats,
 } from "./liga16-scoring";
@@ -40,6 +41,45 @@ function createMockMatch(
 }
 
 describe("Liga16 Scoring Algorithm", () => {
+  describe("Super tie-break guardado como tercer set (formato real de BD)", () => {
+    // Partido real: 4-6 6-4 10-8 con el super tie-break como set plano
+    function realFormatMatch(): Match {
+      return {
+        ...createMockMatch("m1", "eqA", "eqB", { set1: { a: 4, b: 6 }, set2: { a: 6, b: 4 } }, "a"),
+        sets: [
+          { a: 4, b: 6, tiebreak_a: null, tiebreak_b: null },
+          { a: 6, b: 4, tiebreak_a: null, tiebreak_b: null },
+          { a: 10, b: 8, tiebreak_a: null, tiebreak_b: null },
+        ],
+      };
+    }
+
+    it("matchToLiga16Sets mapea el tercer set plano {a:10,b:8} a tiebreak", () => {
+      const ligaSets = matchToLiga16Sets(realFormatMatch());
+      expect(ligaSets.tiebreak).toEqual({ a: 10, b: 8 });
+    });
+
+    it("4-6 6-4 10-8 cuenta 2-1 y gana 'a' (antes se descartaba el 10-8)", () => {
+      const ligaSets = matchToLiga16Sets(realFormatMatch());
+      expect(countSetsWonLiga16(ligaSets)).toEqual({ a: 2, b: 1 });
+      expect(determineMatchWinnerLiga16(ligaSets)).toBe("a");
+    });
+
+    it("el super tie-break suma puntos al rendimiento (equipo A)", () => {
+      const stats = computePairStatsLiga16("eqA", 1, "Equipo A", [realFormatMatch()]);
+      // favor: 4+6+10 = 20, total: (4+6)+(6+4)+(10+8) = 38
+      expect(stats.PUNTOS_A_FAVOR).toBe(20);
+      expect(stats.PUNTOS_TOTALES).toBe(38);
+      expect(stats.PG).toBe(1);
+    });
+
+    it("variante legacy (juegos en 0, puntos en tiebreak_a/b) sigue funcionando", () => {
+      const match = createMockMatch("m1", "eqA", "eqB", { set1: { a: 6, b: 3 }, set2: { a: 3, b: 6 }, tiebreak: { a: 10, b: 8 } }, "a");
+      const ligaSets = matchToLiga16Sets(match);
+      expect(ligaSets.tiebreak).toEqual({ a: 10, b: 8 });
+      expect(determineMatchWinnerLiga16(ligaSets)).toBe("a");
+    });
+  });
   describe("countSetsWonLiga16 (Paso 1)", () => {
     it("cuenta sets ganados correctamente con tiebreak", () => {
       const sets: Liga16MatchSets = {
