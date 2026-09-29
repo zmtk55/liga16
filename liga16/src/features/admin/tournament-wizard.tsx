@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DndContext,
   closestCenter,
@@ -45,6 +45,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Dice5,
+  FileText,
+  History,
   ImagePlus,
   Layers,
   Plus,
@@ -245,6 +247,10 @@ export default function TournamentWizard() {
 
   // Paso 5: sorteo
   const [groups, setGroups] = useState<Group[]>([]);
+  // Draft + History para sorteo seguro
+  const [draftGroups, setDraftGroups] = useState<Group[]>([]);
+  const [history, setHistory] = useState<Group[][]>([]);
+  const [hasDraft, setHasDraft] = useState(false);
 
   // Cargar contexto (sede, canchas, jugadores) y, en edición, el torneo completo
   useEffect(() => {
@@ -491,7 +497,7 @@ export default function TournamentWizard() {
   /** Sorteo por categoría: baraja dentro de cada categoría, respeta los grupos asignados a mano. */
   function handleDraw() {
     const byCat = new Map<string, TeamInput[]>();
-    teams.forEach((t) => {
+teams.forEach((t) => {
       const k = `${t.division}|${t.sex}`;
       if (!byCat.has(k)) byCat.set(k, []);
       byCat.get(k)!.push(t);
@@ -532,7 +538,42 @@ export default function TournamentWizard() {
       });
       result.push(...catGroups);
     }
-    setGroups(result);
+
+    // Guardar estado actual en historial antes de crear draft
+    if (groups.length > 0) {
+      setHistory((prev) => [groups, ...prev.slice(0, 9)]); // max 10 versiones
+    }
+
+    // Crear draft (no aplica aún)
+    setDraftGroups(result);
+    setHasDraft(true);
+    toast.success(`Sorteo generado en borrador: ${result.length} grupos. Revisa y aplica.`);
+  }
+
+  /** Aplica el draft y limpia estado de draft */
+  function applyDraft() {
+    setGroups(draftGroups);
+    setDraftGroups([]);
+    setHasDraft(false);
+    toast.success("Sorteo aplicado. Los grupos ya están activos.");
+  }
+
+  /** Descarta el draft sin aplicar */
+  function discardDraft() {
+    setDraftGroups([]);
+    setHasDraft(false);
+    toast.info("Borrador descartado. Los grupos actuales se mantienen.");
+  }
+
+  /** Restaura una versión del historial */
+  function restoreFromHistory(index: number) {
+    const restored = history[index];
+    setHistory((prev) => prev.filter((_, i) => i !== index));
+    if (groups.length > 0) {
+      setHistory((prev) => [groups, ...prev.slice(0, 9)]);
+    }
+    setGroups(restored);
+    toast.success("Versión anterior restaurada.");
   }
 
   function removeTeamFromGroups(index: string) {
@@ -1051,28 +1092,106 @@ export default function TournamentWizard() {
                 <h2 className="text-lg font-bold">Sorteo y calendario</h2>
                 <Badge variant="outline">{teams.length} equipos</Badge>
               </div>
+
+              {/* Panel de Borrador + Historial */}
+              {(hasDraft || history.length > 0) && (
+                <Card className={hasDraft ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-amber-200 bg-amber-50"}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        {hasDraft ? (
+                          <>
+                            <FileText className="h-4 w-4 text-primary" />
+                            Borrador de sorteo listo
+                            <Badge variant="default">{draftGroups.length} grupos</Badge>
+                          </>
+                        ) : (
+                          <>
+                            <History className="h-4 w-4 text-amber-600" />
+                            Historial de sorteos
+                            <Badge variant="secondary">{history.length}</Badge>
+                          </>
+                        )}
+                      </CardTitle>
+                    </div>
+                    {hasDraft && (
+                      <p className="text-xs text-muted-foreground">
+                        {draftGroups.length} grupos · {draftGroups.reduce((a, g) => a + g.pairIds.length, 0)} equipos asignados
+                      </p>
+                    )}
+                    {history.length > 0 && !hasDraft && (
+                      <p className="text-xs text-muted-foreground">
+                        {history.length} versión{history.length > 1 ? "es" : ""} guardada{history.length > 1 ? "s" : ""}. Haz clic para restaurar.
+                      </p>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {hasDraft && (
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={applyDraft} className="bg-primary hover:bg-primary/90">
+                          <Check className="h-4 w-4 mr-1" /> Aplicar sorteo
+                        </Button>
+                        <Button variant="destructive" onClick={discardDraft}>
+                          <X className="h-4 w-4 mr-1" /> Descartar borrador
+                        </Button>
+                        <Button variant="outline" onClick={handleDraw}>
+                          <RotateCcw className="h-4 w-4 mr-1" /> Generar otro borrador
+                        </Button>
+                      </div>
+                    )}
+                    {history.length > 0 && !hasDraft && (
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {history.map((h, i) => (
+                          <Button
+                            key={i}
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start gap-2 text-xs hover:bg-amber-50"
+                            onClick={() => restoreFromHistory(i)}
+                          >
+                            <RotateCcw className="h-3 w-3 text-amber-600" />
+                            <span>
+                              Sorteo #{history.length - i} — {h.length} grupos, {h.reduce((a, g) => a + g.pairIds.length, 0)} equipos
+                              {i === 0 && <span className="ml-2 text-[10px] text-emerald-600">(más reciente)</span>}
+                            </span>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              <p className="text-sm text-muted-foreground">
+                El sorteo baraja dentro de cada categoría y respeta los grupos que asignaste a mano. Después mueve
+                equipos arrastrándolos entre grupos o con el selector de cada tarjeta. Puedes crear más grupos en cualquier momento.
+              </p>
+
+              {/* Botones de acción principal */}
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" onClick={handleDraw} disabled={teams.length < 2} title={teams.length < 2 ? "Necesitas al menos 2 equipos" : undefined}>
-                  <Dice5 className="h-4 w-4 mr-1" /> Sortear al azar
+                <Button
+                  type="button"
+                  onClick={handleDraw}
+                  disabled={teams.length < 2 || hasDraft}
+                  title={teams.length < 2 ? "Necesitas al menos 2 equipos" : hasDraft ? "Aplica o descarta el borrador actual primero" : undefined}
+                >
+                  <Dice5 className="h-4 w-4 mr-1" /> {hasDraft ? "Generar otro borrador" : "Sortear al azar"}
                 </Button>
                 <Button type="button" variant="outline" onClick={addGroupManual} disabled={teams.length === 0}>
                   <Plus className="h-4 w-4 mr-1" /> Crear grupo vacío
                 </Button>
                 {groups.length > 0 && (
-                  <Button type="button" variant="outline" size="sm" onClick={() => setGroups([])}>
-                    <RotateCcw className="h-3.5 w-3.5 mr-1" /> Vaciar
+                  <Button type="button" variant="outline" size="sm" onClick={() => { if (groups.length > 0) { setHistory((prev) => [groups, ...prev.slice(0, 9)]); setGroups([]); } }}>
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" /> Vaciar grupos
                   </Button>
                 )}
                 {teams.length < 2 && (
                   <p className="self-center text-sm text-amber-600 dark:text-amber-400">Añade al menos 2 equipos para poder sortear.</p>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">
-                El sorteo baraja dentro de cada categoría y respeta los grupos que asignaste a mano. Después mueve
-                equipos arrastrándolos entre grupos o con el selector de cada tarjeta. Puedes crear más grupos en cualquier momento.
-              </p>
 
-              {groups.length === 0 ? (
+              {/* Visualización de grupos */}
+              {groups.length === 0 && !hasDraft ? (
                 <div className="rounded-lg border border-dashed p-6 text-center">
                   <p className="text-sm text-muted-foreground">Sin grupos todavía: sortea o crea grupos vacíos y arrastra los equipos.</p>
                 </div>
