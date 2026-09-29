@@ -55,6 +55,14 @@ export interface User {
   created_at: string;
 }
 
+export type PlayerStatus = 'pendiente' | 'verificado' | 'rechazado';
+
+/** Lo único que edita el jugador de su propio perfil. */
+export type MyProfileInput = Pick<
+  PlayerProfile,
+  'display_name' | 'username' | 'city' | 'state' | 'sex' | 'declared_level' | 'dominant_hand' | 'preferred_position'
+> & { bio?: string | null; photo_url?: string | null };
+
 export interface PlayerProfile {
   id: UUID;
   user_id: UUID;
@@ -73,6 +81,11 @@ export interface PlayerProfile {
   bio: string | null;
   is_public: boolean;
   role: UserRole;
+  /**
+   * Autoregistro (opción A): el perfil es del jugador, la elegibilidad para
+   * competir la da el admin. Ausente en bases viejas = verificado.
+   */
+  status?: PlayerStatus;
 }
 
 export interface Club {

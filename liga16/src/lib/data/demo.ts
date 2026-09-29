@@ -5,9 +5,12 @@ import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
   rankingEvents, rankings, sponsors, teams, tournaments,
 } from './seed';
-import type { Club, League, Match, NewsItem, Pair, PlayerProfile, RankingEntry, RankingEvent, Registration, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
+import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RankingEntry, RankingEvent, Registration, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
 
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
+
+/** En demo, "mi cuenta" es este jugador: permite recorrer el autoregistro sin Supabase. */
+const DEMO_ME_ID = 'p-3';
 
 // Almacén mutable para demo
 const store = {
@@ -241,6 +244,51 @@ export const demoProvider: DataProvider = {
     if (idx === -1) return false;
     store.players.splice(idx, 1);
     return true;
+  },
+
+  // ── Autoregistro (opción A) ───────────────────────────────────────────────
+  // En demo no hay auth real: la "cuenta" es un perfil sembrado, para poder
+  // recorrer la pantalla sin Supabase.
+  async getMyProfile() {
+    await delay();
+    return store.players.find((p) => p.id === DEMO_ME_ID) ?? null;
+  },
+
+  async createMyProfile(data) {
+    await delay();
+    const created = {
+      ...data,
+      id: `p-${Date.now()}`,
+      user_id: DEMO_ME_ID,
+      role: 'player' as const,
+      status: 'pendiente' as const,
+    } as PlayerProfile;
+    store.players.push(created);
+    return created;
+  },
+
+  async updateMyProfile(id: string, data: Partial<PlayerProfile>) {
+    await delay();
+    const idx = store.players.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error('Perfil no encontrado');
+    // El jugador no decide estos tres: los deja como estaban.
+    const current = store.players[idx];
+    store.players[idx] = {
+      ...current,
+      ...data,
+      status: current.status ?? 'verificado',
+      official_level: current.official_level,
+      role: current.role,
+    } as PlayerProfile;
+    return store.players[idx];
+  },
+
+  async setPlayerStatus(id: string, status: PlayerStatus) {
+    await delay();
+    const idx = store.players.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error('Perfil no encontrado');
+    store.players[idx] = { ...store.players[idx], status } as PlayerProfile;
+    return store.players[idx];
   },
 
   async getPlayerCard(playerId: string) {

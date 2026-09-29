@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
 import type { TournamentFilters } from '@/types';
-import type { Team, PadelDivision, Sex, Match, Court, Sponsor, Pair } from '@/types';
+import type { Team, PadelDivision, Sex, Match, Court, Sponsor, Pair, PlayerProfile, PlayerStatus, MyProfileInput } from '@/types';
 
 function client() {
   if (!supabase) throw new Error('Supabase no está configurado. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
@@ -534,6 +534,64 @@ export const supabaseProvider: DataProvider = {
     const { error } = await client().from('player_profiles').delete().eq('id', id);
     if (error) throw error;
     return true;
+  },
+
+  // ── Autoregistro (opción A) ───────────────────────────────────────────────
+  // El perfil lo controla el jugador; la elegibilidad para competir, el admin.
+  async getMyProfile() {
+    if (!supabase) return null;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data, error } = await client()
+      .from('player_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as PlayerProfile | null) ?? null;
+  },
+
+  async createMyProfile(data: MyProfileInput) {
+    if (!supabase) throw new Error('Supabase no está configurado.');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Inicia sesión para crear tu perfil.');
+    const { data: row, error } = await client()
+      .from('player_profiles')
+      .insert({
+        ...data,
+        user_id: user.id,
+        role: 'player',
+        // El trigger pone 'pendiente'; si el jugador crea el perfil a mano
+        // (p. ej. el trigger falló), se registra igual como pendiente.
+        status: 'pendiente',
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return row as PlayerProfile;
+  },
+
+  async updateMyProfile(id: string, data: MyProfileInput) {
+    // El trigger guard_player_self_update restaura status/official_level/role.
+    const { data: row, error } = await client()
+      .from('player_profiles')
+      .update(data as Record<string, unknown>)
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return row as PlayerProfile;
+  },
+
+  async setPlayerStatus(id: string, status: PlayerStatus) {
+    const { data, error } = await client()
+      .from('player_profiles')
+      .update({ status })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as PlayerProfile;
   },
 
   async getPlayerCard(playerId: string) {

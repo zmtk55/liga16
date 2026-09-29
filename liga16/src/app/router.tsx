@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router";
 import AppLayout from "./layout";
 import Home from "../features/home/page";
 import { lazy } from "react";
-import { RequireRole } from "@/components/auth/guards";
+import { RequireAuth, RequireRole } from "@/components/auth/guards";
 
 // Lazy-loaded routes for performance
 const Login = lazy(() => import("../features/auth/page"));
@@ -16,6 +16,7 @@ const TournamentDetail = lazy(() => import("../features/tournaments/detail"));
 const Rankings = lazy(() => import("../features/rankings/page"));
 const Clubs = lazy(() => import("../features/clubs/page"));
 const News = lazy(() => import("../features/news/page"));
+const MyProfile = lazy(() => import("../features/players/my-profile"));
 const AdminLayout = lazy(() => import("../features/admin/layout"));
 const AdminDashboard = lazy(() => import("../features/admin/dashboard"));
 const AdminTournaments = lazy(() => import("../features/admin/tournaments"));
@@ -45,6 +46,14 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: "login", element: <Login /> },
+      {
+        path: "mi-perfil",
+        element: (
+          <RequireAuth>
+            <MyProfile />
+          </RequireAuth>
+        ),
+      },
       { path: "onboarding", element: <Navigate to="/admin/torneos/nuevo" replace /> },
       { path: "torneos", element: <Tournaments /> },
       { path: "torneos/:slug", element: <TournamentDetail /> },

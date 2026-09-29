@@ -1,6 +1,7 @@
 // Interfaz única de acceso a datos de Liga16.
 // Las páginas consumen `db`, sin saber si detrás hay datos demo o Supabase.
 import type { PlayerRecord } from '@/lib/records';
+import type { MyProfileInput, PlayerStatus } from '@/types';
 import type {
   Club,
   League,
@@ -68,6 +69,14 @@ export interface DataProvider {
   updatePlayer(id: string, data: Partial<PlayerProfile>): Promise<PlayerProfile | null>;
   deletePlayer(id: string): Promise<boolean>;
   getPlayerCard(playerId: string): Promise<PlayerCard | null>;
+  /** Perfil ligado a la cuenta con sesión (autoregistro, opción A). */
+  getMyProfile(): Promise<PlayerProfile | null>;
+  /** Crea el perfil del jugador con su cuenta ya iniciada. */
+  createMyProfile(data: MyProfileInput): Promise<PlayerProfile>;
+  /** El jugador edita SU perfil; status/official_level/role los decide el admin. */
+  updateMyProfile(id: string, data: MyProfileInput): Promise<PlayerProfile>;
+  /** Verificación administrativa: approve = 'verificado', reject = 'rechazado'. */
+  setPlayerStatus(id: string, status: PlayerStatus): Promise<PlayerProfile>;
   /**
    * Récord personal derivado de TODOS los partidos del jugador, aunque haya
    * cambiado de pareja. Es la unidad estable del desempeño.

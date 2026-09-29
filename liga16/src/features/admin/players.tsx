@@ -31,7 +31,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import type { PlayerStatus } from "@/types";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -67,13 +69,25 @@ export default function AdminPlayers() {
   const [tournaments, setTournaments] = useState<Array<{ id: string; name: string }>>([]);
   const [tid, setTid] = useState("all");
   const [tournamentPlayers, setTournamentPlayers] = useState<Set<string>>(new Set());
+  const [verification, setVerification] = useState("all");
 
-  const filtered = (list ?? []).filter((p) => {
-    const q = query.trim().toLowerCase();
-    if (q && !p.display_name.toLowerCase().includes(q) && !p.username.toLowerCase().includes(q)) return false;
-    if (tid !== "all" && !tournamentPlayers.has(p.display_name.trim().toLowerCase())) return false;
-    return true;
-  });
+  const statusOf = (p: PlayerProfile) => p.status ?? "verificado";
+  const pendingCount = (list ?? []).filter((p) => statusOf(p) === "pendiente").length;
+
+  const filtered = (list ?? [])
+    .filter((p) => {
+      const q = query.trim().toLowerCase();
+      if (q && !p.display_name.toLowerCase().includes(q) && !p.username.toLowerCase().includes(q)) return false;
+      if (tid !== "all" && !tournamentPlayers.has(p.display_name.trim().toLowerCase())) return false;
+      if (verification !== "all" && statusOf(p) !== verification) return false;
+      return true;
+    })
+    // Los pendientes primero: si alguien espera verificación, es lo primero
+    // que el organizador tiene que ver, no la fila 7 de la tabla.
+    .sort((a, b) => {
+      const rank = (p: PlayerProfile) => (statusOf(p) === "pendiente" ? 0 : 1);
+      return rank(a) - rank(b) || a.display_name.localeCompare(b.display_name);
+    });
 
   useEffect(() => {
     db.listPlayers().then(setList);
@@ -133,6 +147,19 @@ export default function AdminPlayers() {
 
   const dialogKey = editing?.id ?? "new";
   const [deleting, setDeleting] = useState<PlayerProfile | null>(null);
+  const [approving, setApproving] = useState<PlayerProfile | null>(null);
+
+  async function handleApprove(p: PlayerProfile) {
+    try {
+      await db.setPlayerStatus(p.id, "verificado");
+      toast.success(`${p.display_name} verificado — ya puede inscribirse a torneos`);
+      load();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al verificar");
+    } finally {
+      setApproving(null);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -140,9 +167,20 @@ export default function AdminPlayers() {
         title="Jugadores"
         description="Directorio de jugadores, nivel y rama de juego."
         action={
-          <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-            <Plus className="h-4 w-4" /> Nuevo jugador
-          </Button>
+          pendingCount > 0 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setVerification((v) => (v === "pendiente" ? "all" : "pendiente"))}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              {pendingCount} por verificar
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+              <Plus className="h-4 w-4" /> Nuevo jugador
+            </Button>
+          )
         }
       />
       <Card>
@@ -161,10 +199,23 @@ export default function AdminPlayers() {
                 options: tournaments.map((t) => ({ value: t.id, label: `Juega en: ${t.name}` })),
                 className: "sm:w-60",
               },
+              {
+                key: "verification",
+                ariaLabel: "Filtrar por verificación",
+                allLabel: "Cualquier verificación",
+                value: verification,
+                onChange: setVerification,
+                options: [
+                  { value: "pendiente", label: `Por verificar (${pendingCount})` },
+                  { value: "verificado", label: "Verificados" },
+                  { value: "rechazado", label: "Rechazados" },
+                ],
+                className: "sm:w-48",
+              },
             ]}
             resultCount={filtered.length}
             resultLabel="jugadores"
-            onClear={() => { setQuery(""); setTid("all"); }}
+            onClear={() => { setQuery(""); setTid("all"); setVerification("all"); }}
           />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
@@ -202,7 +253,18 @@ export default function AdminPlayers() {
                 />
               )}
               {filtered.map((p) => {
+                const status = (p.status ?? "verificado") as PlayerStatus;
+                const isPending = status === "pendiente";
                 const actions: RowAction[] = [
+                  ...(isPending
+                    ? [
+                        {
+                          label: "Verificar perfil",
+                          icon: <ShieldCheck className="h-4 w-4" />,
+                          onSelect: () => { setApproving(p); },
+                        } as RowAction,
+                      ]
+                    : []),
                   {
                     label: "Editar",
                     icon: <Pencil className="h-4 w-4" />,
@@ -218,8 +280,17 @@ export default function AdminPlayers() {
                 ];
                 return (
                 <RowContextMenu key={p.id} actions={actions}>
-                  <TableRow>
-                  <TableCell className="font-medium">{p.display_name}</TableCell>
+                  <TableRow className={isPending ? "bg-amber-50/50 dark:bg-amber-950/20" : undefined}>
+                  <TableCell className="font-medium">
+                    <span className="flex items-center gap-2">
+                      {p.display_name}
+                      {isPending && (
+                        <Badge variant="outline" className="border-amber-300 bg-amber-100 text-[10px] uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          Por verificar
+                        </Badge>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="hidden text-muted-foreground sm:table-cell">@{p.username}</TableCell>
                   <TableCell className="tabular-nums">{p.declared_level.toFixed(1)}</TableCell>
                   <TableCell className="hidden md:table-cell">{sexLabel(p.sex)}</TableCell>
@@ -237,6 +308,15 @@ export default function AdminPlayers() {
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!approving}
+        onOpenChange={(o) => { if (!o) setApproving(null); }}
+        onConfirm={() => approving && handleApprove(approving)}
+        title={`¿Verificar el perfil de ${approving?.display_name ?? "este jugador"}?`}
+        description="Al verificarlo, el jugador podrá inscribirse a los torneos del circuito. Revisa antes que sus datos correspondan a una persona real."
+        confirmLabel="Verificar"
+      />
 
       <ConfirmDialog
         open={!!deleting}
