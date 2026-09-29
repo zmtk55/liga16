@@ -130,7 +130,7 @@ function StatTile({
   icon,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   caption: string;
   accent?: boolean;
   icon?: React.ReactNode;
@@ -149,6 +149,106 @@ function StatTile({
         {value}
       </p>
       <p className="mt-1.5 truncate text-[11px] text-white/45">{caption}</p>
+    </div>
+  );
+}
+
+/**
+ * Cuenta hasta el valor final. Las animaciones CSS no cubren JS, así que si la
+ * persona pidió menos movimiento saltamos directo al número.
+ */
+function useCountUp(target: number, ms = 650) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let frame = 0;
+    // Las animaciones CSS no cubren JS, así que si la persona pidió menos
+    // movimiento saltamos directo al número final. Todo el setState vive en un
+    // callback de frame, nunca en el cuerpo del efecto.
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const instant = reduceMotion || !Number.isFinite(target) || target === 0;
+    if (instant) {
+      frame = requestAnimationFrame(() => setValue(target));
+      return () => cancelAnimationFrame(frame);
+    }
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      // ease-out quart: arranca rápido y frena suave
+      setValue(target * (1 - Math.pow(1 - t, 4)));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, ms]);
+  return value;
+}
+
+/** Números grandes que suben al cargar. */
+function CountUp({
+  value,
+  suffix = "",
+  decimals = 0,
+  className,
+}: {
+  value: number;
+  suffix?: string;
+  decimals?: number;
+  className?: string;
+}) {
+  const shown = useCountUp(value);
+  return (
+    <span className={className}>
+      {shown.toLocaleString("es-MX", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })}
+      {suffix}
+    </span>
+  );
+}
+
+/**
+ * Sets ganados por partido, de lo más antiguo a lo más reciente.
+ * El color es el resultado, así que la barra también dice si ganó.
+ */
+function TrendBars({
+  values,
+  form,
+}: {
+  values: number[];
+  form: Array<"G" | "P">;
+}) {
+  if (values.length === 0) return null;
+  const max = Math.max(...values, 1);
+  const offset = values.length - form.length;
+  return (
+    <div
+      className="flex h-20 items-end gap-1"
+      role="img"
+      aria-label={`Sets ganados en los últimos ${values.length} partidos`}
+    >
+      {values.map((v, i) => {
+        const won = form[offset + i] !== "P";
+        return (
+          <div key={i} className="group relative flex h-full flex-1 items-end">
+            <div
+              className={`w-full rounded-t-[3px] origin-bottom transition-transform duration-700 ease-out motion-reduce:transition-none ${
+                won ? "bg-primary" : "bg-muted-foreground/30"
+              } group-hover:opacity-80`}
+              style={{
+                height: `${Math.max((v / max) * 100, 6)}%`,
+                // escalonado: cada barra entra un poco después que la anterior
+                transitionDelay: `${i * 45}ms`,
+                animation: "fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
+              }}
+            />
+            <span className="pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-1.5 py-0.5 text-[10px] tabular-nums text-background group-hover:block">
+              {v}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -314,7 +414,10 @@ export default function PlayerDetailPage() {
 
               {/* Tres datos, no cuatro: lo que un jugador mira de un vistazo */}
               <div className="grid grid-cols-3 gap-2 md:gap-3">
-                <StatTile label="Puntos Liga16" value={ranking?.points.toLocaleString("es-MX") ?? "—"} accent
+                <StatTile
+                  label="Puntos Liga16"
+                  value={<CountUp value={ranking?.points ?? 0} />}
+                  accent
                   icon={
                     ranking && ranking.delta !== 0 ? (
                       ranking.delta > 0
@@ -642,6 +745,20 @@ export default function PlayerDetailPage() {
                       </div>
                     ))}
                   </div>
+
+                  {record.trend.length > 1 && (
+                    <div>
+                      <div className="mb-1 flex items-baseline justify-between gap-3">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Sets ganados por partido
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          últimos {record.trend.length}
+                        </p>
+                      </div>
+                      <TrendBars values={record.trend} form={record.form} />
+                    </div>
+                  )}
 
                   {record.recentMatches.length > 0 && (
                     <div>
