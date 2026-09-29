@@ -100,6 +100,38 @@ function ComparisonRow({ label, valueA, valueB, higherIsBetter, unit, isStyle = 
   );
 }
 
+/** Tile de estadística: número grande, rótulo chico arriba, contexto abajo. */
+function StatTile({
+  label,
+  value,
+  caption,
+  accent = false,
+  icon,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  accent?: boolean;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="animate-fade-in rounded-xl border border-white/10 bg-white/[0.05] p-3 transition-colors hover:border-white/20 hover:bg-white/[0.08] md:p-4">
+      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/45 md:text-[10px]">
+        {label}
+      </p>
+      <p
+        className={`mt-1.5 flex items-center gap-1.5 font-display text-2xl leading-none tabular-nums md:text-3xl ${
+          accent ? "text-primary" : "text-white"
+        }`}
+      >
+        {icon}
+        {value}
+      </p>
+      <p className="mt-1.5 truncate text-[11px] text-white/45">{caption}</p>
+    </div>
+  );
+}
+
 export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
@@ -213,6 +245,13 @@ export default function PlayerDetailPage() {
   // El historial derivado manda: la pareja actual es la de su última etapa.
   const currentPartner = record?.partners[0]?.partnerName ?? partner;
   const partnerCount = record?.partners.length ?? 0;
+  // Racha = victorias consecutivas al final de la forma, no de toda la temporada.
+  const streak = (() => {
+    const form = record?.form ?? [];
+    let n = 0;
+    for (let i = form.length - 1; i >= 0 && form[i] === "G"; i--) n++;
+    return n;
+  })();
   const canEditPhoto = !isConfigured || isAdmin || user?.player_id === player.id;
 
   return (
@@ -252,33 +291,75 @@ export default function PlayerDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Nivel oficial</p>
-                  <p className="text-2xl font-black tabular-nums">{(player.official_level ?? player.declared_level).toFixed(1)}</p>
-                  <p className="text-xs text-white/50">declarado {player.declared_level.toFixed(1)}</p>
-                </div>
-                <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Puntos</p>
-                  <p className="text-2xl font-black tabular-nums">{ranking?.points.toLocaleString("es-MX") ?? "—"}</p>
-                  <p className="text-xs flex items-center gap-1">{ranking?.delta === 0 ? <Minus className="h-3 w-3" /> : ranking && ranking.delta > 0 ? <TrendingUp className="h-3 w-3 text-emerald-400" /> : <TrendingDown className="h-3 w-3 text-red-400" />} Δ {ranking?.delta ?? 0}</p>
-                </div>
-                <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Récord</p>
-                  <p className="text-lg font-black tabular-nums">{won} – {played - won} <span className="text-xs font-normal text-white/60">/ {played} PJ</span></p>
-                  <p className="text-xs text-white/50">{winPct}% victorias</p>
-                </div>
-                <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Títulos</p>
-                  <p className="text-2xl font-black flex items-center gap-1"><Crown className="h-5 w-5 text-amber-400" /> {card?.titles ?? 0}</p>
-                  <p className="text-xs text-white/50">Circuito</p>
-                </div>
+              {/* Tres datos, no cuatro: lo que un jugador mira de un vistazo */}
+              <div className="grid grid-cols-3 gap-2 md:gap-3">
+                <StatTile label="Puntos Liga16" value={ranking?.points.toLocaleString("es-MX") ?? "—"} accent
+                  icon={
+                    ranking && ranking.delta !== 0 ? (
+                      ranking.delta > 0
+                        ? <TrendingUp className="h-4 w-4 text-emerald-400" />
+                        : <TrendingDown className="h-4 w-4 text-red-400" />
+                    ) : (
+                      <Minus className="h-4 w-4 text-white/40" />
+                    )
+                  }
+                  caption={
+                    ranking
+                      ? ranking.delta === 0
+                        ? "sin cambio"
+                        : `${ranking.delta > 0 ? "+" : ""}${ranking.delta} esta jornada`
+                      : "sin clasificar"
+                  }
+                />
+                <StatTile label="Títulos" value={String(card?.titles ?? 0)} caption="en el circuito" icon={<Crown className="h-4 w-4 text-amber-400" />} />
+                <StatTile label="% victoria" value={`${winPct}%`} caption={`${won} de ${played} PJ`} />
               </div>
 
+              {/* Racha: el dato que hace que querer jugar el siguiente partido */}
+              {played > 0 && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
+                  <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/55">
+                      Racha actual
+                    </p>
+                    <p className="text-sm font-semibold text-white">
+                      {streak > 0 ? (
+                        <span className="text-primary">{streak} victoria{streak === 1 ? "" : "s"} seguida{streak === 1 ? "" : "s"}</span>
+                      ) : (
+                        <span className="text-white/60">sin racha activa</span>
+                      )}
+                    </p>
+                  </div>
+                  <div
+                    className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+                    role="progressbar"
+                    aria-valuenow={winPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Porcentaje de victorias"
+                  >
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out"
+                      style={{ width: `${winPct}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-[11px] text-white/45">
+                    {won} victorias de {played} partidos disputados
+                    {partnerCount > 1 ? ` · ${partnerCount} parejas en su historial` : ""}
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full bg-white/10 px-3 py-1 border border-white/10">@{player.username}</span>
-                <span className="rounded-full bg-white/10 px-3 py-1 border border-white/10 flex items-center gap-1"><MapPin className="h-3 w-3" /> {player.country}</span>
-                <span className="rounded-full bg-white/10 px-3 py-1 border border-white/10">{player.bio ?? "Padel desde 2024"}</span>
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">@{player.username}</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
+                  <MapPin className="h-3 w-3" /> {player.country}
+                </span>
+                {player.bio && (
+                  <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
+                    {player.bio}
+                  </span>
+                )}
               </div>
 
               {canEditPhoto && (
