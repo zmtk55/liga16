@@ -33,13 +33,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
+import { Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
+import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -280,8 +275,23 @@ export default function AdminTeams() {
                 )}
                 {filtered.map((p) => {
                   const [p1, p2] = p.name.split(" / ");
+                  const actions: RowAction[] = [
+                    {
+                      label: "Editar equipo",
+                      icon: <Pencil className="h-4 w-4" />,
+                      onSelect: () => { setEditing(p); setOpenCreate(true); },
+                    },
+                    {
+                      label: "Eliminar",
+                      icon: <Trash2 className="h-4 w-4" />,
+                      onSelect: () => setDeleting(p),
+                      destructive: true,
+                      separator: true,
+                    },
+                  ];
                   return (
-                    <TableRow key={p.id}>
+                    <RowContextMenu key={p.id} actions={actions}>
+                    <TableRow>
                       <TableCell className="pl-4 font-medium">{p.name}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         {p.category_id ? (
@@ -294,23 +304,10 @@ export default function AdminTeams() {
                         {[p1, p2].filter(Boolean).join(" · ") || "—"}
                       </TableCell>
                       <TableCell className="pr-2 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${p.name}`}>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setEditing(p); setOpenCreate(true); }}>
-                              <Pencil className="h-4 w-4" /> Editar equipo
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setDeleting(p)} className="text-destructive focus:text-destructive">
-                              <Trash2 className="h-4 w-4" /> Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
                       </TableCell>
                     </TableRow>
+                    </RowContextMenu>
                   );
                 })}
               </TableBody>
@@ -424,9 +421,9 @@ function EquipoDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Categoría</Label>
+            <Label htmlFor="categoria">Categoría</Label>
             <Select value={form.category_id || "__none__"} onValueChange={(v) => setForm((f) => ({ ...f, category_id: v === "__none__" ? "" : v }))}>
-              <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+              <SelectTrigger id="categoria"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Sin categoría</SelectItem>
                 {categories.map((c) => (

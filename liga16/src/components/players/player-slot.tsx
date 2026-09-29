@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { ChevronsUpDown } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ export default function PlayerSlot({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const labelId = useId();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,7 +51,7 @@ export default function PlayerSlot({
 
   return (
     <div className="grid gap-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label id={labelId} className="text-xs text-muted-foreground">{label}</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -58,6 +59,7 @@ export default function PlayerSlot({
             variant="outline"
             role="combobox"
             aria-expanded={open}
+            aria-labelledby={labelId}
             className={`h-9 w-full justify-between font-normal ${value ? "" : "text-muted-foreground"}`}
           >
             <span className="truncate">{value || "Escribir o buscar…"}</span>

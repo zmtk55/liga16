@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
 import { PageHero } from "@/components/page-hero";
-import { Users, Trophy, Target, TrendingUp } from "lucide-react";
+import { Users, Trophy, Target } from "lucide-react";
 
 export default function RankingsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -106,36 +106,39 @@ export default function RankingsPage() {
         </Card>
       ) : (
         <Card>
-          <CardContent className="p-0">
+          <CardContent className="overflow-x-auto p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">#</TableHead>
-                  <TableHead className="flex items-center gap-2"><Trophy className="h-4 w-4" /> Equipo / Pareja</TableHead>
-                  <TableHead className="flex items-center gap-2"><Users className="h-4 w-4" /> Jugadores</TableHead>
-                  <TableHead className="text-right">División</TableHead>
-                  <TableHead className="hidden text-right md:table-cell flex items-center gap-1"><Target className="h-4 w-4" /> PJ</TableHead>
-                  <TableHead className="hidden text-right md:table-cell flex items-center gap-1"><TrendingUp className="h-4 w-4" /> PG</TableHead>
-                  <TableHead className="hidden text-right md:table-cell">Efect.</TableHead>
+                  <TableHead className="w-14">#</TableHead>
+                  <TableHead className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4" /> Pareja
+                  </TableHead>
                   <TableHead className="text-right">Puntos</TableHead>
+                  <TableHead className="text-right">Record</TableHead>
+                  <TableHead className="text-right">División / Rama</TableHead>
+                  <TableHead className="hidden items-center gap-2 lg:table-cell">
+                    <Users className="h-4 w-4" /> Jugadores
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-display text-xl text-muted-foreground">
                       {t.position > 0 ? t.position : "—"}
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">{t.name}</div>
                       <div className="text-xs text-muted-foreground">{t.city}</div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>
-                          {t.player1?.name ?? "—"} / {t.player2?.name ?? "—"}
-                        </span>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {t.points.toLocaleString("es-MX")}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {t.won}–{Math.max(t.lost, 0)}
+                      <div className="text-xs text-muted-foreground">
+                        {winRate(t.played, t.won)}% de efectividad
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -144,17 +147,13 @@ export default function RankingsPage() {
                         {sexLabel(t.sex)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden text-right md:table-cell">
-                      {t.played}
-                    </TableCell>
-                    <TableCell className="hidden text-right md:table-cell">
-                      {t.won}
-                    </TableCell>
-                    <TableCell className="hidden text-right md:table-cell">
-                      {winRate(t.played, t.won)}%
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">
-                      {t.points.toLocaleString("es-MX")}
+                    <TableCell className="hidden text-muted-foreground lg:table-cell">
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Users className="h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          {t.player1?.name ?? "—"} / {t.player2?.name ?? "—"}
+                        </span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

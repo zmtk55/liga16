@@ -34,13 +34,8 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { FolderInput, MoreHorizontal, Trash2, UsersRound } from "lucide-react";
+import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
+import { FolderInput, Trash2, UsersRound } from "lucide-react";
 
 interface AllPair {
   id: UUID;
@@ -208,8 +203,24 @@ export default function AdminParticipants() {
                   description="Ninguna pareja coincide con la búsqueda o el filtro."
                 />
               )}
-              {filtered.map((p) => (
-                <TableRow key={p.id}>
+              {filtered.map((p) => {
+                const actions: RowAction[] = [
+                  {
+                    label: "Mover a otro torneo",
+                    icon: <FolderInput className="h-4 w-4" />,
+                    onSelect: () => openMove(p),
+                  },
+                  {
+                    label: "Eliminar",
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onSelect: () => setDeleting(p),
+                    destructive: true,
+                    separator: true,
+                  },
+                ];
+                return (
+                <RowContextMenu key={p.id} actions={actions}>
+                  <TableRow>
                   <TableCell className="pl-4 font-medium">{p.name}</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {p.tournament_name ? (
@@ -226,27 +237,12 @@ export default function AdminParticipants() {
                     )}
                   </TableCell>
                   <TableCell className="pr-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${p.name}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openMove(p)}>
-                          <FolderInput className="h-4 w-4" /> Mover a otro torneo
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setDeleting(p)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" /> Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
                   </TableCell>
-                </TableRow>
-              ))}
+                  </TableRow>
+                </RowContextMenu>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

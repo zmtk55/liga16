@@ -744,8 +744,8 @@ export default function TournamentWizard() {
               </div>
 
               <div className="space-y-2">
-                <Label>Canchas disponibles ({courts.length})</Label>
-                <div className="flex flex-wrap gap-2">
+                <Label id="lbl-canchas-disponibles">Canchas disponibles ({courts.length})</Label>
+                <div className="flex flex-wrap gap-2" role="group" aria-labelledby="lbl-canchas-disponibles">
 {courts.map((c) => (
                       <Badge key={c.id} variant="secondary" className="gap-1 py-1.5 pl-3 pr-1.5">
                         {c.name}
@@ -789,8 +789,8 @@ export default function TournamentWizard() {
                   <Input id="t-name" value={tournament.name} onChange={(e) => setTournament((t) => ({ ...t, name: e.target.value }))} placeholder="Copa Liga16 Apertura 2026" />
                 </div>
                 {/* Póster del torneo: aparece en cards públicas, home y detalle */}
-                <div className="sm:col-span-2">
-                  <Label>Póster del torneo</Label>
+                <div className="sm:col-span-2" role="group" aria-labelledby="lbl-poster-torneo">
+                  <Label id="lbl-poster-torneo">Póster del torneo</Label>
                   <p className="mb-2 text-xs text-muted-foreground">
                     Imagen 16:9 (1200×675 recomendado). Se muestra en la landing, el listado de torneos y el detalle.
                   </p>
@@ -800,15 +800,15 @@ export default function TournamentWizard() {
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Inicio</Label>
+                  <Label htmlFor="t-start">Inicio</Label>
                   <DatePicker id="t-start" value={tournament.start_date} onChange={(v) => setTournament((t) => ({ ...t, start_date: v ?? t.start_date }))} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Fin</Label>
+                  <Label htmlFor="t-end">Fin</Label>
                   <DatePicker id="t-end" value={tournament.end_date} onChange={(v) => setTournament((t) => ({ ...t, end_date: v ?? t.end_date }))} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Cierre de inscripción</Label>
+                  <Label htmlFor="t-deadline">Cierre de inscripción</Label>
                   <DatePicker id="t-deadline" value={tournament.registration_deadline} onChange={(v) => setTournament((t) => ({ ...t, registration_deadline: v ?? t.registration_deadline }))} />
                 </div>
                 <div className="grid gap-1.5">
@@ -816,8 +816,8 @@ export default function TournamentWizard() {
                   <Input id="t-price" type="number" min={0} value={tournament.price_mxn} onChange={(e) => setTournament((t) => ({ ...t, price_mxn: Number(e.target.value) }))} />
                 </div>
                 <div className="grid gap-1.5 sm:col-span-2">
-<Label>Formato</Label>
-                      <div className="flex flex-wrap gap-2">
+<Label id="lbl-formato">Formato</Label>
+                      <div className="flex flex-wrap gap-2" role="group" aria-labelledby="lbl-formato">
                         {FORMAT_OPTIONS.map((f) => (
                           <Button
                             key={f.v}

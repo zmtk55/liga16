@@ -94,6 +94,68 @@ export function analyzePlayerLocal(
   } as JevAnalysis;
 }
 
+/** Registro de una pareja, tal como lo resumen los resultados capturados. */
+export type PairRecordInput = {
+  played: number;
+  won: number;
+  /** Resultado de cada partido, del más antiguo al más reciente. */
+  form?: Array<"G" | "P">;
+};
+
+export interface PairPerformance {
+  /** 1 = mal momento, 5 = en pico. Mismos cortes que la forma de un jugador. */
+  forma: FormaLevel;
+  formaLabel: string;
+  winRate: number;
+  racha: { label: JevRacha["label"]; won: number; lost: number };
+  /** Últimos resultados, del más antiguo al más reciente. */
+  form: Array<"G" | "P">;
+}
+
+/**
+ * Desempeño de una PAREJA a partir de los resultados que capturó el admin.
+ * El ranking no se edita a mano: se calcula desde estos partidos, así que
+ * esta lectura es la misma que ve el público.
+ *
+ * Reutiliza los cortes de `analyzePlayerLocal` para que "en forma" signifique
+ * lo mismo para una persona que para una dupla.
+ */
+export function analyzePairLocal(record: PairRecordInput): PairPerformance {
+  const played = Math.max(record.played, 0);
+  const winRate = played ? record.won / played : 0;
+  const form = record.form ?? [];
+  const recentWins = form.slice(-3).filter((r) => r === "G").length;
+
+  let forma: FormaLevel = 3;
+  if (winRate > 0.75 && recentWins >= 2) forma = 5;
+  else if (winRate > 0.6 && recentWins >= 2) forma = 4;
+  else if (winRate > 0.45) forma = 3;
+  else if (winRate > 0.3) forma = 2;
+  else forma = 1;
+
+  const formaLabels: Record<FormaLevel, string> = {
+    1: "Bajón - necesita rodaje",
+    2: "Irregular",
+    3: "Estable",
+    4: "En forma",
+    5: "Pico competitivo",
+  };
+
+  // Racha = últimos 3, no la temporada entera: es lo que "racha" significa.
+  const last3 = form.slice(-3);
+  const streakWon = last3.filter((r) => r === "G").length;
+  const racha: JevRacha["label"] =
+    last3.length === 0 ? "estable" : streakWon === 3 ? "en racha" : streakWon === 0 ? "bache" : "estable";
+
+  return {
+    forma,
+    formaLabel: formaLabels[forma],
+    winRate: Math.round(winRate * 100),
+    racha: { label: racha, won: streakWon, lost: last3.length - streakWon },
+    form,
+  };
+}
+
 // Wrapper que intenta usar TypeSafe SDK si hay API key, si no usa local
 export async function analyzePlayerWithJev(
   player: PlayerProfile,

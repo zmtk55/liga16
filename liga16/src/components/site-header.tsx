@@ -105,7 +105,7 @@ export function SiteHeader() {
           )}
 
           {loading ? (
-            <Button variant="ghost" size="icon" className="rounded-full" disabled>
+            <Button variant="ghost" size="icon" className="rounded-full" disabled aria-label="Cargando sesión">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-muted text-muted-foreground text-xs">…</AvatarFallback>
               </Avatar>
@@ -113,7 +113,7 @@ export function SiteHeader() {
           ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full" aria-label="Menú de cuenta">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                       {user.email?.[0]?.toUpperCase() ?? "U"}
@@ -142,7 +142,14 @@ export function SiteHeader() {
             </Button>
           )}
 
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen((v) => !v)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label={open ? "Cerrar menú" : "Abrir menú"}
+          >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>

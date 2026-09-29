@@ -1,0 +1,158 @@
+import { describe, expect, it } from "vitest";
+import { buildPlayerRecords, recordWinRate } from "./records";
+import { analyzePairLocal } from "./jev";
+import type { Match, Pair, PlayerProfile } from "@/types";
+
+const players: PlayerProfile[] = [
+  { id: "p-ana", display_name: "Ana" },
+  { id: "p-beto", display_name: "Beto" },
+  { id: "p-caro", display_name: "Caro" },
+  { id: "p-diego", display_name: "Diego" },
+  { id: "p-eva", display_name: "Eva" },
+] as unknown as PlayerProfile[];
+
+// Ana juega dos etapas: primero con Beto, después con Caro. Las parejas rivales
+// nunca comparten jugador con ella, porque eso sería un partido imposible.
+const pairs: Pair[] = [
+  { id: "pr-1", player1_id: "p-ana", player2_id: "p-beto", name: "Ana / Beto" },
+  { id: "pr-2", player1_id: "p-ana", player2_id: "p-caro", name: "Ana / Caro" },
+  { id: "pr-3", player1_id: "p-diego", player2_id: "p-eva", name: "Diego / Eva" },
+  { id: "pr-4", player1_id: "p-beto", player2_id: "p-diego", name: "Beto / Diego" },
+  { id: "pr-5", player1_id: "p-caro", player2_id: "p-diego", name: "Caro / Diego" },
+] as unknown as Pair[];
+
+function played(
+  id: string,
+  at: string,
+  a: { id: string; name: string },
+  b: { id: string; name: string },
+  winner: "a" | "b",
+  sets: Array<{ a: number; b: number }>,
+): Match {
+  return {
+    id,
+    tournament_id: "t-1",
+    round: "J1",
+    court_name: "Cancha 1",
+    scheduled_at: at,
+    status: "finished",
+    side_a: { pair_id: a.id, pair_name: a.name },
+    side_b: { pair_id: b.id, pair_name: b.name },
+    sets,
+    winner,
+  } as unknown as Match;
+}
+
+describe("buildPlayerRecords", () => {
+  it("acumula el récord de un jugador a través de sus distintas parejas", () => {
+    const matches = [
+      played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }]),
+      played("m-2", "2026-02-10", { id: "pr-2", name: "Ana / Caro" }, { id: "pr-4", name: "Beto / Diego" }, "b", [{ a: 3, b: 6 }]),
+      played("m-3", "2026-03-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-5", name: "Caro / Diego" }, "a", [{ a: 6, b: 4 }]),
+    ];
+
+    const records = buildPlayerRecords(matches, pairs, players);
+    const ana = records.get("p-ana");
+
+    // Ana jugó los 3 partidos: 2 con Beto, 1 con Caro.
+    expect(ana?.played).toBe(3);
+    expect(ana?.won).toBe(2);
+    expect(ana?.lost).toBe(1);
+    expect(ana?.form).toEqual(["G", "P", "G"]);
+  });
+
+  it("guarda el historial de parejas, de la más reciente a la más antigua", () => {
+    const matches = [
+      played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }]),
+      played("m-2", "2026-02-10", { id: "pr-2", name: "Ana / Caro" }, { id: "pr-4", name: "Beto / Diego" }, "b", [{ a: 3, b: 6 }]),
+    ];
+
+    const ana = buildPlayerRecords(matches, pairs, players).get("p-ana");
+
+    expect(ana?.partners.map((p) => p.partnerName)).toEqual(["Caro", "Beto"]);
+    // Ana no pierde su récord anterior al cambiar de pareja.
+    expect(ana?.partners[1]).toMatchObject({ partnerName: "Beto", played: 1, won: 1 });
+  });
+
+  it("acumula los games ganados de cada pareja en el mismo total personal", () => {
+    const matches = [
+      played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }, { a: 6, b: 4 }]),
+      played("m-2", "2026-02-10", { id: "pr-2", name: "Ana / Caro" }, { id: "pr-4", name: "Beto / Diego" }, "b", [{ a: 2, b: 6 }]),
+    ];
+
+    const ana = buildPlayerRecords(matches, pairs, players).get("p-ana");
+
+    expect(ana?.setsFor).toBe(14); // 6+6 con Beto, 2 con Caro
+    expect(ana?.setsAgainst).toBe(12); // 2+4 con Beto, 6 con Caro
+  });
+
+  it("resuelve el lado por nombre cuando el partido no trae pair_id", () => {
+    const legacy = {
+      ...played("m-9", "2026-01-05", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 0 }]),
+      side_a: { pair_id: null, pair_name: "ana / beto" },
+    } as unknown as Match;
+
+    const records = buildPlayerRecords([legacy], pairs, players);
+
+    expect(records.get("p-ana")?.won).toBe(1);
+  });
+
+  it("cuenta el lado conocido aunque el rival no esté registrado", () => {
+    // El rival viene solo con texto y no existe en `pairs`: el jugador sigue
+    // jugando ese partido y su récord no puede depender de que el rival esté dado de alta.
+    const withGhost = {
+      ...played("m-g", "2026-01-07", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-9", name: "Fantasma / Nadie" }, "a", [{ a: 6, b: 3 }]),
+      side_b: { pair_id: null, pair_name: "Fantasma / Nadie" },
+    } as unknown as Match;
+
+    const records = buildPlayerRecords([withGhost], pairs, players);
+
+    expect(records.get("p-ana")?.played).toBe(1);
+    expect(records.get("p-ana")?.won).toBe(1);
+  });
+
+  it("descarta el partido si el mismo jugador aparece en los dos lados", () => {
+    // Ana en las dos parejas: dato corrupto, no debe contar doble.
+    const corrupt = played("m-x", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-2", name: "Ana / Caro" }, "a", [{ a: 6, b: 2 }]);
+
+    expect(buildPlayerRecords([corrupt], pairs, players).size).toBe(0);
+  });
+
+  it("ignora partidos no terminados o sin ganador", () => {
+    const scheduled = { ...played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }]), status: "scheduled", winner: null } as unknown as Match;
+
+    expect(buildPlayerRecords([scheduled], pairs, players).size).toBe(0);
+  });
+
+  it("no cuenta un partido de una pareja consigo misma", () => {
+    const mirror = played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-1", name: "Ana / Beto" }, "a", [{ a: 6, b: 2 }]);
+
+    expect(buildPlayerRecords([mirror], pairs, players).size).toBe(0);
+  });
+
+  it("recordWinRate devuelve 0 sin partidos", () => {
+    expect(recordWinRate({ won: 0, played: 0 })).toBe(0);
+    expect(recordWinRate({ won: 7, played: 8 })).toBe(88);
+  });
+});
+
+describe("analyzePairLocal (desempeño derivado de resultados)", () => {
+  it("marca pico competitivo con muchos ganados y últimos 3 en verde", () => {
+    const perf = analyzePairLocal({ played: 10, won: 8, form: ["G", "G", "G"] });
+    expect(perf.forma).toBe(5);
+    expect(perf.winRate).toBe(80);
+    expect(perf.racha.label).toBe("en racha");
+  });
+
+  it("marca bache cuando los últimos 3 fueron perdidos", () => {
+    const perf = analyzePairLocal({ played: 10, won: 5, form: ["G", "P", "P", "P"] });
+    expect(perf.racha.label).toBe("bache");
+    expect(perf.racha.lost).toBe(3);
+  });
+
+  it("no inventa racha cuando la pareja no tiene historial", () => {
+    const perf = analyzePairLocal({ played: 0, won: 0 });
+    expect(perf.racha.label).toBe("estable");
+    expect(perf.winRate).toBe(0);
+  });
+});

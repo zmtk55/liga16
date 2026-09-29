@@ -31,18 +31,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { MoreHorizontal, Pencil, Plus, Trash2, Users } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Pencil, Plus, Trash2, Users } from "lucide-react";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
+import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 
 const SEX_OPTIONS = [
   { value: "M", label: "Varonil" },
@@ -206,8 +201,24 @@ export default function AdminPlayers() {
                   description="Ningún jugador coincide con la búsqueda o el filtro."
                 />
               )}
-              {filtered.map((p) => (
-                <TableRow key={p.id}>
+              {filtered.map((p) => {
+                const actions: RowAction[] = [
+                  {
+                    label: "Editar",
+                    icon: <Pencil className="h-4 w-4" />,
+                    onSelect: () => { setEditing(p); setOpenCreate(true); },
+                  },
+                  {
+                    label: "Eliminar",
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onSelect: () => setDeleting(p),
+                    destructive: true,
+                    separator: true,
+                  },
+                ];
+                return (
+                <RowContextMenu key={p.id} actions={actions}>
+                  <TableRow>
                   <TableCell className="font-medium">{p.display_name}</TableCell>
                   <TableCell className="hidden text-muted-foreground sm:table-cell">@{p.username}</TableCell>
                   <TableCell className="tabular-nums">{p.declared_level.toFixed(1)}</TableCell>
@@ -216,27 +227,12 @@ export default function AdminPlayers() {
                     {{ right: "Diestro", left: "Zurdo", both: "Ambidiestro" }[p.dominant_hand]}
                   </TableCell>
                   <TableCell className="pr-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${p.display_name}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditing(p); setOpenCreate(true); }}>
-                          <Pencil className="h-4 w-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setDeleting(p)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" /> Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RowActionsMenu actions={actions} label={`Acciones para ${p.display_name}`} />
                   </TableCell>
-                </TableRow>
-              ))}
+                  </TableRow>
+                </RowContextMenu>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -332,34 +328,34 @@ function PlayerFormDialog({
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>Nombre</Label>
-            <Input value={form.display_name} onChange={(e) => update("display_name", e.target.value)} placeholder="Nombre completo" />
+            <Label htmlFor="nombre">Nombre</Label>
+            <Input id="nombre" value={form.display_name} onChange={(e) => update("display_name", e.target.value)} placeholder="Nombre completo" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Usuario</Label>
-              <Input value={form.username} onChange={(e) => update("username", e.target.value)} placeholder="juanperez" />
+              <Label htmlFor="usuario">Usuario</Label>
+              <Input id="usuario" value={form.username} onChange={(e) => update("username", e.target.value)} placeholder="juanperez" />
             </div>
             <div className="grid gap-1.5">
-              <Label>Nivel</Label>
-              <Input type="number" step="0.1" min="1" max="7" value={form.declared_level} onChange={(e) => update("declared_level", e.target.value)} />
+              <Label htmlFor="nivel">Nivel</Label>
+              <Input id="nivel" type="number" step="0.1" min="1" max="7" value={form.declared_level} onChange={(e) => update("declared_level", e.target.value)} />
               <p className="text-xs text-muted-foreground">Nivel del 1.0 al 7.0 (se recomienda actualizar a oficial después)</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Sexo</Label>
+              <Label htmlFor="sexo">Sexo</Label>
               <Select value={form.sex} onValueChange={(v) => update("sex", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="sexo"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {SEX_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>Mano</Label>
+              <Label htmlFor="mano">Mano</Label>
               <Select value={form.dominant_hand} onValueChange={(v) => update("dominant_hand", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="mano"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {HAND_OPTIONS.map((h) => <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>)}
                 </SelectContent>
@@ -367,9 +363,9 @@ function PlayerFormDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>Posición preferida</Label>
+            <Label htmlFor="posicion-preferida">Posición preferida</Label>
             <Select value={form.preferred_position} onValueChange={(v) => update("preferred_position", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="posicion-preferida"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {POSITION_OPTIONS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
               </SelectContent>
@@ -377,17 +373,17 @@ function PlayerFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Ciudad</Label>
-              <Input value={form.city} onChange={(e) => update("city", e.target.value)} />
+              <Label htmlFor="ciudad">Ciudad</Label>
+              <Input id="ciudad" value={form.city} onChange={(e) => update("city", e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Estado</Label>
-              <Input value={form.state} onChange={(e) => update("state", e.target.value)} />
+              <Label htmlFor="estado">Estado</Label>
+              <Input id="estado" value={form.state} onChange={(e) => update("state", e.target.value)} />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>Biografía</Label>
-            <Input value={form.bio} onChange={(e) => update("bio", e.target.value)} placeholder="Breve descripción" />
+            <Label htmlFor="biografia">Biografía</Label>
+            <Input id="biografia" value={form.bio} onChange={(e) => update("bio", e.target.value)} placeholder="Breve descripción" />
           </div>
         </div>
         <DialogFooter>

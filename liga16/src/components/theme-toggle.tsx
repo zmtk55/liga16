@@ -8,7 +8,7 @@ export function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
-  if (!mounted) return <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" disabled><Sun className="h-4 w-4" /></Button>;
+  if (!mounted) return <Button variant="ghost" size="icon" className="rounded-full" disabled aria-label="Cambiar tema"><Sun className="h-4 w-4" /></Button>;
   const isDark = (theme === "system" ? resolvedTheme : theme) === "dark";
   return (
     <Button

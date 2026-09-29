@@ -334,28 +334,28 @@ function MatchEditDialog({
         <div className="grid gap-4 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Estado</Label>
+              <Label htmlFor="estado">Estado</Label>
               <Select value={form.status} onValueChange={(v) => update("status", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="estado"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {STATUS_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>Ronda</Label>
-              <Input value={form.round} onChange={(e) => update("round", e.target.value)} />
+              <Label htmlFor="ronda">Ronda</Label>
+              <Input id="ronda" value={form.round} onChange={(e) => update("round", e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Cancha</Label>
-              <Input value={form.court_name} onChange={(e) => update("court_name", e.target.value)} />
+              <Label htmlFor="cancha">Cancha</Label>
+              <Input id="cancha" value={form.court_name} onChange={(e) => update("court_name", e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Fecha y hora</Label>
-              <DateTimePicker
+              <Label htmlFor="fecha-y-hora">Fecha y hora</Label>
+              <DateTimePicker id="fecha-y-hora"
                 value={form.scheduled_at}
                 onChange={(v) => update("scheduled_at", v ?? "")}
                 ariaLabel="Fecha y hora del partido"
@@ -388,7 +388,7 @@ function MatchEditDialog({
                     )}
                   </span>
                   {setInputs.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSet(i)}>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSet(i)} aria-label={`Quitar set ${i + 1}`}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
@@ -429,9 +429,11 @@ function MatchEditDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Ganador manual (opcional)</Label>              <Select value={form.winner || "none"} onValueChange={(v) => update("winner", v === "none" ? "" : v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>                  <SelectItem value="none">Automático por sets</SelectItem>
+            <Label htmlFor="ganador-manual-opcional">Ganador manual (opcional)</Label>
+            <Select value={form.winner || "none"} onValueChange={(v) => update("winner", v === "none" ? "" : v)}>
+              <SelectTrigger id="ganador-manual-opcional"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Automático por sets</SelectItem>
                 <SelectItem value="a">{match.side_a.pair_name}</SelectItem>
                 <SelectItem value="b">{match.side_b.pair_name}</SelectItem>
               </SelectContent>

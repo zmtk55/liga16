@@ -18,6 +18,7 @@ import ImageUpload from "@/components/ui/image-upload";
 import { MatchScoreboard } from "@/components/match-scoreboard";
 import { toast } from "sonner";
 import { analyzePlayerLocal, type JevAnalysis } from "@/lib/jev";
+import { recordWinRate, type PlayerRecord } from "@/lib/records";
 
 const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
 
@@ -103,6 +104,7 @@ export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [card, setCard] = useState<PlayerCard | null>(null);
+  const [record, setRecord] = useState<PlayerRecord | null>(null);
   const [events, setEvents] = useState<import("@/types").RankingEvent[]>([]);
   const [ranking, setRanking] = useState<RankingEntry | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
@@ -118,10 +120,10 @@ export default function PlayerDetailPage() {
   useEffect(() => {
     if (!id) return;
     let active = true;
-    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers(), db.listRecentMatches()])
-      .then(([p, c, e, rks, teams, pls, allMatches]) => {
+    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRecord(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers(), db.listRecentMatches()])
+      .then(([p, c, rec, e, rks, teams, pls, allMatches]) => {
         if (!active || !p) return;
-        setPlayer(p); setCard(c); setEvents(e);
+        setPlayer(p); setCard(c); setRecord(rec); setEvents(e);
         const rk = rks.find((r) => r.player_id === p.id) ?? null;
         setRanking(rk);
         // Equipo por ID real o, si el pair viejo no lo liga, por nombre en el roster
@@ -208,6 +210,9 @@ export default function PlayerDetailPage() {
   const won = cardWon(card);
   const played = cardPlayed(card);
   const partner = cardPartner(card);
+  // El historial derivado manda: la pareja actual es la de su última etapa.
+  const currentPartner = record?.partners[0]?.partnerName ?? partner;
+  const partnerCount = record?.partners.length ?? 0;
   const canEditPhoto = !isConfigured || isAdmin || user?.player_id === player.id;
 
   return (
@@ -505,6 +510,91 @@ export default function PlayerDetailPage() {
           </Card>
 
           <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4" /> Récord personal
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Todo lo que ha jugado, sin importar con quién. Si cambia de pareja, esto no se reinicia.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!record ? (
+                <p className="py-4 text-sm text-muted-foreground">
+                  Todavía no hay partidos terminados para construir su récord.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      { label: "Partidos", value: record.played },
+                      { label: "Ganados", value: record.won },
+                      { label: "Efectividad", value: `${recordWinRate(record)}%` },
+                      { label: "Sets a favor", value: record.setsFor },
+                    ].map((s) => (
+                      <div key={s.label} className="rounded-lg bg-muted/60 p-3">
+                        <p className="font-display text-2xl tabular-nums">{s.value}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                          {s.label}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {record.form.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Últimos resultados</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {record.form.map((r, i) => (
+                          <span
+                            key={`${i}-${r}`}
+                            title={r === "G" ? "Ganado" : "Perdido"}
+                            className={`flex h-7 w-7 items-center justify-center rounded text-[11px] font-bold ${
+                              r === "G"
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                : "bg-destructive/10 text-destructive"
+                            }`}
+                          >
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {record.partners.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">
+                        Historial de parejas
+                      </p>
+                      <ul className="divide-y rounded-lg border">
+                        {record.partners.map((spell) => (
+                          <li key={spell.pairId} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {spell.partnerName === "—" ? spell.pairName : `con ${spell.partnerName}`}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {spell.pairName}
+                                {spell.lastPlayedAt
+                                  ? ` · último ${formatDate(spell.lastPlayedAt)}`
+                                  : ""}
+                              </p>
+                            </div>
+                            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                              {spell.won}/{spell.played}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Shirt className="h-4 w-4" /> Liga y compañero actual</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -515,9 +605,13 @@ export default function PlayerDetailPage() {
                   <p className="mt-2 text-xs"><span className="text-muted-foreground">División:</span> {team?.division ?? "—"} · {team?.sex ?? ""}</p>
                 </div>
                 <div className="rounded-xl border p-3">
-                  <p className="text-xs text-muted-foreground">Compañero frecuente</p>
-                  <p className="font-bold">{partner ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">Pareja habitual · nivel {(player.official_level ?? player.declared_level).toFixed(1)}</p>
+                  <p className="text-xs text-muted-foreground">Compañero actual</p>
+                  <p className="font-bold">{currentPartner ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {partnerCount > 1
+                      ? `Ha jugado con ${partnerCount} parejas distintas`
+                      : `Nivel ${(player.official_level ?? player.declared_level).toFixed(1)}`}
+                  </p>
                   <div className="mt-2 flex gap-1">
                     <Badge variant="secondary">Drive/Revés</Badge>
                     <Badge variant="outline">{handLabel[player.dominant_hand]}</Badge>

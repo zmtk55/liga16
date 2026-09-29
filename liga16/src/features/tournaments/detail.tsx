@@ -364,8 +364,8 @@ export default function TournamentDetailPage() {
                 </p>
               </div>
               <div className="grid gap-2">
-                <Label>Selecciona método de pago</Label>
-                <div className="flex gap-2">
+                <Label id="lbl-metodo-pago">Selecciona método de pago</Label>
+                <div className="flex gap-2" role="group" aria-labelledby="lbl-metodo-pago">
                   <Button
                     type="button"
                     variant={paymentMethod === "transfer" ? "default" : "outline"}

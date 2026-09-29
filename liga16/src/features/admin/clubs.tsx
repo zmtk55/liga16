@@ -165,16 +165,16 @@ export default function AdminClubs() {
               </div>
             </div>
             <div className="grid gap-1.5">
-              <Label>Nombre del club</Label>
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+              <Label htmlFor="nombre-del-club">Nombre del club</Label>
+              <Input id="nombre-del-club" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Dirección</Label>
-              <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Av. Reforma 245, Col. Juárez" />
+              <Label htmlFor="direccion">Dirección</Label>
+              <Input id="direccion" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Av. Reforma 245, Col. Juárez" />
             </div>
             <div className="grid gap-1.5">
-              <Label>Teléfono</Label>
-              <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+52 55 1234 0001" />
+              <Label htmlFor="telefono">Teléfono</Label>
+              <Input id="telefono" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+52 55 1234 0001" />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="club-description">Descripción</Label>

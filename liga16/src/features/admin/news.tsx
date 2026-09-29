@@ -31,18 +31,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreHorizontal, Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
+import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 
 const TAG_OPTIONS = ["General", "Resultados", "Torneos", "Ligas", "Jugadores", "Clubs"];
 
@@ -135,8 +130,24 @@ export default function AdminNews() {
                   }
                 />
               )}
-              {list?.map((n) => (
-                <TableRow key={n.id}>
+              {list?.map((n) => {
+                const actions: RowAction[] = [
+                  {
+                    label: "Editar",
+                    icon: <Pencil className="h-4 w-4" />,
+                    onSelect: () => { setEditing(n); setOpenCreate(true); },
+                  },
+                  {
+                    label: "Eliminar",
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onSelect: () => setDeleting(n),
+                    destructive: true,
+                    separator: true,
+                  },
+                ];
+                return (
+                <RowContextMenu key={n.id} actions={actions}>
+                  <TableRow>
                   <TableCell>
                     <div className="flex min-w-0 items-center gap-3">
                       {n.image_url ? (
@@ -152,27 +163,12 @@ export default function AdminNews() {
                   <TableCell><Badge variant="secondary">{n.tag}</Badge></TableCell>
                   <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(n.published_at)}</TableCell>
                   <TableCell className="pr-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${n.title}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditing(n); setOpenCreate(true); }}>
-                          <Pencil className="h-4 w-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setDeleting(n)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" /> Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RowActionsMenu actions={actions} label={`Acciones para ${n.title}`} />
                   </TableCell>
-                </TableRow>
-              ))}
+                  </TableRow>
+                </RowContextMenu>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -253,19 +249,19 @@ function NewsFormDialog({
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>Título</Label>
-            <Input value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="Título de la noticia" />
+            <Label htmlFor="titulo">Título</Label>
+            <Input id="titulo" value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="Título de la noticia" />
           </div>
           <div className="grid gap-1.5">
-            <Label>Extracto</Label>
-            <Input value={form.excerpt} onChange={(e) => update("excerpt", e.target.value)} placeholder="1-2 líneas que resuman la noticia" />
+            <Label htmlFor="extracto">Extracto</Label>
+            <Input id="extracto" value={form.excerpt} onChange={(e) => update("excerpt", e.target.value)} placeholder="1-2 líneas que resuman la noticia" />
             <p className="text-xs text-muted-foreground">Máx ~140 caracteres para tarjetas</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Tag</Label>
+              <Label htmlFor="tag">Tag</Label>
               <Select value={form.tag} onValueChange={(v) => update("tag", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tag"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {TAG_OPTIONS.map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
@@ -274,8 +270,8 @@ function NewsFormDialog({
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>Imagen (URL)</Label>
-              <Input value={form.image_url} onChange={(e) => update("image_url", e.target.value)} placeholder="https://..." />
+              <Label htmlFor="imagen-url">Imagen (URL)</Label>
+              <Input id="imagen-url" value={form.image_url} onChange={(e) => update("image_url", e.target.value)} placeholder="https://..." />
               <p className="text-xs text-muted-foreground">Opcional. Recomendado 1200×630px</p>
             </div>
           </div>

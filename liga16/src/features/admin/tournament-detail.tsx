@@ -626,9 +626,9 @@ return (
                 </div>
                 {categories.length > 0 && (
                   <div className="grid gap-1.5 w-56">
-                    <Label>Categoría</Label>
+                    <Label htmlFor="categoria">Categoría</Label>
                     <Select value={newPairCategory || categories[0]?.id} onValueChange={setNewPairCategory}>
-                      <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                      <SelectTrigger id="categoria"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
                       <SelectContent>
                         {categories.map((c) => (
                           <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -1044,16 +1044,16 @@ return (
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid gap-1.5">
-              <Label>Inicio</Label>
-              <DatePicker value={datesForm.start_date} onChange={(v) => setDatesForm((f) => ({ ...f, start_date: v ?? f.start_date }))} />
+              <Label htmlFor="inicio">Inicio</Label>
+              <DatePicker id="inicio" value={datesForm.start_date} onChange={(v) => setDatesForm((f) => ({ ...f, start_date: v ?? f.start_date }))} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Fin</Label>
-              <DatePicker value={datesForm.end_date} onChange={(v) => setDatesForm((f) => ({ ...f, end_date: v ?? f.end_date }))} />
+              <Label htmlFor="fin">Fin</Label>
+              <DatePicker id="fin" value={datesForm.end_date} onChange={(v) => setDatesForm((f) => ({ ...f, end_date: v ?? f.end_date }))} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Cierre de inscripción</Label>
-              <DatePicker value={datesForm.registration_deadline} onChange={(v) => setDatesForm((f) => ({ ...f, registration_deadline: v ?? f.registration_deadline }))} clearable />
+              <Label htmlFor="cierre-de-inscripcion">Cierre de inscripción</Label>
+              <DatePicker id="cierre-de-inscripcion" value={datesForm.registration_deadline} onChange={(v) => setDatesForm((f) => ({ ...f, registration_deadline: v ?? f.registration_deadline }))} clearable />
             </div>
           </div>
           <DialogFooter>
@@ -1078,9 +1078,9 @@ return (
               <Input id="ep-name" value={pairForm.name} onChange={(e) => setPairForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Categoría</Label>
+              <Label htmlFor="categoria-2">Categoría</Label>
               <Select value={pairForm.category_id || "__none__"} onValueChange={(v) => setPairForm((f) => ({ ...f, category_id: v === "__none__" ? "" : v }))}>
-                <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                <SelectTrigger id="categoria-2"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Sin categoría</SelectItem>
                   {categories.map((c) => (
@@ -1111,7 +1111,7 @@ return (
           <div className="grid gap-4 py-2">
             {/* Días disponibles */}
             <div className="grid gap-2">
-              <Label>Días con juego</Label>
+              <Label id="lbl-dias-con-juego">Días con juego</Label>
               {(() => {
                 const start = new Date(`${tournament?.start_date ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
                 const end = new Date(`${tournament?.end_date ?? tournament?.start_date ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
@@ -1123,7 +1123,7 @@ return (
                   setScheduleConfig((c) => ({ ...c, days: on ? [...c.days, day].sort() : c.days.filter((x) => x !== day) }));
                 return (
                   <>
-                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="group" aria-labelledby="lbl-dias-con-juego">
                       {options.map((day) => (
                         <label key={day} className="flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-muted/50 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5">
                           <Checkbox checked={scheduleConfig.days.includes(day)} onCheckedChange={(v) => toggle(day, v === true)} />
@@ -1161,8 +1161,8 @@ return (
 
             {/* Horas disponibles */}
             <div className="grid gap-2">
-              <Label>Horas disponibles</Label>
-              <div className="flex flex-wrap gap-1.5">
+              <Label id="lbl-horas-disponibles">Horas disponibles</Label>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="lbl-horas-disponibles">
                 {Array.from({ length: 15 }, (_, i) => i + 8).map((h) => (
                   <label key={h} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/50 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5">
                     <Checkbox
@@ -1182,11 +1182,11 @@ return (
 
             {/* Canchas */}
             <div className="grid gap-2">
-              <Label>Canchas a usar</Label>
+              <Label id="lbl-canchas-a-usar">Canchas a usar</Label>
               {courts.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No hay canchas registradas — se usará "Cancha 1". Regístralas en la sección Sede.</p>
               ) : (
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="lbl-canchas-a-usar">
                   {courts.map((c) => (
                     <label key={c.id} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/50 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5">
                       <Checkbox

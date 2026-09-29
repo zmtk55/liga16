@@ -1,5 +1,6 @@
 // Interfaz única de acceso a datos de Liga16.
 // Las páginas consumen `db`, sin saber si detrás hay datos demo o Supabase.
+import type { PlayerRecord } from '@/lib/records';
 import type {
   Club,
   League,
@@ -67,6 +68,11 @@ export interface DataProvider {
   updatePlayer(id: string, data: Partial<PlayerProfile>): Promise<PlayerProfile | null>;
   deletePlayer(id: string): Promise<boolean>;
   getPlayerCard(playerId: string): Promise<PlayerCard | null>;
+  /**
+   * Récord personal derivado de TODOS los partidos del jugador, aunque haya
+   * cambiado de pareja. Es la unidad estable del desempeño.
+   */
+  getPlayerRecord(playerId: string): Promise<PlayerRecord | null>;
   // Equipos
   listTeams(): Promise<Team[]>;
   getTeam(slug: string): Promise<Team | null>;

@@ -4,13 +4,7 @@
 
 @layer base {
   :root {
-    /* Liga16 — paleta: carbón + cálido */
-    --palette-1: #1a1a1a;
-    --palette-2: #3d3d3d;
-    --palette-3: #ff4500;
-    --palette-4: #ff6347;
-    --palette-5: #ffa07a;
-
+    /* Liga16 — tokens HSL; la paleta vive en tailwind.config.js (colors.palette) */
     --background: 0 0% 97%;
     --foreground: 24 100% 10%;
     --card: 0 0% 100%;

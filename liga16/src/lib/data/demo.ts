@@ -1,5 +1,6 @@
 // Implementación demo del DataProvider — datos semilla en memoria mutable.
 import type { DataProvider, RegisterPairInput } from './provider';
+import { buildPlayerRecords } from '@/lib/records';
 import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
   rankingEvents, rankings, sponsors, teams, tournaments,
@@ -247,6 +248,14 @@ export const demoProvider: DataProvider = {
     const player = store.players.find((p) => p.id === playerId || p.username === playerId);
     if (!player) return null;
     return playerCards[player.id] ?? null;
+  },
+
+  async getPlayerRecord(playerId: string) {
+    await delay();
+    const player = store.players.find((p) => p.id === playerId || p.username === playerId);
+    if (!player) return null;
+    const records = buildPlayerRecords(store.matches, store.pairs, store.players);
+    return records.get(player.id) ?? null;
   },
 
   // Equipos

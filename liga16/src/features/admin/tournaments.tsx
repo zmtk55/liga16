@@ -13,20 +13,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateRange, tournamentStatusLabel } from "@/lib/format";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ExternalLink, MoreHorizontal, Pencil, Plus, Trash2, Trophy } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Trash2, Trophy } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
+import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 
 export default function AdminTournaments() {
   const [list, setList] = useState<Tournament[] | null>(null);
@@ -126,8 +120,29 @@ export default function AdminTournaments() {
                   description="Ningún torneo coincide con la búsqueda o el filtro."
                 />
               )}
-              {filtered.map((t) => (
-                <TableRow key={t.id}>
+              {filtered.map((t) => {
+                const actions: RowAction[] = [
+                  {
+                    label: "Abrir",
+                    icon: <ExternalLink className="h-4 w-4" />,
+                    to: `/admin/torneos/${t.slug}`,
+                  },
+                  {
+                    label: "Editar",
+                    icon: <Pencil className="h-4 w-4" />,
+                    to: `/admin/torneos/${t.slug}/editar`,
+                  },
+                  {
+                    label: "Eliminar",
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onSelect: () => setDeleting(t),
+                    destructive: true,
+                    separator: true,
+                  },
+                ];
+                return (
+                <RowContextMenu key={t.id} actions={actions}>
+                  <TableRow>
                   <TableCell className="pl-4 font-medium">
                     <Link
                       to={`/admin/torneos/${t.slug}`}
@@ -146,35 +161,12 @@ export default function AdminTournaments() {
                     {formatDateRange(t.start_date, t.end_date)}
                   </TableCell>
                   <TableCell className="pr-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${t.name}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link to={`/admin/torneos/${t.slug}`}>
-                            <ExternalLink className="h-4 w-4" /> Abrir
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link to={`/admin/torneos/${t.slug}/editar`}>
-                            <Pencil className="h-4 w-4" /> Editar
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setDeleting(t)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" /> Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} />
                   </TableCell>
                 </TableRow>
-              ))}
+                </RowContextMenu>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

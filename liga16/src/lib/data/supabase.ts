@@ -3,8 +3,9 @@
 // Requiere aplicar supabase/schema.sql en el proyecto (ver README.md).
 import { supabase } from '@/lib/supabase';
 import type { DataProvider, RegisterPairInput } from './provider';
+import { buildPlayerRecords } from '@/lib/records';
 import type { TournamentFilters } from '@/types';
-import type { Team, PadelDivision, Sex, Match, Court, Sponsor } from '@/types';
+import type { Team, PadelDivision, Sex, Match, Court, Sponsor, Pair } from '@/types';
 
 function client() {
   if (!supabase) throw new Error('Supabase no está configurado. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
@@ -540,6 +541,52 @@ export const supabaseProvider: DataProvider = {
       .from('player_cards').select('*').eq('player_id', playerId).maybeSingle();
     if (error) throw error;
     return data as never;
+  },
+
+  /**
+   * Récord personal derivado de todos los partidos del jugador, no de una sola
+   * pareja. Cambiar de pareja no borra lo que ya jugó.
+   */
+  async getPlayerRecord(playerId: string) {
+    const [pairsRes, matchesRes, namesRes] = await Promise.all([
+      client()
+        .from('pairs')
+        .select('id, name, player1_id, player2_id')
+        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`),
+      client()
+        .from('matches')
+        .select('id, status, winner, scheduled_at, side_a_pair_id, side_b_pair_id, side_a_name, side_b_name, sets'),
+      client().from('player_profiles').select('id, display_name'),
+    ]);
+    if (pairsRes.error) throw pairsRes.error;
+    if (matchesRes.error) throw matchesRes.error;
+
+    const pairs = ((pairsRes.data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+      id: r.id as string,
+      name: (r.name as string) ?? '',
+      player1_id: (r.player1_id as string) ?? '',
+      player2_id: (r.player2_id as string) ?? '',
+    })) as unknown as Pair[];
+
+    const matches = ((matchesRes.data ?? []) as Array<Record<string, unknown>>).map((m) => ({
+      id: m.id as string,
+      tournament_id: '',
+      round: '',
+      court_name: null,
+      scheduled_at: (m.scheduled_at as string) ?? null,
+      status: m.status as Match['status'],
+      winner: (m.winner as Match['winner']) ?? null,
+      side_a: { pair_id: (m.side_a_pair_id as string) ?? null, pair_name: (m.side_a_name as string) ?? '' },
+      side_b: { pair_id: (m.side_b_pair_id as string) ?? null, pair_name: (m.side_b_name as string) ?? '' },
+      sets: (m.sets as Match['sets']) ?? [],
+    })) as unknown as Match[];
+
+    const names = ((namesRes.data ?? []) as Array<Record<string, unknown>>).map((p) => ({
+      id: p.id as string,
+      display_name: (p.display_name as string) ?? '',
+    }));
+
+    return buildPlayerRecords(matches, pairs, names).get(playerId) ?? null;
   },
 
   // Equipos: leen de `pairs` (equipos POR TORNEO). La tabla global `teams` quedó obsoleta.

@@ -91,12 +91,14 @@ export function DateTimePicker({
   placeholder = "Elegir fecha y hora",
   className,
   ariaLabel,
+  id,
 }: {
   value?: string | null; // YYYY-MM-DDTHH:mm (formato de datetime-local) o ISO
   onChange: (value: string | null) => void;
   placeholder?: string;
   className?: string;
   ariaLabel?: string;
+  id?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   // Trabajamos con la fecha local; la hora como HH:mm
@@ -120,6 +122,7 @@ export function DateTimePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           type="button"
           variant="outline"
           aria-label={ariaLabel ?? placeholder}
