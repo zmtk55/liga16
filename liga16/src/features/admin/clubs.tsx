@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MapPin, Phone, Pencil, Plus, Trash2 } from "lucide-react";
+import { MapPin, Phone, Pencil, Plus, Trash2, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -20,7 +20,7 @@ export default function AdminClubs() {
   const [club, setClub] = useState<Club | null>(null);
   const [deletingCourt, setDeletingCourt] = useState<{ id: string; name: string } | null>(null);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<ClubForm>({ name: "", address: "", phone: "", description: "" });
+  const [form, setForm] = useState<ClubForm>({ name: "", address: "", phone: "", description: "", photo_url: "" });
   const [submitting, setSubmitting] = useState(false);
   const [courts, setCourts] = useState<Court[]>([]);
   const [newCourt, setNewCourt] = useState("");
@@ -30,7 +30,7 @@ export default function AdminClubs() {
       const c = list[0] ?? null;
       setClub(c);
       if (c) {
-        setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "" });
+        setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "", photo_url: c.photo_url ?? "" });
       }
     });
     db.listCourts().then(setCourts).catch(() => undefined);
@@ -74,6 +74,7 @@ export default function AdminClubs() {
         address: form.address,
         phone: form.phone,
         description: form.description,
+        photo_url: form.photo_url || null,
       });
       toast.success("Sede actualizada");
       setEditing(false);
@@ -81,7 +82,7 @@ export default function AdminClubs() {
         const c = list[0] ?? null;
         setClub(c);
         if (c) {
-          setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "" });
+          setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "", photo_url: c.photo_url ?? "" });
         }
       });
     } catch (e) {
@@ -111,6 +112,58 @@ export default function AdminClubs() {
         <Card>
           <CardHeader><CardTitle className="text-base">Editar configuración de la sede</CardTitle></CardHeader>
           <CardContent className="grid gap-3">
+            <div className="grid gap-2">
+              <Label>Logo del club</Label>
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  id="club-logo"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => setForm((f) => ({ ...f, photo_url: String(reader.result) }));
+                    reader.readAsDataURL(file);
+                  }}
+                />
+                {form.photo_url ? (
+                  <div className="group relative overflow-hidden rounded-xl border">
+                    <img src={form.photo_url} alt={form.name} className="aspect-square w-full max-w-xs object-contain" />
+                    <div className="absolute right-2 top-2 flex gap-1.5">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => document.getElementById("club-logo")?.click()}
+                      >
+                        Cambiar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setForm((f) => ({ ...f, photo_url: "" }))}
+                        aria-label="Quitar logo"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="club-logo"
+                    className="flex aspect-square w-full max-w-xs flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-muted/30 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground cursor-pointer"
+                  >
+                    <ImagePlus className="h-8 w-8" />
+                    <span className="text-sm font-medium">Subir logo</span>
+                    <span className="text-xs">PNG/JPG · Cuadrado se ve mejor</span>
+                  </label>
+                )}
+              </div>
+            </div>
             <div className="grid gap-1.5">
               <Label>Nombre del club</Label>
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -144,6 +197,7 @@ export default function AdminClubs() {
                       address: club.address ?? "",
                       phone: club.phone ?? "",
                       description: club.description ?? "",
+                      photo_url: club.photo_url ?? "",
                     });
                   }
                 }}
@@ -159,11 +213,22 @@ export default function AdminClubs() {
       ) : (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">{club.name}</CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {club.city}, {club.state}</Badge>
-              <Badge variant="outline" className="flex items-center gap-1"><Phone className="h-3 w-3" /> {club.phone ?? "Sin teléfono"}</Badge>
-              <Badge variant="default">Activo</Badge>
+            <div className="flex items-center gap-4">
+              {club.photo_url ? (
+                <img src={club.photo_url} alt={club.name} className="h-16 w-16 rounded-xl object-contain" />
+              ) : (
+                <div className="h-16 w-16 rounded-xl border-2 border-dashed bg-muted/30 flex items-center justify-center">
+                  <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+              <div>
+                <CardTitle className="text-2xl">{club.name}</CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {club.city}, {club.state}</Badge>
+                  <Badge variant="outline" className="flex items-center gap-1"><Phone className="h-3 w-3" /> {club.phone ?? "Sin teléfono"}</Badge>
+                  <Badge variant="default">Activo</Badge>
+                </div>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
@@ -235,4 +300,5 @@ interface ClubForm {
   address: string;
   phone: string;
   description: string;
+  photo_url: string;
 }
