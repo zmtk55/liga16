@@ -214,7 +214,9 @@ export function computeStandings(
     rowA.played++;
     rowB.played++;
 
-    // sumar juegos/sets
+    // sumar juegos/sets de ESTE match
+    let matchGamesForA = 0;
+    let matchGamesForB = 0;
     for (const s of m.sets) {
       rowA.setsFor += s.a;
       rowA.setsAgainst += s.b;
@@ -224,6 +226,8 @@ export function computeStandings(
       rowB.setsAgainst += s.a;
       rowB.gamesFor += s.b;
       rowB.gamesAgainst += s.a;
+      matchGamesForA += s.a;
+      matchGamesForB += s.b;
     }
 
     const aWon = m.winner === "a";
@@ -240,16 +244,14 @@ export function computeStandings(
     }
 
     if (rankingMethod === 'match_points') {
-      // 3 puntos por victoria
       rowA.points += aWon ? 3 : 0;
       rowB.points += aWon ? 0 : 3;
     } else {
-      // points_percentage (Liga16): sumar puntos de todos los sets
-      // Los puntos ya están en gamesFor/gamesAgainst
-      rowA.pointsFor = (rowA.pointsFor ?? 0) + rowA.gamesFor;
-      rowA.pointsTotal = (rowA.pointsTotal ?? 0) + rowA.gamesFor + rowA.gamesAgainst;
-      rowB.pointsFor = (rowB.pointsFor ?? 0) + rowB.gamesFor;
-      rowB.pointsTotal = (rowB.pointsTotal ?? 0) + rowB.gamesFor + rowB.gamesAgainst;
+      // points_percentage (Liga16): sumar solo los juegos DE ESTE match
+      rowA.pointsFor = (rowA.pointsFor ?? 0) + matchGamesForA;
+      rowA.pointsTotal = (rowA.pointsTotal ?? 0) + matchGamesForA + matchGamesForB;
+      rowB.pointsFor = (rowB.pointsFor ?? 0) + matchGamesForB;
+      rowB.pointsTotal = (rowB.pointsTotal ?? 0) + matchGamesForA + matchGamesForB;
     }
   }
 

@@ -144,14 +144,18 @@ export function matchToLiga16Sets(match: Match): Liga16MatchSets {
 
   let tiebreak: { a: number; b: number } | null = null;
   if (set3) {
-    // Formato real en BD: el super tie-break se guarda como tercer set con
-    // juegos (ej. {a:10,b:8}). Variante legacy: juegos en 0 y puntos en
-    // tiebreak_a/b. Un tercer set vacío no cuenta.
-    if ((set3.a ?? 0) > 0 || (set3.b ?? 0) > 0) {
-      tiebreak = { a: set3.a ?? 0, b: set3.b ?? 0 };
-    } else if (set3.tiebreak_a != null || set3.tiebreak_b != null) {
+    // Detectar tiebreak: 3er set con datos de tiebreak_a/b O con juegos > 0
+    const hasTiebreakPoints = set3.tiebreak_a != null || set3.tiebreak_b != null;
+    const hasGames = (set3.a ?? 0) > 0 || (set3.b ?? 0) > 0;
+
+    if (hasTiebreakPoints) {
+      // Formato legacy: puntos en tiebreak_a/b
       tiebreak = { a: set3.tiebreak_a ?? 0, b: set3.tiebreak_b ?? 0 };
+    } else if (hasGames) {
+      // Formato real: super tie-break guardado como juegos (ej. 10-8, 10-0)
+      tiebreak = { a: set3.a ?? 0, b: set3.b ?? 0 };
     }
+    // Si no hay puntos ni juegos, no es tiebreak
   }
 
   return {
@@ -193,7 +197,7 @@ export function computePairStatsLiga16(
     const isSideA = match.side_a.pair_id === pairId;
     const isSideB = match.side_b.pair_id === pairId;
 
-    // Fallback por nombre si no hay pair_id (partidos legacy)
+    // Fallback por nombre SIEMPRE (también si pair_id existe pero es incorrecto)
     const sideAName = (match.side_a.pair_name ?? "").trim().toLowerCase();
     const sideBName = (match.side_b.pair_name ?? "").trim().toLowerCase();
     const thisPairName = pairName.trim().toLowerCase();
@@ -201,8 +205,8 @@ export function computePairStatsLiga16(
     const participated =
       isSideA ||
       isSideB ||
-      (!match.side_a.pair_id && sideAName === thisPairName) ||
-      (!match.side_b.pair_id && sideBName === thisPairName);
+      sideAName === thisPairName ||
+      sideBName === thisPairName;
 
     if (!participated) continue;
 
@@ -212,7 +216,8 @@ export function computePairStatsLiga16(
     const setsWon = countSetsWonLiga16(sets);
 
     // Determinar si esta pareja fue lado A o B en este partido
-    const wasSideA = isSideA || (!match.side_a.pair_id && sideAName === thisPairName);
+    // Prioridad: pair_id exacto, sino nombre
+    const wasSideA = isSideA || sideAName === thisPairName;
     const setsPropios = wasSideA ? setsWon.a : setsWon.b;
     const setsRival = wasSideA ? setsWon.b : setsWon.a;
 
