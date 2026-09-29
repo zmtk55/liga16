@@ -74,6 +74,36 @@ describe("buildPlayerRecords", () => {
     expect(ana?.partners[1]).toMatchObject({ partnerName: "Beto", played: 1, won: 1 });
   });
 
+  it("describe los últimos partidos con rival y marcador, sin datos escritos a mano", () => {
+    const matches = [
+      played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }, { a: 4, b: 6 }]),
+      played("m-2", "2026-02-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-5", name: "Caro / Diego" }, "b", [{ a: 3, b: 6 }]),
+    ];
+
+    const ana = buildPlayerRecords(matches, pairs, players).get("p-ana");
+
+    // Del más reciente al más antiguo, y el marcador desde su punto de vista.
+    expect(ana?.recentMatches.map((m) => m.opponentName)).toEqual([
+      "Caro / Diego",
+      "Diego / Eva",
+    ]);
+    expect(ana?.recentMatches[0]).toMatchObject({ won: false, score: "3-6" });
+    expect(ana?.recentMatches[1]).toMatchObject({ won: true, score: "6-2 4-6" });
+  });
+
+  it("no inventa nivel de rival si no está en el directorio", () => {
+    const sinNiveles = [{ id: "p-ana", display_name: "Ana" }] as unknown as PlayerProfile[];
+    const ghost = {
+      ...played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }]),
+      side_b: { pair_id: null, pair_name: "Fantasma / Nadie" },
+    } as unknown as Match;
+
+    const ana = buildPlayerRecords([ghost], pairs, sinNiveles).get("p-ana");
+
+    expect(ana?.recentMatches[0].opponentLevel).toBeNull();
+    expect(ana?.recentMatches[0].opponentName).toBe("Fantasma / Nadie");
+  });
+
   it("acumula los games ganados de cada pareja en el mismo total personal", () => {
     const matches = [
       played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }, { a: 6, b: 4 }]),

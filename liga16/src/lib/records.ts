@@ -20,6 +20,19 @@ export interface PartnerSpell {
   lastPlayedAt: string | null;
 }
 
+/** Un partido recién jugado, con rival y marcador. Derivado, nunca escrito a mano. */
+export interface RecentMatch {
+  matchId: string;
+  /** Pareja rival, tal como viene en el partido. */
+  opponentName: string;
+  /** Nivel declarado del rival, si se conoce; null si no está en el directorio. */
+  opponentLevel: number | null;
+  won: boolean;
+  /** Marcador de sets del punto de vista de este jugador, p. ej. "6-4 6-1". */
+  score: string;
+  playedAt: string | null;
+}
+
 export interface PlayerRecord {
   playerId: string;
   played: number;
@@ -33,9 +46,13 @@ export interface PlayerRecord {
   trend: number[];
   /** Historial de parejas, de la etapa más reciente a la más antigua. */
   partners: PartnerSpell[];
+  /** Últimos partidos con rival y marcador, del más reciente al más antiguo. */
+  recentMatches: RecentMatch[];
 }
 
 const TREND_WINDOW = 10;
+/** Cuántos partidos recientes se muestran con rival y marcador. */
+const RECENT_WINDOW = 5;
 
 function makeRecord(playerId: string): PlayerRecord {
   return {
@@ -48,6 +65,7 @@ function makeRecord(playerId: string): PlayerRecord {
     form: [],
     trend: [],
     partners: [],
+    recentMatches: [],
   };
 }
 
@@ -66,6 +84,11 @@ export function buildPlayerRecords(
 ): Map<string, PlayerRecord> {
   const pairById = new Map(pairs.map((p) => [p.id, p]));
   const nameById = new Map(players.map((p) => [p.id, p.display_name]));
+  const levelById = new Map(
+    players
+      .filter((p): p is typeof p & { level?: number | null } => "level" in p)
+      .map((p) => [p.id, p.level ?? null]),
+  );
   const pairByName = new Map(
     pairs.map((p) => [p.name.trim().toLowerCase(), p] as const),
   );
@@ -126,12 +149,25 @@ export function buildPlayerRecords(
       const won = isA ? match.winner === "a" : match.winner === "b";
       let pointsFor = 0;
       let pointsAgainst = 0;
+      const setScore: string[] = [];
       for (const s of match.sets) {
         const mine = isA ? s.a : s.b;
         const theirs = isA ? s.b : s.a;
         pointsFor += mine;
         pointsAgainst += theirs;
+        setScore.push(`${mine}-${theirs}`);
       }
+      // El rival sale del propio partido, no de un catálogo aparte.
+      const opponentPair = isA ? pairB : pairA;
+      const opponentName = (
+        isA ? match.side_b?.pair_name : match.side_a?.pair_name
+      )?.trim() ?? "—";
+      const opponentLevels = (opponentPair?.player1_id
+        ? [opponentPair.player1_id, opponentPair.player2_id]
+        : []
+      )
+        .map((id) => levelById.get(id ?? ""))
+        .filter((l): l is number => typeof l === "number");
 
       for (const playerId of playerIds) {
         const record = recordFor(playerId);
@@ -142,6 +178,16 @@ export function buildPlayerRecords(
         record.setsAgainst += pointsAgainst;
         record.form.push(won ? "G" : "P");
         record.trend.push(pointsFor);
+        record.recentMatches.push({
+          matchId: match.id,
+          opponentName,
+          opponentLevel: opponentLevels.length
+            ? opponentLevels.reduce((a, b) => a + b, 0) / opponentLevels.length
+            : null,
+          won,
+          score: setScore.join(" "),
+          playedAt: match.scheduled_at ?? null,
+        });
 
         const partnerId = playerIds.find((id) => id !== playerId) ?? null;
         const spell = record.partners.find((p) => p.pairId === pair.id);
@@ -167,6 +213,10 @@ export function buildPlayerRecords(
   for (const record of records.values()) {
     record.form = record.form.slice(-TREND_WINDOW);
     record.trend = record.trend.slice(-TREND_WINDOW);
+    record.recentMatches.sort((x, y) =>
+      String(y.playedAt ?? "").localeCompare(String(x.playedAt ?? "")),
+    );
+    record.recentMatches = record.recentMatches.slice(0, RECENT_WINDOW);
     record.partners.sort((x, y) =>
       String(y.lastPlayedAt ?? "").localeCompare(String(x.lastPlayedAt ?? "")),
     );
