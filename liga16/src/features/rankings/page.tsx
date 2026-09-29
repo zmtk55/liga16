@@ -62,7 +62,7 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
                 {String(team.position || 0).padStart(2, "0")}
               </span>
               <DialogHeader className="space-y-1.5">
-                <DialogTitle className="font-display text-xl uppercase leading-tight tracking-tight">
+                <DialogTitle className="text-xl font-bold leading-tight">
                   {team.name}
                 </DialogTitle>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -85,7 +85,7 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
                   { k: "Efect.", v: `${winRate(team.played, team.won)}%` },
                 ].map((s) => (
                   <div key={s.k} className="px-2 py-1.5 text-center">
-                    <p className="font-display text-base font-bold tabular-nums">{s.v}</p>
+                    <p className="text-lg font-extrabold leading-none tabular-nums">{s.v}</p>
                     <p className="text-[9px] uppercase tracking-widest text-white/50">{s.k}</p>
                   </div>
                 ))}
@@ -333,7 +333,7 @@ export default function RankingsPage() {
                     }}
                     className="cursor-pointer transition-colors hover:bg-muted/40"
                   >
-                    <TableCell className="font-display text-xl text-muted-foreground">
+                    <TableCell className="text-xl font-extrabold tabular-nums text-muted-foreground">
                       {t.position > 0 ? t.position : "—"}
                     </TableCell>
                     <TableCell>
