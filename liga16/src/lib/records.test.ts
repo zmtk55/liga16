@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildPlayerRecords, recordWinRate } from "./records";
 import { analyzePairLocal } from "./jev";
+import { qualificationFor, type StandingLike } from "./qualification";
 import type { Match, Pair, PlayerProfile } from "@/types";
 
 const players: PlayerProfile[] = [
@@ -166,6 +167,79 @@ describe("buildPlayerRecords", () => {
   });
 });
 
+describe("qualificationFor (camino a semifinales)", () => {
+  const tabla = (pts: number[]): StandingLike[] =>
+    pts.map((p, i) => ({
+      pairId: `pr-${i + 1}`,
+      name: `Pareja ${i + 1}`,
+      position: i + 1,
+      points: p,
+      played: 8,
+    }));
+
+  it("una pareja dentro del cupo no necesita puntos", () => {
+    const q = qualificationFor(
+      tabla([30, 26, 22, 18]),
+      { pairId: "pr-2", played: 8, setsWon: 20, setsPlayed: 48 },
+      { slots: 2, pointsPerWin: 2 },
+    );
+    expect(q.inCut).toBe(true);
+    expect(q.position).toBe(2);
+    expect(q.pointsNeeded).toBe(0);
+    expect(q.matchesNeeded).toBeNull();
+  });
+
+  it("traduce los puntos que faltan a partidos y a sets reales", () => {
+    // 3er lugar, corte en 26: necesita 26-22+1 = 5 puntos.
+    const q = qualificationFor(
+      tabla([30, 26, 22, 18]),
+      { pairId: "pr-3", played: 8, setsWon: 20 },
+      { slots: 2, pointsPerWin: 2 },
+    );
+    expect(q.inCut).toBe(false);
+    expect(q.pointsNeeded).toBe(5);
+    // 5 puntos a 2 por victoria = 3 partidos; a 2.5 sets por partido = 8 sets.
+    expect(q.matchesNeeded).toBe(3);
+    expect(q.setsPerMatch).toBe(2.5);
+    expect(q.setsNeeded).toBe(8);
+  });
+
+  it("dice a quién tiene que ganarle", () => {
+    const q = qualificationFor(
+      tabla([30, 26, 22, 18]),
+      { pairId: "pr-3", played: 8, setsWon: 20 },
+      { slots: 2, pointsPerWin: 2 },
+    );
+    expect(q.mustBeat.map((m) => m.name)).toEqual(["Pareja 2"]);
+    expect(q.mustBeat[0].lead).toBe(4);
+  });
+
+  it("la probabilidad es una estimación acotada, no un dato", () => {
+    const fuerte = qualificationFor(
+      tabla([30, 26, 22, 18]),
+      { pairId: "pr-1", played: 8, setsWon: 22, setsPlayed: 48 },
+      { slots: 2, pointsPerWin: 2 },
+    );
+    const lejos = qualificationFor(
+      tabla([30, 26, 22, 18]),
+      { pairId: "pr-4", played: 8, setsWon: 10, setsPlayed: 48 },
+      { slots: 2, pointsPerWin: 2 },
+    );
+    expect(fuerte.semifinalProbability).toBeGreaterThan(lejos.semifinalProbability);
+    expect(fuerte.semifinalProbability).toBeLessThanOrEqual(99);
+    expect(lejos.semifinalProbability).toBeGreaterThanOrEqual(1);
+  });
+
+  it("no se marca confiable con muestra mínima", () => {
+    const q = qualificationFor(
+      tabla([10, 8, 6]),
+      { pairId: "pr-2", played: 1, setsWon: 3, setsPlayed: 6 },
+      { slots: 2, pointsPerWin: 2 },
+    );
+    expect(q.reliable).toBe(false);
+  });
+});
+
 describe("analyzePairLocal (desempeño derivado de resultados)", () => {
   it("marca pico competitivo con muchos ganados y últimos 3 en verde", () => {
     const perf = analyzePairLocal({ played: 10, won: 8, form: ["G", "G", "G"] });
@@ -182,7 +256,8 @@ describe("analyzePairLocal (desempeño derivado de resultados)", () => {
 
   it("no inventa racha cuando la pareja no tiene historial", () => {
     const perf = analyzePairLocal({ played: 0, won: 0 });
-    expect(perf.racha.label).toBe("estable");
+    // El contrato de JEV usa "sin racha" cuando no hay historial.
+    expect(perf.racha.label).toBe("sin racha");
     expect(perf.winRate).toBe(0);
   });
 });
