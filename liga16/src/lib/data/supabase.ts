@@ -27,8 +27,19 @@ const DIVISION_ORDER: PadelDivision[] = ['1ra', '2da', '3ra', '4ta', '5ta', '6ta
 function divisionFromCategoryName(name: string | null | undefined): PadelDivision {
   const n = (name ?? '').toLowerCase();
   if (n.includes('novato')) return 'Novatos';
-  const m = n.match(/1ra|2da|3ra|4ta|5ta|6ta/);
-  return (m ? m[0] : '4ta') as PadelDivision;
+  // "Suma 9 / +9" compite en 6ta (varonil)
+  if (/\b(suma\s*9|\+9)\b/.test(n)) return '6ta';
+  const m = n.match(/\b(1ra|2da|3ra|4ta|5ta|6ta)\b/);
+  if (m) return m[0] as PadelDivision;
+  const ord = n.match(/\b(primera|segunda|tercera|cuarta|quinta|sexta)\b/);
+  if (ord) {
+    const map: Record<string, PadelDivision> = {
+      primera: '1ra', segunda: '2da', tercera: '3ra',
+      cuarta: '4ta', quinta: '5ta', sexta: '6ta',
+    };
+    return map[ord[0]];
+  }
+  return '4ta';
 }
 
 function sexFromCategory(sex: string | null | undefined, name: string | null | undefined): Sex | null {
@@ -198,15 +209,32 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
         b.sets_for - b.sets_against - (a.sets_for - a.sets_against) ||
         b.won - a.won,
     );
-    g.forEach((t, i) => {
-      t.position = i + 1;
+    // Posiciones estilo tabla de liga: los empates (mismos puntos, dif. de
+    // sets y victorias) COMPARTEN posición y la siguiente salta (1, 1, 3…).
+    // Sin partidos jugados no hay posición: no se ha ganado nada todavía.
+    let lastPos = 0;
+    let prev: Team | null = null;
+    g.forEach((t) => {
+      if (t.played === 0) {
+        t.position = 0;
+        return;
+      }
+      const tied =
+        prev !== null &&
+        prev.points === t.points &&
+        prev.sets_for - prev.sets_against === t.sets_for - t.sets_against &&
+        prev.won === t.won;
+      t.position = tied ? lastPos : ++lastPos;
+      prev = t;
     });
   }
+  // Las parejas sin partidos (position 0) van al final de su grupo.
+  const rankOf = (t: Team) => (t.position === 0 ? Number.MAX_SAFE_INTEGER : t.position);
   list.sort(
     (a, b) =>
       DIVISION_ORDER.indexOf(a.division) - DIVISION_ORDER.indexOf(b.division) ||
       a.sex.localeCompare(b.sex) ||
-      a.position - b.position,
+      rankOf(a) - rankOf(b),
   );
   return list;
 }
@@ -599,6 +627,24 @@ export const supabaseProvider: DataProvider = {
       .from('player_cards').select('*').eq('player_id', playerId).maybeSingle();
     if (error) throw error;
     return data as never;
+  },
+
+  /** Categoría REAL por jugador: división de la pareja con la que compite (1 query para todo el directorio). */
+  async listPlayerDivisions(): Promise<Record<string, string>> {
+    const { data, error } = await client()
+      .from('pairs')
+      .select('player1_id, player2_id, tournament_categories(name)')
+      .order('created_at', { ascending: false });
+    const map: Record<string, string> = {};
+    if (error) return map;
+    for (const row of data as unknown as { player1_id: string; player2_id: string; tournament_categories?: { name?: string } | null }[]) {
+      if (!row.tournament_categories?.name) continue;
+      const div = divisionFromCategoryName(row.tournament_categories.name);
+      for (const pid of [row.player1_id, row.player2_id]) {
+        if (pid && !map[pid]) map[pid] = div; // la pareja más reciente gana
+      }
+    }
+    return map;
   },
 
   /**

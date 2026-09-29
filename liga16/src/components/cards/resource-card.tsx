@@ -77,7 +77,7 @@ export function ResourceCard({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{tournament.name}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {tournament.club_name ?? "Club Pádel Reforma"}
+            {tournament.club_name ?? (tournament.city || "Sede por confirmar")}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">

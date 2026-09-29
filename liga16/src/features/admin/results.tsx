@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -165,19 +166,17 @@ export default function AdminResults() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Torneo</TableHead>
-                <TableHead className="hidden sm:table-cell">Categoría</TableHead>
-                <TableHead className="hidden md:table-cell">Ronda</TableHead>
-                <TableHead>Marcador</TableHead>
+                <TableHead>Partido</TableHead>
+                <TableHead className="hidden sm:table-cell">Torneo</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list === null && <AdminTableSkeleton columns={6} />}
+              {list === null && <AdminTableSkeleton columns={4} />}
               {list !== null && list.length === 0 && (
                 <AdminTableEmpty
-                  colSpan={6}
+                  colSpan={4}
                   icon={<Trophy className="h-5 w-5" />}
                   title="No hay resultados todavía"
                   description="Los partidos se capturan desde la pestaña Jornada de cada torneo."
@@ -185,25 +184,45 @@ export default function AdminResults() {
               )}
               {list !== null && list.length > 0 && filtered.length === 0 && (
                 <AdminTableEmpty
-                  colSpan={6}
+                  colSpan={4}
                   title="Sin coincidencias"
                   description="Ningún partido coincide con la búsqueda o el filtro."
                 />
               )}
               {filtered.map((m) => (
                 <TableRow key={m.id}>
-                  <TableCell className="font-medium">{m.tournament_name}</TableCell>
-                  <TableCell className="hidden text-muted-foreground sm:table-cell">{m.category_name}</TableCell>
-                  <TableCell className="hidden md:table-cell">{m.round}</TableCell>
+                  {/* SIEMPRE se ve quién juega contra quién */}
                   <TableCell>
-                    <MatchScoreboard
-                      sideA={m.side_a.pair_name}
-                      sideB={m.side_b.pair_name}
-                      sets={m.sets}
-                      winner={m.winner}
-                      status={m.status}
-                      size="sm"
-                    />
+                    <div className="min-w-0">
+                      <p className="mb-1 truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                        {m.tournament_name}{m.round ? ` · ${m.round}` : ""}
+                      </p>
+                      <p className={cn("truncate text-sm font-semibold", m.winner === "a" && "text-emerald-600 dark:text-emerald-400")}>
+                        {m.side_a.pair_name}
+                      </p>
+                      <p className="my-0.5 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">vs</p>
+                      <p className={cn("truncate text-sm font-semibold", m.winner === "b" && "text-emerald-600 dark:text-emerald-400")}>
+                        {m.side_b.pair_name}
+                      </p>
+                      {(m.status === "finished" || m.status === "live") && m.sets.length > 0 && (
+                        <div className="mt-1.5">
+                          <MatchScoreboard
+                            sideA={m.side_a.pair_name}
+                            sideB={m.side_b.pair_name}
+                            sets={m.sets}
+                            winner={m.winner}
+                            status={m.status}
+                            size="sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <p className="font-medium">{m.tournament_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[m.category_name, m.round].filter(Boolean).join(" · ") || "—"}
+                    </p>
                   </TableCell>
                   <TableCell>
                     <MatchStatusBadge status={m.status} />

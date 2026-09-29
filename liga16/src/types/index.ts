@@ -270,6 +270,7 @@ export interface PlayerCard {
   partner: string | null;
   recent_results: string[];
   trend: number[];
+  division?: string | null;  // Categoría REAL: división de la pareja con la que compite
 }
 
 // En padel, un "equipo" es una pareja de 2 jugadores que compite en una división.

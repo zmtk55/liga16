@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CardShell, CardIdentity, CardFooterStrip, CardStat } from "@/components/cards/card-kit";
 import { PageHero } from "@/components/page-hero";
 import {
   Select,
@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { divisionOptions, sexOptions, winRate } from "@/lib/format";
-import { ArrowRight, Search, Users2 } from "lucide-react";
+import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
+import { ArrowRight, Search } from "lucide-react";
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -118,7 +118,7 @@ export default function TeamsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {filtered.map((team) => {
             const wr = winRate(team.played, team.won);
             return (
@@ -127,51 +127,38 @@ export default function TeamsPage() {
                 to={`/equipos/${team.slug}`}
                 className="group block focus:outline-none"
               >
-                <Card className="h-full overflow-hidden border-border/60 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-lg">
-                  {/* Franja de división estilo póster */}
-                  <div aria-hidden className="h-1 bg-primary" />
+                <CardShell accent className="h-full">
                   <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex -space-x-2.5">
-                        <Avatar className="h-11 w-11 border-2 border-background">
-                          <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                            {team.player1 ? team.player1.name.slice(0, 2).toUpperCase() : "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <Avatar className="h-11 w-11 border-2 border-background">
-                          <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                            {team.player2 ? team.player2.name.slice(0, 2).toUpperCase() : "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-base font-bold tracking-tight">{team.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {team.city || "Ciudad de México"} · {team.division} · {team.player1?.name ?? "?"} / {team.player2?.name ?? "?"}
-                        </p>
-                      </div>
-                      {team.position > 0 && (
-                        <span className="shrink-0 font-display text-2xl tabular-nums text-muted-foreground/40 transition-colors group-hover:text-primary">
-                          #{team.position}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2">
-                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Users2 className="h-3.5 w-3.5" />
-                        {team.played > 0 ? `${team.won}–${team.lost} en ${team.played} partido${team.played === 1 ? "" : "s"}` : "Sin partidos jugados"}
-                      </span>
-                      {team.played > 0 ? (
-                        <Badge variant={wr >= 60 ? "default" : wr >= 40 ? "secondary" : "outline"}>
-                          {wr}%
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">Nuevo</Badge>
-                      )}
-                    </div>
+                    <CardIdentity
+                      titleLines={[
+                        team.player1?.name ?? team.name.split(" / ")[0],
+                        team.player2?.name ?? team.name.split(" / ")[1] ?? "",
+                      ].filter(Boolean)}
+                      meta={[team.division, sexLabel(team.sex)].filter(Boolean).join(" · ")}
+                      end={
+                        team.position > 0 ? (
+                          <span className="font-display text-2xl tabular-nums text-muted-foreground/40 transition-colors group-hover:text-primary">
+                            #{team.position}
+                          </span>
+                        ) : undefined
+                      }
+                    />
                   </CardContent>
-                </Card>
+                  <CardFooterStrip
+                    stats={
+                      <>
+                        <CardStat value={team.played} label="PJ" />
+                        <CardStat value={`${team.won}–${team.lost}`} label="Récord" />
+                        <CardStat
+                          value={team.played > 0 ? `${wr}%` : "—"}
+                          label="Efect."
+                          tone={team.played > 0 && wr >= 60 ? "text-emerald-600 dark:text-emerald-400" : undefined}
+                        />
+                      </>
+                    }
+                    chip={team.played === 0 ? <Badge variant="outline">Nuevo</Badge> : undefined}
+                  />
+                </CardShell>
               </Link>
             );
           })}

@@ -196,7 +196,7 @@ export default function TournamentDetailPage() {
           </span>
           <span className="flex items-center gap-1.5 font-medium">
             <MapPin className="h-4 w-4 text-primary" />
-            {tournament.club_name ?? "Club Pádel Reforma"}
+            {tournament.club_name ?? (tournament.city || "Sede por confirmar")}
           </span>
           <span className="flex items-center gap-1.5 font-medium">
             <Trophy className="h-4 w-4 text-primary" />
@@ -224,30 +224,44 @@ export default function TournamentDetailPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {cats.map((cat) => {
           const catPairs = pairs[cat.id] ?? [];
-          const full = cat.registered_pairs >= cat.max_pairs;
-          const pct = Math.round((cat.registered_pairs / cat.max_pairs) * 100);
+          const hasCap = cat.max_pairs != null && cat.max_pairs > 0;
+          const full = hasCap && cat.registered_pairs >= cat.max_pairs;
+          const pct = hasCap ? Math.round((cat.registered_pairs / cat.max_pairs) * 100) : 0;
+          const hasPrice = cat.price_cents != null && cat.price_cents > 0;
           return (
             <Card key={cat.id}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-base">{cat.name}</CardTitle>
-                  <Badge variant="secondary">
-                    {cat.registered_pairs}/{cat.max_pairs} parejas
-                  </Badge>
+                  {hasCap ? (
+                    <Badge variant="secondary" className="shrink-0 tabular-nums">
+                      {cat.registered_pairs}/{cat.max_pairs} parejas
+                    </Badge>
+                  ) : cat.registered_pairs != null ? (
+                    <Badge variant="secondary" className="shrink-0 tabular-nums">
+                      {cat.registered_pairs} parejas
+                    </Badge>
+                  ) : null}
                 </div>
-                <div className="pt-2">
-                  <Progress value={pct} />
-                </div>
+                {hasCap && (
+                  <div className="pt-2">
+                    <Progress value={pct} />
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   {cat.min_level != null && cat.max_level != null ? (
                     <span>Nivel {cat.min_level} a {cat.max_level}</span>
                   ) : (
                     <span>Nivel abierto</span>
                   )}
-                  <span>·</span>
-                  <span>{formatMoney(cat.price_cents, tournament.currency)}</span>
+                  {hasPrice && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span>{formatMoney(cat.price_cents, tournament.currency)}</span>
+                    </>
+                  )}
                 </div>
                 {catPairs.length > 0 && (
                   <div>
@@ -256,13 +270,8 @@ export default function TournamentDetailPage() {
                     </p>
                     <ul className="space-y-0.5 text-sm">
                       {catPairs.map((p) => (
-                        <li key={p.id} className="flex justify-between">
+                        <li key={p.id}>
                           <span>{p.name}</span>
-                          {p.seed != null && (
-                            <span className="text-xs text-muted-foreground">
-                              Siembra #{p.seed}
-                            </span>
-                          )}
                         </li>
                       ))}
                     </ul>

@@ -124,7 +124,7 @@ export default function Home() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-[620px] w-full rounded-b-[2rem]" />
-        <div className="grid gap-5 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
           <Skeleton className="h-[420px] rounded-2xl lg:col-span-3" />
           <Skeleton className="h-[420px] rounded-2xl lg:col-span-2" />
         </div>
@@ -145,6 +145,17 @@ export default function Home() {
     .filter((m) => m.id !== featuredMatch?.id)
     .slice(0, 2);
   const featuredIsOpen = featured?.status === "registration_open";
+  // Sede REAL: ciudad del torneo destacado (única fuente, sin inventar)
+  const sedeLabel = featured?.city || stats.tournaments[0]?.city || "Liga16";
+  // Etiqueta del estado en español, sin fechas inventadas
+  const statusLabel =
+    featured?.status === "in_progress"
+      ? "En juego"
+      : featured?.status === "registration_open"
+        ? "Inscripciones abiertas"
+        : featured?.status === "finished"
+          ? "Finalizado"
+          : "";
 
   return (
     <div className="space-y-16 md:space-y-20">
@@ -174,7 +185,7 @@ export default function Home() {
                 : "Circuito de pádel"}
             </p>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
-              Ciudad de México
+              {sedeLabel}
             </p>
           </div>
 
@@ -306,7 +317,7 @@ export default function Home() {
                   16
                 </span>
                 <span className="absolute left-8 top-8 text-[10px] font-bold uppercase tracking-[0.3em] text-black/55">
-                  Ciudad de México
+                  {sedeLabel}
                 </span>
                 <div className="absolute inset-y-0 left-[34%] w-px rotate-[18deg] bg-black/20" />
                 <div className="absolute inset-y-0 left-[54%] w-px rotate-[18deg] bg-black/20" />
@@ -314,7 +325,7 @@ export default function Home() {
                 <p className="absolute bottom-7 left-7 right-7 font-display text-3xl uppercase leading-none text-black/75 sm:text-4xl">
                   {formatLabel[featured.format] ?? featured.format}
                   <br />
-                  <span className="text-black/45">Temporada 26/27</span>
+                  <span className="text-black/45">{statusLabel}</span>
                 </p>
               </div>
             )}
@@ -323,7 +334,7 @@ export default function Home() {
       )}
 
       {/* PAREJA + TOP 3 — dos piezas, no más tarjetas */}
-      <section className="grid gap-8 lg:grid-cols-5 lg:gap-5">
+      <section className="grid grid-cols-1 gap-8 lg:grid-cols-5 lg:gap-5">
         {featuredTeam && (
           <div className="lg:col-span-3">
             <SectionHeading
@@ -342,7 +353,7 @@ export default function Home() {
               <div className="flex flex-col justify-between p-6 sm:p-8">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-black/50">
-                    {featuredTeam.division} · Ciudad de México
+                    {featuredTeam.division}
                   </p>
                   <h3 className="mt-4 font-display text-4xl uppercase leading-[0.94] sm:text-5xl">
                     {featuredTeam.name}
@@ -504,7 +515,7 @@ export default function Home() {
             to="/noticias"
             action="Ver todas"
           />
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             {stats.news.slice(0, 3).map((item) => (
               <article key={item.id} className="group border-t-2 border-foreground pt-3">
                 <div className="relative mb-4 aspect-[16/9] overflow-hidden rounded-xl bg-muted">

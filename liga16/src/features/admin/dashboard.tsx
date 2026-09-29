@@ -104,7 +104,7 @@ export default function AdminDashboard() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Torneos"
           value={data?.tournaments.length ?? 0}
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Próximos torneos</CardTitle>

@@ -39,10 +39,10 @@ export function MatchScoreboard({
     const name = side === "a" ? sideA : sideB;
     const isWinner = winner === side;
     return (
-      <div key={side} className="flex items-center justify-end gap-2">
+      <div key={side} className="flex min-w-0 items-center justify-end gap-2">
         <span
           title={name}
-          className={cn("max-w-[11rem] truncate text-right", nameCls, isWinner ? "font-bold" : "text-muted-foreground")}
+          className={cn("max-w-[11rem] min-w-0 truncate text-right", nameCls, isWinner ? "font-bold" : "text-muted-foreground")}
         >
           {name}
         </span>
@@ -77,7 +77,7 @@ export function MatchScoreboard({
   };
 
   return (
-    <div className={cn("inline-grid gap-1", className)} aria-label={`Marcador: ${sideA} vs ${sideB}`}>
+    <div className={cn("inline-grid min-w-0 max-w-full gap-1", className)} aria-label={`Marcador: ${sideA} vs ${sideB}`}>
       {row("a")}
       {row("b")}
     </div>

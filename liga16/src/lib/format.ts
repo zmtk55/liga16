@@ -120,6 +120,31 @@ export function formatMatchDateTime(iso: string): string {
   }).format(parseDate(iso));
 }
 
+/** Hora corta 12h para México: "5:26 pm". */
+export function formatMatchTime12(iso: string): string {
+  return new Intl.DateTimeFormat("es-MX", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(parseDate(iso))
+    .toLowerCase()
+    .replace(/a\.\s*m\./, "am")
+    .replace(/p\.\s*m\./, "pm");
+}
+
+/** Día del mes para el chip de fecha de la agenda: "12". */
+export function formatMatchDay(iso: string): string {
+  return new Intl.DateTimeFormat("es-MX", { day: "numeric" }).format(parseDate(iso));
+}
+
+/** Mes corto para el chip de fecha de la agenda: "oct". */
+export function formatMatchMonth(iso: string): string {
+  return new Intl.DateTimeFormat("es-MX", { month: "short" })
+    .format(parseDate(iso))
+    .replace(".", "");
+}
+
 export function initials(name: string): string {
   return name
     .split(" ")

@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDate, initials, sexLabel } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import ImageUpload from "@/components/ui/image-upload";
 import { MatchScoreboard } from "@/components/match-scoreboard";
 import { toast } from "sonner";
@@ -28,7 +29,7 @@ function cardWon(c: PlayerCard | null | undefined) { return (c as unknown as { r
 function cardPlayed(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; played?: number })?.record?.played ?? (c as unknown as { played?: number })?.played ?? 0; }
 function cardPartner(c: PlayerCard | null | undefined) { return (c as unknown as { frequent_partner?: string; partner?: string })?.frequent_partner ?? (c as unknown as { partner?: string })?.partner ?? null; }
 
-// Tooltip component for JEV metrics
+// Tooltip component for player metrics
 function Tooltip({ children, content }: { children: React.ReactNode; content: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -63,39 +64,59 @@ function AnimatedBar({ value, max = 100, color = "primary", className = "" }: { 
 
 // ComparisonRow component for player comparison table
 function ComparisonRow({ label, valueA, valueB, higherIsBetter, unit, isStyle = false, tooltip }: { label: string; valueA: string | number; valueB: string | number; higherIsBetter: boolean; unit?: string; isStyle?: boolean; tooltip?: string }) {
-  // For style comparison, no "winner" - just show both
-  const isNumeric = !isNaN(Number(valueA)) && !isNaN(Number(valueB));
+  const isNumeric = !isStyle && !isNaN(Number(valueA)) && !isNaN(Number(valueB));
+  const numA = isNumeric ? Number(valueA) : parseFloat(String(valueA).replace(/[^0-9.-]/g, "")) || 0;
+  const numB = isNumeric ? Number(valueB) : parseFloat(String(valueB).replace(/[^0-9.-]/g, "")) || 0;
   let winner: 'A' | 'B' | 'tie' = 'tie';
-  
+
   if (!isStyle) {
-    const numA = isNumeric ? Number(valueA) : parseFloat(String(valueA).replace(/[^0-9.-]/g, '')) || 0;
-    const numB = isNumeric ? Number(valueB) : parseFloat(String(valueB).replace(/[^0-9.-]/g, '')) || 0;
     if (numA > numB) winner = higherIsBetter ? 'A' : 'B';
     else if (numB > numA) winner = higherIsBetter ? 'B' : 'A';
   }
+  const max = Math.max(numA, numB, 1);
+  const pct = (v: number) => `${Math.max(6, Math.min(100, (v / max) * 100))}%`;
+
+  const cell = (value: string | number, side: 'A' | 'B') => {
+    const win = winner === side;
+    const num = side === 'A' ? numA : numB;
+    return (
+      <td className="py-3 px-2">
+        <div className="flex flex-col items-center gap-1">
+          <span className={cn(
+            "font-mono text-sm font-bold tabular-nums",
+            win ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+          )}>
+            {value}
+            {unit && <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">{unit}</span>}
+          </span>
+          {isNumeric && (
+            <span className="h-1 w-full max-w-24 overflow-hidden rounded-full bg-muted">
+              <span
+                className={cn(
+                  "block h-full rounded-full transition-all duration-500",
+                  win ? "bg-emerald-500" : "bg-muted-foreground/35",
+                )}
+                style={{ width: pct(num) }}
+              />
+            </span>
+          )}
+        </div>
+      </td>
+    );
+  };
 
   return (
     <tr className="transition-colors hover:bg-muted/30">
       <td className="py-3 px-2">
         <Tooltip content={tooltip || label}>
-          <span className="flex items-center gap-1.5 font-medium text-sm">
+          <span className="flex items-center gap-1.5 text-sm font-medium">
             {label}
             {tooltip && <HelpCircle className="h-3 w-3 text-muted-foreground/50" />}
           </span>
         </Tooltip>
       </td>
-      <td className={`py-3 px-2 text-center font-mono tabular-nums ${winner === 'A' ? 'text-emerald-600 font-bold' : ''}`}>
-        <div className="flex items-center justify-center gap-1">
-          {valueA} {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
-          {winner === 'A' && <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
-        </div>
-      </td>
-      <td className={`py-3 px-2 text-center font-mono tabular-nums ${winner === 'B' ? 'text-emerald-600 font-bold' : ''}`}>
-        <div className="flex items-center justify-center gap-1">
-          {valueB} {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
-          {winner === 'B' && <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
-        </div>
-      </td>
+      {cell(valueA, 'A')}
+      {cell(valueB, 'B')}
     </tr>
   );
 }
@@ -447,8 +468,8 @@ export default function PlayerDetailPage() {
       <section className="mx-auto max-w-7xl space-y-6 px-4 md:px-6">
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-primary" /> Insights JEV — System One
-            <Tooltip content="JEV (System One) analiza tu forma, estilo y racha usando heurísticas determinísticas basadas en tu récord, partidos recientes y tendencia de nivel. No requiere IA externa.">
+            <Sparkles className="h-4 w-4 text-primary" /> Cómo llega el jugador
+            <Tooltip content="Resumen automático de su forma, estilo y racha con base en su récord, partidos recientes y tendencia de nivel.">
               <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-primary cursor-help" />
             </Tooltip>
           </h3>
@@ -460,7 +481,7 @@ export default function PlayerDetailPage() {
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Zap className="h-4 w-4 text-primary" />
                   Forma competitiva
-                  <Tooltip content="Score 1-5 basado en: win rate global, victorias recientes (últimos 5), y pendiente de tendencia de nivel. 5=Pico competitivo, 4=En forma, 3=Estable, 2=Irregular, 1=Bajón">
+                  <Tooltip content="Score 1-5 basado en: win rate global, victorias recientes (últimos 5), y pendiente de tendencia de nivel. 5=En su mejor momento, 4=Bien enchegado, 3=En su línea, 2=Deja vu, 1=Le falta ritmo de juego">
                     <Badge variant={jev.forma.score >= 4 ? "default" : jev.forma.score <= 2 ? "destructive" : "secondary"}>{jev.forma.score}/5</Badge>
                   </Tooltip>
                 </CardTitle>
@@ -473,7 +494,7 @@ export default function PlayerDetailPage() {
                 </div>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <Tooltip key={n} content={`Nivel ${n}: ${["Bajón","Irregular","Estable","En forma","Pico"][n-1]}. Distribución de probabilidad del modelo.`}>
+                    <Tooltip key={n} content={`Nivel ${n}: ${["Le falta ritmo","Deja vu","En su línea","Bien enchegado","Mejor momento"][n-1]}. Distribución de probabilidad del modelo.`}>
                       <div className="flex-1">
                         <AnimatedBar value={(jev.forma.distribution[n as 1|2|3|4|5] ?? 0) * 100} max={100} color="primary" className="h-1.5" />
                         <p className="mt-1 text-center text-[10px] text-muted-foreground">{n}</p>
@@ -737,8 +758,7 @@ export default function PlayerDetailPage() {
         {isAdmin && (
           <Card className="border-dashed">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>
-              <p className="text-xs text-muted-foreground">Elige otro jugador y compara estadísticas deportivas lado a lado (sin finanzas). JEV recalcula forma y estilo.</p>
+              <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>                  <p className="text-xs text-muted-foreground">Elige otro jugador y compara estadísticas deportivas lado a lado.</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="max-w-sm">
@@ -787,12 +807,12 @@ export default function PlayerDetailPage() {
                         unit="pts"
                         tooltip="Puntos acumulados en eventos de ranking"
                       />
-                      <ComparisonRow label="Partidos" 
-                        valueA={`${played} / ${won}`} 
-                        valueB={`${cardPlayed(compareData.c)} / ${cardWon(compareData.c)}`} 
-                        higherIsBetter={false} 
-                        unit="PJ / PG"
-                        tooltip="Partidos jugados / ganados"
+                      <ComparisonRow label="Ganados" 
+                        valueA={won} 
+                        valueB={cardWon(compareData.c)} 
+                        higherIsBetter={true} 
+                        unit={`de ${played} / ${cardPlayed(compareData.c)}`}
+                        tooltip="Partidos ganados (entre paréntesis, los jugados por cada uno)"
                       />
                       <ComparisonRow label="Win %" 
                         valueA={`${winPct}%`} 
@@ -808,14 +828,14 @@ export default function PlayerDetailPage() {
                         unit=""
                         tooltip="Títulos de circuito ganados"
                       />
-                      <ComparisonRow label="Forma JEV" 
+                      <ComparisonRow label="Forma" 
                         valueA={`${jev.forma.score}/5 — ${jev.forma.label}`} 
                         valueB={`${compareData.jev.forma.score}/5 — ${compareData.jev.forma.label}`} 
                         higherIsBetter={true} 
                         unit=""
                         tooltip="Forma competitiva 1-5 (ver tarjeta Forma). Score numérico para comparar."
                       />
-                      <ComparisonRow label="Estilo JEV" 
+                      <ComparisonRow label="Estilo" 
                         valueA={jev.estilo.choice} 
                         valueB={compareData.jev.estilo.choice} 
                         higherIsBetter={false} 

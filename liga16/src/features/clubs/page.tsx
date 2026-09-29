@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { MapPin, Phone, Clock, Users, CalendarDays, ChevronRight, Building2, Target } from "lucide-react";
 import { db } from "@/lib/data";
-import type { Club } from "@/types";
+import type { Club, Court } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,11 +12,19 @@ import { PageHero } from "@/components/page-hero";
 
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<Club[] | null>(null);
+  const [courts, setCourts] = useState<Court[] | null>(null);
 
   useEffect(() => {
     let active = true;
     db.listClubs().then((data) => {
       if (active) setClubs(data);
+      db.listCourts()
+        .then((cs) => {
+          if (active) setCourts(cs);
+        })
+        .catch(() => {
+          if (active) setCourts([]);
+        });
     });
     return () => {
       active = false;
@@ -52,7 +60,7 @@ export default function ClubsPage() {
         stats={[
           { k: "Ciudad", v: club.city || "—", icon: <MapPin className="h-4 w-4" /> },
           { k: "Estado", v: club.state || "—", icon: <Building2 className="h-4 w-4" /> },
-          { k: "Canchas", v: "8", icon: <Target className="h-4 w-4" /> },
+          { k: "Canchas", v: courts ? courts.length || "—" : "…", icon: <Target className="h-4 w-4" /> },
         ]}
       />
 
@@ -121,7 +129,11 @@ export default function ClubsPage() {
             <CardTitle className="text-lg">Canchas</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">8 canchas de cristal disponibles para reservación.</p>
+            <p className="text-sm text-muted-foreground">
+              {courts
+                ? `${courts.length} ${courts.length === 1 ? "cancha" : "canchas"} de la sede, listas para los partidos del circuito.`
+                : "…"}
+            </p>
           </CardContent>
         </Card>
       </div>

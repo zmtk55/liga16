@@ -3,56 +3,54 @@ import { Facebook, Instagram } from "lucide-react";
 
 const explore = [
   { to: "/torneos", label: "Torneos" },
-  { to: "/calendario", label: "Calendario" },
+  { to: "/calendario", label: "Agenda" },
   { to: "/ranking", label: "Ranking" },
   { to: "/equipos", label: "Equipos" },
-  { to: "/padel", label: "Sede" },
 ];
 
 const community = [
   { to: "/jugadores", label: "Jugadores" },
   { to: "/noticias", label: "Noticias" },
-  { to: "/torneos", label: "Torneos" },
+  { to: "/padel", label: "Sede" },
 ];
 
-const legal = [
-  { to: "/", label: "Aviso de Privacidad" },
-  { to: "/", label: "Términos y Condiciones" },
-  { to: "/", label: "Soporte y ayuda" },
-  { to: "/", label: "Eliminar mi cuenta" },
-];
-
+/** Footer compacto: menos altura en móvil, grupos en grid de 2 columnas y
+ * links legales como texto simple porque aún no tienen página de destino. */
 export function AppFooter() {
   return (
     <footer className="border-t bg-card">
-      <div className="mx-auto max-w-7xl px-4 py-10">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">
-                16
-              </span>
-              <span className="text-xl font-bold tracking-tight">Liga16</span>
-            </Link>
-            <p className="mt-3 max-w-sm text-sm text-muted-foreground">
+      <div className="mx-auto max-w-7xl px-4 pb-6 pt-6 md:px-6">
+        <div className="grid gap-6 md:grid-cols-[1.2fr_2fr] md:gap-10">
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <Link to="/" className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-base font-bold text-primary-foreground">
+                  16
+                </span>
+                <span className="text-lg font-bold tracking-tight">Liga16</span>
+              </Link>
+              <div className="flex gap-3 md:hidden">
+                <SocialLinks />
+              </div>
+            </div>
+            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
               Torneos, ranking y vida de padel en un solo lugar.
             </p>
-            <div className="mt-4 flex gap-3">
-              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary">
-                <Facebook className="h-5 w-5" />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary">
-                <Instagram className="h-5 w-5" />
-              </a>
+            <div className="mt-3 hidden gap-3 md:flex">
+              <SocialLinks />
             </div>
           </div>
 
-          <FooterGroup title="Explorar" items={explore} />
-          <FooterGroup title="Comunidad" items={community} />
-          <FooterGroup title="Legal" items={legal} />
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+            <FooterGroup title="Explorar" items={explore} />
+            <FooterGroup title="Comunidad" items={community} />
+            <p className="col-span-2 text-[11px] leading-relaxed text-muted-foreground/70 sm:col-span-1">
+              Aviso de Privacidad · Términos y Condiciones · Soporte y ayuda · Eliminar mi cuenta
+            </p>
+          </div>
         </div>
 
-        <div className="mt-10 border-t pt-6 text-center text-xs text-muted-foreground">
+        <div className="mt-5 border-t pt-3 text-center text-[11px] text-muted-foreground">
           © {new Date().getFullYear()} Liga16 — Todos los derechos reservados.
         </div>
       </div>
@@ -60,14 +58,42 @@ export function AppFooter() {
   );
 }
 
+function SocialLinks() {
+  return (
+    <>
+      <a
+        href="https://facebook.com"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Facebook"
+        className="text-muted-foreground transition-colors hover:text-primary"
+      >
+        <Facebook className="h-4 w-4" />
+      </a>
+      <a
+        href="https://instagram.com"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Instagram"
+        className="text-muted-foreground transition-colors hover:text-primary"
+      >
+        <Instagram className="h-4 w-4" />
+      </a>
+    </>
+  );
+}
+
 function FooterGroup({ title, items }: { title: string; items: { to: string; label: string }[] }) {
   return (
     <div>
-      <h3 className="text-sm font-semibold uppercase tracking-wide">{title}</h3>
-      <ul className="mt-3 space-y-2">
+      <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{title}</h3>
+      <ul className="mt-2 space-y-1.5">
         {items.map((item) => (
           <li key={item.to + item.label}>
-            <Link to={item.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              to={item.to}
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
               {item.label}
             </Link>
           </li>

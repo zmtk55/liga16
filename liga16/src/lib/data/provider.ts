@@ -69,6 +69,8 @@ export interface DataProvider {
   updatePlayer(id: string, data: Partial<PlayerProfile>): Promise<PlayerProfile | null>;
   deletePlayer(id: string): Promise<boolean>;
   getPlayerCard(playerId: string): Promise<PlayerCard | null>;
+  /** Categoría REAL por jugador: división de la pareja con la que compite. */
+  listPlayerDivisions(): Promise<Record<string, string>>;
   /** Perfil ligado a la cuenta con sesión (autoregistro, opción A). */
   getMyProfile(): Promise<PlayerProfile | null>;
   /** Crea el perfil del jugador con su cuenta ya iniciada. */

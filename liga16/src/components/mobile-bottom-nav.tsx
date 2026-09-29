@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Home, Trophy, Users, BarChart3, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buzz } from "@/lib/haptics";
 import { db } from "@/lib/data";
 
 const items = [
@@ -11,17 +12,6 @@ const items = [
   { to: "/equipos", label: "Equipos", icon: Users },
   { to: "/calendario", label: "Agenda", icon: CalendarDays },
 ] as const;
-
-/** Vibración háptica corta (ignorada en navegadores sin soporte). */
-function buzz() {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try {
-      navigator.vibrate(8);
-    } catch {
-      /* silencio */
-    }
-  }
-}
 
 export function MobileBottomNav() {
   const { pathname } = useLocation();
@@ -88,8 +78,8 @@ export function MobileBottomNav() {
                   }}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group relative flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 outline-none transition-transform duration-150",
-                    "active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/60",
+                    "group relative flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 outline-none transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    "active:scale-90 focus-visible:ring-2 focus-visible:ring-primary/60",
                   )}
                 >
                   {/* Cápsula del icono: se enciende al activar */}

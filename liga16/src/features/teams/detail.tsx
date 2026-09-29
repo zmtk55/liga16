@@ -15,18 +15,6 @@ import { formatMatchDateTime, initials, sexLabel, winRate } from "@/lib/format";
 
 const TeamCompareChart = lazy(() => import("./compare-chart").then((m) => ({ default: m.TeamCompareChart })));
 
-/** Categoría cerrada a partir del nivel (4.7 → 4ta). Sin decimales en UI. */
-function categoriaDeNivel(lvl: number | null | undefined): string {
-  const l = lvl ?? 0;
-  if (l >= 6) return "1ra";
-  if (l >= 5.5) return "2da";
-  if (l >= 5) return "3ra";
-  if (l >= 4.5) return "4ta";
-  if (l >= 4) return "5ta";
-  if (l >= 3.5) return "6ta";
-  return "Novatos";
-}
-
 export default function TeamDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [team, setTeam] = useState<Team | null | undefined>(undefined);
@@ -140,7 +128,7 @@ export default function TeamDetailPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div>
-                  <p className="text-sm tracking-widest text-white/60 uppercase">{team.city} · Categoría {team.division}</p>
+                  <p className="text-sm tracking-widest text-white/60 uppercase">Categoría {team.division} · Liga16</p>
                   <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">{team.name}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{team.position || "—"} de la categoría</Badge>
@@ -226,7 +214,7 @@ export default function TeamDetailPage() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-lg font-black">{p?.name ?? "Pendiente"}</p>
-                    <p className="text-xs text-white/50">Categoría {p ? categoriaDeNivel(p.level) : "—"} · {i === 0 ? "Jugador 1" : "Jugador 2"}</p>
+                    <p className="text-xs text-white/50">{p ? `Nivel ${p.level?.toFixed(1) ?? "—"}` : "Nivel —"} · {i === 0 ? "Jugador 1" : "Jugador 2"}</p>
                   </div>
                   {p && p.player_id && (
                     <Button asChild variant="outline" size="icon" className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white shrink-0" aria-label={`Abrir dashboard de ${p.name}`}>
@@ -265,7 +253,7 @@ export default function TeamDetailPage() {
 
       {/* ====== Cuerpo ====== */}
       <section className="mx-auto max-w-7xl space-y-6 px-4 md:px-6">
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Rol completo: todos los partidos, jugados y por jugar */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">

@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { PlayerProfile, RankingEntry, PlayerCard } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { CardShell, CardIdentity, CardFooterStrip, CardStat } from "@/components/cards/card-kit";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlayerAvatar } from "@/components/cards/card-image";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import { PageHero } from "@/components/page-hero";
 import {
   Select,
@@ -33,8 +33,6 @@ import {
   Rows3,
   Table2,
   Search,
-  Trophy,
-  TrendingUp,
   X,
   Users,
   Target,
@@ -42,30 +40,6 @@ import {
 } from "lucide-react";
 
 type View = "grid" | "compact" | "table";
-
-const handLabel: Record<PlayerProfile["dominant_hand"], string> = {
-  right: "Diestro",
-  left: "Zurdo",
-  both: "Ambidiestro",
-};
-
-const positionLabel: Record<PlayerProfile["preferred_position"], string> = {
-  drive: "Drive",
-  reves: "Revés",
-  both: "Ambos",
-};
-
-/** Categoría cerrada a partir del nivel (4.7 → 4ta). Igual que en detalle de equipo. */
-function categoriaDeNivel(lvl: number | null | undefined): string {
-  const l = lvl ?? 0;
-  if (l >= 6) return "1ra";
-  if (l >= 5.5) return "2da";
-  if (l >= 5) return "3ra";
-  if (l >= 4.5) return "4ta";
-  if (l >= 4) return "5ta";
-  if (l >= 3.5) return "6ta";
-  return "Novatos";
-}
 
 const catOptions = [
   { value: "all", label: "Todas las categorías" },
@@ -91,6 +65,7 @@ export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerProfile[] | null>(null);
   const [rankings, setRankings] = useState<RankingEntry[] | null>(null);
   const [cards, setCards] = useState<Record<string, PlayerCard> | null>(null);
+  const [divisions, setDivisions] = useState<Record<string, string>>({});
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
 
   // Filtros y vista
@@ -102,7 +77,7 @@ export default function PlayersPage() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([db.listPlayers(), db.listRankings()]).then(async ([list, rks]) => {
+    Promise.all([db.listPlayers(), db.listRankings(), db.listPlayerDivisions()]).then(async ([list, rks, divs]) => {
       if (!active) return;
       setPlayers(list);
       setRankings(rks);
@@ -111,7 +86,10 @@ export default function PlayersPage() {
         const c = await db.getPlayerCard(p.id);
         if (c) byId[p.id] = c;
       }));
-      if (active) setCards(byId);
+      if (active) {
+        setCards(byId);
+        setDivisions(divs); // categorías REALES: división de la pareja de cada jugador
+      }
     });
     return () => { active = false; };
   }, []);
@@ -127,7 +105,7 @@ export default function PlayersPage() {
     let list = players.filter((p) => {
       if (q && !p.display_name.toLowerCase().includes(q) && !p.username.toLowerCase().includes(q)) return false;
       if (sex !== "all" && p.sex !== sex) return false;
-      if (cat !== "all" && categoriaDeNivel(levelOf(p)) !== cat) return false;
+      if (cat !== "all" && divisions[p.id] !== cat) return false;
       if (onlyRanked && !rankById.has(p.id)) return false;
       return true;
     });
@@ -146,7 +124,7 @@ export default function PlayersPage() {
       }
     });
     return list;
-  }, [players, query, sex, cat, sortBy, onlyRanked, rankById]);
+  }, [players, query, sex, cat, sortBy, onlyRanked, rankById, divisions]);
 
   const hasFilters =
     query.trim() !== "" || sex !== "all" || cat !== "all" || sortBy !== "puntos" || onlyRanked;
@@ -273,62 +251,41 @@ export default function PlayersPage() {
         </Card>
       ) : view === "grid" ? (
         /* ── VISTA TARJETAS ── */
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => {
             const rk = rankById.get(p.id);
             const card = cards?.[p.id];
-            const winPct = card && card.played ? Math.round((card.won / card.played) * 100) : 0;
             return (
-              <Link key={p.id} to={`/jugadores/${p.id}`} className="group">
-                <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
-                  <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
-                    <PlayerAvatar
-                      name={p.display_name}
-                      photoUrl={p.photo_url}
-                      className="h-12 w-12"
+              <Link key={p.id} to={`/jugadores/${p.id}`} className="group block focus:outline-none">
+                <CardShell accent className="h-full">
+                  <CardContent className="p-4">
+                    <CardIdentity
+                      lead={<PlayerAvatar name={p.display_name} photoUrl={p.photo_url} className="h-11 w-11" />}
+                      title={p.display_name}
+                      meta={
+                        [p.city || "", divisions[p.id]]
+                          .filter(Boolean)
+                          .join(" · ") || undefined
+                      }
+                      end={
+                        rk && rk.position <= 3 ? (
+                          <Badge className="shrink-0">#{rk.position}</Badge>
+                        ) : rk ? (
+                          <Badge variant="secondary" className="shrink-0">#{rk.position}</Badge>
+                        ) : undefined
+                      }
                     />
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="truncate text-base leading-tight">{p.display_name}</CardTitle>
-                      <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                        {p.city || "—"} · {categoriaDeNivel(levelOf(p))}
-                      </p>
-                    </div>
-                    {rk && (
-                      <Badge variant={rk.position <= 3 ? "default" : "secondary"} className="shrink-0">#{rk.position}</Badge>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-lg bg-muted p-2">
-                        <p className="text-[11px] text-muted-foreground">Nivel</p>
-                        <p className="font-bold">{levelOf(p).toFixed(1)}</p>
-                      </div>
-                      <div className="rounded-lg bg-primary/10 p-2">
-                        <p className="text-[11px] text-muted-foreground">Puntos</p>
-                        <p className="font-bold">{rk ? rk.points.toLocaleString("es-MX") : "—"}</p>
-                      </div>
-                      <div className="rounded-lg bg-amber-500/10 p-2">
-                        <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-0.5"><Trophy className="h-3 w-3" /> Títulos</p>
-                        <p className="font-bold">{card?.titles ?? 0}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" /> {card ? `${card.won}/${card.played} ganados` : "Sin datos"}</span>
-                        <span>{winPct}%</span>
-                      </div>
-                      <Progress value={winPct} className="h-1.5" />
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="outline" className="text-xs">{handLabel[p.dominant_hand]}</Badge>
-                      <Badge variant="outline" className="text-xs">{positionLabel[p.preferred_position]}</Badge>
-                      {card?.partner && <Badge variant="secondary" className="text-xs">con {card.partner.split(" ")[0]}</Badge>}
-                    </div>
-                    {rk && <p className="text-xs text-muted-foreground">{rk.played} PJ · {rk.won} PG · Δ {rk.delta > 0 ? `+${rk.delta}` : rk.delta}</p>}
                   </CardContent>
-                </Card>
+                  <CardFooterStrip
+                    stats={
+                      <>
+                        <CardStat value={levelOf(p).toFixed(1)} label="Nivel" />
+                        <CardStat value={rk ? rk.points.toLocaleString("es-MX") : "—"} label="Puntos" />
+                        <CardStat value={card && card.played > 0 ? `${card.won}–${card.played - card.won}` : "—"} label="Récord" />
+                      </>
+                    }
+                  />
+                </CardShell>
               </Link>
             );
           })}
@@ -400,7 +357,7 @@ export default function PlayersPage() {
                           {sexOptions.find((s) => s.value === p.sex)?.label ?? p.sex}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell">{categoriaDeNivel(levelOf(p))}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{divisions[p.id] ?? "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{levelOf(p).toFixed(1)}</TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">
                         {rk ? rk.points.toLocaleString("es-MX") : "—"}

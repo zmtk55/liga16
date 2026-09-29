@@ -298,6 +298,18 @@ export const demoProvider: DataProvider = {
     return playerCards[player.id] ?? null;
   },
 
+  async listPlayerDivisions() {
+    await delay();
+    const map: Record<string, string> = {};
+    for (const t of store.teams ?? []) {
+      if (!t.division) continue;
+      for (const pid of [t.player1?.player_id, t.player2?.player_id]) {
+        if (pid && !map[pid]) map[pid] = t.division;
+      }
+    }
+    return map;
+  },
+
   async getPlayerRecord(playerId: string) {
     await delay();
     const player = store.players.find((p) => p.id === playerId || p.username === playerId);

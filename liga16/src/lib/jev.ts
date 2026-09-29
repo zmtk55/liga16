@@ -23,7 +23,7 @@ export interface JevEstilo {
 
 export interface JevRacha {
   probYes: number; // Noul
-  label: "en racha" | "estable" | "bache";
+  label: "en racha" | "sin racha" | "bache";
 }
 
 export interface JevAnalysis {
@@ -56,11 +56,11 @@ export function analyzePlayerLocal(
   else if (winRate > 0.3) formaScore = 2;
   else formaScore = 1;
   const formaLabels: Record<FormaLevel, string> = {
-    1: "Bajón - necesita rodaje",
-    2: "Irregular",
-    3: "Estable",
-    4: "En forma",
-    5: "Pico competitivo",
+    1: "Le falta ritmo de juego",
+    2: "Deja vu — sube y baja",
+    3: "En su línea",
+    4: "Bien enchegado",
+    5: "En su mejor momento",
   };
   const dist: Record<FormaLevel, number> = { 1: 0.05, 2: 0.1, 3: 0.15, 4: 0.2, 5: 0.15 };
   dist[formaScore] = 0.62;
@@ -80,7 +80,7 @@ export function analyzePlayerLocal(
 
   // Noul racha
   const probYes = Math.min(0.92, Math.max(0.08, 0.35 + winRate * 0.5 + (recentWins / 3) * 0.2 + (delta > 0 ? 0.1 : delta < 0 ? -0.1 : 0)));
-  const rachaLabel: JevRacha["label"] = probYes > 0.65 ? "en racha" : probYes < 0.35 ? "bache" : "estable";
+  const rachaLabel: JevRacha["label"] = probYes > 0.65 ? "en racha" : probYes < 0.35 ? "bache" : "sin racha";
 
   const consistencia = winRate > 0.7 ? 88 : winRate > 0.55 ? 72 : winRate > 0.4 ? 54 : 38;
   const ritmo: Ritmo = trendSlope > 1 ? "ascendente" : trendSlope < -1 ? "descendente" : "estable";
@@ -134,18 +134,18 @@ export function analyzePairLocal(record: PairRecordInput): PairPerformance {
   else forma = 1;
 
   const formaLabels: Record<FormaLevel, string> = {
-    1: "Bajón - necesita rodaje",
-    2: "Irregular",
-    3: "Estable",
-    4: "En forma",
-    5: "Pico competitivo",
+    1: "Le falta ritmo de juego",
+    2: "Deja vu — sube y baja",
+    3: "En su línea",
+    4: "Bien enchegado",
+    5: "En su mejor momento",
   };
 
   // Racha = últimos 3, no la temporada entera: es lo que "racha" significa.
   const last3 = form.slice(-3);
   const streakWon = last3.filter((r) => r === "G").length;
   const racha: JevRacha["label"] =
-    last3.length === 0 ? "estable" : streakWon === 3 ? "en racha" : streakWon === 0 ? "bache" : "estable";
+    last3.length === 0 ? "sin racha" : streakWon === 3 ? "en racha" : streakWon === 0 ? "bache" : "sin racha";
 
   return {
     forma,
@@ -217,7 +217,7 @@ export async function analyzePlayerWithJev(
         },
         racha: {
           probYes: a.racha?.probYes ?? a.racha?.probability ?? 0.5,
-          label: (a.racha?.probYes ?? 0.5) > 0.65 ? "en racha" : (a.racha?.probYes ?? 0.5) < 0.35 ? "bache" : "estable",
+          label: (a.racha?.probYes ?? 0.5) > 0.65 ? "en racha" : (a.racha?.probYes ?? 0.5) < 0.35 ? "bache" : "sin racha",
         },
         consistencia: { score: 70, label: "Consistente" },
         ritmo: "estable",

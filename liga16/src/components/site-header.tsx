@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { buzz } from "@/lib/haptics";
 
 const publicNav = [
   { to: "/", label: "Inicio" },
@@ -153,7 +154,10 @@ export function SiteHeader() {
             variant="ghost"
             size="icon"
             className="md:hidden"
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => {
+              buzz("tap");
+              setOpen((v) => !v);
+            }}
             aria-expanded={open}
             aria-label={open ? "Cerrar menú" : "Abrir menú"}
           >
@@ -170,7 +174,7 @@ export function SiteHeader() {
                 key={item.to}
                 to={item.to}
                 onClick={() => setOpen(false)}
-                className={`flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent/10 hover:text-foreground ${
+                className={`flex items-center gap-1 rounded-lg min-h-11 px-3 py-2.5 text-sm font-medium transition-all duration-150 hover:bg-accent/10 hover:pl-4 hover:text-foreground active:scale-[0.98] ${
                   item.to === "/admin" ? "text-primary" : "text-muted-foreground"
                 }`}
               >
