@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { drawGroups, suggestGroupCount, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
+import type { TournamentScoring } from "@/types";
 import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 import { ensurePlayer } from "@/lib/players";
@@ -69,6 +70,7 @@ import {
 import type { Court } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { buildBracket, moveSeed, resolveBracket, type BracketEntry } from "@/lib/bracket";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
@@ -110,6 +112,195 @@ function SortablePair({
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Bracket del torneo: siembra por puntos, con el primero plantado arriba.
+ *
+ * No guarda nada: se deriva de los resultados que el admin ya capturó, así que
+ * mover una semilla o corregir un partido lo recalcula solo.
+ */
+function BracketPanel({
+  pairs,
+  matches,
+  scoring,
+  slots,
+}: {
+  pairs: Pair[];
+  matches: Match[];
+  scoring?: TournamentScoring | null;
+  slots: number;
+}) {
+  const [ordenManual, setOrdenManual] = useState<BracketEntry[] | null>(null);
+
+  const table = useMemo(() => {
+    const ids = pairs.map((p) => p.id);
+    const names = Object.fromEntries(pairs.map((p) => [p.id, p.name]));
+    // computeStandings no numera posiciones: el orden lo hacemos aqui, con los
+    // mismos criterios que usa la tabla de posiciones (puntos, sets, juegos).
+    return computeStandings(ids, matches, names, scoring ?? undefined)
+      .slice()
+      .sort(
+        (a, b) =>
+          b.points - a.points ||
+          b.setsFor - a.setsFor ||
+          b.gamesFor - a.gamesFor ||
+          a.pairId.localeCompare(b.pairId),
+      );
+  }, [pairs, matches, scoring]);
+
+  // Clasifican las primeras `slots`; el resto se queda esperando.
+  const clasificadas: BracketEntry[] = useMemo(() => {
+    const base = table.slice(0, slots).map((row) => {
+      const pair = pairs.find((p) => p.id === row.pairId);
+      return {
+        seed: 0,
+        pairId: row.pairId,
+        name: pair?.name ?? row.pairId,
+        points: row.points,
+      };
+    });
+    if (!ordenManual) return base.map((e, i) => ({ ...e, seed: i + 1 }));
+    // Se re-siembra por posición para respetar lo que movió el admin.
+    return base.map((e, i) => ({ ...(ordenManual[i] ?? e), seed: i + 1 }));
+  }, [table, pairs, slots, ordenManual]);
+
+  const base = useMemo(() => buildBracket(clasificadas), [clasificadas]);
+  const bracket = useMemo(() => {
+    // El ganador de cada cruce sale de los resultados que el admin ya capturó.
+    const terminado = matches.filter((m) => m.status === "finished" && m.winner);
+    return {
+      ...base,
+      matches: resolveBracket(base, (a, b) => {
+        const partido = terminado.find(
+          (m) =>
+            (m.side_a.pair_id === a.pairId && m.side_b.pair_id === b.pairId) ||
+            (m.side_a.pair_id === b.pairId && m.side_b.pair_id === a.pairId),
+        );
+        if (!partido) return null;
+        const ganador = partido.winner === "a" ? partido.side_a.pair_id : partido.side_b.pair_id;
+        return ganador ?? null;
+      }),
+    };
+  }, [base, matches]);
+
+  function mover(pairId: string, delta: number) {
+    setOrdenManual((prev) => {
+      const base = prev ?? clasificadas;
+      const idx = base.findIndex((e) => e.pairId === pairId);
+      const destino = idx + delta;
+      if (idx === -1 || destino < 0 || destino >= base.length) return prev;
+      return moveSeed(base, idx + 1, destino + 1);
+    });
+  }
+
+  if (pairs.length === 0) {
+    return (
+      <Empty className="border bg-card py-10">
+        <EmptyHeader>
+          <EmptyTitle>Sin parejas en este torneo</EmptyTitle>
+          <EmptyDescription>Cuando inscribas parejas, aquí se genera el bracket.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
+        <p className="text-sm text-muted-foreground">
+          Pasan <strong className="text-foreground">{slots}</strong> de {table.length} parejas.
+          La siembra sale de los puntos: la primera se planta arriba.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => setOrdenManual(null)}>
+          <RotateCcw className="h-4 w-4" /> Volver al orden por puntos
+        </Button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {clasificadas.map((p, i) => (
+          <div key={p.pairId} className="flex items-center gap-2 rounded-lg border bg-card p-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+              {i + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{p.name}</p>
+              <p className="text-xs tabular-nums text-muted-foreground">{p.points} pts</p>
+            </div>
+            <div className="flex shrink-0 flex-col">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                onClick={() => mover(p.pairId, -1)}
+                disabled={i === 0}
+                aria-label={`Subir a ${p.name} en la siembra`}
+              >
+                <ChevronDown className="h-3 w-3 rotate-180" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                onClick={() => mover(p.pairId, 1)}
+                disabled={i === clasificadas.length - 1}
+                aria-label={`Bajar a ${p.name} en la siembra`}
+              >
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {Array.from({ length: bracket.rounds }, (_, r) => r + 1).map((ronda) => (
+          <div key={ronda}>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {ronda === bracket.rounds ? "Final" : `Ronda ${ronda}`}
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {bracket.matches
+                .filter((m) => m.round === ronda)
+                .map((m) => {
+                  // Solo la primera ronda puede tener bye; en las siguientes
+                  // un hueco es "ganador de la ronda anterior", no una baja.
+                  const etiqueta = (e: BracketEntry | null) =>
+                    e ? `S${e.seed}` : ronda === 1 ? "bye" : "ganador de la ronda anterior";
+                  const linea = (e: BracketEntry | null, rival: BracketEntry | null) => {
+                    const gano =
+                      e && rival && m.played && m.a?.pairId === e.pairId && m.a !== null && m.b !== null
+                        ? m.a.pairId !== m.b?.pairId
+                        : false;
+                    return (
+                      <div
+                        className={`flex items-center gap-2 px-3 py-2 text-sm ${
+                          m.played && e ? (gano ? "bg-emerald-500/5" : "") : ""
+                        }`}
+                      >
+                        <span className="min-w-0 flex-1 truncate font-medium">{e?.name ?? "—"}</span>
+                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                          {etiqueta(e)}
+                        </span>
+                      </div>
+                    );
+                  };
+                  return (
+                    <div
+                      key={m.id}
+                      className={`overflow-hidden rounded-lg border bg-card ${m.played ? "border-emerald-500/40" : ""}`}
+                    >
+                      {linea(m.a, m.b)}
+                      <div className="border-t">{linea(m.b, m.a)}</div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -527,7 +718,18 @@ export default function AdminTournamentDetail() {
           <TabsTrigger value="grupos">Grupos y sorteo</TabsTrigger>
           <TabsTrigger value="posiciones">Posiciones</TabsTrigger>
           <TabsTrigger value="calendario">Calendario ({matches.length})</TabsTrigger>
+          <TabsTrigger value="bracket">Bracket</TabsTrigger>
         </TabsList>
+
+        {/* ============ BRACKET ============ */}
+        <TabsContent value="bracket" className="space-y-4 pt-2">
+          <BracketPanel
+            pairs={pairs ?? []}
+            matches={matches}
+            scoring={tournament.scoring}
+            slots={tournament.semifinal_slots ?? 4}
+          />
+        </TabsContent>
 
         {/* ============ JORNADA ============ */}
         <TabsContent value="jornada" className="space-y-4 pt-2">

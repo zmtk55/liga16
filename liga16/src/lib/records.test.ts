@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlayerRecords, recordWinRate } from "./records";
+import { bracketSizeFor, buildBracket, moveSeed, resolveBracket, seedOrder, type BracketEntry } from "./bracket";
 import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFrom, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
@@ -351,6 +352,84 @@ describe("consistenciaFromSets (qué tan parejo rinde)", () => {
     const b = consistenciaFromSets([6, 6, 0, 0]);
     expect(a.score).toBeGreaterThan(b.score);
     expect(a.desviacion).toBe(0);
+  });
+});
+
+describe("bracket (siembra clásica)", () => {
+  const equipos = (n: number): BracketEntry[] =>
+    Array.from({ length: n }, (_, i) => ({
+      seed: i + 1,
+      name: `Pareja ${i + 1}`,
+      points: 100 - i,
+      pairId: `pr-${i + 1}`,
+    }));
+
+  it("siembra clásica: el 1 queda arriba y el último cae contra él", () => {
+    expect(seedOrder(2)).toEqual([1, 2]);
+    expect(seedOrder(4)).toEqual([1, 4, 2, 3]);
+    expect(seedOrder(8)).toEqual([1, 8, 4, 5, 2, 7, 3, 6]);
+  });
+
+  it("los dos primeros quedan en mitades opuestas", () => {
+    for (const size of [4, 8, 16] as const) {
+      const order = seedOrder(size);
+      const mitad = order.length / 2;
+      expect(order.slice(0, mitad)).toContain(1);
+      expect(order.slice(mitad)).toContain(2);
+    }
+  });
+
+  it("el bracket crece a potencia de dos y avisa de los byes", () => {
+    expect(bracketSizeFor(3)).toBe(4);
+    expect(bracketSizeFor(5)).toBe(8);
+    const b = buildBracket(equipos(3));
+    expect(b.size).toBe(4);
+    expect(b.byes).toHaveLength(1);
+    // La primera ronda tiene size/2 partidos.
+    expect(b.matches.filter((m) => m.round === 1)).toHaveLength(2);
+  });
+
+  it("el primero se planta y el último es su rival en primera ronda", () => {
+    const b = buildBracket(equipos(8));
+    const primera = b.matches.filter((m) => m.round === 1);
+    expect(primera[0].a?.seed).toBe(1);
+    expect(primera[0].b?.seed).toBe(8);
+  });
+
+  it("mover una siembra rehace el bracket sin romper la estructura", () => {
+    const movido = moveSeed(equipos(4), 1, 4);
+    expect(movido.find((q) => q.pairId === "pr-1")?.seed).toBe(4);
+    const b = buildBracket(movido);
+    const primera = b.matches.filter((m) => m.round === 1);
+    // El que era 1 ahora aparece en la posición del 4.
+    expect(primera.flatMap((m) => [m.a?.pairId, m.b?.pairId]).filter(Boolean)).toContain("pr-1");
+  });
+it("el ganador de una semi pasa a la final", () => {
+    const b = buildBracket(equipos(4));
+    // La primera pareja gana su semi contra la cuarta.
+    const avanzado = resolveBracket(b, (a) => (a.seed === 1 ? a.pairId : null));
+    const semis = avanzado.filter((m) => m.round === 1);
+    const final = avanzado.find((m) => m.round === 2);
+    expect(semis[0].played).toBe(true);
+    expect(final?.a?.pairId).toBe("pr-1");
+    expect(final?.b).toBeNull(); // la otra semi todavía no se juega
+  });
+
+  it("sin resultado capturado el cruce no avanza", () => {
+    const b = buildBracket(equipos(4));
+    const avanzado = resolveBracket(b, () => null);
+    expect(avanzado.filter((m) => m.round === 1).every((m) => m.played === false)).toBe(true);
+    expect(avanzado.find((m) => m.round === 2)?.a).toBeNull();
+  });
+
+  it("las dos semis definidas llevan a la final", () => {
+    const b = buildBracket(equipos(4));
+    // Gana la impar de cada semi: 1 vs 4 gana la 1, 2 vs 3 gana la 3.
+    const avanzado = resolveBracket(b, (a, rival) => (a.seed % 2 === 1 ? a.pairId : rival.pairId));
+    const final = avanzado.find((m) => m.round === 2);
+    expect(final?.a?.pairId).toBe("pr-1");
+    expect(final?.b?.pairId).toBe("pr-3");
+    expect(final?.played).toBe(true);
   });
 });
 
