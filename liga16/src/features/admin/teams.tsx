@@ -41,7 +41,7 @@ import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader } from "@/components/admin/page-header";
-import ImageUpload from "@/components/ui/image-upload";
+import ImageUpload, { deleteStoredImage } from "@/components/ui/image-upload";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
@@ -147,8 +147,13 @@ export default function AdminTeams() {
         ensurePlayer(p2).catch(() => null),
       ]);
       const name = form.name.trim() || autoName(form);
+      const originalCrest = editing?.crest_url ?? null;
       if (editing) {
         await db.updatePair(editing.id, { name, category_id: form.category_id || null, crest_url: form.crest_url });
+        // La foto reemplazada o quitada ya no se usa: borra el objeto de storage
+        if (originalCrest && form.crest_url !== originalCrest) {
+          void deleteStoredImage(originalCrest, "team-crests");
+        }
         toast.success(`Equipo "${name}" actualizado`);
       } else {
         await db.createPair({ tournament_id: tid, category_id: form.category_id || null, name, player1_id: prof1?.id ?? null, player2_id: prof2?.id ?? null, crest_url: form.crest_url });
@@ -384,10 +389,22 @@ function EquipoDialog({
 
   const valid = form.player1_name.trim() && form.player2_name.trim();
 
-  // Foto del equipo sincronizada con el estado del formulario
+  // Foto del equipo sincronizada con el estado del formulario. Si el admin
+  // reemplaza una foto que subió en esta misma sesión (aún no guardada),
+  // el objeto anterior se borra al instante para no dejar huérfanos.
+  const originalCrest = editing?.crest_url ?? null;
   useEffect(() => {
     setForm((f) => (f.crest_url === crest ? f : { ...f, crest_url: crest }));
   }, [crest]);
+
+  function changeCrest(next: string | null) {
+    setCrest((prev) => {
+      if (prev && prev !== next && prev !== originalCrest && prev.startsWith("http")) {
+        void deleteStoredImage(prev, "team-crests");
+      }
+      return next;
+    });
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -404,9 +421,11 @@ function EquipoDialog({
             <ImageUpload
               id="team-crest"
               value={crest}
-              onChange={setCrest}
+              onChange={changeCrest}
               label="Foto del equipo"
               size="lg"
+              bucket="team-crests"
+              path="pairs"
             />
             <div className="min-w-0">
               <p className="text-sm font-semibold">Foto del equipo</p>
