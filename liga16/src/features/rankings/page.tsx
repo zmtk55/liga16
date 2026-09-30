@@ -10,28 +10,17 @@ import { MatchCard } from "@/components/cards/card-kit";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
-import { checkLevelSum } from "@/lib/qualification";
 import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
-import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/page-hero";
-import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock, AlertTriangle } from "lucide-react";
+import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 
 /**
  * Popup de pareja: cabecera póster + stats + UN partido a la vez con flechas.
  * Cero scroll interno: cada partido se lee completo y se navega con taps.
  */
-function TeamDetailDialog({
-  team,
-  onClose,
-  showWarnings = false,
-}: {
-  team: Team | null;
-  onClose: () => void;
-  /** La advertencia de suma es información del organizador, no del público. */
-  showWarnings?: boolean;
-}) {
+function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () => void }) {
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [idx, setIdx] = useState(0);
 
@@ -88,16 +77,6 @@ function TeamDetailDialog({
                   )}
                 </div>
               </DialogHeader>
-              {showWarnings &&
-                (() => {
-                  const check = checkLevelSum(team.category_name, [team.player1?.level, team.player2?.level]);
-                  return check.message ? (
-                    <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/15 px-2.5 py-1.5">
-                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
-                      <p className="text-[11px] font-semibold leading-snug text-white/90">{check.message}</p>
-                    </div>
-                  ) : null;
-                })()}
 
               <div className="mt-3 grid grid-cols-3 divide-x divide-white/10 rounded-xl border border-white/10 bg-white/[0.04]">
                 {[
@@ -238,9 +217,6 @@ export default function RankingsPage() {
   const [division, setDivision] = useState("all");
   const [sex, setSex] = useState("all");
   const [detail, setDetail] = useState<Team | null>(null);
-  const { user, isConfigured } = useAuth();
-  // Advertencia de suma de niveles: solo organización (o demo sin auth).
-  const canSeeLevelWarnings = !isConfigured || user?.role === "admin" || user?.role === "organizer";
 
   useEffect(() => {
     let active = true;
@@ -352,14 +328,6 @@ export default function RankingsPage() {
                     <TableCell>
                       <div className="font-medium">{t.name}</div>
                       <div className="text-xs text-muted-foreground">Toca para ver sus partidos</div>
-                      {(() => {
-                        const check = checkLevelSum(t.category_name, [t.player1?.level, t.player2?.level]);
-                        return canSeeLevelWarnings && check.message ? (
-                          <p className="mt-1 flex items-center gap-1 text-2xs font-semibold text-destructive">
-                            <AlertTriangle className="h-3 w-3 shrink-0" /> {check.message}
-                          </p>
-                        ) : null;
-                      })()}
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
                       {t.points.toLocaleString("es-MX")}
@@ -392,7 +360,7 @@ export default function RankingsPage() {
         </Card>
       )}
 
-      <TeamDetailDialog team={detail} onClose={() => setDetail(null)} showWarnings={canSeeLevelWarnings} />
+      <TeamDetailDialog team={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }

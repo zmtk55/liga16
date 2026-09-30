@@ -33,7 +33,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
+import { checkLevelSum } from "@/lib/qualification";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
@@ -431,6 +432,25 @@ function EquipoDialog({
                 ))}
               </SelectContent>
             </Select>
+            {/* Regla de suma ("Suma 9"): aviso EN VIVO mientras se arma la pareja.
+                No bloquea: el organizador decide si la inscribe de todas formas. */}
+            {(() => {
+              const categoria = categories.find((c) => c.id === form.category_id) ?? null;
+              const nivelDe = (nombre: string) => {
+                const p = players.find((pl) => pl.display_name === nombre.trim());
+                return p ? (p.official_level ?? p.declared_level) : null;
+              };
+              const check = checkLevelSum(categoria?.name ?? null, [
+                nivelDe(form.player1_name),
+                nivelDe(form.player2_name),
+              ]);
+              return check.message ? (
+                <p className="flex items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs font-semibold text-destructive">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {check.message} Puedes inscribirla de todas formas si es una decisión del organizador.
+                </p>
+              ) : null;
+            })()}
           </div>
         </div>
 
