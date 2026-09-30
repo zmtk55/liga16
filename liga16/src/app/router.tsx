@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter, Navigate, useParams } from "react-router";
 import AppLayout from "./layout";
 import Home from "../features/home/page";
 import { lazy } from "react";
@@ -18,6 +18,12 @@ const Clubs = lazy(() => import("../features/clubs/page"));
 const News = lazy(() => import("../features/news/page"));
 const MyProfile = lazy(() => import("../features/players/my-profile"));
 const SystemStatus = lazy(() => import("../features/admin/system-status"));
+
+/** URL corta del bracket: /admin/torneos/mi-torneo/bracket abre directo la pestaña. */
+function BracketShortcut() {
+  const { slug } = useParams();
+  return <Navigate to={`/admin/torneos/${slug}?tab=bracket`} replace />;
+}
 const AdminLayout = lazy(() => import("../features/admin/layout"));
 const AdminDashboard = lazy(() => import("../features/admin/dashboard"));
 const AdminTournaments = lazy(() => import("../features/admin/tournaments"));
@@ -83,6 +89,7 @@ export const router = createBrowserRouter([
       { path: "torneos/nuevo", element: <AdminTournamentWizard /> },
       { path: "torneos/:slug", element: <AdminTournamentDetail /> },
       { path: "torneos/:slug/editar", element: <AdminTournamentWizard /> },
+      { path: "torneos/:slug/bracket", element: <BracketShortcut /> },
       { path: "equipos", element: <AdminTeams /> },
       { path: "participantes", element: <AdminParticipants /> },
       { path: "jugadores", element: <AdminPlayers /> },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Pair, Match, Tournament, TournamentCategory, Club } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -363,6 +363,11 @@ function BracketPanel({
 
 export default function AdminTournamentDetail() {
   const { slug } = useParams<{ slug: string }>();
+  // La pestaña viva en la URL: cualquier vista es enlazable y se abre directa.
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") ?? "jornada";
+  const setTab = (value: string) =>
+    setParams(value === "jornada" ? {} : { tab: value }, { replace: true });
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
   const [pairs, setPairs] = useState<Pair[] | null>(null);
@@ -767,8 +772,8 @@ export default function AdminTournamentDetail() {
         }
       />
 
-      <Tabs defaultValue="jornada">
-        <TabsList className="w-full justify-start overflow-x-auto">
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="h-auto w-full flex-wrap justify-start">
           <TabsTrigger value="jornada">Jornada</TabsTrigger>
           <TabsTrigger value="parejas">Parejas</TabsTrigger>
           <TabsTrigger value="grupos">Grupos y sorteo</TabsTrigger>
