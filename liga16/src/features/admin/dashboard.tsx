@@ -16,6 +16,7 @@ import { CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components
 import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
 import { formatDateRange } from "@/lib/format";
+import { groupByDivision } from "@/lib/categories";
 
 interface DashboardData {
   tournaments: Tournament[];
@@ -124,13 +125,20 @@ export default function AdminDashboard() {
       : []),
   ];
 
-  /** Top 3 de la clasificación general, con quién está dentro del corte. */
-  const podio = useMemo(() => {
+  /**
+   * Quién lidera cada división.
+   *
+   * No es un top 3 global: la posición y los puntos de una pareja solo existen
+   * dentro de su división, así que el 1 de 3ra no se compara con el 1 de 1ra.
+   * Cada división trae a quien la encabeza.
+   */
+  const lideres = useMemo(() => {
     const teams = data?.teams ?? [];
-    if (teams.length === 0) return null;
+    if (teams.length === 0) return [];
     const conParejas = teams.filter((t) => t.played > 0);
-    const base = conParejas.length > 0 ? conParejas : teams;
-    return [...base].sort((a, b) => a.position - b.position || b.points - a.points).slice(0, 3);
+    return groupByDivision(conParejas.length > 0 ? conParejas : teams)
+      .map((g) => ({ ...g, leader: g.teams[0] }))
+      .filter((g) => g.leader);
   }, [data]);
 
   if (error) {
@@ -265,45 +273,39 @@ export default function AdminDashboard() {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Clasificación: quién está arriba. */}
+        {/* Clasificación: quién está arriba, en su propia división. */}
         <section aria-labelledby="clasificacion" className="space-y-3">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="clasificacion" className="text-sm font-semibold">
-              Clasificación
+              Líderes por división
             </h2>
             <Button asChild variant="ghost" size="sm">
               <Link to="/admin/ranking">Ver ranking</Link>
             </Button>
           </div>
-          {!podio || podio.length === 0 ? (
+          {lideres.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="py-5 text-sm text-muted-foreground">
                 Todavía no hay parejas con partidos jugados.
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="divide-y p-0">
-                {podio.map((t, i) => (
-                  <div key={t.id} className="flex items-center gap-3 px-4 py-3">
-                    <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md font-display text-lg ${
-                        i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t.division} · {t.won} de {t.played}
-                      </p>
-                    </div>
-                    <span className="shrink-0 font-mono text-sm tabular-nums">{t.points}</span>
+            <div className="space-y-2">
+              {lideres.map(({ label, leader }) => (
+                <div key={label} className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary font-display text-lg text-primary-foreground">
+                    1
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{leader.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {label} · {leader.won} de {leader.played}
+                    </p>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                  <span className="shrink-0 font-mono text-sm tabular-nums">{leader.points}</span>
+                </div>
+              ))}
+            </div>
           )}
         </section>
 

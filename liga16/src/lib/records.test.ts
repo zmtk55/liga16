@@ -5,6 +5,7 @@ import { tournamentProgress } from "./tournament-progress";
 import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFrom, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
 import { drawGroupsByCategory, parseRound, roundRobinRounds, type DrawablePair } from "./groups";
+import { groupByDivision } from "./categories";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
 const players: PlayerProfile[] = [
@@ -607,5 +608,52 @@ describe("una categoría es una competencia cerrada", () => {
     expect(parseRound("Grupo A · J1")).toEqual({ group: "Grupo A", jornada: 1 });
     // Sin etiqueta de jornada no inventa una.
     expect(parseRound("Grupo A")).toEqual({ group: "Grupo A", jornada: null });
+  });
+});
+
+describe("la división también es una competencia cerrada", () => {
+  const equipo = (id: string, division: string, sex: string, position: number, points: number) =>
+    ({ id, name: id, division, sex, position, points, played: 3, won: 2 }) as unknown as Parameters<
+      typeof groupByDivision
+    >[0][number];
+
+  it("no compara el 1 de 3ra contra el 1 de 1ra", () => {
+    // El caso del Panel: 1ra con 24 pts y 3ra con 14. Un top 3 global los
+    // ponía juntos; cada división tiene que traer a su propio líder.
+    const grupos = groupByDivision([
+      equipo("a", "1ra", "M", 1, 24),
+      equipo("b", "3ra", "M", 1, 14),
+    ]);
+    expect(grupos).toHaveLength(2);
+    expect(grupos[0].teams.map((t) => t.name)).toEqual(["a"]);
+    expect(grupos[1].teams.map((t) => t.name)).toEqual(["b"]);
+  });
+
+  it("separa también por rama dentro de la misma división", () => {
+    const grupos = groupByDivision([
+      equipo("v", "4ta", "M", 1, 20),
+      equipo("f", "4ta", "F", 1, 18),
+    ]);
+    expect(grupos).toHaveLength(2);
+    expect(grupos.map((g) => g.label).sort()).toEqual(["4ta · Femenil", "4ta · Varonil"]);
+  });
+
+  it("ordena las divisiones de la más fuerte a la más nueva", () => {
+    const grupos = groupByDivision([
+      equipo("n", "Novatos", "M", 1, 10),
+      equipo("u", "5ta", "M", 1, 10),
+      equipo("p", "1ra", "M", 1, 10),
+    ]);
+    expect(grupos.map((g) => g.division)).toEqual(["1ra", "5ta", "Novatos"]);
+  });
+
+  it("dentro de una división manda la posición, luego los puntos", () => {
+    const grupos = groupByDivision([
+      equipo("tercero", "2da", "M", 3, 30),
+      equipo("segundo", "2da", "M", 2, 20),
+      equipo("primero", "2da", "M", 1, 10),
+    ]);
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].teams.map((t) => t.name)).toEqual(["primero", "segundo", "tercero"]);
   });
 });

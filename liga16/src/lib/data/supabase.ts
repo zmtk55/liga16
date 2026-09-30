@@ -4,6 +4,7 @@
 import { supabase } from '@/lib/supabase';
 import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
+import { DIVISION_ORDER } from '@/lib/categories';
 import type { TournamentFilters } from '@/types';
 import type { Team, PadelDivision, Sex, Match, Court, Sponsor, Pair, PlayerProfile, PlayerStatus, MyProfileInput } from '@/types';
 
@@ -21,8 +22,6 @@ function slugifyName(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 }
-
-const DIVISION_ORDER: PadelDivision[] = ['1ra', '2da', '3ra', '4ta', '5ta', '6ta', 'Novatos'];
 
 function divisionFromCategoryName(name: string | null | undefined): PadelDivision {
   const n = (name ?? '').toLowerCase();

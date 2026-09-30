@@ -13,6 +13,7 @@ import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/page-hero";
+import { DIVISION_ORDER } from "@/lib/categories";
 import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { RankingFilters } from "@/components/ranking/ranking-filters";
 
@@ -244,9 +245,8 @@ export default function RankingsPage() {
     return list
       .sort((a, b) => {
         // Primero por división, luego por posición, luego por puntos
-        const divOrder = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
-        const da = divOrder.indexOf(a.division);
-        const db_ = divOrder.indexOf(b.division);
+        const da = DIVISION_ORDER.indexOf(a.division);
+        const db_ = DIVISION_ORDER.indexOf(b.division);
         if (da !== db_) return da - db_;
         if (a.position !== b.position) return a.position - b.position;
         return b.points - a.points;
