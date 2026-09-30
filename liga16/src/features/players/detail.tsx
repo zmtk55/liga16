@@ -20,6 +20,7 @@ import { MatchScoreboard } from "@/components/match-scoreboard";
 import { toast } from "sonner";
 import { analyzePlayerLocal, type JevAnalysis } from "@/lib/jev";
 import { recordWinRate, type PlayerRecord } from "@/lib/records";
+import { qualificationFor, type QualificationView } from "@/lib/qualification";
 
 const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
 
@@ -258,6 +259,7 @@ export default function PlayerDetailPage() {
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [record, setRecord] = useState<PlayerRecord | null>(null);
+  const [qualification, setQualification] = useState<QualificationView | null>(null);
   const [events, setEvents] = useState<import("@/types").RankingEvent[]>([]);
   const [ranking, setRanking] = useState<RankingEntry | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
@@ -273,8 +275,8 @@ export default function PlayerDetailPage() {
   useEffect(() => {
     if (!id) return;
     let active = true;
-    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRecord(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers(), db.listRecentMatches()])
-      .then(([p, c, rec, e, rks, teams, pls, allMatches]) => {
+    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRecord(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers(), db.listRecentMatches(), db.listTournaments()])
+      .then(([p, c, rec, e, rks, teams, pls, allMatches, tournaments]) => {
         if (!active || !p) return;
         setPlayer(p); setCard(c); setRecord(rec); setEvents(e);
         const rk = rks.find((r) => r.player_id === p.id) ?? null;
@@ -285,6 +287,36 @@ export default function PlayerDetailPage() {
           teams.find((tm) => tm.player1?.player_id === p.id || tm.player2?.player_id === p.id) ??
           teams.find((tm) => [tm.player1?.name, tm.player2?.name].some((n) => n && norm(n) === norm(p.display_name))) ?? null;
         setTeam(t);
+
+        // Camino a semifinales: tabla de la MISMA división y rama, con el cupo
+        // que definió el organizador. Los puntos por victoria se deducen del
+        // propio récord de la pareja, no se escriben a mano.
+        if (t) {
+          const cut = teams.filter(
+            (tm) => tm.division === t.division && tm.sex === t.sex && tm.position > 0,
+          );
+          const active = tournaments.find(
+            (tr) => tr.status === "registration_open" || tr.status === "in_progress",
+          );
+          setQualification(
+            qualificationFor(
+              cut.map((tm) => ({
+                pairId: tm.id,
+                name: tm.name,
+                position: tm.position,
+                points: tm.points,
+                played: tm.played,
+              })),
+              { pairId: t.id, played: t.played, setsWon: t.sets_for },
+              {
+                slots: active?.semifinal_slots ?? 4,
+                pointsPerWin: t.won > 0 ? Math.round(t.points / t.won) : 3,
+              },
+            ),
+          );
+        } else {
+          setQualification(null);
+        }
         // Partidos reales del jugador (por pair_id o por nombre en el marcador)
         const nameIn = (side: { pair_name: string } | null) =>
           (side?.pair_name ?? "").split("/").some((n) => n && norm(n) === norm(p.display_name));
@@ -713,6 +745,68 @@ export default function PlayerDetailPage() {
               }) : <p className="text-sm text-muted-foreground">Sin partidos todavía — aparecen cuando tu equipo tenga partidos en un torneo.</p>}
             </CardContent>
           </Card>
+
+          {qualification && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center justify-between text-base">
+                  <span className="flex items-center gap-2">
+                    <Target className="h-4 w-4" /> Camino a semifinales
+                  </span>
+                  {qualification.reliable && (
+                    <span className="font-display text-2xl tabular-nums text-primary">
+                      {qualification.semifinalProbability}%
+                    </span>
+                  )}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {qualification.reliable
+                    ? "Estimación según tu posición actual en la tabla"
+                    : "Falta muestra: se necesitan al menos 3 partidos y 4 parejas"}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-muted/60 p-3">
+                    <p className="font-display text-2xl tabular-nums">{qualification.position}º</p>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Posición</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/60 p-3">
+                    <p className="font-display text-2xl tabular-nums">{qualification.pointsNeeded}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Puntos</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/60 p-3">
+                    <p className="font-display text-2xl tabular-nums">{qualification.setsNeeded ?? "—"}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Sets</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  {qualification.inCut
+                    ? "Estás dentro del corte. Falta mantener el lugar."
+                    : `Necesitas ${qualification.matchesNeeded} partido${qualification.matchesNeeded === 1 ? "" : "s"} para alcanzar el corte, a ${qualification.setsPerMatch} sets por partido.`}
+                </p>
+
+                {qualification.mustBeat.length > 0 && (
+                  <div>
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                      A quién tienes que ganarle
+                    </p>
+                    <ul className="divide-y rounded-lg border">
+                      {qualification.mustBeat.map((m) => (
+                        <li key={m.pairId} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <span className="truncate font-medium">{m.name}</span>
+                          <span className="shrink-0 tabular-nums text-muted-foreground">
+                            +{m.lead} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="pb-2">

@@ -42,6 +42,7 @@ import {
   RotateCcw,
   UserPlus,
   Search,
+  Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -505,6 +506,12 @@ export default function AdminTournamentDetail() {
         action={
           <>
             <TournamentStatusBadge status={tournament.status} />
+            {tournament.semifinal_slots != null && (
+              <Badge variant="outline" className="h-8 gap-1.5 px-3">
+                <Trophy className="h-3.5 w-3.5" />
+                {tournament.semifinal_slots} a semifinales
+              </Badge>
+            )}
             <Badge variant="outline">{(pairs ?? []).length} parejas</Badge>
             <Button variant="outline" size="sm" onClick={openEditDates}>
               <Pencil className="h-3.5 w-3.5" /> Fechas
