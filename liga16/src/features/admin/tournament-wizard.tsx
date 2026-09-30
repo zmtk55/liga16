@@ -171,6 +171,7 @@ export default function TournamentWizard() {
     format: "groups_knockout",
     status: "published",
     price_mxn: 500,
+    semifinal_slots: 4 as number | null,
     rules_summary: "Grupos de 4 + eliminación directa. Mejor de 3 sets.",
     sets_to_win: String(DEFAULT_SCORING.sets_to_win),
     games_per_set: String(DEFAULT_SCORING.games_per_set),
@@ -286,6 +287,7 @@ export default function TournamentWizard() {
           registration_deadline: t.registration_deadline,
           format: t.format,
           price_mxn: t.price_cents / 100,
+          semifinal_slots: t.semifinal_slots ?? 4,
           rules_summary: t.rules_summary ?? "",
           sets_to_win: String(t.scoring?.sets_to_win ?? DEFAULT_SCORING.sets_to_win),
           games_per_set: String(t.scoring?.games_per_set ?? DEFAULT_SCORING.games_per_set),
@@ -451,6 +453,7 @@ export default function TournamentWizard() {
               max_pairs: 0,
               registered_pairs: 0,
               price_cents: Math.round(tournament.price_mxn * 100),
+              semifinal_slots: tournament.semifinal_slots ?? 4,
             } as never);
             nextIds.set(key, (created as unknown as { id: string }).id);
           }
@@ -855,6 +858,28 @@ teams.forEach((t) => {
                 <div className="grid gap-1.5">
                   <Label htmlFor="t-price">Precio por equipo (MXN)</Label>
                   <Input id="t-price" type="number" min={0} value={tournament.price_mxn} onChange={(e) => setTournament((t) => ({ ...t, price_mxn: Number(e.target.value) }))} />
+                </div>
+                <div className="grid gap-1.5 sm:col-span-2">
+                  <Label htmlFor="t-semifinals">Pasan a semifinales</Label>
+                  <Input
+                    id="t-semifinals"
+                    type="number"
+                    min={2}
+                    step={1}
+                    value={tournament.semifinal_slots ?? ""}
+                    onChange={(e) =>
+                      setTournament((t) => ({
+                        ...t,
+                        semifinal_slots: e.target.value === "" ? null : Number(e.target.value),
+                      }))
+                    }
+                    placeholder="4"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Cuántas parejas clasifican de esta tabla. Ejemplo: si groups 8 parejas
+                    pasan 6, cuatro juegan semis y dos entran directo. De este número salen
+                    los puntos que le faltan a cada pareja y el orden del bracket.
+                  </p>
                 </div>
                 <div className="grid gap-1.5 sm:col-span-2">
 <Label id="lbl-formato">Formato</Label>

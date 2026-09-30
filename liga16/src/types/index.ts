@@ -133,6 +133,12 @@ export interface Tournament {
   organizer_id: UUID | null;
   price_cents: number;
   currency: string;
+  /**
+   * Cuántas parejas pasan a la ronda de semifinales. Lo define el organizador
+   * al crear o editar el torneo; de aquí salen la probabilidad de clasificar y
+   * el bracket. Null solo en torneos antiguos sin la migración aplicada.
+   */
+  semifinal_slots?: number | null;
   rules_summary: string | null;
   description: string | null;
   scoring?: TournamentScoring | null;

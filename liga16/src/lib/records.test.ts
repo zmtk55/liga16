@@ -180,7 +180,7 @@ describe("qualificationFor (camino a semifinales)", () => {
   it("una pareja dentro del cupo no necesita puntos", () => {
     const q = qualificationFor(
       tabla([30, 26, 22, 18]),
-      { pairId: "pr-2", played: 8, setsWon: 20, setsPlayed: 48 },
+      { pairId: "pr-2", played: 8, setsWon: 20 },
       { slots: 2, pointsPerWin: 2 },
     );
     expect(q.inCut).toBe(true);
@@ -217,12 +217,12 @@ describe("qualificationFor (camino a semifinales)", () => {
   it("la probabilidad es una estimación acotada, no un dato", () => {
     const fuerte = qualificationFor(
       tabla([30, 26, 22, 18]),
-      { pairId: "pr-1", played: 8, setsWon: 22, setsPlayed: 48 },
+      { pairId: "pr-1", played: 8, setsWon: 22 },
       { slots: 2, pointsPerWin: 2 },
     );
     const lejos = qualificationFor(
       tabla([30, 26, 22, 18]),
-      { pairId: "pr-4", played: 8, setsWon: 10, setsPlayed: 48 },
+      { pairId: "pr-4", played: 8, setsWon: 10 },
       { slots: 2, pointsPerWin: 2 },
     );
     expect(fuerte.semifinalProbability).toBeGreaterThan(lejos.semifinalProbability);
@@ -233,7 +233,7 @@ describe("qualificationFor (camino a semifinales)", () => {
   it("no se marca confiable con muestra mínima", () => {
     const q = qualificationFor(
       tabla([10, 8, 6]),
-      { pairId: "pr-2", played: 1, setsWon: 3, setsPlayed: 6 },
+      { pairId: "pr-2", played: 1, setsWon: 3 },
       { slots: 2, pointsPerWin: 2 },
     );
     expect(q.reliable).toBe(false);
