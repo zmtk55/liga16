@@ -14,6 +14,7 @@ import {
   User,
   Users,
   UsersRound,
+  type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,7 +32,16 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-const navGroups = [
+/** Todos los items comparten forma; `end` y `badge` son opcionales. */
+type NavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+  badge?: "alerts";
+};
+
+const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: "Operación",
     items: [

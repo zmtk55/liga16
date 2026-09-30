@@ -1,31 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
-  Building2,
+  ArrowRight,
   ClipboardList,
-  Newspaper,
-  Plus,
+  Radio,
+  ShieldCheck,
   Trophy,
   Users,
 } from "lucide-react";
 import { db } from "@/lib/data";
-import type { Match, PlayerProfile, Tournament } from "@/types";
+import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
-import { StatCard } from "@/components/shared/stat-card";
-import { formatDateRange, formatMatchDateTime } from "@/lib/format";
+import { formatDateRange } from "@/lib/format";
 
 interface DashboardData {
   tournaments: Tournament[];
   players: PlayerProfile[];
-  clubs: number;
-  news: number;
+  teams: Team[];
   matches: Match[];
 }
 
+/**
+ * Panel del organizador.
+ *
+ * Un panel no es un tablero de Entity CRUD: responde preguntas. Esta pantalla
+ * está ordenada por lo que un organizador tiene que hacer hoy, cómo van sus
+ * torneos y quién está calificando. Todo lo que se muestra sale de datos que ya
+ * existen; nada se guarda para que esto exista.
+ */
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,14 +41,11 @@ export default function AdminDashboard() {
     Promise.all([
       db.listTournaments(),
       db.listPlayers(),
-      db.listClubs(),
-      db.listNews(),
+      db.listTeams(),
       db.listRecentMatches(),
     ])
-      .then(([tournaments, players, clubs, news, matches]) => {
-        if (active) {
-          setData({ tournaments, players, clubs: clubs.length, news: news.length, matches });
-        }
+      .then(([tournaments, players, teams, matches]) => {
+        if (active) setData({ tournaments, players, teams, matches });
       })
       .catch((e: Error) => {
         if (active) setError(e.message || "No se pudo cargar el panel");
@@ -52,59 +55,83 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const summary = useMemo(() => {
-    const tournaments = data?.tournaments ?? [];
-    const byDate = (a: Tournament, b: Tournament) => a.start_date.localeCompare(b.start_date);
-    // "Próximos" = lo que está pasando ahora + lo que viene. Un torneo viejo sin
-    // cerrar no es "próximo" y no debe empujar hacia abajo los que sí importan.
-    const active = tournaments
-      .filter((t) => t.status === "in_progress" || t.status === "registration_open")
-      .sort(byDate);
-    const today = new Date().toISOString().slice(0, 10);
-    const future = tournaments
-      .filter(
-        (t) =>
-          !active.includes(t) &&
-          t.status !== "cancelled" &&
-          t.status !== "finished" &&
-          t.start_date >= today,
-      )
-      .sort(byDate);
-    return {
-      open: tournaments.filter((t) => t.status === "registration_open").length,
-      live: (data?.matches ?? []).filter((m) => m.status === "live").length,
-      finished: tournaments.filter((t) => t.status === "finished").length,
-      upcoming: [...active, ...future].slice(0, 5),
-    };
+  const pendingPlayers = useMemo(
+    () => (data?.players ?? []).filter((p) => (p.status ?? "verificado") === "pendiente"),
+    [data],
+  );
+  const liveMatches = useMemo(
+    () => (data?.matches ?? []).filter((m) => m.status === "live"),
+    [data],
+  );
+  const pendingMatches = useMemo(
+    () => (data?.matches ?? []).filter((m) => m.status === "scheduled"),
+    [data],
+  );
+  const running = useMemo(
+    () => (data?.tournaments ?? []).filter((t) => t.status === "in_progress"),
+    [data],
+  );
+  const openSignups = useMemo(
+    () => (data?.tournaments ?? []).filter((t) => t.status === "registration_open"),
+    [data],
+  );
+
+  /** Solo lo que hay que hacer. Si no hay nada, se dice que no hay nada. */
+  const tasks = [
+    ...(pendingPlayers.length
+      ? [{
+          key: "verificar",
+          count: pendingPlayers.length,
+          label: pendingPlayers.length === 1 ? "perfil por verificar" : "perfiles por verificar",
+          hint: "Nadie puede inscribirse a un torneo hasta que lo apruebes.",
+          to: "/admin/jugadores",
+          cta: "Ver la cola",
+          icon: ShieldCheck,
+        }]
+      : []),
+    ...(liveMatches.length
+      ? [{
+          key: "vivo",
+          count: liveMatches.length,
+          label: liveMatches.length === 1 ? "partido en vivo" : "partidos en vivo",
+          hint: "Captura el resultado para que mueva el ranking y el bracket.",
+          to: "/admin/resultados",
+          cta: "Capturar",
+          icon: Radio,
+        }]
+      : []),
+    ...(pendingMatches.length
+      ? [{
+          key: "pendientes",
+          count: pendingMatches.length,
+          label: pendingMatches.length === 1 ? "partido por capturar" : "partidos por capturar",
+          hint: "Resultados que faltan para cerrar el torneo.",
+          to: "/admin/resultados",
+          cta: "Abrir resultados",
+          icon: ClipboardList,
+        }]
+      : []),
+    ...(openSignups.length
+      ? [{
+          key: "inscripciones",
+          count: openSignups.length,
+          label: openSignups.length === 1 ? "torneo con inscripciones abiertas" : "torneos con inscripciones abiertas",
+          hint: "Revisa quién se está inscribiendo.",
+          to: "/admin/torneos",
+          cta: "Ver torneos",
+          icon: Users,
+        }]
+      : []),
+  ];
+
+  /** Top 3 de la clasificación general, con quién está dentro del corte. */
+  const podio = useMemo(() => {
+    const teams = data?.teams ?? [];
+    if (teams.length === 0) return null;
+    const conParejas = teams.filter((t) => t.played > 0);
+    const base = conParejas.length > 0 ? conParejas : teams;
+    return [...base].sort((a, b) => a.position - b.position || b.points - a.points).slice(0, 3);
   }, [data]);
-
-  // Lo que el organizador tiene que hacer HOY, no un contador más.
-  const pending = data?.players.filter((p) => (p.status ?? "verificado") === "pendiente").length ?? 0;
-  const liveMatches = (data?.matches ?? []).filter((m) => m.status === "live").length;
-  const openNow = (data?.tournaments ?? []).filter(
-    (t) => t.status === "in_progress" || t.status === "registration_open",
-  ).length;
-
-  const attention = [
-    {
-      label: pending === 1 ? "perfil por verificar" : "perfiles por verificar",
-      count: pending,
-      to: "/admin/jugadores",
-      hint: "Nadie puede inscribirse a un torneo hasta que lo verifiques.",
-    },
-    {
-      label: liveMatches === 1 ? "partido en vivo" : "partidos en vivo",
-      count: liveMatches,
-      to: "/admin/resultados",
-      hint: "Los resultados que capturas son los que mueven el ranking.",
-    },
-    {
-      label: openNow === 1 ? "torneo activo" : "torneos activos",
-      count: openNow,
-      to: "/admin/torneos",
-      hint: "Con inscripciones abiertas o en juego.",
-    },
-  ].filter((a) => a.count > 0);
 
   if (error) {
     return (
@@ -118,189 +145,197 @@ export default function AdminDashboard() {
     );
   }
 
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-20 w-full" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
         title="Panel"
-        description="Torneos, directorio y contenido del circuito en un solo lugar."
+        description="Lo que tienes que hacer hoy y cómo van tus torneos."
         action={
           <Button asChild size="sm">
             <Link to="/admin/torneos/nuevo">
-              <Plus className="h-4 w-4" /> Nuevo torneo
+              <Trophy className="h-4 w-4" /> Nuevo torneo
             </Link>
           </Button>
         }
       />
 
-      {attention.length > 0 && (
-        <section aria-labelledby="atencion">
-          <h2 id="atencion" className="mb-2 text-sm font-semibold">
-            Requiere tu atención
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {attention.map((a) => (
+      {/* 1. Hoy. Lo único que un organizador abre el admin para hacer. */}
+      <section aria-labelledby="hoy" className="space-y-3">
+        <h2 id="hoy" className="text-sm font-semibold">
+          Hoy
+        </h2>
+        {tasks.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex items-center gap-3 py-5">
+              <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              <p className="text-sm text-muted-foreground">
+                Nada pendiente. No hay perfiles por verificar ni partidos por capturar.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {tasks.map((t) => (
               <Link
-                key={a.label}
-                to={a.to}
-                className="group rounded-xl border bg-card p-4 transition-colors hover:border-primary/40"
+                key={t.key}
+                to={t.to}
+                className="group flex flex-col rounded-xl border bg-card p-4 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <p className="flex items-baseline gap-2">
-                  <span className="font-display text-3xl tabular-nums text-primary">
-                    {a.count}
-                  </span>
-                  <span className="text-sm font-medium">{a.label}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <t.icon className="h-5 w-5 text-primary" aria-hidden />
+                  <ArrowRight
+                    className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
+                    aria-hidden
+                  />
+                </div>
+                <p className="mt-3 flex items-baseline gap-1.5">
+                  <span className="font-display text-3xl leading-none tabular-nums">{t.count}</span>
+                  <span className="text-sm font-medium">{t.label}</span>
                 </p>
-                <p className="mt-1.5 text-xs text-muted-foreground">{a.hint}</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">{t.hint}</p>
+                <p className="mt-3 text-xs font-semibold text-primary">{t.cta} →</p>
               </Link>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Torneos"
-          value={data?.tournaments.length ?? 0}
-          hint={`${summary.open} con inscripción abierta`}
-          icon={<Trophy className="h-4 w-4 text-muted-foreground" />}
-          to="/admin/torneos"
-          loading={!data}
-        />
-        <StatCard
-          title="Jugadores"
-          value={data?.players.length ?? 0}
-          hint={`${pending} por verificar`}
-          icon={<Users className="h-4 w-4 text-muted-foreground" />}
-          to="/admin/jugadores"
-          loading={!data}
-        />
-        <StatCard
-          title="Sedes"
-          value={data?.clubs ?? 0}
-          hint="Club y canchas"
-          icon={<Building2 className="h-4 w-4 text-muted-foreground" />}
-          to="/admin/padel"
-          loading={!data}
-        />
-        <StatCard
-          title="Noticias"
-          value={data?.news ?? 0}
-          hint="Publicadas"
-          icon={<Newspaper className="h-4 w-4 text-muted-foreground" />}
-          to="/admin/noticias"
-          loading={!data}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Próximos torneos</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/admin/torneos">Ver todos</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {!data ? (
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : summary.upcoming.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-sm text-muted-foreground">No hay torneos programados.</p>
-                <Button asChild variant="outline" size="sm" className="mt-3">
-                  <Link to="/admin/torneos/nuevo">Crear el primero</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {summary.upcoming.map((t) => (
-                  <Link
-                    key={t.id}
-                    to={`/admin/torneos/${t.slug}`}
-                    className="-mx-2 flex items-center justify-between gap-4 rounded-md px-2 py-3 transition-colors hover:bg-muted/60"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{t.name}</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {formatDateRange(t.start_date, t.end_date)} · {t.club_name ?? t.city}
-                      </span>
-                    </span>
-                    <TournamentStatusBadge status={t.status} />
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Estado del circuito</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2.5">
-                <span className="text-sm text-muted-foreground">Inscripciones abiertas</span>
-                {data ? (
-                  <span className="font-semibold tabular-nums">{summary.open}</span>
-                ) : (
-                  <Skeleton className="h-5 w-6" />
-                )}
-              </div>
-              <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2.5">
-                <span className="text-sm text-muted-foreground">Partidos en vivo</span>
-                {data ? (
-                  <span className="font-semibold tabular-nums">{summary.live}</span>
-                ) : (
-                  <Skeleton className="h-5 w-6" />
-                )}
-              </div>
-              <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2.5">
-                <span className="text-sm text-muted-foreground">Torneos finalizados</span>
-                {data ? (
-                  <span className="font-semibold tabular-nums">{summary.finished}</span>
-                ) : (
-                  <Skeleton className="h-5 w-6" />
-                )}
-              </div>
+      {/* 2. Torneos: los que están vivos, con su estado y por dónde entrar. */}
+      <section aria-labelledby="torneos" className="space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 id="torneos" className="text-sm font-semibold">
+            Torneos
+          </h2>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/admin/torneos">Ver todos</Link>
+          </Button>
+        </div>
+        {running.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-5 text-sm text-muted-foreground">
+              No hay torneos en juego ahora mismo.
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Partidos recientes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {!data ? (
-                <Skeleton className="h-20 w-full" />
-              ) : data.matches.length === 0 ? (
-                <p className="py-4 text-sm text-muted-foreground">Todavía no hay partidos registrados.</p>
-              ) : (
-                data.matches.slice(0, 3).map((m) => (
-                  <div key={m.id} className="flex items-start justify-between gap-3">
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {running.map((t) => (
+              <Card key={t.id} className="overflow-hidden">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">
+                      <p className="truncate font-medium">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDateRange(t.start_date, t.end_date)} · {t.club_name ?? t.city}
+                      </p>
+                    </div>
+                    <TournamentStatusBadge status={t.status} />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link to={`/admin/torneos/${t.slug}?tab=bracket`}>Ver bracket</Link>
+                    </Button>
+                    <Button asChild size="sm" variant="ghost">
+                      <Link to={`/admin/torneos/${t.slug}?tab=jornada`}>Jornada</Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Clasificación: quién está arriba. */}
+        <section aria-labelledby="clasificacion" className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="clasificacion" className="text-sm font-semibold">
+              Clasificación
+            </h2>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/admin/ranking">Ver ranking</Link>
+            </Button>
+          </div>
+          {!podio || podio.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-5 text-sm text-muted-foreground">
+                Todavía no hay parejas con partidos jugados.
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="divide-y p-0">
+                {podio.map((t, i) => (
+                  <div key={t.id} className="flex items-center gap-3 px-4 py-3">
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md font-display text-lg ${
+                        i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.division} · {t.won} de {t.played}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-mono text-sm tabular-nums">{t.points}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        {/* Actividad: lo último que pasó. */}
+        <section aria-labelledby="actividad" className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="actividad" className="text-sm font-semibold">
+              Actividad reciente
+            </h2>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/admin/resultados">Ver resultados</Link>
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="divide-y p-0">
+              {data.matches.length === 0 ? (
+                <p className="px-4 py-5 text-sm text-muted-foreground">
+                  Sin partidos registrados todavía.
+                </p>
+              ) : (
+                data.matches.slice(0, 5).map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm">
                         {m.side_a.pair_name} vs {m.side_b.pair_name}
                       </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {m.scheduled_at ? formatMatchDateTime(m.scheduled_at) : "Por definir"}
+                      <p className="truncate text-xs text-muted-foreground">
+                        {m.tournament_name} · {m.round}
                       </p>
                     </div>
                     <MatchStatusBadge status={m.status} />
                   </div>
                 ))
               )}
-              <Button asChild variant="outline" size="sm" className="w-full">
-                <Link to="/admin/resultados">
-                  <ClipboardList className="h-4 w-4" /> Gestionar resultados
-                </Link>
-              </Button>
             </CardContent>
           </Card>
-        </div>
+        </section>
       </div>
     </div>
   );
