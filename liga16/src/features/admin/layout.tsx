@@ -5,6 +5,7 @@ import {
   Building2,
   ClipboardList,
   ExternalLink,
+  Inbox,
   LayoutDashboard,
   Menu,
   Newspaper,
@@ -16,9 +17,11 @@ import {
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
+import { useAdminAlerts } from "@/hooks/use-admin-alerts";
 import {
   Sheet,
   SheetContent,
@@ -54,7 +57,10 @@ const navGroups = [
   },
   {
     label: "Sistema",
-    items: [{ to: "/admin/estado", label: "Estado", icon: Activity }],
+    items: [
+      { to: "/admin/inbox", label: "Bandeja de entrada", icon: Inbox, badge: "alerts" },
+      { to: "/admin/estado", label: "Estado", icon: Activity },
+    ],
   },
 ];
 
@@ -72,14 +78,14 @@ function AdminBrand({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
+function AdminNav({ onNavigate, alertCount }: { onNavigate?: () => void; alertCount?: number }) {
   return (
     <nav className="space-y-5 px-3 py-4" aria-label="Navegación del admin">
       {navGroups.map((group) => (
         <div key={group.label}>
           <p className="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>
           <div className="space-y-0.5">
-            {group.items.map(({ to, label, icon: Icon, end }) => (
+            {group.items.map(({ to, label, icon: Icon, end, badge }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -95,7 +101,15 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
                 }
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {label}
+                <span>{label}</span>
+                {badge === "alerts" && alertCount && alertCount > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-auto text-[10px] font-semibold"
+                  >
+                    {alertCount}
+                  </Badge>
+                )}
               </NavLink>
             ))}
           </div>
@@ -132,6 +146,8 @@ function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
 export default function AdminLayout() {
   const [openNav, setOpenNav] = useState(false);
   const { loading, isConfigured } = useAuth();
+  const { alerts: adminAlerts } = useAdminAlerts();
+  const alertCount = adminAlerts.length;
 
   return (
     <div className="min-h-dvh bg-muted/30">
@@ -141,7 +157,7 @@ export default function AdminLayout() {
             <AdminBrand />
           </div>
           <div className="flex-1 overflow-y-auto">
-            <AdminNav />
+            <AdminNav alertCount={alertCount} />
           </div>
           <AccountPanel />
         </aside>
@@ -161,7 +177,7 @@ export default function AdminLayout() {
                   </SheetTitle>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  <AdminNav onNavigate={() => setOpenNav(false)} />
+                  <AdminNav alertCount={alertCount} onNavigate={() => setOpenNav(false)} />
                 </div>
                 <AccountPanel onNavigate={() => setOpenNav(false)} />
               </SheetContent>

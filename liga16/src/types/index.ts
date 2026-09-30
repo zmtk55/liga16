@@ -349,3 +349,29 @@ export interface TournamentFilters {
   category?: string;
   format?: TournamentFormat | 'all';
 }
+
+// ——— Bandeja de entrada / alertas de admin ————————————————————————
+
+export type AlertType =
+  | 'player_pending'
+  | 'tournament_starting'
+  | 'match_live'
+  | 'match_disputed'
+  | 'registration_closing_soon';
+
+export type AlertSeverity = 'info' | 'warning' | 'critical';
+
+/** Alerta derivada de datos en vivo (no se persiste en una tabla). */
+export interface AdminAlert {
+  id: string;
+  type: AlertType;
+  severity: AlertSeverity;
+  title: string;
+  description: string;
+  /** Ruta dentro del admin a la que lleva el ítem. */
+  href: string;
+  /** ISO 8601 para ordenar. */
+  timestamp: string;
+  /** Cuando la alerta agrupa varios ítems (p. ej. jugadores pendientes). */
+  count?: number;
+}
