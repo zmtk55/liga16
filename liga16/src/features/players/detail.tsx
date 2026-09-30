@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import ImageUpload from "@/components/ui/image-upload";
 import { MatchCard } from "@/components/cards/card-kit";
 import { toast } from "sonner";
-import { analyzePlayerLocal, type JevAnalysis } from "@/lib/jev";
+import { analyzePlayerLocal, analyzePlayerWithJev, JEV_REMOTE_ENABLED, type JevAnalysis } from "@/lib/jev";
 import { recordWinRate, type PlayerRecord } from "@/lib/records";
 import { qualificationFor, type QualificationView } from "@/lib/qualification";
 
@@ -348,7 +348,38 @@ export default function PlayerDetailPage() {
     });
   }, [compareId]);
 
-  const jev: JevAnalysis | null = useMemo(() => player ? analyzePlayerLocal(player, card, ranking) : null, [player, card, ranking]);
+  // JEV: el análisis local es puro y se calcula al renderizar; si hay API key,
+  // el resultado remoto lo reemplaza cuando llega. La clave evita que un
+  // resultado viejo sobreviva a un cambio de jugador.
+  const localJev = useMemo(
+    () =>
+      player
+        ? analyzePlayerLocal(
+            player,
+            card,
+            ranking,
+            record ? { played: record.played, won: record.won, form: record.form } : null,
+          )
+        : null,
+    [player, card, ranking, record],
+  );
+  const jevKey = `${player?.id ?? ""}|${card ? 1 : 0}|${ranking?.points ?? 0}|${record?.played ?? 0}`;
+  const [remoteJev, setRemoteJev] = useState<{ key: string; value: JevAnalysis } | null>(null);
+  const jev = remoteJev?.key === jevKey ? remoteJev.value : localJev;
+
+  useEffect(() => {
+    if (!JEV_REMOTE_ENABLED || !player) return;
+    let alive = true;
+    void analyzePlayerWithJev(player, card, ranking)
+      .then((remote) => {
+        if (alive && remote) setRemoteJev({ key: jevKey, value: remote });
+      })
+      // Si la IA falla, se queda el local: la tarjeta nunca queda vacía.
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [player, card, ranking, jevKey]);
   const winPct = card ? Math.round((cardWon(card) / Math.max(1, cardPlayed(card))) * 100) : 0;
 
   if (loading) {

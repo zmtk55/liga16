@@ -34,23 +34,41 @@ export interface JevAnalysis {
   ritmo: Ritmo;
 }
 
-// Fallback local (determinístico, calibrado con stats reales) — no requiere API key
+/** Lo que ya sabemos de verdad del jugador, si viene del récord derivado. */
+export type DerivedInput = {
+  played: number;
+  won: number;
+  form: Array<"G" | "P">;
+  setsFor?: number;
+};
+
+/**
+ * Fallback local (determinístico, calibrado con stats reales) — no requiere API key.
+ *
+ * `derived` tiene prioridad sobre `card`: la ficha muestra el récord derivado y
+ * el análisis debe salir de la misma fuente, o se contradicen en la misma pantalla.
+ */
 export function analyzePlayerLocal(
   player: PlayerProfile,
   card: PlayerCard | null,
-  ranking: RankingEntry | null
+  ranking: RankingEntry | null,
+  derived?: DerivedInput | null
 ): JevAnalysis {
-  const won = (card as unknown as PlayerCard | null)?.won ?? 0;
-  const played = (card as unknown as PlayerCard | null)?.played ?? 1;
-  const winRate = won / Math.max(played, 1);
-  const recentWins = card?.recent_results.filter((r) => r.startsWith("G")).length ?? 0;
+  const played = derived?.played ?? (card as unknown as PlayerCard | null)?.played ?? 0;
+  const won = derived?.won ?? (card as unknown as PlayerCard | null)?.won ?? 0;
+  const winRate = played > 0 ? won / played : 0;
+  // Sin partidos no hay forma "mala": sería afirmar algo sin datos.
+  const sinDatos = played === 0;
+  const recentWins = (derived?.form ?? card?.recent_results?.map((r) => ({ r })) ?? [])
+    .filter((x) => (typeof x === "string" ? x : x.r).startsWith("G")).length;
   const trend = card?.trend ?? [];
   const trendSlope = trend.length > 1 ? trend[trend.length - 1] - trend[0] : 0;
   const delta = ranking?.delta ?? 0;
 
   // Score forma 1-5
   let formaScore: FormaLevel = 3;
-  if (winRate > 0.75 && recentWins >= 2 && trendSlope > 0) formaScore = 5;
+  if (sinDatos) formaScore = 3;
+  else if (winRate > 0.75 && recentWins >= 2 && trendSlope > 0) formaScore = 5;
   else if (winRate > 0.6 && recentWins >= 2) formaScore = 4;
   else if (winRate > 0.45) formaScore = 3;
   else if (winRate > 0.3) formaScore = 2;
@@ -59,40 +77,58 @@ export function analyzePlayerLocal(
     1: "Le falta ritmo de juego",
     2: "Deja vu — sube y baja",
     3: "En su línea",
-    4: "Bien enchegado",
+    4: "Bien engranado",
     5: "En su mejor momento",
   };
   const dist: Record<FormaLevel, number> = { 1: 0.05, 2: 0.1, 3: 0.15, 4: 0.2, 5: 0.15 };
   dist[formaScore] = 0.62;
+  // Normalizar de verdad: dividir sin guardar el resultado no hace nada.
   const sum = Object.values(dist).reduce((a, b) => a + b, 0);
-  (Object.keys(dist) as unknown as FormaLevel[]).forEach((k) => (dist[k]! /= sum));
+  for (const [k, v] of Object.entries(dist)) dist[k as unknown as FormaLevel] = v / sum;
 
   // Choice estilo — heurística por posición + mano + nivel
   let estilo: Estilo = "equilibrado";
-  if (player.preferred_position === "drive" && player.dominant_hand === "right" && (player.official_level ?? 0) > 4.5) estilo = "ofensivo";
+  if (sinDatos) estilo = "equilibrado";
+  else if (player.preferred_position === "drive" && player.dominant_hand === "right" && (player.official_level ?? 0) > 4.5) estilo = "ofensivo";
   else if (player.preferred_position === "reves" && player.dominant_hand === "left") estilo = "defensivo";
   else if (Math.abs(trendSlope) < 1) estilo = "equilibrado";
   else estilo = "transición";
   const estiloProbs: Record<Estilo, number> = { ofensivo: 0.15, defensivo: 0.15, equilibrado: 0.15, transición: 0.15 };
   estiloProbs[estilo] = 0.58;
   const eSum = Object.values(estiloProbs).reduce((a, b) => a + b, 0);
-  (Object.keys(estiloProbs) as Estilo[]).forEach((k) => (estiloProbs[k] /= eSum));
+  for (const [k, v] of Object.entries(estiloProbs)) estiloProbs[k as Estilo] = v / eSum;
 
   // Noul racha
-  const probYes = Math.min(0.92, Math.max(0.08, 0.35 + winRate * 0.5 + (recentWins / 3) * 0.2 + (delta > 0 ? 0.1 : delta < 0 ? -0.1 : 0)));
-  const rachaLabel: JevRacha["label"] = probYes > 0.65 ? "en racha" : probYes < 0.35 ? "bache" : "sin racha";
+  const probYes = sinDatos
+    ? 0.5
+    : Math.min(0.92, Math.max(0.08, 0.35 + winRate * 0.5 + (recentWins / 3) * 0.2 + (delta > 0 ? 0.1 : delta < 0 ? -0.1 : 0)));
+  const rachaLabel: JevRacha["label"] = sinDatos
+    ? "sin racha"
+    : probYes > 0.65 ? "en racha" : probYes < 0.35 ? "bache" : "sin racha";
 
-  const consistencia = winRate > 0.7 ? 88 : winRate > 0.55 ? 72 : winRate > 0.4 ? 54 : 38;
-  const ritmo: Ritmo = trendSlope > 1 ? "ascendente" : trendSlope < -1 ? "descendente" : "estable";
+  const consistencia = sinDatos ? 0 : winRate > 0.7 ? 88 : winRate > 0.55 ? 72 : winRate > 0.4 ? 54 : 38;
+  const ritmo: Ritmo = sinDatos || trend.length < 2 ? "estable" : trendSlope > 1 ? "ascendente" : trendSlope < -1 ? "descendente" : "estable";
 
   return {
-    forma: { score: formaScore, confidence: 0.68 + winRate * 0.15, label: formaLabels[formaScore], distribution: dist },
-    estilo: { choice: estilo, confidence: 0.61 + Math.abs(trendSlope) * 0.02, probabilities: estiloProbs },
+    forma: {
+      score: formaScore,
+      // Sin partidos no se afirma nada con confianza.
+      confidence: sinDatos ? 0 : 0.68 + winRate * 0.15,
+      label: sinDatos ? "Sin datos todavía" : formaLabels[formaScore],
+      distribution: dist,
+    },
+    estilo: { choice: estilo, confidence: sinDatos ? 0 : 0.61 + Math.abs(trendSlope) * 0.02, probabilities: estiloProbs },
     racha: { probYes, label: rachaLabel },
-    consistencia: { score: consistencia, label: consistencia > 75 ? "Muy consistente" : consistencia > 55 ? "Consistente" : "Volátil" },
+    consistencia: {
+      score: consistencia,
+      label: sinDatos ? "Sin datos" : consistencia > 75 ? "Muy consistente" : consistencia > 55 ? "Consistente" : "Volátil",
+    },
     ritmo,
   } as JevAnalysis;
 }
+
+/** Si hay API key, JEV corre de verdad; si no, el fallback local. */
+export const JEV_REMOTE_ENABLED = Boolean(import.meta.env.VITE_TYPESAFE_API_KEY as string | undefined);
 
 /** Registro de una pareja, tal como lo resumen los resultados capturados. */
 export type PairRecordInput = {

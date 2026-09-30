@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildPlayerRecords, recordWinRate } from "./records";
-import { analyzePairLocal } from "./jev";
+import { analyzePairLocal, analyzePlayerLocal } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
-import type { Match, Pair, PlayerProfile } from "@/types";
+import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
 const players: PlayerProfile[] = [
   { id: "p-ana", display_name: "Ana" },
@@ -237,6 +237,45 @@ describe("qualificationFor (camino a semifinales)", () => {
       { slots: 2, pointsPerWin: 2 },
     );
     expect(q.reliable).toBe(false);
+  });
+});
+
+describe("analyzePlayerLocal (señales JEV)", () => {
+  const player = {
+    display_name: "Ana",
+    preferred_position: "drive",
+    dominant_hand: "right",
+    official_level: 5,
+  } as unknown as PlayerProfile;
+
+  it("la distribución de forma suma 1 (bug: se dividía sin guardar)", () => {
+    const jev = analyzePlayerLocal(player, null, null, {
+      played: 8,
+      won: 7,
+      form: ["G", "G", "G"],
+    });
+    const total = Object.values(jev.forma.distribution).reduce((a, b) => a + b, 0);
+    expect(total).toBeCloseTo(1, 6);
+  });
+
+  it("sin partidos no afirma que el jugador está mal", () => {
+    const jev = analyzePlayerLocal(player, null, null, { played: 0, won: 0, form: [] });
+    expect(jev.forma.label).toBe("Sin datos todavía");
+    expect(jev.forma.confidence).toBe(0);
+    expect(jev.consistencia.label).toBe("Sin datos");
+  });
+
+  it("usa el récord derivado cuando viene, no la card vieja", () => {
+    // Card vieja dice 2/2 (100%), el récord real dice 1/10 (10%).
+    const cardVieja = { won: 2, played: 2, recent_results: ["G", "G"], trend: [6, 6] } as unknown as PlayerCard;
+    const conCard = analyzePlayerLocal(player, cardVieja, null);
+    const conDerivado = analyzePlayerLocal(player, cardVieja, null, {
+      played: 10,
+      won: 1,
+      form: ["P", "P"],
+    });
+    expect(conCard.forma.score).toBeGreaterThan(conDerivado.forma.score);
+    expect(conDerivado.forma.label).toBe("Le falta ritmo de juego");
   });
 });
 
