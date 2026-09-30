@@ -76,7 +76,7 @@ import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
-import { formatDateRange, formatLabel } from "@/lib/format";
+import { formatDateRange, formatLabel, formatMatchTime12 } from "@/lib/format";
 
 function SortablePair({
   id,
@@ -1387,33 +1387,48 @@ return (
                   );
                 })()
               ) : (
-                <div className="space-y-2">
-                {filteredMatches.map((m) => (
-                  <Card key={m.id}>
-                    <CardContent className="flex flex-wrap items-center gap-3 py-3 text-sm">
-                      <span className="font-medium flex-1 min-w-48">
-                        {m.side_a.pair_name} <span className="text-muted-foreground">vs</span> {m.side_b.pair_name}
-                      </span>
-                      <Badge variant="outline">{m.round}</Badge>
-                      {m.court_name && <Badge variant="secondary">{m.court_name}</Badge>}
-                      {m.scheduled_at && (
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(m.scheduled_at).toLocaleString("es-MX", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      )}
-                      <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
-                        {m.status === "finished" ? "Ver resultado" : "Editar / Capturar"}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-                </div>
+                (() => {
+                  // La fecha del partido es la etiqueta real; "Jornada N" queda
+                  // como filtro, no como etiqueta visual. Agrupamos por día.
+                  const groups: { key: string; label: string; items: typeof filteredMatches }[] = [];
+                  for (const m of filteredMatches) {
+                    const key = m.scheduled_at ? m.scheduled_at.slice(0, 10) : "sin-fecha";
+                    const label = m.scheduled_at
+                      ? new Date(`${key}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })
+                      : "Sin fecha";
+                    const g = groups.find((x) => x.key === key);
+                    if (g) g.items.push(m);
+                    else groups.push({ key, label, items: [m] });
+                  }
+                  const plural = (n: number) => (n === 1 ? "partido" : "partidos");
+                  return (
+                    <div className="space-y-6">
+                      {groups.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Sin partidos para este filtro.</p>}
+                      {groups.map((g) => (
+                        <section key={g.key} className="space-y-2">
+                          <p className="flex flex-wrap items-baseline gap-x-2 border-b pb-1.5 text-sm font-semibold">
+                            {g.label}
+                            <span className="text-xs font-normal text-muted-foreground">{plural(g.items.length)}</span>
+                          </p>
+                          {g.items.map((m) => (
+                            <Card key={m.id}>
+                              <CardContent className="flex flex-wrap items-center gap-3 py-3 text-sm">
+                                <span className="font-medium flex-1 min-w-48">
+                                  {m.side_a.pair_name} <span className="text-muted-foreground">vs</span> {m.side_b.pair_name}
+                                </span>
+                                {m.court_name && <Badge variant="secondary">{m.court_name}</Badge>}
+                                {m.scheduled_at && <span className="text-xs tabular-nums text-muted-foreground">{formatMatchTime12(m.scheduled_at)}</span>}
+                                <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
+                                  {m.status === "finished" ? "Ver resultado" : "Editar / Capturar"}
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </section>
+                      ))}
+                    </div>
+                  );
+                })()
               )}
             </>
           )}
