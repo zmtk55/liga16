@@ -144,7 +144,7 @@ export default function AdminRanking() {
                 const perf = analyzePairLocal({ played: t.played, won: t.won });
                 return (
                   <TableRow key={t.id}>
-                    <TableCell className="font-display text-lg text-muted-foreground">
+                    <TableCell className="font-headline text-lg text-muted-foreground">
                       {t.position > 0 ? t.position : "—"}
                     </TableCell>
                     <TableCell>
@@ -181,7 +181,7 @@ export default function AdminRanking() {
                     </TableCell>
                     <TableCell>
                       {t.won > t.lost ? (
-                        <TrendingUp className="h-4 w-4 text-emerald-600" aria-label="En racha" />
+                        <TrendingUp className="h-4 w-4 text-success" aria-label="En racha" />
                       ) : t.won < t.lost ? (
                         <TrendingDown className="h-4 w-4 text-destructive" aria-label="En baja" />
                       ) : (

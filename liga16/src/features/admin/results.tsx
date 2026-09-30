@@ -197,11 +197,11 @@ export default function AdminResults() {
                       <p className="mb-1 truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
                         {m.tournament_name}{m.round ? ` · ${m.round}` : ""}
                       </p>
-                      <p className={cn("truncate text-sm font-semibold", m.winner === "a" && "text-emerald-600 dark:text-emerald-400")}>
+                      <p className={cn("truncate text-sm font-semibold", m.winner === "a" && "text-success")}>
                         {m.side_a.pair_name}
                       </p>
                       <p className="my-0.5 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">vs</p>
-                      <p className={cn("truncate text-sm font-semibold", m.winner === "b" && "text-emerald-600 dark:text-emerald-400")}>
+                      <p className={cn("truncate text-sm font-semibold", m.winner === "b" && "text-success")}>
                         {m.side_b.pair_name}
                       </p>
                       {(m.status === "finished" || m.status === "live") && m.sets.length > 0 && (

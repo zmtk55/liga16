@@ -26,6 +26,20 @@
     --ring: 0 0% 55%;
     --radius: 0.625rem;
 
+    /* Superficie invertida (héroes póster, marcadores): oscura en AMBOS temas */
+    --surface-inverse: 0 0% 8%;
+    --surface-inverse-foreground: 0 0% 96%;
+    --surface-inverse-border: 240 5% 18%;
+
+    /* Semántico de éxito (rachas, victorias, sets ganados) */
+    --success: 152 65% 34%;
+    --success-foreground: 0 0% 100%;
+
+    /* Escala tipográfica semántica: números de stats y etiquetas mini.
+       Las pages NUNCA inventan tamaños: usan text-stat / text-caption. */
+    --text-stat: 1.125rem;
+    --text-caption: 0.6875rem;
+
     --sidebar-background: 16 100% 50%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
@@ -56,6 +70,13 @@
     --border: 240 6% 16%;
     --input: 240 6% 16%;
     --ring: 0 0% 65%;
+
+    --surface-inverse: 0 0% 8%;
+    --surface-inverse-foreground: 0 0% 96%;
+    --surface-inverse-border: 240 5% 18%;
+
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
 
     --sidebar-background: 240 6% 10%;
     --sidebar-foreground: 0 0% 96%;

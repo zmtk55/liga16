@@ -3,6 +3,10 @@
 // siempre muestra el nombre de cada pareja junto a SUS juegos, y muestra el
 // tie-break como número pequeño SOLO en sets empatados (6-6). El super
 // tie-break (ej. 10-8) es un set con juegos: caja normal, sin TB falso.
+//
+// Tokens: superficie sobre surface-inverse (oscura en ambos temas), verde de
+// éxito por token success, tamaños por la escala semántica (text-2xs, text-xs,
+// text-sm). Ningún hex ni tamaño mágico.
 import type { MatchStatus, SetScore } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +29,7 @@ export function MatchScoreboard({
 }) {
   const pending = status != null && status !== "finished" && status !== "live";
   const nameCls = size === "sm" ? "text-xs" : "text-sm";
-  const cellCls = size === "sm" ? "h-5 min-w-6 px-1 text-[11px]" : "h-6 min-w-7 px-1.5 text-xs";
+  const cellCls = size === "sm" ? "h-5 min-w-6 px-1 text-2xs" : "h-6 min-w-7 px-1.5 text-xs";
 
   if (pending || sets.length === 0) {
     return (
@@ -62,12 +66,12 @@ export function MatchScoreboard({
                   "inline-flex items-baseline justify-center rounded font-mono tabular-nums",
                   cellCls,
                   tookSet
-                    ? "bg-emerald-600/15 font-bold text-emerald-700 dark:text-emerald-400"
+                    ? "bg-success/15 font-bold text-success"
                     : "bg-muted text-muted-foreground",
                 )}
               >
                 {mine}
-                {showTb && <span className="ml-0.5 text-[8px] font-normal opacity-70">{tb}</span>}
+                {showTb && <span className="ml-0.5 text-2xs font-normal opacity-70">{tb}</span>}
               </span>
             );
           })}

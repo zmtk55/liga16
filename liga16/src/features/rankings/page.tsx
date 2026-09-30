@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { MatchScoreboard } from "@/components/match-scoreboard";
+import { MatchCard } from "@/components/cards/card-kit";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
@@ -53,11 +53,11 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
         {team && (
           <div className="flex flex-col">
             {/* ── Cabecera estilo póster ── */}
-            <div className="relative overflow-hidden bg-[#141414] px-5 pb-4 pt-5 text-white">
+            <div className="relative overflow-hidden bg-surface-inverse px-5 pb-4 pt-5 text-white">
               <div aria-hidden className="absolute inset-x-0 top-0 h-1 bg-primary" />
               <span
                 aria-hidden
-                className="pointer-events-none absolute -right-2 -top-7 select-none font-display text-7xl leading-none text-white/[0.07]"
+                className="pointer-events-none absolute -right-2 -top-7 select-none font-headline text-7xl leading-none text-white/[0.07]"
               >
                 {String(team.position || 0).padStart(2, "0")}
               </span>
@@ -137,33 +137,22 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
                   Aún no juegan partidos.
                 </p>
               ) : current ? (
-                <div className="animate-fade-in rounded-2xl border bg-card p-4" key={current.id}>
-                  <div className="mb-3 flex items-center justify-between gap-2">
+                <MatchCard
+                  key={current.id}
+                  match={current}
+                  className="animate-fade-in"
+                  footer={
                     <Badge
                       className={cn(
-                        won ? "bg-emerald-600 text-white hover:bg-emerald-600" : "bg-rose-500/15 text-rose-600 hover:bg-rose-500/15 dark:text-rose-400",
+                        won
+                          ? "bg-success text-success-foreground hover:bg-success"
+                          : "bg-destructive/15 text-destructive hover:bg-destructive/15",
                       )}
                     >
                       {won ? "Victoria" : "Derrota"}
                     </Badge>
-                    <span className="truncate text-[11px] text-muted-foreground">
-                      {current.round ? `${current.round} · ` : ""}
-                      {current.tournament_name ?? "Liga16"}
-                    </span>
-                  </div>
-                  <MatchScoreboard
-                    sideA={current.side_a.pair_name}
-                    sideB={current.side_b.pair_name}
-                    sets={current.sets}
-                    winner={current.winner}
-                    status={current.status}
-                    size="md"
-                    className="w-full"
-                  />
-                  <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                    {current.scheduled_at ? formatMatchDateTime(current.scheduled_at) : ""}
-                  </p>
-                </div>
+                  }
+                />
               ) : null}
 
               {/* Puntos de navegación: verde = ganado, rojo = perdido */}
@@ -183,7 +172,7 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
                         className={cn(
                           "h-2 rounded-full transition-all duration-200",
                           i === idx ? "w-5" : "w-2 opacity-70",
-                          w ? "bg-emerald-500" : "bg-rose-400",
+                          w ? "bg-success" : "bg-destructive/60",
                         )}
                       />
                     );

@@ -136,7 +136,7 @@ export default function SystemStatus() {
           {checks?.map((c) => (
             <div key={c.label} className="flex items-start gap-3 rounded-lg border p-3">
               {c.ok && !c.warn ? (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
               ) : c.warn ? (
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               ) : (

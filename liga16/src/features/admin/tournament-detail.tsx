@@ -1535,7 +1535,7 @@ function GroupStandingsCard({
                     !expanded && (
                       <>
                         <TableCell className="text-right tabular-nums">{row.played}</TableCell>
-                        <TableCell className="text-right tabular-nums text-emerald-600">{row.won}</TableCell>
+                        <TableCell className="text-right tabular-nums text-success">{row.won}</TableCell>
                         <TableCell className="text-right tabular-nums">
                           {row.played > 0 ? ((row.won / row.played) * 100).toFixed(1) + "%" : "—"}
                         </TableCell>
@@ -1558,7 +1558,7 @@ function GroupStandingsCard({
                               <span
                                 key={fi}
                                 className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[9px] font-bold text-white ${
-                                  f === "G" ? "bg-emerald-600" : "bg-rose-500"
+                                  f === "G" ? "bg-success" : "bg-destructive"
                                 }`}
                                 title={f === "G" ? "Victoria" : "Derrota"}
                               >
@@ -1582,7 +1582,7 @@ function GroupStandingsCard({
                             <span
                               key={fi}
                               className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[9px] font-bold text-white ${
-                                f === "G" ? "bg-emerald-600" : "bg-rose-500"
+                                f === "G" ? "bg-success" : "bg-destructive"
                               }`}
                               title={f === "G" ? "Victoria" : "Derrota"}
                             >
@@ -1592,16 +1592,16 @@ function GroupStandingsCard({
                         </span>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{row.played}</TableCell>
-                      <TableCell className="text-right tabular-nums text-emerald-600">{row.won}</TableCell>
-                      <TableCell className="text-right tabular-nums text-rose-600">{row.lost}</TableCell>
+                      <TableCell className="text-right tabular-nums text-success">{row.won}</TableCell>
+                      <TableCell className="text-right tabular-nums text-destructive">{row.lost}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.setsFor}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.setsAgainst}</TableCell>
-                      <TableCell className={`text-right tabular-nums ${difSets > 0 ? "text-emerald-600" : difSets < 0 ? "text-rose-600" : ""}`}>
+                      <TableCell className={`text-right tabular-nums ${difSets > 0 ? "text-success" : difSets < 0 ? "text-destructive" : ""}`}>
                         {difSets > 0 ? "+" : ""}{difSets}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{row.gamesFor}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.gamesAgainst}</TableCell>
-                      <TableCell className={`text-right tabular-nums ${difGames > 0 ? "text-emerald-600" : difGames < 0 ? "text-rose-600" : ""}`}>
+                      <TableCell className={`text-right tabular-nums ${difGames > 0 ? "text-success" : difGames < 0 ? "text-destructive" : ""}`}>
                         {difGames > 0 ? "+" : ""}{difGames}
                       </TableCell>
                       <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>

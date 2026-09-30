@@ -30,13 +30,23 @@ module.exports = {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
         },
         card: {
           DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+        foreground: "hsl(var(--card-foreground))",
+        },
+        /* Superficie invertida: héroes, marcadores, nav inferior — oscura también en claro */
+        "surface-inverse": {
+          DEFAULT: "hsl(var(--surface-inverse))",
+          foreground: "hsl(var(--surface-inverse-foreground))",
+          border: "hsl(var(--surface-inverse-border))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
@@ -63,11 +73,21 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
         xs: "calc(var(--radius) - 6px)",
       },
+      fontSize: {
+        /* Escala semántica de datos: stats y etiquetas mini de cards.
+           Un cambio de escala se hace aquí, no en 40 cadenas. */
+        stat: ["var(--text-stat)", { lineHeight: "1.25", letterSpacing: "-0.01em", fontWeight: "700" }],
+        caption: ["var(--text-caption)", { lineHeight: "1.4", letterSpacing: "0.08em", fontWeight: "600" }],
+        "2xs": ["var(--text-caption)", { lineHeight: "1.2", fontWeight: "500" }],
+      },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
       },
       fontFamily: {
         display: ["Anton", "Impact", "sans-serif"],
+        /* Alias semántico: jerarquía editorial (títulos de sección).
+           Todo lo demás — cards, popups, datos — usa sans. */
+        headline: ["Anton", "Impact", "sans-serif"],
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },

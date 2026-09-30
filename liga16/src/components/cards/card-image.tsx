@@ -68,11 +68,11 @@ export function TournamentCover({
   className?: string;
 }) {
   const gradients: Record<string, string> = {
-    single_elimination: "from-emerald-500/30 via-teal-500/10 to-background",
+    single_elimination: "from-success/30 via-success/10 to-background",
     groups_knockout: "from-blue-500/30 via-indigo-500/10 to-background",
     americano: "from-amber-500/30 via-orange-500/10 to-background",
     round_robin: "from-purple-500/30 via-violet-500/10 to-background",
-    mexicano: "from-rose-500/30 via-pink-500/10 to-background",
+    mexicano: "from-destructive/30 via-destructive/10 to-background",
     ladder: "from-cyan-500/30 via-sky-500/10 to-background",
     custom: "from-primary/30 via-primary/10 to-background",
   };
@@ -133,11 +133,11 @@ export function PlayerAvatar({
 
   const colors = [
     "bg-primary",
-    "bg-emerald-600",
+    "bg-success",
     "bg-blue-600",
     "bg-purple-600",
     "bg-amber-600",
-    "bg-rose-600",
+    "bg-destructive",
     "bg-cyan-600",
     "bg-orange-600",
     "bg-teal-600",
@@ -185,10 +185,10 @@ export function TeamCrest({
 
   const colors = [
     "bg-primary/20 text-primary",
-    "bg-emerald-500/15 text-emerald-600",
+    "bg-success/15 text-success",
     "bg-sky-500/15 text-sky-600",
     "bg-amber-500/20 text-amber-600",
-    "bg-rose-500/15 text-rose-600",
+    "bg-destructive/15 text-destructive",
   ];
   const colorIndex = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
 
@@ -214,11 +214,11 @@ export function NewsThumbnail({
 }) {
   const gradients: Record<string, string> = {
     General: "from-primary/30 via-primary/10 to-background",
-    Resultados: "from-emerald-500/30 via-emerald-500/10 to-background",
+    Resultados: "from-success/30 via-success/10 to-background",
     Torneos: "from-blue-500/30 via-blue-500/10 to-background",
     Ligas: "from-purple-500/30 via-purple-500/10 to-background",
     Jugadores: "from-amber-500/30 via-amber-500/10 to-background",
-    Clubs: "from-rose-500/30 via-rose-500/10 to-background",
+    Clubs: "from-destructive/30 via-destructive/10 to-background",
   };
 
   return (

@@ -141,7 +141,7 @@ function StatTile({
         {label}
       </p>
       <p
-        className={`mt-1.5 flex items-center gap-1.5 font-display text-2xl leading-none tabular-nums md:text-3xl ${
+        className={`mt-1.5 flex items-center gap-1.5 font-headline text-2xl leading-none tabular-nums md:text-3xl ${
           accent ? "text-primary" : "text-white"
         }`}
       >
@@ -377,7 +377,7 @@ export default function PlayerDetailPage() {
 
   return (
     <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
-      <section className="relative overflow-hidden bg-[#0f0f0f] text-white">
+      <section className="relative overflow-hidden bg-surface-inverse text-white">
         <div className="absolute inset-0 bg-gradient-to-r from-black via-zinc-900 to-transparent" />
         <div className="absolute right-6 top-6 select-none text-[140px] font-black leading-none text-white/5 md:text-[220px] md:right-12">
           {ranking ? String(ranking.position).padStart(2, "0") : initials(player.display_name)}
@@ -738,7 +738,7 @@ export default function PlayerDetailPage() {
                       { label: "Sets a favor", value: record.setsFor },
                     ].map((s) => (
                       <div key={s.label} className="rounded-lg bg-muted/60 p-3">
-                        <p className="font-display text-2xl tabular-nums">{s.value}</p>
+                        <p className="font-headline text-2xl tabular-nums">{s.value}</p>
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                           {s.label}
                         </p>

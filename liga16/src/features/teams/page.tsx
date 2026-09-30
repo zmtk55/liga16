@@ -137,7 +137,7 @@ export default function TeamsPage() {
                       meta={[team.division, sexLabel(team.sex)].filter(Boolean).join(" · ")}
                       end={
                         team.position > 0 ? (
-                          <span className="font-display text-2xl tabular-nums text-muted-foreground/40 transition-colors group-hover:text-primary">
+                          <span className="text-stat tabular-nums text-muted-foreground/40 transition-colors group-hover:text-primary">
                             #{team.position}
                           </span>
                         ) : undefined
@@ -167,7 +167,7 @@ export default function TeamsPage() {
 
       {/* CTA final estilo landing */}
       <div className="flex flex-col items-center gap-3 rounded-2xl border bg-muted/30 px-6 py-8 text-center">
-        <p className="font-display text-xl uppercase tracking-tight md:text-2xl">
+        <p className="font-headline text-xl uppercase tracking-tight md:text-2xl">
           ¿Tu pareja aún no está en el muro?
         </p>
         <p className="max-w-md text-sm text-muted-foreground">

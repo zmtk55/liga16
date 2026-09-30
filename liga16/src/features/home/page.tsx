@@ -53,7 +53,7 @@ function SectionHeading({
         <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.24em] text-primary">
           {eyebrow}
         </p>
-        <h2 className="font-display text-3xl uppercase leading-none tracking-tight sm:text-4xl">
+        <h2 className="font-headline text-3xl uppercase leading-none tracking-tight sm:text-4xl">
           {title}
         </h2>
       </div>
@@ -78,11 +78,11 @@ function PairMark({ team }: { team: Team }) {
   }
 
   return (
-    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#141414] text-white">
-      <span className="absolute -right-5 -top-12 font-display text-[11rem] leading-none text-white/[0.07]">
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-surface-inverse text-white">
+      <span className="absolute -right-5 -top-12 font-headline text-[11rem] leading-none text-white/[0.07]">
         16
       </span>
-      <span className="relative font-display text-6xl uppercase leading-none text-primary sm:text-7xl">
+      <span className="relative font-headline text-6xl uppercase leading-none text-primary sm:text-7xl">
         {initialsOf(team.name.replace("/", " "))}
       </span>
       <span className="absolute bottom-3 left-4 text-[9px] font-bold uppercase tracking-[0.28em] text-white/45">
@@ -160,7 +160,7 @@ export default function Home() {
   return (
     <div className="space-y-16 md:space-y-20">
       {/* HERO — una sola composición, sin dashboard */}
-      <section className="relative -mx-4 -mt-8 min-h-[620px] overflow-hidden bg-[#111] text-white md:-mx-6 md:rounded-b-[2rem]">
+      <section className="relative -mx-4 -mt-8 min-h-[620px] overflow-hidden bg-surface-inverse text-white md:-mx-6 md:rounded-b-[2rem]">
         <img
           src={featured?.cover_url || HERO_IMAGE}
           alt=""
@@ -171,7 +171,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-primary/20 mix-blend-color" />
         <span
           aria-hidden
-          className="pointer-events-none absolute -bottom-14 -right-8 select-none font-display text-[13rem] leading-none text-white/[0.08] sm:text-[18rem] md:-right-4 md:text-[25rem]"
+          className="pointer-events-none absolute -bottom-14 -right-8 select-none font-headline text-[13rem] leading-none text-white/[0.08] sm:text-[18rem] md:-right-4 md:text-[25rem]"
         >
           16
         </span>
@@ -190,7 +190,7 @@ export default function Home() {
           </div>
 
           <div className="max-w-3xl pb-7 pt-20 sm:pb-10 sm:pt-28">
-            <h1 className="font-display text-[4.25rem] uppercase leading-[0.82] tracking-[-0.035em] sm:text-[7rem] md:text-[9rem]">
+            <h1 className="font-headline text-[4.25rem] uppercase leading-[0.82] tracking-[-0.035em] sm:text-[7rem] md:text-[9rem]">
               Pádel
               <br />
               <span className="text-primary">en juego.</span>
@@ -242,7 +242,7 @@ export default function Home() {
                   index > 0 ? "border-l border-white/15" : ""
                 }`}
               >
-                <dd className="truncate font-display text-xl uppercase sm:text-3xl">
+                <dd className="truncate font-headline text-xl uppercase sm:text-3xl">
                   {item.value}
                 </dd>
                 <dt className="mt-1 text-[8px] font-bold uppercase tracking-[0.22em] text-white/45 sm:text-[10px]">
@@ -265,12 +265,12 @@ export default function Home() {
           />
           <Link
             to={`/torneos/${featured.slug}`}
-            className="group grid min-h-[390px] overflow-hidden rounded-2xl bg-[#141414] text-white md:grid-cols-[0.9fr_1.1fr]"
+            className="group grid min-h-[390px] overflow-hidden rounded-2xl bg-surface-inverse text-white md:grid-cols-[0.9fr_1.1fr]"
           >
             <div className="flex flex-col justify-between p-6 sm:p-8 lg:p-10">
               <div>
                 <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center bg-primary font-display text-xl">
+                  <span className="flex h-11 w-11 items-center justify-center bg-primary font-headline text-xl">
                     16
                   </span>
                   <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
@@ -279,7 +279,7 @@ export default function Home() {
                     Torneo oficial
                   </span>
                 </div>
-                <h3 className="mt-9 max-w-xl font-display text-4xl uppercase leading-[0.92] tracking-tight sm:text-5xl lg:text-6xl">
+                <h3 className="mt-9 max-w-xl font-headline text-4xl uppercase leading-[0.92] tracking-tight sm:text-5xl lg:text-6xl">
                   {featured.name}
                 </h3>
               </div>
@@ -313,7 +313,7 @@ export default function Home() {
               </div>
             ) : (
               <div className="relative min-h-72 overflow-hidden bg-primary md:border-l md:border-white/10">
-                <span className="absolute -bottom-16 -right-3 font-display text-[19rem] leading-none text-black/[0.13]">
+                <span className="absolute -bottom-16 -right-3 font-headline text-[19rem] leading-none text-black/[0.13]">
                   16
                 </span>
                 <span className="absolute left-8 top-8 text-[10px] font-bold uppercase tracking-[0.3em] text-black/55">
@@ -322,7 +322,7 @@ export default function Home() {
                 <div className="absolute inset-y-0 left-[34%] w-px rotate-[18deg] bg-black/20" />
                 <div className="absolute inset-y-0 left-[54%] w-px rotate-[18deg] bg-black/20" />
                 <div className="absolute inset-y-0 left-[74%] w-px rotate-[18deg] bg-black/20" />
-                <p className="absolute bottom-7 left-7 right-7 font-display text-3xl uppercase leading-none text-black/75 sm:text-4xl">
+                <p className="absolute bottom-7 left-7 right-7 font-headline text-3xl uppercase leading-none text-black/75 sm:text-4xl">
                   {formatLabel[featured.format] ?? featured.format}
                   <br />
                   <span className="text-black/45">{statusLabel}</span>
@@ -355,20 +355,20 @@ export default function Home() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-black/50">
                     {featuredTeam.division}
                   </p>
-                  <h3 className="mt-4 font-display text-4xl uppercase leading-[0.94] sm:text-5xl">
+                  <h3 className="mt-4 font-headline text-4xl uppercase leading-[0.94] sm:text-5xl">
                     {featuredTeam.name}
                   </h3>
                 </div>
                 <div className="mt-10">
                   <div className="grid grid-cols-2 gap-4 border-y border-black/20 py-4">
                     <div>
-                      <p className="font-display text-4xl">{featuredTeam.won}</p>
+                      <p className="font-headline text-4xl">{featuredTeam.won}</p>
                       <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/55">
                         Victorias
                       </p>
                     </div>
                     <div>
-                      <p className="font-display text-4xl">{featuredTeam.titles}</p>
+                      <p className="font-headline text-4xl">{featuredTeam.titles}</p>
                       <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/55">
                         Títulos
                       </p>
@@ -398,13 +398,13 @@ export default function Home() {
                 to={`/jugadores/${player.player_id}`}
                 className={`group flex flex-col justify-between overflow-hidden rounded-xl p-4 transition-transform hover:-translate-y-0.5 sm:p-5 ${
                   index === 0
-                    ? "col-span-2 min-h-44 bg-[#141414] text-white"
+                    ? "col-span-2 min-h-44 bg-surface-inverse text-white"
                     : "min-h-36 bg-card text-foreground"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <span
-                    className={`font-display text-5xl leading-none ${
+                    className={`font-headline text-5xl leading-none ${
                       index === 0 ? "text-primary" : "text-primary/35"
                     }`}
                   >
@@ -448,7 +448,7 @@ export default function Home() {
             to="/calendario"
             action="Ver agenda"
           />
-          <div className="grid overflow-hidden rounded-2xl bg-[#141414] text-white lg:grid-cols-[1.45fr_0.55fr]">
+          <div className="grid overflow-hidden rounded-2xl bg-surface-inverse text-white lg:grid-cols-[1.45fr_0.55fr]">
             <div className="p-6 sm:p-8 lg:p-10">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
@@ -464,7 +464,7 @@ export default function Home() {
                 <p className="text-lg font-semibold leading-tight sm:text-2xl">
                   {featuredMatch.side_a.pair_name}
                 </p>
-                <span className="font-display text-xl text-primary sm:text-3xl">VS</span>
+                <span className="font-headline text-xl text-primary sm:text-3xl">VS</span>
                 <p className="text-right text-lg font-semibold leading-tight sm:text-2xl">
                   {featuredMatch.side_b.pair_name}
                 </p>
@@ -527,7 +527,7 @@ export default function Home() {
                     />
                   ) : (
                     <div className="relative h-full w-full overflow-hidden bg-neutral-900 text-white">
-                      <span className="absolute -bottom-8 -right-1 font-display text-[9rem] leading-none text-primary/35">
+                      <span className="absolute -bottom-8 -right-1 font-headline text-[9rem] leading-none text-primary/35">
                         16
                       </span>
                       <span className="absolute left-4 top-4 text-[9px] font-bold uppercase tracking-[0.24em] text-white/45">

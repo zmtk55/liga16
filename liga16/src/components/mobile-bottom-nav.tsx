@@ -63,7 +63,7 @@ export function MobileBottomNav() {
     >
       <div className="mx-auto max-w-md px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {/* Píldora flotante con borde luminoso y sombra profunda */}
-        <ul className="flex items-stretch justify-between gap-0.5 rounded-2xl border border-white/10 bg-[#141414]/95 p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-lg">
+        <ul className="flex items-stretch justify-between gap-0.5 rounded-2xl border border-white/10 bg-surface-inverse/95 p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-lg">
           {items.map(({ to, label, icon: Icon }) => {
             const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
             const showLive = to === "/calendario" && liveCount > 0;
@@ -88,7 +88,7 @@ export function MobileBottomNav() {
                       "relative flex h-8 w-full max-w-14 items-center justify-center rounded-full transition-all duration-200",
                       active
                         ? "bg-primary text-primary-foreground shadow-[0_2px_12px_rgba(0,0,0,0.35)] group-active:scale-90"
-                        : "text-zinc-400 group-hover:bg-white/10 group-hover:text-white group-active:scale-90",
+                        : "text-white/70 group-hover:bg-white/10 group-hover:text-white group-active:scale-90",
                     )}
                   >
                     <Icon
@@ -101,15 +101,15 @@ export function MobileBottomNav() {
                     {/* Badge EN VIVO con ping */}
                     {showLive && (
                       <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#141414]" />
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive ring-2 ring-surface-inverse" />
                       </span>
                     )}
                   </span>
                   <span
                     className={cn(
                       "text-[10px] leading-none transition-colors duration-200",
-                      active ? "font-bold text-white" : "font-medium text-zinc-500 group-hover:text-zinc-300",
+                      active ? "font-bold text-white" : "font-medium text-white/50 group-hover:text-white/80",
                     )}
                   >
                     {label}

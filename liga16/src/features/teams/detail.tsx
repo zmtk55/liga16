@@ -10,8 +10,8 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
-import { MatchScoreboard } from "@/components/match-scoreboard";
-import { formatMatchDateTime, initials, sexLabel, winRate } from "@/lib/format";
+import { MatchCard } from "@/components/cards/card-kit";
+import { initials, sexLabel, winRate } from "@/lib/format";
 
 const TeamCompareChart = lazy(() => import("./compare-chart").then((m) => ({ default: m.TeamCompareChart })));
 
@@ -112,8 +112,8 @@ export default function TeamDetailPage() {
   return (
     <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
       {/* ====== HERO tipo póster, coherente con el detalle de jugador ====== */}
-      <section className="relative overflow-hidden bg-[#0f0f0f] text-white">
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-zinc-900 to-transparent" />
+      <section className="relative overflow-hidden bg-surface-inverse text-white">
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
         <div className="absolute right-6 top-6 select-none text-[120px] font-black leading-none text-white/5 md:text-[200px] md:right-12">
           {String(team.position || 0).padStart(2, "0")}
         </div>
@@ -135,7 +135,7 @@ export default function TeamDetailPage() {
                     <Badge variant="outline" className="border-white/20 text-white">{team.division} · {sexLabel(team.sex)}</Badge>
                     {streak && (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs backdrop-blur">
-                        <span className={`h-2 w-2 animate-pulse rounded-full ${streak.won ? "bg-emerald-400" : "bg-red-400"}`} />
+                        <span className={`h-2 w-2 animate-pulse rounded-full ${streak.won ? "bg-success" : "bg-destructive"}`} />
                         {streak.count} {streak.won ? "victorias" : "derrotas"} seguidas
                       </span>
                     )}
@@ -158,7 +158,7 @@ export default function TeamDetailPage() {
                   <p className="text-xs text-white/50">Puntos</p>
                   <p className="text-2xl font-black tabular-nums">{team.points.toLocaleString("es-MX")}</p>
                   <p className="text-xs flex items-center gap-1">
-                    {winRatePct >= 50 ? <TrendingUp className="h-3 w-3 text-emerald-400" /> : winRatePct < 50 && team.played > 0 ? <TrendingDown className="h-3 w-3 text-red-400" /> : <Minus className="h-3 w-3" />}
+                    {winRatePct >= 50 ? <TrendingUp className="h-3 w-3 text-success" /> : winRatePct < 50 && team.played > 0 ? <TrendingDown className="h-3 w-3 text-destructive" /> : <Minus className="h-3 w-3" />}
                     {winRatePct}% victorias
                   </p>
                 </div>
@@ -182,7 +182,7 @@ export default function TeamDetailPage() {
                     <span
                       key={i}
                       className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black ${
-                        g === "G" ? "bg-emerald-500 text-white" : "bg-white/10 text-white/60"
+                        g === "G" ? "bg-success text-success-foreground" : "bg-white/10 text-white/60"
                       }`}
                     >
                       {g}
@@ -197,7 +197,7 @@ export default function TeamDetailPage() {
               {[team.player1, team.player2].map((p, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-4 rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-zinc-800/80 to-zinc-900 p-4 shadow-xl backdrop-blur transition-transform hover:-translate-y-0.5"
+                  className="flex items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 shadow-xl backdrop-blur transition-transform hover:-translate-y-0.5"
                 >
                   {p?.player_id ? (
                     <Link to={`/jugadores/${p.player_id}`} className="shrink-0" aria-label={`Ver dashboard de ${p.name}`}>
@@ -266,40 +266,13 @@ export default function TeamDetailPage() {
                   Sin partidos en el rol. Aparecerán cuando se genere el calendario de un torneo.
                 </p>
               ) : (
-                rol.map((m, i) => {
-                  const isA = m.side_a.pair_name === team.name;
-                  const rival = (isA ? m.side_b.pair_name : m.side_a.pair_name) ?? "?";
-                  const isFinished = m.status === "finished" && m.winner;
-                  const won = isFinished && ((isA && m.winner === "a") || (!isA && m.winner === "b"));
-                  return (
-                    <div key={i} className={`flex items-center gap-3 rounded-xl border p-3 transition-all hover:shadow-sm ${m.status === "live" ? "border-primary/40 bg-primary/5" : "hover:border-primary/20"}`}>
-                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${
-                        m.status === "live" ? "bg-primary text-white animate-pulse" :
-                        isFinished ? (won ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white") :
-                        "bg-muted text-muted-foreground"}`}>
-                        {m.status === "live" ? "●" : isFinished ? (won ? "G" : "P") : i + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate text-sm font-bold">vs {rival}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {m.round ? `${m.round} · ` : ""}{m.tournament_name ?? "Liga16"}{m.scheduled_at ? ` · ${formatMatchDateTime(m.scheduled_at)}` : ""}
-                        </p>
-                      </div>
-                      {isFinished && (
-                        <MatchScoreboard
-                          sideA={m.side_a.pair_name}
-                          sideB={m.side_b.pair_name}
-                          sets={m.sets}
-                          winner={m.winner}
-                          status={m.status}
-                          size="sm"
-                        />
-                      )}
-                      {!isFinished && m.status !== "live" && <Badge variant="outline" className="shrink-0">Por jugar</Badge>}
-                      {m.status === "live" && <Badge className="shrink-0 animate-pulse">En juego</Badge>}
-                    </div>
-                  );
-                })
+                rol.map((m) => (
+                  <MatchCard
+                    key={m.id}
+                    match={m}
+                    className={m.status === "live" ? "border-primary/40" : ""}
+                  />
+                ))
               )}
             </CardContent>
           </Card>
