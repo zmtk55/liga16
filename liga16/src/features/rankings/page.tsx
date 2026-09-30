@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MatchCard } from "@/components/cards/card-kit";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
+import { sexLabel, winRate } from "@/lib/format";
 import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/page-hero";
 import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { RankingFilters } from "@/components/ranking/ranking-filters";
 
 /**
  * Popup de pareja: cabecera póster + stats + UN partido a la vez con flechas.
@@ -23,12 +23,11 @@ import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock } from "lucide-
 function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () => void }) {
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [idx, setIdx] = useState(0);
+  // Reinicio por evento: al cambiar de pareja el estado vuelve a 0 sin setState en el efecto.
 
   useEffect(() => {
     if (!team) return;
     let active = true;
-    setMatches(null);
-    setIdx(0);
     db.listRecentMatches().then((ms) => {
       if (!active) return;
       setMatches(
@@ -216,6 +215,7 @@ export default function RankingsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
   const [division, setDivision] = useState("all");
   const [sex, setSex] = useState("all");
+  const [query, setQuery] = useState("");
   const [detail, setDetail] = useState<Team | null>(null);
 
   useEffect(() => {
@@ -233,6 +233,14 @@ export default function RankingsPage() {
     let list = [...teams];
     if (division !== "all") list = list.filter((t) => t.division === division);
     if (sex !== "all") list = list.filter((t) => t.sex === sex);
+    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          [t.player1?.name, t.player2?.name].some((n) => n && n.toLowerCase().includes(q)),
+      );
+    }
     return list
       .sort((a, b) => {
         // Primero por división, luego por posición, luego por puntos
@@ -244,7 +252,7 @@ export default function RankingsPage() {
         return b.points - a.points;
       })
       .map((t) => ({ ...t }));
-  }, [teams, division, sex]);
+  }, [teams, division, sex, query]);
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -260,29 +268,16 @@ export default function RankingsPage() {
         ]}
       />
 
-      <div className="relative z-10 -mt-4 flex flex-wrap gap-2">
-        <Select value={division} onValueChange={setDivision}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="División" />
-          </SelectTrigger>
-          <SelectContent>
-            {divisionOptions.map((d) => (
-              <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={sex} onValueChange={setSex}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Género" />
-          </SelectTrigger>
-          <SelectContent>
-            {sexOptions.map((s) => (
-              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <RankingFilters
+        className="relative z-10 -mt-4"
+        search={query}
+        onSearch={setQuery}
+        division={division}
+        onDivision={setDivision}
+        sex={sex}
+        onSex={setSex}
+        placeholder="Buscar pareja o jugador…"
+      />
 
       {teams === null ? (
         <Skeleton className="h-96 w-full" />
