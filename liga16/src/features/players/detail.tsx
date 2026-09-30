@@ -363,6 +363,7 @@ export default function PlayerDetailPage() {
                   played: record.played,
                   won: record.won,
                   form: record.form,
+                  setsPorPartida: record.trend,
                   opponents: record.recentMatches.map((m) => ({
                     won: m.won,
                     opponentLevel: m.opponentLevel,
@@ -713,7 +714,7 @@ export default function PlayerDetailPage() {
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Activity className="h-4 w-4 text-primary" />
                   Racha
-                  <Tooltip content="Qué tan seguido gana, para saber si su nivel es parejo o le da por subir y bajar. 100 sería ganar siempre.">
+                  <Tooltip content="Qué tan parejo rinde: si gana muchos sets con poca diferencia entre un partido y otro. 100 sería idéntico siempre.">
                     <Badge variant={jev.racha.label === "sube" ? "default" : jev.racha.label === "le cuesta" ? "destructive" : "secondary"}>{jev.racha.label}</Badge>
                   </Tooltip>
                 </CardTitle>

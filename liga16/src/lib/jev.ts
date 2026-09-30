@@ -31,7 +31,14 @@ export interface JevAnalysis {
   forma: JevForma;
   estilo: JevEstilo;
   racha: JevRacha;
-  consistencia: { score: number; label: string };
+  consistencia: {
+    score: number;
+    label: string;
+    desviacion: number;
+    variacion: number;
+    muestra: number;
+    reliable: boolean;
+  };
   ritmo: Ritmo;
   rival?: JevRival;
 }
@@ -42,11 +49,15 @@ export type DerivedInput = {
   won: number;
   form: Array<"G" | "P">;
   setsFor?: number;
+  /** Sets ganados en cada partido, para medir dispersión. */
+  setsPorPartida?: number[];
   /** Rivales de los partidos recientes, con su nivel si el directorio lo tiene. */
   opponents?: Array<{ won: boolean; opponentLevel: number | null }>;
 };
 
 const MIN_RIVAL_SAMPLE = 3;
+/** Mínimo de partidos para decir algo con confianza. */
+const MIN_SAMPLE = 3;
 
 export interface JevRival {
   /** 0-100: cuánto rinde frente a rivales más fuertes que él. */
@@ -164,7 +175,9 @@ export function analyzePlayerLocal(
     ? "sin datos"
     : probYes > 0.65 ? "sube" : probYes < 0.35 ? "le cuesta" : "parejo";
 
-  const consistencia = sinDatos ? 0 : winRate > 0.7 ? 88 : winRate > 0.55 ? 72 : winRate > 0.4 ? 54 : 38;
+  const consistencia = sinDatos
+    ? { score: 0, label: "Sin datos", desviacion: 0, variacion: 0, muestra: 0, reliable: false }
+    : consistenciaFromSets(derived?.setsPorPartida ?? []);
   const ritmo: Ritmo = sinDatos || trend.length < 2 ? "estable" : trendSlope > 1 ? "ascendente" : trendSlope < -1 ? "descendente" : "estable";
 
   // Rival real: ganar no vale igual contra todos. Ponderamos cada partido por el
@@ -186,16 +199,7 @@ export function analyzePlayerLocal(
     },
     estilo: { choice: estilo, confidence: sinDatos ? 0 : 0.61 + Math.abs(trendSlope) * 0.02, probabilities: estiloProbs },
     racha: { probYes, label: rachaLabel },
-    consistencia: {
-      score: consistencia,
-      label: sinDatos
-        ? "Sin datos"
-        : consistencia > 75
-          ? "Gana parejo casi siempre"
-          : consistencia > 55
-            ? "Gana más de lo que pierde"
-            : "Le cuesta mantener el nivel",
-    },
+    consistencia,
     ritmo,
     rival,
   } as JevAnalysis;
@@ -203,6 +207,51 @@ export function analyzePlayerLocal(
 
 /** Si hay API key, JEV corre de verdad; si no, el fallback local. */
 export const JEV_REMOTE_ENABLED = Boolean(import.meta.env.VITE_TYPESAFE_API_KEY as string | undefined);
+
+export interface JevConsistencia {
+  score: number;
+  label: string;
+  /** Desviación típica de los sets ganados por partido. */
+  desviacion: number;
+  /** Cuánta dispersión relativa: 0 = igual todos los partidos, 1 = el doble. */
+  variacion: number;
+  /** Partidos usados para el cálculo. */
+  muestra: number;
+  reliable: boolean;
+}
+
+/**
+ * Consistencia = qué tan parejo rinde, no cuánto gana.
+ *
+ * El porcentaje de victorias no alcanza: un jugador que gana 6-2, 2-6, 6-3,
+ * 1-6 tiene 50% y otro que gana 6-2, 6-3, 6-4, 2-6 también, pero el segundo es
+ * mucho más confiable. Lo que los separa es la dispersión de los sets.
+ */
+export function consistenciaFromSets(setsPorPartido: number[]): JevConsistencia {
+  const n = setsPorPartido.length;
+  if (n < MIN_SAMPLE) {
+    return { score: 0, label: "Sin datos", desviacion: 0, variacion: 0, muestra: n, reliable: false };
+  }
+  const media = setsPorPartido.reduce((a, b) => a + b, 0) / n;
+  const varianza = setsPorPartido.reduce((a, b) => a + (b - media) ** 2, 0) / n;
+  const desviacion = Math.sqrt(varianza);
+  // Coeficiente de variación: comparable entre jugadores con distinto promedio.
+  const variacion = media > 0 ? desviacion / media : 1;
+  const score = Math.max(0, Math.min(100, Math.round(100 - variacion * 110)));
+  return {
+    score,
+    label:
+      score >= 75
+        ? "Gana parejo casi siempre"
+        : score >= 55
+          ? "Le cuesta no perder el nivel"
+          : "Sube y baja mucho",
+    desviacion: Math.round(desviacion * 100) / 100,
+    variacion: Math.round(variacion * 100) / 100,
+    muestra: n,
+    reliable: true,
+  };
+}
 
 /** Registro de una pareja, tal como lo resumen los resultados capturados. */
 export type PairRecordInput = {
@@ -330,7 +379,7 @@ export async function analyzePlayerWithJev(
           probYes: a.racha?.probYes ?? a.racha?.probability ?? 0.5,
           label: (a.racha?.probYes ?? 0.5) > 0.65 ? "sube" : (a.racha?.probYes ?? 0.5) < 0.35 ? "le cuesta" : "parejo",
         },
-        consistencia: { score: 70, label: "Gana más de lo que pierde" },
+        consistencia: consistenciaFromSets([]),
         ritmo: "estable",
       };
     }

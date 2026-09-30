@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlayerRecords, recordWinRate } from "./records";
-import { analyzePairLocal, analyzePlayerLocal, rivalAdjusted } from "./jev";
+import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
@@ -265,6 +265,23 @@ describe("analyzePlayerLocal (señales JEV)", () => {
     expect(jev.consistencia.label).toBe("Sin datos");
   });
 
+  it("la consistencia usa la dispersión de sets, no solo el porcentaje", () => {
+    const parejo = analyzePlayerLocal(player, null, null, {
+      played: 4,
+      won: 2,
+      form: ["G", "P"],
+      setsPorPartida: [6, 6, 3, 7],
+    });
+    const irregular = analyzePlayerLocal(player, null, null, {
+      played: 4,
+      won: 2,
+      form: ["G", "P"],
+      setsPorPartida: [6, 0, 6, 0],
+    });
+    // Mismo 50% de victorias, distinta consistencia.
+    expect(parejo.consistencia.score).toBeGreaterThan(irregular.consistencia.score);
+  });
+
   it("usa el récord derivado cuando viene, no la card vieja", () => {
     // Card vieja dice 2/2 (100%), el récord real dice 1/10 (10%).
     const cardVieja = { won: 2, played: 2, recent_results: ["G", "G"], trend: [6, 6] } as unknown as PlayerCard;
@@ -307,6 +324,33 @@ describe("analyzePairLocal (desempeño derivado de resultados)", () => {
     for (const palabra of ["Deja vu", "déjà", "engranado", "bache", "Noul"]) {
       expect(todo).not.toContain(palabra);
     }
+  });
+});
+
+describe("consistenciaFromSets (qué tan parejo rinde)", () => {
+  it("distingue a dos jugadores con el mismo 50%", () => {
+    // 2-2 en ambos casos, pero uno gana parejo y el otro sube y baja.
+    const parejo = consistenciaFromSets([6, 6, 3, 7]);
+    const irregular = consistenciaFromSets([6, 0, 6, 0]);
+    expect(parejo.reliable).toBe(true);
+    expect(irregular.reliable).toBe(true);
+    expect(parejo.score).toBeGreaterThan(irregular.score);
+    expect(parejo.variacion).toBeLessThan(irregular.variacion);
+  });
+
+  it("con menos de 3 partidos no inventa consistencia", () => {
+    const r = consistenciaFromSets([6, 6]);
+    expect(r.reliable).toBe(false);
+    expect(r.label).toBe("Sin datos");
+    expect(r.score).toBe(0);
+  });
+
+  it("el mismo promedio con distinta dispersión da distinta consistencia", () => {
+    // Ambos promedian 3 sets por partido.
+    const a = consistenciaFromSets([3, 3, 3, 3]);
+    const b = consistenciaFromSets([6, 6, 0, 0]);
+    expect(a.score).toBeGreaterThan(b.score);
+    expect(a.desviacion).toBe(0);
   });
 });
 
