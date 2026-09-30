@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatDate, initials, sexLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import ImageUpload from "@/components/ui/image-upload";
-import { MatchScoreboard } from "@/components/match-scoreboard";
+import { MatchCard } from "@/components/cards/card-kit";
 import { toast } from "sonner";
 import { analyzePlayerLocal, type JevAnalysis } from "@/lib/jev";
 import { recordWinRate, type PlayerRecord } from "@/lib/records";
@@ -37,9 +37,9 @@ function Tooltip({ children, content }: { children: React.ReactNode; content: st
     <div className="relative inline-flex" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       {children}
       {open && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 rounded-lg bg-zinc-900 px-3 py-2 text-xs text-white/90 shadow-lg animate-fade-in">
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 rounded-lg bg-surface-inverse px-3 py-2 text-xs text-surface-inverse-foreground shadow-lg animate-fade-in">
           {content}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900" />
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-surface-inverse" />
         </div>
       )}
     </div>
@@ -56,7 +56,7 @@ function AnimatedBar({ value, max = 100, color = "primary", className = "" }: { 
   return (
     <div className={`h-2 rounded-full bg-muted overflow-hidden ${className}`}>
       <div
-        className={`h-full rounded-full transition-all duration-1000 ease-out ${color === "primary" ? "bg-primary" : color === "emerald" ? "bg-emerald-500" : color === "amber" ? "bg-amber-500" : color === "red" ? "bg-red-500" : "bg-primary"}`}
+        className={`h-full rounded-full transition-all duration-1000 ease-out ${color === "primary" ? "bg-primary" : color === "success" ? "bg-success" : color === "warning" ? "bg-warning" : color === "destructive" ? "bg-destructive" : "bg-primary"}`}
         style={{ width: `${Math.min(100, (animated / max) * 100)}%` }}
       />
     </div>
@@ -85,7 +85,7 @@ function ComparisonRow({ label, valueA, valueB, higherIsBetter, unit, isStyle = 
         <div className="flex flex-col items-center gap-1">
           <span className={cn(
             "font-mono text-sm font-bold tabular-nums",
-            win ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+            win ? "text-success" : "text-muted-foreground",
           )}>
             {value}
             {unit && <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">{unit}</span>}
@@ -95,7 +95,7 @@ function ComparisonRow({ label, valueA, valueB, higherIsBetter, unit, isStyle = 
               <span
                 className={cn(
                   "block h-full rounded-full transition-all duration-500",
-                  win ? "bg-emerald-500" : "bg-muted-foreground/35",
+                  win ? "bg-success" : "bg-muted-foreground/35",
                 )}
                 style={{ width: pct(num) }}
               />
@@ -137,8 +137,8 @@ function StatTile({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="animate-fade-in rounded-xl border border-white/10 bg-white/[0.05] p-3 transition-colors hover:border-white/20 hover:bg-white/[0.08] md:p-4">
-      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/45 md:text-[10px]">
+    <div className="animate-fade-in min-w-0 rounded-xl border border-white/10 bg-white/[0.05] p-3 transition-colors hover:border-white/20 hover:bg-white/[0.08] md:p-4">
+      <p className="text-2xs font-bold uppercase tracking-[0.18em] text-white/45">
         {label}
       </p>
       <p
@@ -149,7 +149,7 @@ function StatTile({
         {icon}
         {value}
       </p>
-      <p className="mt-1.5 truncate text-[11px] text-white/45">{caption}</p>
+      <p className="mt-1.5 truncate text-xs text-white/45">{caption}</p>
     </div>
   );
 }
@@ -356,7 +356,7 @@ export default function PlayerDetailPage() {
       <section className="space-y-6 animate-pulse">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-[380px] w-full rounded-2xl" />
-        <div className="grid gap-4 md:grid-cols-3"><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /></div>
+        <div className="grid gap-4 [&>*]:min-w-0 md:grid-cols-3"><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /></div>
       </section>
     );
   }
@@ -410,7 +410,7 @@ export default function PlayerDetailPage() {
   return (
     <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
       <section className="relative overflow-hidden bg-surface-inverse text-white">
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-zinc-900 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
         <div className="absolute right-6 top-6 select-none text-[140px] font-black leading-none text-white/5 md:text-[220px] md:right-12">
           {ranking ? String(ranking.position).padStart(2, "0") : initials(player.display_name)}
         </div>
@@ -434,7 +434,7 @@ export default function PlayerDetailPage() {
                     <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{ranking?.position ?? "—"} Liga16</Badge>
                     <Badge variant="outline" className="border-white/20 text-white">{sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}</Badge>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs backdrop-blur">
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> {jev.racha.label}
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-success" /> {jev.racha.label}
                     </span>
                   </div>
                 </div>
@@ -453,8 +453,8 @@ export default function PlayerDetailPage() {
                   icon={
                     ranking && ranking.delta !== 0 ? (
                       ranking.delta > 0
-                        ? <TrendingUp className="h-4 w-4 text-emerald-400" />
-                        : <TrendingDown className="h-4 w-4 text-red-400" />
+                        ? <TrendingUp className="h-4 w-4 text-success" />
+                        : <TrendingDown className="h-4 w-4 text-destructive" />
                     ) : (
                       <Minus className="h-4 w-4 text-white/40" />
                     )
@@ -467,7 +467,7 @@ export default function PlayerDetailPage() {
                       : "sin clasificar"
                   }
                 />
-                <StatTile label="Títulos" value={String(card?.titles ?? 0)} caption="en el circuito" icon={<Crown className="h-4 w-4 text-amber-400" />} />
+                <StatTile label="Títulos" value={String(card?.titles ?? 0)} caption="en el circuito" icon={<Crown className="h-4 w-4 text-warning" />} />
                 <StatTile label="% victoria" value={`${winPct}%`} caption={`${won} de ${played} PJ`} />
               </div>
 
@@ -553,9 +553,9 @@ export default function PlayerDetailPage() {
                   </div>
                 )}
                 {player.photo_url ? (
-                  <img src={player.photo_url} alt={player.display_name} className="h-[340px] w-[300px] object-cover object-top rounded-[1.5rem] border border-white/10 shadow-2xl md:h-[420px] md:w-[340px]" />
+                  <img src={player.photo_url} alt={player.display_name} className="h-[340px] w-[300px] object-cover object-top rounded-2xl border border-white/10 shadow-2xl md:h-[420px] md:w-[340px]" />
                 ) : (
-                  <div className="flex h-[340px] w-[300px] items-center justify-center rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-zinc-800 to-zinc-900 shadow-2xl md:h-[420px] md:w-[340px]">
+                  <div className="flex h-[340px] w-[300px] items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 shadow-2xl md:h-[420px] md:w-[340px]">
                     <span className="text-6xl font-black text-white/90">{initials(player.display_name)}</span>
                   </div>
                 )}
@@ -608,10 +608,10 @@ export default function PlayerDetailPage() {
               <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-primary cursor-help" />
             </Tooltip>
           </h3>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 [&>*]:min-w-0 md:grid-cols-3">
             {/* FORMA COMPETITIVA */}
             <Card className="group relative overflow-hidden border-primary/20 transition-all hover:shadow-md hover:-translate-y-0.5">
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-amber-400" />
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-warning" />
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Zap className="h-4 w-4 text-primary" />
@@ -683,7 +683,7 @@ export default function PlayerDetailPage() {
                     <p className="text-3xl font-black tabular-nums">{(jev.racha.probYes * 100).toFixed(0)}%</p>
                     <span className="text-xs text-muted-foreground">Prob. racha positiva (Noul)</span>
                   </div>
-                  <AnimatedBar value={jev.racha.probYes * 100} max={100} color={jev.racha.label === "en racha" ? "emerald" : jev.racha.label === "bache" ? "red" : "amber"} className="mt-2 h-2.5" />
+                  <AnimatedBar value={jev.racha.probYes * 100} max={100} color={jev.racha.label === "en racha" ? "success" : jev.racha.label === "bache" ? "destructive": "warning" } className="mt-2 h-2.5" />
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <Tooltip content="Consistencia = estabilidad del rendimiento. Basada solo en win rate: >70%=88 (Muy consistente), >55%=72 (Consistente), >40%=54, <40%=38 (Volátil).">
@@ -712,37 +712,17 @@ export default function PlayerDetailPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 [&>*]:min-w-0 lg:grid-cols-2">
           <Card className="overflow-hidden">
             <CardHeader className="pb-2 flex flex-row items-center justify-between"><CardTitle className="text-base">Últimos partidos</CardTitle><Badge variant="outline">{myMatches.length} en el sistema</Badge></CardHeader>
             <CardContent className="space-y-2">
-              {myMatches.length ? myMatches.slice(0, 10).map((m) => {
-                const isA = (m.side_a.pair_name ?? "").split("/").some((n) => n.trim().toLowerCase() === player.display_name.trim().toLowerCase());
-                const win = m.winner === (isA ? "a" : "b");
-                const rival = isA ? m.side_b.pair_name : m.side_a.pair_name;
-                const pending = m.status !== "finished";
-                return (
-                  <div key={m.id} className="group flex items-center gap-3 rounded-xl border p-3 transition-all hover:shadow-sm hover:border-primary/20">
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${pending ? "bg-muted text-muted-foreground" : win ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white"}`}>{pending ? "·" : win ? "G" : "P"}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold">vs {rival || "?"}</p>
-                      <p className="text-xs text-muted-foreground">{m.round}{m.tournament_name ? ` · ${m.tournament_name}` : ""}{m.scheduled_at ? ` · ${formatDate(m.scheduled_at.slice(0, 10))}` : ""}</p>
-                    </div>
-                    {pending ? (
-                      <Badge variant="outline">Por jugar</Badge>
-                    ) : (
-                      <MatchScoreboard
-                        sideA={m.side_a.pair_name}
-                        sideB={m.side_b.pair_name}
-                        sets={m.sets}
-                        winner={m.winner}
-                        status={m.status}
-                        size="sm"
-                      />
-                    )}
-                  </div>
-                );
-              }) : <p className="text-sm text-muted-foreground">Sin partidos todavía — aparecen cuando tu equipo tenga partidos en un torneo.</p>}
+              {myMatches.length ? (
+                myMatches.slice(0, 10).map((m) => (
+                  <MatchCard key={m.id} match={m} />
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Sin partidos todavía — aparecen cuando tu equipo tenga partidos en un torneo.</p>
+              )}
             </CardContent>
           </Card>
 
@@ -877,7 +857,7 @@ export default function PlayerDetailPage() {
                             </div>
                             <span
                               className={`shrink-0 font-mono text-sm font-semibold tabular-nums ${
-                                m.won ? "text-emerald-600" : "text-destructive"
+                                m.won ? "text-success" : "text-destructive"
                               }`}
                             >
                               {m.won ? "V" : "D"} {m.score}
@@ -923,7 +903,7 @@ export default function PlayerDetailPage() {
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Shirt className="h-4 w-4" /> Liga y compañero actual</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 [&>*]:min-w-0 sm:grid-cols-2">
                 <div className="rounded-xl border p-3">
                   <p className="text-xs text-muted-foreground">Equipo actual</p>
                   <p className="font-bold flex items-center gap-2"><Users className="h-4 w-4" /> {team?.name ?? "Sin equipo"}</p>
