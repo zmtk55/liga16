@@ -483,7 +483,6 @@ export default function AdminTournamentDetail() {
   const [matchDay, setMatchDay] = useState("all");
   const [matchCourt, setMatchCourt] = useState("all");
   const [matchCategory, setMatchCategory] = useState("all");
-  const [matchPlayer, setMatchPlayer] = useState("all");
   const [courts, setCourts] = useState<Court[]>([]);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [jornadaDay, setJornadaDay] = useState<string>(() => new Date().toISOString().split("T")[0]);
@@ -582,17 +581,6 @@ export default function AdminTournamentDetail() {
     }
     return null;
   }
-  /** Nombres de los jugadores de un partido (desde los nombres de equipos "A / B"). */
-  function matchPlayerTeamNames(m: Match): string[] {
-    const split = (n: string | null) => (n ?? "").split(" /").map((s) => s.trim()).filter(Boolean);
-    return [...split(m.side_a.pair_name), ...split(m.side_b.pair_name)];
-  }
-  const matchPlayerList = useMemo(() => {
-    const set = new Set<string>();
-    matches.forEach((m) => matchPlayerTeamNames(m).forEach((n) => set.add(n)));
-    return [...set].sort();
-  }, [matches]);
-
   const assignedIds = useMemo(() => new Set(groups.flatMap((g) => g.pairIds)), [groups]);
   const unassigned = useMemo(
     () => (pairs ?? []).filter((p) => !assignedIds.has(p.id)),
@@ -870,12 +858,8 @@ export default function AdminTournamentDetail() {
       // La categoría se lee del partido, no del texto de la ronda: es el dato,
       // no una convención de nombres.
       if (matchCategory !== "all" && matchCategoryName(m) !== matchCategory) return false;
-      if (matchPlayer !== "all") {
-        // Un equipo puede tener 2 jugadores con nombres distintos en cada lado — buscamos por nombre contenido
-        const pl = matchPlayer.toLowerCase();
-        const inA = matchPlayerTeamNames(m).some((n) => n.toLowerCase().includes(pl));
-        if (!inA) return false;
-      }
+      // La búsqueda por texto ya cubre jugadores: el nombre de la pareja
+      // es "Jugador1 / Jugador2", así que teclear un nombre filtra sus partidos.
       return true;
     })
     .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
@@ -1292,15 +1276,6 @@ return (
                     className: "w-44",
                   },
                   {
-                    key: "player",
-                    ariaLabel: "Filtrar por jugador",
-                    allLabel: "Todos los jugadores",
-                    value: matchPlayer,
-                    onChange: setMatchPlayer,
-                    options: matchPlayerList.map((p) => ({ value: p, label: p })),
-                    className: "w-48",
-                  },
-                  {
                     key: "day",
                     ariaLabel: "Filtrar por día",
                     allLabel: "Todos los días",
@@ -1323,8 +1298,8 @@ return (
                   },
                   {
                     key: "round",
-                    ariaLabel: "Filtrar por ronda",
-                    allLabel: "Todas las rondas",
+                    ariaLabel: "Filtrar por jornada",
+                    allLabel: "Todas las jornadas",
                     value: matchRound,
                     onChange: setMatchRound,
                     options: rounds.map((r) => ({ value: r, label: r })),
@@ -1336,7 +1311,6 @@ return (
                 onClear={() => {
                   setMatchQuery("");
                   setMatchCategory("all");
-                  setMatchPlayer("all");
                   setMatchDay("all");
                   setMatchCourt("all");
                   setMatchRound("all");
