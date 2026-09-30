@@ -16,6 +16,8 @@ export interface StandingLike {
 }
 
 export interface MyLine {
+  /** Total de sets del jugador en la muestra (opcional para compatibilidad). */
+  setsPlayed?: number;
   pairId: string;
   /** Partidos disputados. */
   played: number;
