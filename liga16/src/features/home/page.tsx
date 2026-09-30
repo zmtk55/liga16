@@ -9,13 +9,38 @@ import {
   MapPin,
 } from "lucide-react";
 import { db } from "@/lib/data";
-import type { Match, NewsItem, RankingEntry, Sponsor, Team, Tournament } from "@/types";
+import type {
+  Match,
+  NewsItem,
+  PadelDivision,
+  RankingEntry,
+  Sex,
+  Sponsor,
+  Team,
+  Tournament,
+} from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { tierLabel, formatDateRange, formatLabel, formatMatchDateTime } from "@/lib/format";
+import {
+  tierLabel,
+  formatDateRange,
+  formatLabel,
+  formatMatchDateTime,
+  sexShort,
+  winRate,
+} from "@/lib/format";
 
 const HERO_IMAGE = "/images/hero-padel.jpg";
+
+// Categorías del circuito en orden de publicación: 2 parejas por categoría.
+// La etiqueta visible usa el nombre real de la categoría cuando existe.
+const TEAM_GROUP_ORDER: Array<`${Sex}|${PadelDivision}`> = [
+  "F|5ta",
+  "F|4ta",
+  "F|6ta",
+  "M|6ta",
+];
 
 type HomeData = {
   tournaments: Tournament[];
@@ -28,9 +53,9 @@ type HomeData = {
 
 function initialsOf(name: string) {
   return name
-    .split(" ")
-    .map((part) => part[0])
+    .split(/\s*\/\s*|\s+/)
     .filter(Boolean)
+    .map((part) => part[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
@@ -66,29 +91,32 @@ function SectionHeading({
   );
 }
 
-function PairMark({ team }: { team: Team }) {
+/** Foto del equipo (crest); si no tiene, iniciales sobrias sin decoración. */
+function TeamCrest({
+  team,
+  sizeClass,
+  textClass,
+}: {
+  team: Team;
+  sizeClass: string;
+  textClass: string;
+}) {
   if (team.crest_url) {
     return (
       <img
         src={team.crest_url}
         alt=""
-        className="h-full w-full object-contain"
+        className={`${sizeClass} shrink-0 rounded-lg border bg-background object-cover`}
       />
     );
   }
-
   return (
-    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-surface-inverse text-white">
-      <span className="absolute -right-5 -top-12 font-headline text-[11rem] leading-none text-white/[0.07]">
-        16
-      </span>
-      <span className="relative font-headline text-6xl uppercase leading-none text-primary sm:text-7xl">
-        {initialsOf(team.name.replace("/", " "))}
-      </span>
-      <span className="absolute bottom-3 left-4 text-[9px] font-bold uppercase tracking-[0.28em] text-white/45">
-        Liga16
-      </span>
-    </div>
+    <span
+      aria-hidden
+      className={`${sizeClass} ${textClass} flex shrink-0 items-center justify-center rounded-lg border bg-primary/10 font-bold uppercase text-primary`}
+    >
+      {initialsOf(team.name)}
+    </span>
   );
 }
 
@@ -112,13 +140,28 @@ export default function Home() {
     };
   }, []);
 
-  const topPlayers = useMemo(() => stats?.rankings.slice(0, 3) ?? [], [stats]);
-  const featuredTeam = useMemo(() => {
-    if (!stats) return null;
-    return [...stats.teams].sort(
-      (a, b) => b.titles - a.titles || b.won - a.won || a.position - b.position,
-    )[0] ?? null;
+  // Parejas: top 2 de CADA categoría del circuito (datos completos por categoría).
+  const teamGroups = useMemo(() => {
+    if (!stats) return [];
+    return TEAM_GROUP_ORDER.map((key) => {
+      const [sex, division] = key.split("|") as [Sex, PadelDivision];
+      const inGroup = stats.teams.filter((t) => t.sex === sex && t.division === division);
+      if (inGroup.length === 0) return null;
+      const sorted = [...inGroup].sort(
+        (a, b) =>
+          (a.position || Number.MAX_SAFE_INTEGER) -
+            (b.position || Number.MAX_SAFE_INTEGER) ||
+          b.points - a.points ||
+          b.won - a.won,
+      );
+      return {
+        key,
+        label: inGroup[0]?.category_name ?? `Categoría ${division} · ${sexShort(sex)}`,
+        teams: sorted.slice(0, 2),
+      };
+    }).filter((g): g is NonNullable<typeof g> => g !== null);
   }, [stats]);
+  const featuredTeam = teamGroups[0]?.teams[0] ?? null;
 
   if (!stats) {
     return (
@@ -333,10 +376,10 @@ export default function Home() {
         </section>
       )}
 
-      {/* PAREJA + TOP 3 — dos piezas, no más tarjetas */}
-      <section className="grid grid-cols-1 gap-8 lg:grid-cols-5 lg:gap-5">
+      {/* PAREJAS — top por categoría, con foto cuando el equipo la sube */}
+      <section className="space-y-10">
         {featuredTeam && (
-          <div className="lg:col-span-3">
+          <div>
             <SectionHeading
               eyebrow="Pareja destacada"
               title="En dupla"
@@ -345,94 +388,84 @@ export default function Home() {
             />
             <Link
               to={`/equipos/${featuredTeam.slug}`}
-              className="group grid min-h-[390px] overflow-hidden rounded-2xl bg-primary text-primary-foreground sm:grid-cols-[0.85fr_1.15fr]"
+              className="group flex items-center gap-4 overflow-hidden rounded-xl bg-primary p-4 text-primary-foreground transition-colors hover:bg-primary/95 sm:gap-5 sm:p-5"
             >
-              <div className="min-h-64 border-b border-black/15 sm:border-b-0 sm:border-r">
-                <PairMark team={featuredTeam} />
+              <TeamCrest
+                team={featuredTeam}
+                sizeClass="h-14 w-14 sm:h-16 sm:w-16"
+                textClass="text-sm"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-primary-foreground/70">
+                  {featuredTeam.category_name ?? `División ${featuredTeam.division}`}
+                </p>
+                <h3 className="mt-1 truncate font-headline text-2xl uppercase leading-tight sm:text-3xl">
+                  {featuredTeam.name}
+                </h3>
+                <p className="mt-1 text-2xs font-semibold text-primary-foreground/80">
+                  Pos. {featuredTeam.position > 0 ? featuredTeam.position : "—"} ·{" "}
+                  {featuredTeam.points} pts · {featuredTeam.played} PJ ·{" "}
+                  {winRate(featuredTeam.played, featuredTeam.won)}% victorias
+                </p>
               </div>
-              <div className="flex flex-col justify-between p-6 sm:p-8">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-black/50">
-                    {featuredTeam.division}
-                  </p>
-                  <h3 className="mt-4 font-headline text-4xl uppercase leading-[0.94] sm:text-5xl">
-                    {featuredTeam.name}
-                  </h3>
-                </div>
-                <div className="mt-10">
-                  <div className="grid grid-cols-2 gap-4 border-y border-black/20 py-4">
-                    <div>
-                      <p className="font-headline text-4xl">{featuredTeam.won}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/55">
-                        Victorias
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-headline text-4xl">{featuredTeam.titles}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/55">
-                        Títulos
-                      </p>
-                    </div>
-                  </div>
-                  <span className="mt-5 inline-flex items-center text-sm font-bold uppercase tracking-wide">
-                    Ver perfil
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </div>
+              <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         )}
 
-        <div className="lg:col-span-2">
+        <div>
           <SectionHeading
-            eyebrow="Clasificación"
-            title="Top 3"
-            to="/ranking"
-            action="Ver todo"
+            eyebrow="Parejas"
+            title="Top por categoría"
+            to="/equipos"
+            action="Ver todas"
           />
-          <div className="grid min-h-[390px] grid-cols-2 gap-2 overflow-hidden rounded-2xl bg-muted p-2">
-            {topPlayers.map((player, index) => (
-              <Link
-                key={player.player_id}
-                to={`/jugadores/${player.player_id}`}
-                className={`group flex flex-col justify-between overflow-hidden rounded-xl p-4 transition-transform hover:-translate-y-0.5 sm:p-5 ${
-                  index === 0
-                    ? "col-span-2 min-h-44 bg-surface-inverse text-white"
-                    : "min-h-36 bg-card text-foreground"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span
-                    className={`font-headline text-5xl leading-none ${
-                      index === 0 ? "text-primary" : "text-primary/35"
-                    }`}
-                  >
-                    {String(player.position).padStart(2, "0")}
-                  </span>
-                  <ChevronRight className="h-4 w-4 opacity-35 transition-transform group-hover:translate-x-1" />
-                </div>
-                <div className="mt-6">
-                  <p
-                    className={`font-semibold leading-tight ${
-                      index === 0 ? "text-xl sm:text-2xl" : "text-base"
-                    }`}
-                  >
-                    {player.player_name}
+          <div className="space-y-3">
+            {teamGroups.map((group) => (
+              <div key={group.key} className="overflow-hidden rounded-xl border bg-card">
+                <div className="flex items-center justify-between gap-3 border-b bg-muted/50 px-4 py-2.5">
+                  <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-foreground/80">
+                    {group.label}
                   </p>
-                  <p
-                    className={`mt-1 text-[10px] font-bold uppercase tracking-[0.15em] ${
-                      index === 0 ? "text-white/45" : "text-muted-foreground"
-                    }`}
+                  <Link
+                    to="/ranking"
+                    className="inline-flex shrink-0 items-center text-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    {player.city} · {player.won} victorias
-                  </p>
+                    Tabla <ChevronRight className="h-3 w-3" />
+                  </Link>
                 </div>
-              </Link>
+                <div className="divide-y">
+                  {group.teams.map((team) => (
+                    <Link
+                      key={team.id}
+                      to={`/equipos/${team.slug}`}
+                      className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60"
+                    >
+                      <TeamCrest team={team} sizeClass="h-9 w-9" textClass="text-2xs" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold leading-tight">
+                          {team.name}
+                        </span>
+                        <span className="mt-0.5 block truncate text-caption text-muted-foreground">
+                          {team.category_name ?? `División ${team.division}`}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block font-headline text-lg leading-none text-primary">
+                          {team.position > 0 ? `#${team.position}` : "—"}
+                        </span>
+                        <span className="mt-0.5 block text-2xs text-muted-foreground">
+                          {team.points} pts · {team.played} PJ
+                        </span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
-            {topPlayers.length === 0 && (
-              <p className="col-span-2 self-center p-8 text-center text-sm text-muted-foreground">
-                La clasificación estará disponible muy pronto.
+            {teamGroups.length === 0 && (
+              <p className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">
+                Las parejas inscritas aparecerán aquí, organizadas por categoría.
               </p>
             )}
           </div>

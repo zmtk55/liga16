@@ -41,6 +41,7 @@ import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader } from "@/components/admin/page-header";
+import ImageUpload from "@/components/ui/image-upload";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
@@ -49,6 +50,7 @@ interface EquipoForm {
   category_id: string;
   player1_name: string;
   player2_name: string;
+  crest_url: string | null;
 }
 
 /** Nombre automático con los jugadores; respeta edición manual. */
@@ -60,10 +62,10 @@ export default function AdminTeams() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [tid, setTid] = useState<string>("");
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
-  const [pairs, setPairs] = useState<Array<{ id: string; name: string; category_id: string | null }> | null>(null);
+  const [pairs, setPairs] = useState<Array<{ id: string; name: string; category_id: string | null; crest_url: string | null }> | null>(null);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
-  const [editing, setEditing] = useState<{ id: string; name: string; category_id: string | null } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; category_id: string | null; crest_url: string | null } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("all");
@@ -86,13 +88,13 @@ export default function AdminTeams() {
     setPairs(null);
     db.getTournamentCategories(tid).then(setCategories).catch(() => setCategories([]));
     db.getTournamentPairs(tid)
-      .then((ps) => setPairs(ps as unknown as Array<{ id: string; name: string; category_id: string | null }>))
+      .then((ps) => setPairs(ps as unknown as Array<{ id: string; name: string; category_id: string | null; crest_url: string | null }>))
       .catch(() => setPairs([]));
   }, [tid]);
 
   const load = () => {
     db.getTournamentPairs(tid)
-      .then((ps) => setPairs(ps as unknown as Array<{ id: string; name: string; category_id: string | null }>))
+      .then((ps) => setPairs(ps as unknown as Array<{ id: string; name: string; category_id: string | null; crest_url: string | null }>))
       .catch(() => setPairs([]));
   };
 
@@ -146,10 +148,10 @@ export default function AdminTeams() {
       ]);
       const name = form.name.trim() || autoName(form);
       if (editing) {
-        await db.updatePair(editing.id, { name, category_id: form.category_id || null });
+        await db.updatePair(editing.id, { name, category_id: form.category_id || null, crest_url: form.crest_url });
         toast.success(`Equipo "${name}" actualizado`);
       } else {
-        await db.createPair({ tournament_id: tid, category_id: form.category_id || null, name, player1_id: prof1?.id ?? null, player2_id: prof2?.id ?? null });
+        await db.createPair({ tournament_id: tid, category_id: form.category_id || null, name, player1_id: prof1?.id ?? null, player2_id: prof2?.id ?? null, crest_url: form.crest_url });
         toast.success(`Equipo "${name}" inscrito en el torneo`);
       }
       setOpenCreate(false);
@@ -351,7 +353,7 @@ function EquipoDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: EquipoForm) => void;
-  editing: { id: string; name: string; category_id: string | null } | null;
+  editing: { id: string; name: string; category_id: string | null; crest_url: string | null } | null;
   submitting: boolean;
   players: PlayerProfile[];
   categories: TournamentCategory[];
@@ -364,12 +366,14 @@ function EquipoDialog({
         category_id: editing.category_id ?? "",
         player1_name: p1 ?? "",
         player2_name: p2 ?? "",
+        crest_url: editing.crest_url ?? null,
       };
     }
-    return { name: "", category_id: categories[0]?.id ?? "", player1_name: "", player2_name: "" };
+    return { name: "", category_id: categories[0]?.id ?? "", player1_name: "", player2_name: "", crest_url: null };
   });
   // El nombre dejó de ser automático cuando el usuario lo edita a mano
   const [manualName, setManualName] = useState(Boolean(editing?.name));
+  const [crest, setCrest] = useState<string | null>(editing?.crest_url ?? null);
 
   function setPlayers(slot: 1 | 2, name: string) {
     setForm((f) => {
@@ -379,6 +383,11 @@ function EquipoDialog({
   }
 
   const valid = form.player1_name.trim() && form.player2_name.trim();
+
+  // Foto del equipo sincronizada con el estado del formulario
+  useEffect(() => {
+    setForm((f) => (f.crest_url === crest ? f : { ...f, crest_url: crest }));
+  }, [crest]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -391,6 +400,22 @@ function EquipoDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
+          <div className="flex items-center gap-4 rounded-lg border bg-muted/30 p-3">
+            <ImageUpload
+              id="team-crest"
+              value={crest}
+              onChange={setCrest}
+              label="Foto del equipo"
+              size="lg"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Foto del equipo</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Logo o escudo de la pareja. Aparece en la pareja destacada de la página principal y en el perfil del equipo.
+              </p>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <PlayerSlot
               label="Jugador 1"

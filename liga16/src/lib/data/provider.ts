@@ -44,8 +44,8 @@ export interface DataProvider {
   deleteTournamentCategory(id: string): Promise<void>;
   getTournamentPairs(tournamentId: string): Promise<Pair[]>;
   listAllPairs(): Promise<Array<{ id: UUID; name: string; category_id: UUID | null; category_name: string | null; tournament_id: UUID | null; tournament_name: string | null; created_at: string | null }>>;
-  createPair(data: { tournament_id: UUID; category_id?: UUID | null; name: string; seed?: number | null; player1_id?: UUID | null; player2_id?: UUID | null }): Promise<Pair>;
-  updatePair(id: UUID, data: { name?: string; category_id?: UUID | null; seed?: number | null; tournament_id?: UUID }): Promise<Pair>;
+  createPair(data: { tournament_id: UUID; category_id?: UUID | null; name: string; seed?: number | null; player1_id?: UUID | null; player2_id?: UUID | null; crest_url?: string | null }): Promise<Pair>;
+  updatePair(id: UUID, data: { name?: string; category_id?: UUID | null; seed?: number | null; tournament_id?: UUID; crest_url?: string | null }): Promise<Pair>;
   deletePair(id: UUID): Promise<boolean>;
   listMatchesByTournament(tournamentId: string): Promise<Match[]>;
   createMatches(matches: Array<Omit<Match, 'id'>>): Promise<Match[]>;

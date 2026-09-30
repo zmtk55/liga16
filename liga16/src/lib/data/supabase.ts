@@ -56,6 +56,7 @@ interface PairRow {
   name: string;
   player1_id: string | null;
   player2_id: string | null;
+  crest_url: string | null;
   created_at: string | null;
   tournament_categories: { id: string; name: string; sex: string | null } | null;
   tournaments: { id: string; name: string; city: string | null } | null;
@@ -80,7 +81,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
   const [pairsRes, matchesRes] = await Promise.all([
     client()
       .from('pairs')
-      .select('id, name, category_id, player1_id, player2_id, created_at, tournament_categories(id, name, sex), tournaments(id, name, city)')
+      .select('id, name, category_id, player1_id, player2_id, crest_url, created_at, tournament_categories(id, name, sex), tournaments(id, name, city)')
       .order('created_at', { ascending: false }),
     client()
       .from('matches')
@@ -97,12 +98,12 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
   );
   const playersById = new Map<
     string,
-    { display_name: string; city: string | null; sex: string | null; level: number }
+    { display_name: string; city: string | null; sex: string | null; level: number; photo_url: string | null }
   >();
   if (playerIds.length) {
     const { data: profs, error: profErr } = await client()
       .from('player_profiles')
-      .select('id, display_name, city, sex, declared_level, official_level')
+      .select('id, display_name, city, sex, photo_url, declared_level, official_level')
       .in('id', playerIds);
     if (profErr) throw profErr;
     for (const p of (profs ?? []) as Array<Record<string, unknown>>) {
@@ -110,6 +111,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
         display_name: (p.display_name as string) ?? '',
         city: (p.city as string) ?? null,
         sex: (p.sex as string) ?? null,
+        photo_url: (p.photo_url as string | null) ?? null,
         level:
           typeof p.official_level === 'number'
             ? p.official_level
@@ -175,7 +177,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       id: row.id,
       slug,
       name: row.name,
-      crest_url: null,
+      crest_url: row.crest_url ?? null,
       city,
       club_id: null,
       division: divisionFromCategoryName(catName),
@@ -183,6 +185,8 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       sex,
       player1: p1 ? { player_id: row.player1_id as string, name: p1.display_name, level: p1.level } : null,
       player2: p2 ? { player_id: row.player2_id as string, name: p2.display_name, level: p2.level } : null,
+      photo1_url: p1?.photo_url ?? null,
+      photo2_url: p2?.photo_url ?? null,
       position: 0,
       points: acc.points,
       played: acc.played,
@@ -377,22 +381,23 @@ export const supabaseProvider: DataProvider = {
     return (data ?? []) as never;
   },
 
-  async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null; player1_id?: string | null; player2_id?: string | null }) {
+  async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null; player1_id?: string | null; player2_id?: string | null; crest_url?: string | null }) {
     const { data: result, error } = await client()
       .from('pairs')
-      .insert({ tournament_id: data.tournament_id, category_id: data.category_id ?? null, name: data.name, seed: data.seed ?? null, status: 'confirmed', player1_id: data.player1_id ?? null, player2_id: data.player2_id ?? null })
+      .insert({ tournament_id: data.tournament_id, category_id: data.category_id ?? null, name: data.name, seed: data.seed ?? null, status: 'confirmed', player1_id: data.player1_id ?? null, player2_id: data.player2_id ?? null, crest_url: data.crest_url ?? null })
       .select()
       .single();
     if (error) throw error;
     return result as never;
   },
 
-  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; tournament_id?: string }) {
+  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; tournament_id?: string; crest_url?: string | null }) {
     const patch: Record<string, unknown> = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.category_id !== undefined) patch.category_id = data.category_id;
     if (data.seed !== undefined) patch.seed = data.seed;
     if (data.tournament_id !== undefined) patch.tournament_id = data.tournament_id;
+    if (data.crest_url !== undefined) patch.crest_url = data.crest_url;
     const { data: result, error } = await client()
       .from('pairs').update(patch).eq('id', id).select().single();
     if (error) throw error;

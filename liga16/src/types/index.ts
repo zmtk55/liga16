@@ -293,6 +293,9 @@ export interface Team {
   sex: Sex;                  // M, F, X
   player1: { player_id: UUID; name: string; level: number } | null;
   player2: { player_id: UUID; name: string; level: number } | null;
+  /** Foto/avatar de cada jugador de la pareja (opcional). */
+  photo1_url?: string | null;
+  photo2_url?: string | null;
   position: number;          // Posición en la división
   points: number;            // Puntos de liga
   played: number;
