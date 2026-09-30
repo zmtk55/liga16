@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet } from "react-router";
 import {
   Activity,
   BarChart3,
+  Bell,
   Building2,
   ClipboardList,
   ExternalLink,
@@ -183,6 +184,19 @@ export default function AdminLayout() {
               </SheetContent>
             </Sheet>
             <AdminBrand />
+            <Button asChild variant="ghost" size="icon" className="relative" aria-label={`Bandeja de entrada (${alertCount})`}>
+              <Link to="/admin/inbox">
+                <Bell className="h-5 w-5" />
+                {alertCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-0.5 -right-0.5 h-5 min-w-[20px] rounded-full px-[3px]"
+                  >
+                    {alertCount}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
             <Button asChild variant="ghost" size="sm">
               <Link to="/">Salir</Link>
             </Button>
