@@ -737,7 +737,13 @@ export default function AdminTournamentDetail() {
       if (matchRound !== "all" && m.round !== matchRound) return false;
       if (matchDay !== "all" && !(m.scheduled_at ?? "").startsWith(matchDay)) return false;
       if (matchCourt !== "all" && m.court_name !== matchCourt) return false;
-      if (matchCategory !== "all" && !m.round.startsWith(`${matchCategory} ·`)) return false;
+      // La categoría es el prefijo de la ronda ("Suma 9 varonil · Jornada 1")
+      // o, en torneos sin prefijo, coincide con la ronda completa.
+      if (
+        matchCategory !== "all" &&
+        !(m.round === matchCategory || m.round.startsWith(`${matchCategory} ·`))
+      )
+        return false;
       if (matchPlayer !== "all") {
         // Un equipo puede tener 2 jugadores con nombres distintos en cada lado — buscamos por nombre contenido
         const pl = matchPlayer.toLowerCase();
@@ -1729,7 +1735,7 @@ function GroupStandingsCard({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between gap-2 text-sm">
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="flex items-center gap-2">
             {group.name}
             {liga16Cat && <Badge variant="secondary" className="text-xs">Liga16: {liga16Cat}</Badge>}
