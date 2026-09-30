@@ -15,10 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
+import { groupByDivision } from "@/lib/categories";
 
 /**
  * Ranking de PAREJAS, derivado.
@@ -44,18 +45,28 @@ export default function AdminRanking() {
   }, []);
 
   const filtered = useMemo(() => {
-    const order = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
     const q = query.trim().toLowerCase();
     return [...(teams ?? [])]
       .filter((t) => (division === "all" || t.division === division) && (sex === "all" || t.sex === sex))
       .filter((t) => !q || t.name.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const da = order.indexOf(a.division);
-        const dbOrder = order.indexOf(b.division);
-        if (da !== dbOrder) return da - dbOrder;
-        return a.position - b.position || b.points - a.points;
-      });
+      .sort((a, b) => a.position - b.position || b.points - a.points);
   }, [teams, query, division, sex]);
+
+  /**
+   * Cifras de cabecera. La posición de una pareja solo significa algo dentro de
+   * su división, así que "en el corte" se cuenta por grupo y no sobre la lista
+   * completa mezclada.
+   */
+  const resumen = useMemo(() => {
+    const conPartidos = (teams ?? []).filter((t) => t.played > 0);
+    const grupos = groupByDivision(conPartidos.length > 0 ? conPartidos : (teams ?? []));
+    return {
+      parejas: (teams ?? []).length,
+      conPartidos: conPartidos.length,
+      divisiones: grupos.length,
+      cortes: grupos.filter((g) => g.teams.some((t) => t.position === 1)).length,
+    };
+  }, [teams]);
 
   return (
     <div className="space-y-5">
@@ -67,7 +78,18 @@ export default function AdminRanking() {
             <BarChart3 className="h-3.5 w-3.5" /> Derivado
           </Badge>
         }
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={resumen.parejas} label="Parejas" />
+          <AdminStat value={resumen.conPartidos} label="Con partidos" />
+          <AdminStat value={resumen.divisiones} label="Divisiones" />
+          <AdminStat
+            value={resumen.cortes}
+            label="Con líder"
+            tone="text-primary"
+          />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">

@@ -32,7 +32,7 @@ import {
 import { toast } from "sonner";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 import { FolderInput, Trash2, UsersRound } from "lucide-react";
@@ -98,6 +98,21 @@ export default function AdminParticipants() {
     return true;
   });
 
+  /**
+   * Cifras de cabecera. Se cuenta por torneo —cada torneo es su propio
+   * circuito— y no un total que mezcle todos los torneos en un solo número.
+   */
+  const resumen = useMemo(() => {
+    const all = pairs ?? [];
+    const conTorneo = all.filter((p) => Boolean(p.tournament_id));
+    return {
+      parejas: all.length,
+      torneos: new Set(conTorneo.map((p) => p.tournament_id)).size,
+      sinTorneo: all.length - conTorneo.length,
+      sinCategoria: all.filter((p) => !p.category_id).length,
+    };
+  }, [pairs]);
+
   async function handleDelete(p: AllPair) {
     setBusy(true);
     try {
@@ -143,7 +158,22 @@ export default function AdminParticipants() {
       <AdminPageHeader
         title="Participantes"
         description="Todas las parejas de todos los torneos, en una sola vista."
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={resumen.parejas} label="Parejas" />
+          <AdminStat value={resumen.torneos} label="Torneos" />
+          <AdminStat
+            value={resumen.sinTorneo}
+            label="Sin torneo"
+            tone={resumen.sinTorneo > 0 ? "text-amber-600 dark:text-amber-400" : undefined}
+          />
+          <AdminStat
+            value={resumen.sinCategoria}
+            label="Sin categoría"
+            tone={resumen.sinCategoria > 0 ? "text-amber-600 dark:text-amber-400" : undefined}
+          />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       <Card>
         <CardHeader className="gap-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { Sponsor } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 
 const TIER_OPTIONS = [
@@ -62,6 +62,17 @@ export default function AdminSponsors() {
   }, []);
 
   const load = () => db.listSponsors().then(setList);
+
+  /** Cifras de cabecera: el patrocinio que se publica y el que todavia no. */
+  const resumen = useMemo(() => {
+    const all = list ?? [];
+    return {
+      total: all.length,
+      conLogo: all.filter((p) => p.logo_url).length,
+      principales: all.filter((p) => p.tier === 'principal').length,
+      conSitio: all.filter((p) => p.website).length,
+    };
+  }, [list]);
 
   async function handleSave(form: SponsorForm) {
     setSubmitting(true);
@@ -105,7 +116,18 @@ export default function AdminSponsors() {
             <Plus className="h-4 w-4" /> Nuevo patrocinador
           </Button>
         }
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={resumen.total} label="Patrocinadores" />
+          <AdminStat
+            value={resumen.conLogo}
+            label="Con logo"
+            tone={resumen.conLogo > 0 ? "text-success" : "text-amber-600 dark:text-amber-400"}
+          />
+          <AdminStat value={resumen.principales} label="Principales" tone="text-primary" />
+          <AdminStat value={resumen.conSitio} label="Con sitio web" />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       <Card>
         <CardContent className="overflow-x-auto p-0">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { NewsItem } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,7 +35,7 @@ import { Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 
@@ -92,6 +92,17 @@ export default function AdminNews() {
 
   const dialogKey = editing?.id ?? "new";
   const [deleting, setDeleting] = useState<NewsItem | null>(null);
+  /** Cifras de cabecera: lo publicado y lo que aun no tiene foto ni fecha. */
+  const resumen = useMemo(() => {
+    const all = list ?? [];
+    const hoy = new Date().toISOString().slice(0, 10);
+    return {
+      total: all.length,
+      publicadas: all.filter((x) => (x.published_at ?? '') <= hoy).length,
+      conFoto: all.filter((x) => x.image_url).length,
+      esteMes: all.filter((x) => (x.published_at ?? '').slice(0, 7) === hoy.slice(0, 7)).length,
+    };
+  }, [list]);
 
   return (
     <div className="space-y-5">
@@ -103,7 +114,18 @@ export default function AdminNews() {
             <Plus className="h-4 w-4" /> Nueva noticia
           </Button>
         }
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={resumen.total} label="Noticias" />
+          <AdminStat value={resumen.publicadas} label="Publicadas" tone="text-success" />
+          <AdminStat value={resumen.esteMes} label="Este mes" tone="text-primary" />
+          <AdminStat
+            value={resumen.conFoto}
+            label="Con imagen"
+            tone={resumen.conFoto > 0 ? "text-success" : "text-amber-600 dark:text-amber-400"}
+          />
+        </AdminStatStrip>
+      </AdminPageHeader>
       <Card>
         <CardContent className="overflow-x-auto p-0">
           <Table>

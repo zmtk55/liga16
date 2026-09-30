@@ -37,7 +37,7 @@ import type { PlayerStatus } from "@/types";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 
@@ -68,6 +68,7 @@ export default function AdminPlayers() {
   // Filtro por torneo: los jugadores que juegan en él (via equipos inscritos)
   const [tournaments, setTournaments] = useState<Array<{ id: string; name: string }>>([]);
   const [tid, setTid] = useState("all");
+  /** Ids de los jugadores inscritos en el torneo filtrado. */
   const [tournamentPlayers, setTournamentPlayers] = useState<Set<string>>(new Set());
   const [verification, setVerification] = useState("all");
 
@@ -78,7 +79,7 @@ export default function AdminPlayers() {
     .filter((p) => {
       const q = query.trim().toLowerCase();
       if (q && !p.display_name.toLowerCase().includes(q) && !p.username.toLowerCase().includes(q)) return false;
-      if (tid !== "all" && !tournamentPlayers.has(p.display_name.trim().toLowerCase())) return false;
+      if (tid !== "all" && !tournamentPlayers.has(p.id)) return false;
       if (verification !== "all" && statusOf(p) !== verification) return false;
       return true;
     })
@@ -99,16 +100,16 @@ export default function AdminPlayers() {
       setTournamentPlayers(new Set());
       return;
     }
-    // Jugadores del torneo = jugadores de sus equipos inscritos ("A / B")
+    // Jugadores del torneo = los ids de los equipos inscritos. Se usa el id y
+    // no el nombre: dos jugadores homónimos, o una pareja renombrada, romperían
+    // el filtro sin avisar.
     db.getTournamentPairs(tid).then((ps) => {
-      const names = new Set<string>();
-      (ps as unknown as Array<{ name: string }>).forEach((p) => {
-        p.name.split(" /").forEach((n) => {
-          const clean = n.trim().toLowerCase();
-          if (clean) names.add(clean);
-        });
+      const ids = new Set<string>();
+      ps.forEach((p) => {
+        if (p.player1_id) ids.add(p.player1_id);
+        if (p.player2_id) ids.add(p.player2_id);
       });
-      setTournamentPlayers(names);
+      setTournamentPlayers(ids);
     }).catch(() => setTournamentPlayers(new Set()));
   }, [tid]);
 
@@ -167,22 +168,40 @@ export default function AdminPlayers() {
         title="Jugadores"
         description="Directorio de jugadores, nivel y rama de juego."
         action={
-          pendingCount > 0 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setVerification((v) => (v === "pendiente" ? "all" : "pendiente"))}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              {pendingCount} por verificar
-            </Button>
-          ) : (
+          <>
+            {pendingCount > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setVerification((v) => (v === "pendiente" ? "all" : "pendiente"))}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {pendingCount} por verificar
+              </Button>
+            )}
+            {/* Siempre visible: verificar pendientes no puede quitarte la
+                acción de crear un jugador. */}
             <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
               <Plus className="h-4 w-4" /> Nuevo jugador
             </Button>
-          )
+          </>
         }
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={list?.length ?? 0} label="Jugadores" />
+          <AdminStat
+            value={pendingCount}
+            label="Por verificar"
+            tone={pendingCount > 0 ? "text-amber-600 dark:text-amber-400" : undefined}
+          />
+          <AdminStat
+            value={(list ?? []).filter((p) => (p.status ?? "verificado") === "verificado").length}
+            label="Verificados"
+            tone="text-success"
+          />
+          <AdminStat value={tournaments.length} label="Torneos" />
+        </AdminStatStrip>
+      </AdminPageHeader>
       <Card>
         <CardHeader className="gap-3">
           <FilterBar

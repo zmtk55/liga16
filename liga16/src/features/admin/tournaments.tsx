@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
@@ -17,7 +17,7 @@ import { ExternalLink, Pencil, Plus, Trash2, Trophy } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
@@ -39,6 +39,17 @@ export default function AdminTournaments() {
   });
 
   const [deleting, setDeleting] = useState<Tournament | null>(null);
+
+  /** Cifras de cabecera: qué está vivo, qué se puede abrir y qué ya pasó. */
+  const resumen = useMemo(() => {
+    const all = list ?? [];
+    return {
+      total: all.length,
+      enJuego: all.filter((t) => t.status === "in_progress").length,
+      abiertos: all.filter((t) => t.status === "registration_open").length,
+      terminados: all.filter((t) => t.status === "finished").length,
+    };
+  }, [list]);
 
   async function handleDelete(t: Tournament) {
     try {
@@ -64,7 +75,22 @@ export default function AdminTournaments() {
             </Link>
           </Button>
         }
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={resumen.total} label="Torneos" />
+          <AdminStat
+            value={resumen.enJuego}
+            label="En juego"
+            tone={resumen.enJuego > 0 ? "text-primary" : undefined}
+          />
+          <AdminStat
+            value={resumen.abiertos}
+            label="Inscripciones abiertas"
+            tone={resumen.abiertos > 0 ? "text-success" : undefined}
+          />
+          <AdminStat value={resumen.terminados} label="Terminados" />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       <Card>
         <CardHeader className="gap-3">

@@ -13,7 +13,7 @@ import { MapPin, Phone, Pencil, Plus, Trash2, ImagePlus, X } from "lucide-react"
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 export default function AdminClubs() {
@@ -106,7 +106,22 @@ export default function AdminClubs() {
             </Button>
           ) : undefined
         }
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={courts.length} label="Canchas" />
+          <AdminStat
+            value={club ? (club.phone ? "Sí" : "No") : "—"}
+            label="Teléfono"
+            tone={club && !club.phone ? "text-amber-600 dark:text-amber-400" : undefined}
+          />
+          <AdminStat
+            value={club ? (club.city || club.address ? "Sí" : "No") : "—"}
+            label="Ubicación"
+            tone={club && !(club.city || club.address) ? "text-amber-600 dark:text-amber-400" : undefined}
+          />
+          <AdminStat value={club ? (club.photo_url ? "Sí" : "No") : "—"} label="Foto" />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       {editing ? (
         <Card>

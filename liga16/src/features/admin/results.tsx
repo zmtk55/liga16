@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { Match, SetScore, Tournament } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -37,7 +37,7 @@ import type { MatchStatus } from "@/types";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { MatchScoreboard } from "@/components/match-scoreboard";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { MatchStatusBadge } from "@/components/admin/status-badge";
 import { matchStatusLabel } from "@/lib/format";
@@ -46,7 +46,7 @@ import {
   normalizeScoring,
   validateScoring,
 } from "@/lib/scoring";
-import { Plus, Trash2, Trophy } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Trophy } from "lucide-react";
 
 const STATUS_OPTIONS = Object.entries(matchStatusLabel).map(([value, label]) => ({ value, label }));
 
@@ -125,12 +125,53 @@ export default function AdminResults() {
 
   const editingMatch = list?.find((m) => m.id === editingId) ?? null;
 
+  /**
+   * Cifras de cabecera. Lo que importa en esta pantalla es el trabajo que
+   * falta: partidos sin capturar y partidos en juego. Lo terminado es contexto.
+   */
+  const resumen = useMemo(() => {
+    const all = list ?? [];
+    return {
+      total: all.length,
+      porCapturar: all.filter((m) => m.status === "scheduled").length,
+      enJuego: all.filter((m) => m.status === "live").length,
+      terminados: all.filter((m) => m.status === "finished").length,
+    };
+  }, [list]);
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
         title="Resultados"
         description="Captura sets, juegos y tie-breaks de cada partido."
-      />
+        action={
+          resumen.porCapturar > 0 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setFStatus((s) => (s === "scheduled" ? "all" : "scheduled"))}
+            >
+              <ClipboardList className="h-4 w-4" />
+              {resumen.porCapturar} por capturar
+            </Button>
+          ) : undefined
+        }
+      >
+        <AdminStatStrip>
+          <AdminStat value={resumen.total} label="Partidos" />
+          <AdminStat
+            value={resumen.porCapturar}
+            label="Por capturar"
+            tone={resumen.porCapturar > 0 ? "text-primary" : undefined}
+          />
+          <AdminStat
+            value={resumen.enJuego}
+            label="En juego"
+            tone={resumen.enJuego > 0 ? "text-destructive" : undefined}
+          />
+          <AdminStat value={resumen.terminados} label="Terminados" tone="text-success" />
+        </AdminStatStrip>
+      </AdminPageHeader>
       <Card>
         <CardHeader className="gap-3">
           <FilterBar

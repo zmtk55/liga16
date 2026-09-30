@@ -40,7 +40,7 @@ import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import ImageUpload, { deleteStoredImage } from "@/components/ui/image-upload";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -106,6 +106,26 @@ export default function AdminTeams() {
     if (cat !== "all" && (p.category_id ?? "") !== cat) return false;
     return true;
   });
+
+  /**
+   * Cifras de cabecera. Una categoría es una competencia cerrada —las parejas de
+   * 4tas no juegan con las de 5tas—, así que el reparto se cuenta por categoría
+   * y no como un total quemezcla divisiones.
+   */
+  const resumen = useMemo(() => {
+    const all = pairs ?? [];
+    const porCategoria = new Map<string, number>();
+    for (const p of all) {
+      const k = p.category_id ?? "";
+      porCategoria.set(k, (porCategoria.get(k) ?? 0) + 1);
+    }
+    return {
+      parejas: all.length,
+      categorias: categories.length,
+      conEscudo: all.filter((p) => p.crest_url).length,
+      completas: [...porCategoria.values()].filter((n) => n >= 2).length,
+    };
+  }, [pairs, categories]);
 
   async function handleSave(form: EquipoForm) {
     const p1 = form.player1_name.trim();
@@ -195,7 +215,18 @@ export default function AdminTeams() {
             <Plus className="h-4 w-4" /> Inscribir pareja
           </Button>
         }
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={resumen.parejas} label="Parejas" />
+          <AdminStat value={resumen.categorias} label="Categorías" />
+          <AdminStat
+            value={resumen.completas}
+            label="Con rival"
+            tone={resumen.completas > 0 ? "text-success" : undefined}
+          />
+          <AdminStat value={resumen.conEscudo} label="Con escudo" />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       {/* Cada torneo tiene sus propios equipos: el selector es contexto, no un filtro más. */}
       <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-center">
