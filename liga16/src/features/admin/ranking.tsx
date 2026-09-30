@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { BarChart3, ClipboardList, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, BarChart3, ClipboardList, Minus } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Team } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -18,7 +18,6 @@ import {
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { analyzePairLocal } from "@/lib/jev";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
 
 /**
@@ -126,23 +125,20 @@ export default function AdminRanking() {
                 <TableHead className="text-right">Puntos</TableHead>
                 <TableHead className="text-right">Record</TableHead>
                 <TableHead className="text-right">División / Rama</TableHead>
-                <TableHead>Desempeño</TableHead>
                 <TableHead>Forma</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {teams === null && <AdminTableSkeleton columns={7} />}
+              {teams === null && <AdminTableSkeleton columns={6} />}
               {teams !== null && filtered.length === 0 && (
                 <AdminTableEmpty
-                  colSpan={7}
+                  colSpan={6}
                   icon={<BarChart3 className="h-5 w-5" />}
                   title="No hay parejas en este filtro"
                   description="Las parejas se inscriben desde Equipos y sus resultados se capturan en Resultados."
                 />
               )}
-              {filtered.map((t) => {
-                const perf = analyzePairLocal({ played: t.played, won: t.won });
-                return (
+              {filtered.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell className="font-headline text-lg text-muted-foreground">
                       {t.position > 0 ? t.position : "—"}
@@ -172,25 +168,16 @@ export default function AdminRanking() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm font-medium">{perf.formaLabel}</span>
-                      <div className="text-xs text-muted-foreground capitalize">
-                        {perf.racha.label}
-                        {perf.racha.won + perf.racha.lost > 0 &&
-                          ` · ${perf.racha.won}G ${perf.racha.lost}P`}
-                      </div>
-                    </TableCell>
-                    <TableCell>
                       {t.won > t.lost ? (
-                        <TrendingUp className="h-4 w-4 text-success" aria-label="En racha" />
+                        <ArrowUpRight className="h-4 w-4 text-success" aria-label="En racha" />
                       ) : t.won < t.lost ? (
-                        <TrendingDown className="h-4 w-4 text-destructive" aria-label="En baja" />
+                        <ArrowDownRight className="h-4 w-4 text-destructive" aria-label="En baja" />
                       ) : (
                         <Minus className="h-4 w-4 text-muted-foreground" aria-label="Estable" />
                       )}
                     </TableCell>
                   </TableRow>
-                );
-              })}
+              ))}
             </TableBody>
           </Table>
         </CardContent>
