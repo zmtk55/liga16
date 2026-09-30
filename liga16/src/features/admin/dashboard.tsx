@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
-  ArrowRight,
   ClipboardList,
   Radio,
   ShieldCheck,
-  Trophy,
   Users,
 } from "lucide-react";
 import { db } from "@/lib/data";
@@ -13,7 +11,9 @@ import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { PageHero } from "@/components/page-hero";
+import { CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
+import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
 import { formatDateRange } from "@/lib/format";
 
@@ -161,16 +161,15 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader
+      <PageHero
+        eyebrow="Organización"
         title="Panel"
-        description="Lo que tienes que hacer hoy y cómo van tus torneos."
-        action={
-          <Button asChild size="sm">
-            <Link to="/admin/torneos/nuevo">
-              <Trophy className="h-4 w-4" /> Nuevo torneo
-            </Link>
-          </Button>
-        }
+        subtitle="Lo que tienes que hacer hoy y cómo van tus torneos."
+        stats={[
+          { k: "Por verificar", v: pendingPlayers.length },
+          { k: "Por capturar", v: pendingMatches.length },
+          { k: "En juego", v: running.length },
+        ]}
       />
 
       {/* 1. Hoy. Lo único que un organizador abre el admin para hacer. */}
@@ -193,21 +192,27 @@ export default function AdminDashboard() {
               <Link
                 key={t.key}
                 to={t.to}
-                className="group flex flex-col rounded-xl border bg-card p-4 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <t.icon className="h-5 w-5 text-primary" aria-hidden />
-                  <ArrowRight
-                    className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
-                    aria-hidden
+                <CardShell accent>
+                  <CardIdentity
+                    lead={<t.icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
+                    title={t.label}
+                    meta={t.hint}
                   />
-                </div>
-                <p className="mt-3 flex items-baseline gap-1.5">
-                  <span className="font-display text-3xl leading-none tabular-nums">{t.count}</span>
-                  <span className="text-sm font-medium">{t.label}</span>
-                </p>
-                <p className="mt-1.5 text-xs text-muted-foreground">{t.hint}</p>
-                <p className="mt-3 text-xs font-semibold text-primary">{t.cta} →</p>
+                  <CardFooterStrip
+                    className="mt-3"
+                    stats={[
+                      <CardStat
+                        key="n"
+                        value={t.count}
+                        label={t.count === 1 ? "pendiente" : "pendientes"}
+                        tone="text-primary"
+                      />,
+                    ]}
+                    chip={<Badge variant="secondary">{t.cta} →</Badge>}
+                  />
+                </CardShell>
               </Link>
             ))}
           </div>
