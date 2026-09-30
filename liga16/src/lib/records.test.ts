@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildPlayerRecords, recordWinRate } from "./records";
 import { bracketSizeFor, buildBracket, moveSeed, resolveBracket, seedOrder, type BracketEntry } from "./bracket";
+import { tournamentProgress } from "./tournament-progress";
 import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFrom, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
@@ -430,6 +431,42 @@ it("el ganador de una semi pasa a la final", () => {
     expect(final?.a?.pairId).toBe("pr-1");
     expect(final?.b?.pairId).toBe("pr-3");
     expect(final?.played).toBe(true);
+  });
+});
+
+describe("tournamentProgress (cómo va el torneo)", () => {
+  const e = (n: number): BracketEntry[] =>
+    Array.from({ length: n }, (_, i) => ({ seed: i + 1, name: `P${i + 1}`, points: 0, pairId: `p${i + 1}` }));
+
+  it("sin resultados está en la primera ronda con todos pendientes", () => {
+    const b = buildBracket(e(4));
+    const r = resolveBracket(b, () => null);
+    const p = tournamentProgress({ matches: r, rounds: b.rounds, played: 0, total: 3 })!;
+    expect(p.currentRound).toBe(1);
+    expect(p.pendingInRound).toBe(2);
+    expect(p.champion).toBeNull();
+    expect(p.finished).toBe(false);
+  });
+
+  it("con una semi resuelta muestra a los dos finalistas", () => {
+    const b = buildBracket(e(4));
+    const r = resolveBracket(b, (a) => (a.seed === 1 ? a.pairId : null));
+    const p = tournamentProgress({ matches: r, rounds: b.rounds, played: 1, total: 3 })!;
+    expect(p.finalists[0]?.pairId).toBe("p1");
+    expect(p.finalists[1]).toBeNull();
+    expect(p.currentRound).toBe(1);
+  });
+
+  it("con el final decidido declara campeón", () => {
+    const b = buildBracket(e(4));
+    const r = resolveBracket(b, (a, rival) => (a.seed % 2 === 1 ? a.pairId : rival.pairId));
+    const p = tournamentProgress({ matches: r, rounds: b.rounds, played: 3, total: 3 })!;
+    expect(p.champion?.pairId).toBe("p1");
+    expect(p.finished).toBe(true);
+  });
+
+  it("sin parejas no inventa progreso", () => {
+    expect(tournamentProgress({ matches: [], rounds: 0, played: 0, total: 0 })).toBeNull();
   });
 });
 

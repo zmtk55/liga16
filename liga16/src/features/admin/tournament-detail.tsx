@@ -71,6 +71,7 @@ import type { Court } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { buildBracket, moveSeed, resolveBracket, type BracketEntry } from "@/lib/bracket";
+import { tournamentProgress } from "@/lib/tournament-progress";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
@@ -207,8 +208,63 @@ function BracketPanel({
     );
   }
 
+  const prog = tournamentProgress({
+    matches: bracket.matches,
+    rounds: bracket.rounds,
+    played: matches.filter((m) => m.status === "finished").length,
+    total: matches.length,
+  });
+  const rondaNombre = (n: number) =>
+    n >= bracket.rounds ? "Final" : n === bracket.rounds - 1 ? "Semifinales" : `Ronda ${n}`;
+
   return (
     <div className="space-y-4">
+      {/* Lo primero: en qué anda el torneo y quién sigue vivo */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            En qué anda
+          </p>
+          {prog ? (
+            <p className="mt-1 font-display text-xl leading-none">
+              {prog.finished ? "Terminado" : rondaNombre(prog.currentRound)}
+            </p>
+          ) : (
+            <p className="mt-1 font-display text-xl leading-none">Fase de grupos</p>
+          )}
+          {prog && !prog.finished && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {prog.pendingInRound} {prog.pendingInRound === 1 ? "partido" : "partidos"} sin capturar
+            </p>
+          )}
+        </div>
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Partidos
+          </p>
+          <p className="mt-1 font-display text-xl leading-none tabular-nums">
+            {matches.filter((m) => m.status === "finished").length}
+            <span className="text-sm text-muted-foreground"> / {matches.length}</span>
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            {prog?.champion ? "Campeón" : "Finalistas"}
+          </p>
+          {prog?.champion ? (
+            <p className="mt-1 truncate font-display text-xl leading-none text-primary">
+              {prog.champion.name}
+            </p>
+          ) : prog && prog.finalists.filter(Boolean).length > 0 ? (
+            <p className="mt-1 truncate text-sm font-medium">
+              {prog.finalists.filter(Boolean).map((f) => f!.name).join(" vs ")}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">Por definir</p>
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
         <p className="text-sm text-muted-foreground">
           Pasan <strong className="text-foreground">{slots}</strong> de {table.length} parejas.
