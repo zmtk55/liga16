@@ -31,16 +31,10 @@ export interface JevAnalysis {
   forma: JevForma;
   estilo: JevEstilo;
   racha: JevRacha;
-  consistencia: {
-    score: number;
-    label: string;
-    desviacion: number;
-    variacion: number;
-    muestra: number;
-    reliable: boolean;
-  };
+  consistencia: JevConsistencia;
   ritmo: Ritmo;
   rival?: JevRival;
+  momentum?: JevMomentum;
 }
 
 /** Lo que ya sabemos de verdad del jugador, si viene del récord derivado. */
@@ -189,6 +183,8 @@ export function analyzePlayerLocal(
     won,
   });
 
+  const momentum = momentumFrom(derived?.form ?? []);
+
   return {
     forma: {
       score: formaScore,
@@ -202,6 +198,7 @@ export function analyzePlayerLocal(
     consistencia,
     ritmo,
     rival,
+    momentum,
   } as JevAnalysis;
 }
 
@@ -219,7 +216,6 @@ export interface JevConsistencia {
   muestra: number;
   reliable: boolean;
 }
-
 /**
  * Consistencia = qué tan parejo rinde, no cuánto gana.
  *
@@ -248,6 +244,50 @@ export function consistenciaFromSets(setsPorPartido: number[]): JevConsistencia 
           : "Sube y baja mucho",
     desviacion: Math.round(desviacion * 100) / 100,
     variacion: Math.round(variacion * 100) / 100,
+    muestra: n,
+    reliable: true,
+  };
+}
+
+export interface JevMomentum {
+  /** -100..100. Positivo si viene ganando, negativo si viene perdiendo. */
+  score: number;
+  label: "Viene ganando" | "A la par" | "Viene perdiendo" | "Sin datos";
+  /** Victorias seguidas ahora mismo (sin ponderar). */
+  racha: number;
+  /** Partidos considerados. */
+  muestra: number;
+  reliable: boolean;
+}
+
+/**
+ * Momentum: cómo viene, no cómo vino.
+ *
+ * Un conteo de racha trata igual el partido de ayer y el de hace un mes. Aquí
+ * cada partido vale la mitad que el siguiente hacia adelante: el de hace 3
+ * partidos pesa 50% del de ayer. Así "viene ganando" significa que está
+ * ganando AHORA, no que ganó en algún momento del año.
+ */
+export function momentumFrom(form: Array<"G" | "P">, halfLife = 3): JevMomentum {
+  const n = form.length;
+  if (n < MIN_SAMPLE) {
+    return { score: 0, label: "Sin datos", racha: 0, muestra: n, reliable: false };
+  }
+  let pesoTotal = 0;
+  let acumulado = 0;
+  for (let i = 0; i < n; i++) {
+    // i = 0 es el partido más antiguo del tramo.
+    const peso = Math.pow(0.5, (n - 1 - i) / halfLife);
+    pesoTotal += peso;
+    acumulado += peso * (form[i] === "G" ? 1 : -1);
+  }
+  const score = Math.round((acumulado / pesoTotal) * 100);
+  let racha = 0;
+  for (let i = n - 1; i >= 0 && form[i] === "G"; i--) racha++;
+  return {
+    score,
+    label: score > 25 ? "Viene ganando" : score < -25 ? "Viene perdiendo" : "A la par",
+    racha,
     muestra: n,
     reliable: true,
   };

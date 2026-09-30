@@ -714,28 +714,49 @@ export default function PlayerDetailPage() {
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Activity className="h-4 w-4 text-primary" />
                   Racha
-                  <Tooltip content="Qué tan parejo rinde: si gana muchos sets con poca diferencia entre un partido y otro. 100 sería idéntico siempre.">
-                    <Badge variant={jev.racha.label === "sube" ? "default" : jev.racha.label === "le cuesta" ? "destructive" : "secondary"}>{jev.racha.label}</Badge>
+                  <Tooltip content="Si viene ganando o perdiendo AHORA: los partidos recientes pesan más que los viejos. Un partido de hace 3 cuenta la mitad.">
+                    {jev.momentum?.reliable ? (
+                      <Badge variant={jev.momentum.label === "Viene ganando" ? "default" : jev.momentum.label === "Viene perdiendo" ? "destructive" : "secondary"}>
+                        {jev.momentum.label}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">{jev.racha.label}</Badge>
+                    )}
                   </Tooltip>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <p className="text-3xl font-black tabular-nums">{(jev.racha.probYes * 100).toFixed(0)}%</p>
-                    <span className="text-xs text-muted-foreground">Probabilidad de que venga en racha</span>
+                    <p className="text-3xl font-black tabular-nums">
+                      {jev.momentum?.reliable
+                        ? `${jev.momentum.score > 0 ? "+" : ""}${jev.momentum.score}`
+                        : "—"}
+                    </p>
+                    <span className="text-xs text-muted-foreground">
+                      {jev.momentum?.reliable
+                        ? jev.momentum.racha > 0
+                          ? `viene ganando · ${jev.momentum.racha} seguidas`
+                          : `últimos ${jev.momentum.muestra} partidos`
+                        : "faltan partidos"}
+                    </span>
                   </div>
-                  <AnimatedBar value={jev.racha.probYes * 100} max={100} color={jev.racha.label === "sube" ? "success" : jev.racha.label === "le cuesta" ? "destructive": "warning" } className="mt-2 h-2.5" />
+                  <AnimatedBar
+                    value={jev.momentum?.reliable ? Math.abs(jev.momentum.score) : 0}
+                    max={100}
+                    color={jev.momentum?.label === "Viene ganando" ? "success" : jev.momentum?.label === "Viene perdiendo" ? "destructive" : "warning"}
+                    className="mt-2 h-2.5"
+                  />
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <Tooltip content="Consistencia = estabilidad del rendimiento. Basada solo en win rate: >70%=88 (Muy consistente), >55%=72 (Consistente), >40%=54, <40%=38 (Volátil).">
+                  <Tooltip content="Qué tan parejo rinde: si gana muchos sets con poca diferencia entre un partido y otro. 100 sería idéntico siempre.">
                     <div className="rounded-lg bg-muted p-3">
                       <p className="text-muted-foreground">Consistencia</p>
                       <p className="text-2xl font-black">{jev.consistencia.score}/100</p>
                       <p className="text-[10px] text-muted-foreground">{jev.consistencia.label}</p>
                     </div>
                   </Tooltip>
-                  <Tooltip content="Ritmo = dirección de la tendencia de nivel. trendSlope >1=ascendente, <-1=descendente, else=estable. Basado en historial de nivel (card.trend).">
+                  <Tooltip content="Si su nivel viene subiendo, estable o bajando respecto a como venía jugando.">
                     <div className="rounded-lg bg-muted p-3">
                       <p className="text-muted-foreground">Ritmo</p>
                       <p className="text-2xl font-black capitalize">{jev.ritmo}</p>

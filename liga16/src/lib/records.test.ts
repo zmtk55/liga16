@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlayerRecords, recordWinRate } from "./records";
-import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, rivalAdjusted } from "./jev";
+import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFrom, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
@@ -351,6 +351,34 @@ describe("consistenciaFromSets (qué tan parejo rinde)", () => {
     const b = consistenciaFromSets([6, 6, 0, 0]);
     expect(a.score).toBeGreaterThan(b.score);
     expect(a.desviacion).toBe(0);
+  });
+});
+
+describe("momentumFrom (viene ganando AHORA, no antes)", () => {
+  it("las victorias recientes pesan más que las viejas", () => {
+    // Mismo récord (4-2) en seis partidos, orden opuesto.
+    const recientes = momentumFrom(["P", "P", "G", "G", "G", "G"]);
+    const downturn = momentumFrom(["G", "G", "P", "P", "P", "P"]);
+    expect(recientes.score).toBeGreaterThan(downturn.score);
+    expect(recientes.label).toBe("Viene ganando");
+    expect(downturn.label).toBe("Viene perdiendo");
+  });
+
+  it("cuenta la racha sin ponderar", () => {
+    expect(momentumFrom(["P", "G", "G", "G"]).racha).toBe(3);
+    expect(momentumFrom(["G", "G", "P", "P"]).racha).toBe(0);
+  });
+
+  it("con menos de 3 partidos no dice nada", () => {
+    const m = momentumFrom(["G", "G"]);
+    expect(m.reliable).toBe(false);
+    expect(m.label).toBe("Sin datos");
+    expect(m.score).toBe(0);
+  });
+
+  it("ganar y perder parejo queda a la par", () => {
+    const m = momentumFrom(["G", "P", "G", "P"]);
+    expect(m.label).toBe("A la par");
   });
 });
 
