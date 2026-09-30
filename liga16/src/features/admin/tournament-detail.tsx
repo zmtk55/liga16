@@ -47,7 +47,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { drawGroups, suggestGroupCount, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
+import { drawGroupsByCategory, parseRound, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
 import type { TournamentScoring } from "@/types";
 import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
 import { DEFAULT_SCORING } from "@/lib/scoring";
@@ -118,12 +118,14 @@ function SortablePair({
 }
 
 /**
- * Bracket del torneo: siembra por puntos, con el primero plantado arriba.
+ * Bracket de UNA categoría: siembra por puntos, con el primero plantado arriba.
  *
  * No guarda nada: se deriva de los resultados que el admin ya capturó, así que
- * mover una semilla o corregir un partido lo recalcula solo.
+ * mover una semilla o corregir un partido lo recalcula solo. Los partidos que
+ * alimentan los ganadores se filtran a los de la categoría —una 4ta nunca puede
+ * avanzar por un partido que jugó una 5ta.
  */
-function BracketPanel({
+function CategoryBracket({
   pairs,
   matches,
   scoring,
@@ -152,7 +154,8 @@ function BracketPanel({
       );
   }, [pairs, matches, scoring]);
 
-  // Clasifican las primeras `slots`; el resto se queda esperando.
+  // Clasifican las primeras `slots`; el resto se queda esperando. Si la categoría
+  // tiene menos parejas que el cupo, clasifican todas: no hay de dónde elegir.
   const clasificadas: BracketEntry[] = useMemo(() => {
     const base = table.slice(0, slots).map((row) => {
       const pair = pairs.find((p) => p.id === row.pairId);
@@ -197,16 +200,7 @@ function BracketPanel({
     });
   }
 
-  if (pairs.length === 0) {
-    return (
-      <Empty className="border bg-card py-10">
-        <EmptyHeader>
-          <EmptyTitle>Sin parejas en este torneo</EmptyTitle>
-          <EmptyDescription>Cuando inscribas parejas, aquí se genera el bracket.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
+  if (pairs.length < 2) return null;
 
   const prog = tournamentProgress({
     matches: bracket.matches,
@@ -218,8 +212,7 @@ function BracketPanel({
     n >= bracket.rounds ? "Final" : n === bracket.rounds - 1 ? "Semifinales" : `Ronda ${n}`;
 
   return (
-    <div className="space-y-4">
-      {/* Lo primero: en qué anda el torneo y quién sigue vivo */}
+    <section className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border bg-card p-3">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -267,8 +260,8 @@ function BracketPanel({
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
         <p className="text-sm text-muted-foreground">
-          Pasan <strong className="text-foreground">{slots}</strong> de {table.length} parejas.
-          La siembra sale de los puntos: la primera se planta arriba.
+          Pasan <strong className="text-foreground">{Math.min(slots, table.length)}</strong> de{" "}
+          {table.length} parejas. La siembra sale de los puntos: la primera se planta arriba.
         </p>
         <Button variant="outline" size="sm" onClick={() => setOrdenManual(null)}>
           <RotateCcw className="h-4 w-4" /> Volver al orden por puntos
@@ -357,6 +350,104 @@ function BracketPanel({
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+/**
+ * Brackets del torneo, uno por categoría.
+ *
+ * Una categoría es una competencia cerrada: 4tas solo contra 4tas, 5tas solo
+ * contra 5tas. Por eso aquí no hay un bracket único con todas las parejas —sería
+ * un torneo que nadie está disputando— sino uno por categoría, con sus puntos y
+ * sus cruces. Los partidos que cuentan para una categoría son los que van entre
+ * parejas de esa misma categoría.
+ */
+function BracketPanel({
+  pairs,
+  matches,
+  categories,
+  scoring,
+  slots,
+}: {
+  pairs: Pair[];
+  matches: Match[];
+  categories: TournamentCategory[];
+  scoring?: TournamentScoring | null;
+  slots: number;
+}) {
+  const nameByCatId = useMemo(
+    () => new Map(categories.map((c) => [c.id, c.name])),
+    [categories],
+  );
+
+  // Orden: primero las categorías del torneo en su orden, y al final las parejas
+  // sin categoría, para que no se pierdan de la vista.
+  const byCategory = useMemo(() => {
+    const order = new Map(categories.map((c, i) => [c.id, i]));
+    const buckets = new Map<string, Pair[]>();
+    for (const p of pairs) {
+      const key = p.category_id ?? "";
+      buckets.set(key, [...(buckets.get(key) ?? []), p]);
+    }
+    return [...buckets.entries()].sort(
+      ([a], [b]) =>
+        (order.get(a) ?? Number.MAX_SAFE_INTEGER) - (order.get(b) ?? Number.MAX_SAFE_INTEGER) ||
+        a.localeCompare(b),
+    );
+  }, [pairs, categories]);
+
+  if (pairs.length === 0) {
+    return (
+      <Empty className="border bg-card py-10">
+        <EmptyHeader>
+          <EmptyTitle>Sin parejas en este torneo</EmptyTitle>
+          <EmptyDescription>Cuando inscribas parejas, aquí se genera el bracket.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
+  const conParejas = byCategory.filter(([, list]) => list.length >= 2);
+
+  return (
+    <div className="space-y-6">
+      {byCategory.length > 1 && (
+        <p className="text-sm text-muted-foreground">
+          Un bracket por categoría: las 4tas solo juegan contra 4tas y las 5tas contra 5tas.
+        </p>
+      )}
+      {conParejas.map(([categoryId, catPairs]) => {
+        const ids = new Set(catPairs.map((p) => p.id));
+        // Un partido pertenece a la categoría solo si AMBOS lados son de ella.
+        const catMatches = matches.filter(
+          (m) => ids.has(m.side_a.pair_id ?? "") && ids.has(m.side_b.pair_id ?? ""),
+        );
+        const name = nameByCatId.get(categoryId) ?? (categoryId ? "" : "Sin categoría");
+        return (
+          <div key={categoryId || "__sin_categoria__"} className="space-y-4">
+            {byCategory.length > 1 && (
+              <h3 className="flex flex-wrap items-center gap-2 border-b pb-2 text-sm font-semibold">
+                {name}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {catPairs.length} parejas · {catMatches.length} partidos
+                </span>
+              </h3>
+            )}
+            <CategoryBracket
+              pairs={catPairs}
+              matches={catMatches}
+              scoring={scoring}
+              slots={slots}
+            />
+          </div>
+        );
+      })}
+      {conParejas.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Cada categoría necesita al menos 2 parejas para armar su bracket.
+        </p>
+      )}
     </div>
   );
 }
@@ -439,7 +530,9 @@ export default function AdminTournamentDetail() {
           if (prev.length > 0) return prev;
           const map = new Map<string, string[]>();
           ms.forEach((m) => {
-            const groupName = m.round.split(" · ")[0];
+            // El nombre del grupo puede llevar la categoría delante, así que se
+            // parte por la etiqueta de jornada, no por el primer separador.
+            const groupName = parseRound(m.round ?? "").group;
             if (!groupName) return;
             if (!map.has(groupName)) map.set(groupName, []);
             [m.side_a.pair_id, m.side_b.pair_id].forEach((id) => {
@@ -463,9 +556,32 @@ export default function AdminTournamentDetail() {
 
   const rounds = useMemo(() => [...new Set(matches.map((m) => m.round))].sort(), [matches]);
 
+  const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+
   const matchDays = useMemo(() => [...new Set(matches.map((m) => (m.scheduled_at ?? "").slice(0, 10)).filter(Boolean))].sort(), [matches]);
   const matchCourtsList = useMemo(() => [...new Set(matches.map((m) => m.court_name).filter(Boolean))] as string[], [matches]);
-  const matchCategories = useMemo(() => [...new Set(matches.map((m) => m.round.split(" ·")[0]))].sort(), [matches]);
+  /**
+   * La categoría de un partido: la que se guardó al crearlo. En los partidos
+   * antiguos, que no la traían, se cae al nombre del grupo —el sorteo los nombra
+   * "4ta Masculino · Grupo A" cuando el torneo tiene varias categorías.
+   */
+  function matchCategoryName(m: Match): string {
+    if (m.category_name) return m.category_name;
+    return parseRound(m.round ?? "").group.split(" · ")[0];
+  }
+  const matchCategories = useMemo(() => [...new Set(matches.map(matchCategoryName))].sort(), [matches]);
+
+  /**
+   * La categoría de un grupo, sacada de sus parejas y no de su nombre: el
+   * nombre es una etiqueta que el admin puede cambiar, la categoría es el dato.
+   */
+  function categoryOfPairs(pairIds: string[]): string | null {
+    for (const id of pairIds) {
+      const p = (pairs ?? []).find((x) => x.id === id);
+      if (p?.category_id) return catNameById.get(p.category_id) ?? null;
+    }
+    return null;
+  }
   /** Nombres de los jugadores de un partido (desde los nombres de equipos "A / B"). */
   function matchPlayerTeamNames(m: Match): string[] {
     const split = (n: string | null) => (n ?? "").split(" /").map((s) => s.trim()).filter(Boolean);
@@ -488,9 +604,20 @@ export default function AdminTournamentDetail() {
       toast.error("Registra al menos un equipo antes del sorteo");
       return;
     }
-    const count = suggestGroupCount(pairs.length);
-    setGroups(drawGroups(pairs.map((p) => p.id), count));
-    toast.success(`Sorteo listo: ${count} grupos de ~${Math.ceil(pairs.length / count)} equipos`);
+    // Las categorías no se mezclan: 4tas y 5tas nunca caen en el mismo grupo,
+    // porque se enfrentarían en la primera ronda del round-robin.
+    const drawn = drawGroupsByCategory(
+      pairs.map((p) => ({
+        id: p.id,
+        category_id: p.category_id ?? null,
+        categoryName: p.category_id ? (catNameById.get(p.category_id) ?? "") : "",
+      })),
+    );
+    setGroups(drawn);
+    const categoriesInPlay = new Set(pairs.map((p) => p.category_id ?? "")).size;
+    toast.success(
+      `Sorteo listo: ${drawn.length} grupos${categoriesInPlay > 1 ? ` en ${categoriesInPlay} categorías` : ""}`,
+    );
   }
 
   function handleDragEnd(e: DragEndEvent) {
@@ -700,6 +827,10 @@ export default function AdminTournamentDetail() {
           allScheduled.push({
             tournament_id: tournament.id,
             tournament_name: tournament.name,
+            // La categoría va como dato del partido, no solo en el nombre del
+            // grupo: es lo que separa "4tas" de "5tas" al filtrar y al armar el
+            // bracket, y no debería depender de cómo se llamó al grupo.
+            category_name: categoryOfPairs(groups[gi].pairIds) ?? undefined,
             round: `${groups[gi].name} · J${ri + 1}`,
             court_name: m.court,
             scheduled_at: m.scheduled_at,
@@ -725,7 +856,6 @@ export default function AdminTournamentDetail() {
   if (!tournament) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   const club = clubs.find((c) => c.id === tournament.club_id);
-  const catNameById = new Map(categories.map((c) => [c.id, c.name]));
   const filteredPairs = (pairs ?? []).filter((p) => {
     const q = pairQuery.trim().toLowerCase();
     return !q || p.name.toLowerCase().includes(q) || (catNameById.get(p.category_id ?? "") ?? "").toLowerCase().includes(q);
@@ -737,13 +867,9 @@ export default function AdminTournamentDetail() {
       if (matchRound !== "all" && m.round !== matchRound) return false;
       if (matchDay !== "all" && !(m.scheduled_at ?? "").startsWith(matchDay)) return false;
       if (matchCourt !== "all" && m.court_name !== matchCourt) return false;
-      // La categoría es el prefijo de la ronda ("Suma 9 varonil · Jornada 1")
-      // o, en torneos sin prefijo, coincide con la ronda completa.
-      if (
-        matchCategory !== "all" &&
-        !(m.round === matchCategory || m.round.startsWith(`${matchCategory} ·`))
-      )
-        return false;
+      // La categoría se lee del partido, no del texto de la ronda: es el dato,
+      // no una convención de nombres.
+      if (matchCategory !== "all" && matchCategoryName(m) !== matchCategory) return false;
       if (matchPlayer !== "all") {
         // Un equipo puede tener 2 jugadores con nombres distintos en cada lado — buscamos por nombre contenido
         const pl = matchPlayer.toLowerCase();
@@ -793,6 +919,7 @@ export default function AdminTournamentDetail() {
           <BracketPanel
             pairs={pairs ?? []}
             matches={matches}
+            categories={categories}
             scoring={tournament.scoring}
             slots={tournament.semifinal_slots ?? 4}
           />
@@ -833,7 +960,8 @@ return (
                       const done = m.status === "finished" && m.winner;
                       const score = m.sets.map((x) => `${x.a}-${x.b}`).join(" ");
                       // Extraer grupo y jornada del campo round: "Grupo A · J1"
-                      const [groupName, jornadaNum] = m.round?.split(" · ") ?? [m.round, ""];
+                      const { group: groupName, jornada } = parseRound(m.round ?? "");
+                      const jornadaNum = jornada ? `J${jornada}` : "";
                       const courtDisplay = m.court_name ?? "—";
                       const timeDisplay = m.scheduled_at
                         ? new Date(m.scheduled_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })

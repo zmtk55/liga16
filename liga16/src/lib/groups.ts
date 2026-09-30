@@ -16,20 +16,65 @@ export function shuffle<T>(input: T[]): T[] {
   return arr;
 }
 
+/** Una pareja con la categoría que compite, suficiente para sortear. */
+export interface DrawablePair {
+  id: UUID;
+  category_id: UUID | null;
+  /** Nombre de la categoría; vacío si la pareja no tiene ninguna asignada. */
+  categoryName: string;
+}
+
 /**
- * Sorteo aleatorio: reparte parejas en n grupos lo más parejos posible.
+ * Sorteo por categoría — la regla del sistema: una categoría es una competencia
+ * aparte, así que un grupo NUNCA mezcla 4tas con 5tas. Cada grupo se arma solo
+ * con parejas de su categoría, con el mismo reparto parejo.
+ *
+ * Con más de una categoría en juego el nombre lleva la delante ("4ta Masculino ·
+ * Grupo A"): dos "Grupo A" de categorías distintas tienen que poder convivir sin
+ * que el admin los confunda al leerlos.
  */
-export function drawGroups(pairIds: UUID[], groupCount: number): Group[] {
-  const n = Math.max(1, Math.min(groupCount, pairIds.length || 1));
-  const shuffled = shuffle(pairIds);
-  const groups: Group[] = Array.from({ length: n }, (_, i) => ({
-    name: `Grupo ${LETTERS[i]}`,
-    pairIds: [],
-  }));
-  shuffled.forEach((id, i) => {
-    groups[i % n].pairIds.push(id);
-  });
-  return groups;
+export function drawGroupsByCategory(pairs: DrawablePair[]): Group[] {
+  const byCategory = new Map<string, DrawablePair[]>();
+  for (const p of pairs) {
+    const key = p.categoryName;
+    byCategory.set(key, [...(byCategory.get(key) ?? []), p]);
+  }
+  const multiCategory = byCategory.size > 1;
+  const taken = new Set<string>();
+  const out: Group[] = [];
+
+  for (const [categoryName, catPairs] of byCategory) {
+    const base = (letter: string) =>
+      multiCategory && categoryName ? `${categoryName} · Grupo ${letter}` : `Grupo ${letter}`;
+    // Un nombre de grupo no puede repetirse dentro del torneo.
+    const names: string[] = [];
+    for (let i = 0; names.length < suggestGroupCount(catPairs.length) && i < LETTERS.length; i++) {
+      const name = base(LETTERS[i]);
+      if (taken.has(name)) continue;
+      names.push(name);
+    }
+    if (names.length === 0) continue;
+    names.forEach((n) => taken.add(n));
+
+    const catGroups: Group[] = names.map((name) => ({ name, pairIds: [] }));
+    shuffle(catPairs).forEach((p, i) => {
+      catGroups[i % catGroups.length].pairIds.push(p.id);
+    });
+    out.push(...catGroups);
+  }
+  return out;
+}
+
+/**
+ * "4ta Masculino · Grupo A · J2" -> { group: "4ta Masculino · Grupo A", jornada: 2 }.
+ *
+ * El nombre del grupo puede llevar la categoría delante, así que se parte por la
+ * ETIQUETA de jornada al final, no por el primer separador.
+ */
+export function parseRound(round: string): { group: string; jornada: number | null } {
+  const match = /^(.*?)(?:\s*·\s*J(\d+))?$/.exec(round.trim());
+  const group = (match?.[1] ?? round).trim();
+  return { group, jornada: match?.[2] ? Number(match[2]) : null };
 }
 
 /** Sugerencia de número de grupos: 1 grupo por cada 4 parejas, mínimo 1. */

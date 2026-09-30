@@ -4,6 +4,7 @@ import { bracketSizeFor, buildBracket, moveSeed, resolveBracket, seedOrder, type
 import { tournamentProgress } from "./tournament-progress";
 import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFrom, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
+import { drawGroupsByCategory, parseRound, roundRobinRounds, type DrawablePair } from "./groups";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
 const players: PlayerProfile[] = [
@@ -547,5 +548,64 @@ describe("rivalAdjusted (cuenta contra quién se ganó)", () => {
     });
     expect(r.label).toBe("Sin datos");
     expect(r.score).toBe(0);
+  });
+});
+
+describe("una categoría es una competencia cerrada", () => {
+  // 4 parejas de 4ta y 4 de 5ta, el caso que se revolvía: antes compartían
+  // bracket y hasta se enfrentaban en la primera ronda del round-robin.
+  const cat4: DrawablePair[] = Array.from({ length: 4 }, (_, i) => ({
+    id: `4ta-${i}`,
+    category_id: "c-4ta",
+    categoryName: "4ta Masculino",
+  }));
+  const cat5: DrawablePair[] = Array.from({ length: 4 }, (_, i) => ({
+    id: `5ta-${i}`,
+    category_id: "c-5ta",
+    categoryName: "5ta Masculino",
+  }));
+  const todas = [...cat4, ...cat5];
+  const categoriaDe = new Map(todas.map((p) => [p.id, p.categoryName]));
+
+  it("el sorteo nunca junta 4tas con 5tas en un mismo grupo", () => {
+    for (const g of drawGroupsByCategory(todas)) {
+      const cats = new Set(g.pairIds.map((id) => categoriaDe.get(id)));
+      expect(cats.size).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("con varias categorías el nombre del grupo dice cuál es", () => {
+    const names = drawGroupsByCategory(todas).map((g) => g.name);
+    expect(names.some((n) => n.startsWith("4ta Masculino · "))).toBe(true);
+    expect(names.some((n) => n.startsWith("5ta Masculino · "))).toBe(true);
+  });
+
+  it("con una sola categoría los grupos se llaman como siempre", () => {
+    expect(drawGroupsByCategory(cat4).every((g) => g.name.startsWith("Grupo "))).toBe(true);
+  });
+
+  it("no se pierde ninguna pareja en el sorteo", () => {
+    const sorteadas = drawGroupsByCategory(todas).flatMap((g) => g.pairIds).sort();
+    expect(sorteadas).toEqual(todas.map((p) => p.id).sort());
+  });
+
+  it("el round-robin de un grupo solo enfrenta parejas de esa categoría", () => {
+    for (const g of drawGroupsByCategory(todas)) {
+      for (const ronda of roundRobinRounds(g.pairIds)) {
+        for (const [a, b] of ronda) {
+          expect(categoriaDe.get(a)).toBe(categoriaDe.get(b));
+        }
+      }
+    }
+  });
+
+  it("el nombre del grupo con categoría se separa bien de la jornada", () => {
+    expect(parseRound("4ta Masculino · Grupo A · J2")).toEqual({
+      group: "4ta Masculino · Grupo A",
+      jornada: 2,
+    });
+    expect(parseRound("Grupo A · J1")).toEqual({ group: "Grupo A", jornada: 1 });
+    // Sin etiqueta de jornada no inventa una.
+    expect(parseRound("Grupo A")).toEqual({ group: "Grupo A", jornada: null });
   });
 });
