@@ -9,7 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { db } from "@/lib/data";
-import type { Match, Tournament } from "@/types";
+import type { Match, PlayerProfile, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +20,7 @@ import { formatDateRange, formatMatchDateTime } from "@/lib/format";
 
 interface DashboardData {
   tournaments: Tournament[];
-  players: number;
+  players: PlayerProfile[];
   clubs: number;
   news: number;
   matches: Match[];
@@ -41,7 +41,7 @@ export default function AdminDashboard() {
     ])
       .then(([tournaments, players, clubs, news, matches]) => {
         if (active) {
-          setData({ tournaments, players: players.length, clubs: clubs.length, news: news.length, matches });
+          setData({ tournaments, players, clubs: clubs.length, news: news.length, matches });
         }
       })
       .catch((e: Error) => {
@@ -78,6 +78,34 @@ export default function AdminDashboard() {
     };
   }, [data]);
 
+  // Lo que el organizador tiene que hacer HOY, no un contador más.
+  const pending = data?.players.filter((p) => (p.status ?? "verificado") === "pendiente").length ?? 0;
+  const liveMatches = (data?.matches ?? []).filter((m) => m.status === "live").length;
+  const openNow = (data?.tournaments ?? []).filter(
+    (t) => t.status === "in_progress" || t.status === "registration_open",
+  ).length;
+
+  const attention = [
+    {
+      label: pending === 1 ? "perfil por verificar" : "perfiles por verificar",
+      count: pending,
+      to: "/admin/jugadores",
+      hint: "Nadie puede inscribirse a un torneo hasta que lo verifiques.",
+    },
+    {
+      label: liveMatches === 1 ? "partido en vivo" : "partidos en vivo",
+      count: liveMatches,
+      to: "/admin/resultados",
+      hint: "Los resultados que capturas son los que mueven el ranking.",
+    },
+    {
+      label: openNow === 1 ? "torneo activo" : "torneos activos",
+      count: openNow,
+      to: "/admin/torneos",
+      hint: "Con inscripciones abiertas o en juego.",
+    },
+  ].filter((a) => a.count > 0);
+
   if (error) {
     return (
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6">
@@ -104,6 +132,31 @@ export default function AdminDashboard() {
         }
       />
 
+      {attention.length > 0 && (
+        <section aria-labelledby="atencion">
+          <h2 id="atencion" className="mb-2 text-sm font-semibold">
+            Requiere tu atención
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {attention.map((a) => (
+              <Link
+                key={a.label}
+                to={a.to}
+                className="group rounded-xl border bg-card p-4 transition-colors hover:border-primary/40"
+              >
+                <p className="flex items-baseline gap-2">
+                  <span className="font-display text-3xl tabular-nums text-primary">
+                    {a.count}
+                  </span>
+                  <span className="text-sm font-medium">{a.label}</span>
+                </p>
+                <p className="mt-1.5 text-xs text-muted-foreground">{a.hint}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Torneos"
@@ -115,8 +168,8 @@ export default function AdminDashboard() {
         />
         <StatCard
           title="Jugadores"
-          value={data?.players ?? 0}
-          hint="En el directorio"
+          value={data?.players.length ?? 0}
+          hint={`${pending} por verificar`}
           icon={<Users className="h-4 w-4 text-muted-foreground" />}
           to="/admin/jugadores"
           loading={!data}
