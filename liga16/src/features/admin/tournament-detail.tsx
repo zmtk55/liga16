@@ -270,7 +270,7 @@ function CategoryBracket({
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {clasificadas.map((p, i) => (
-          <div key={p.pairId} className="flex items-center gap-2 rounded-lg border bg-card p-2.5">
+          <div key={p.pairId} className="flex min-w-0 items-center gap-2 rounded-lg border bg-card p-2.5">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
               {i + 1}
             </span>
