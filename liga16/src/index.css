@@ -35,6 +35,9 @@
     --success: 152 65% 34%;
     --success-foreground: 0 0% 100%;
 
+    /* Semántico de aviso (tendencias neutras, barras de probabilidad) */
+    --warning: 38 92% 50%;
+
     /* Escala tipográfica semántica: números de stats y etiquetas mini.
        Las pages NUNCA inventan tamaños: usan text-stat / text-caption. */
     --text-stat: 1.125rem;
@@ -77,6 +80,8 @@
 
     --success: 152 60% 42%;
     --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 55%;
 
     --sidebar-background: 240 6% 10%;
     --sidebar-foreground: 0 0% 96%;

@@ -64,6 +64,58 @@ export interface QualificationView {
 
 const MIN_SAMPLE = 3;
 
+/* ============================================================
+ * Regla de suma de niveles (categorías tipo "Suma 9"):
+ * una pareja es válida si la suma de los niveles de sus dos
+ * jugadores es EXACTAMENTE la que pide la categoría (4+5=9 ✓,
+ * 4+4=8 ✗). El admin puede dejarla pasar: aquí solo se calcula
+ * la advertencia, nunca se bloquea nada.
+ * ============================================================ */
+
+/** Extrae la suma requerida desde el nombre de la categoría ("Suma 9" → 9). */
+export function sumFromCategory(categoryName: string | null | undefined): number | null {
+  if (!categoryName) return null;
+  const m = /suma\s*(\d{1,2})/i.exec(categoryName);
+  return m ? Number(m[1]) : null;
+}
+
+export interface LevelSumCheck {
+  /** Suma que pide la categoría; null si la categoría no es de suma. */
+  required: number | null;
+  /** Suma de los niveles de la pareja; null si falta el nivel de alguien. */
+  actual: number | null;
+  /** true SOLO cuando se sabe con certeza que NO cumple. */
+  invalid: boolean;
+  /** Mensaje listo para mostrar (advertencia), null si no aplica. */
+  message: string | null;
+}
+
+export function checkLevelSum(
+  categoryName: string | null | undefined,
+  levels: [number | null | undefined, number | null | undefined],
+): LevelSumCheck {
+  const required = sumFromCategory(categoryName);
+  if (required == null) {
+    return { required: null, actual: null, invalid: false, message: null };
+  }
+  const [a, b] = levels;
+  const known = typeof a === "number" && a > 0 && typeof b === "number" && b > 0;
+  const actual = known ? (a as number) + (b as number) : null;
+  if (actual == null) {
+    // Sin niveles declarados no se puede afirmar nada: no se advierte.
+    return { required, actual: null, invalid: false, message: null };
+  }
+  const invalid = actual !== required;
+  return {
+    required,
+    actual,
+    invalid,
+    message: invalid
+      ? `Niveles ${a} + ${b} = ${actual}: la categoría pide suma ${required}.`
+      : null,
+  };
+}
+
 export function qualificationFor(
   standings: StandingLike[],
   me: MyLine,

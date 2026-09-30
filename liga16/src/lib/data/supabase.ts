@@ -179,6 +179,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       city,
       club_id: null,
       division: divisionFromCategoryName(catName),
+      category_name: catName,
       sex,
       player1: p1 ? { player_id: row.player1_id as string, name: p1.display_name, level: p1.level } : null,
       player2: p2 ? { player_id: row.player2_id as string, name: p2.display_name, level: p2.level } : null,

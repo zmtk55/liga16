@@ -10,11 +10,12 @@ import { MatchCard } from "@/components/cards/card-kit";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
+import { checkLevelSum } from "@/lib/qualification";
 import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/page-hero";
-import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock, AlertTriangle } from "lucide-react";
 
 /**
  * Popup de pareja: cabecera póster + stats + UN partido a la vez con flechas.
@@ -77,6 +78,15 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
                   )}
                 </div>
               </DialogHeader>
+              {(() => {
+                const check = checkLevelSum(team.category_name, [team.player1?.level, team.player2?.level]);
+                return check.message ? (
+                  <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/15 px-2.5 py-1.5">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                    <p className="text-[11px] font-semibold leading-snug text-white/90">{check.message}</p>
+                  </div>
+                ) : null;
+              })()}
 
               <div className="mt-3 grid grid-cols-3 divide-x divide-white/10 rounded-xl border border-white/10 bg-white/[0.04]">
                 {[
@@ -251,12 +261,12 @@ export default function RankingsPage() {
       <PageHero
         eyebrow="Clasificación oficial"
         title="Ranking"
-        subtitle="Parejas ordenadas por puntos dentro de su división y rama. Gana partidos y sube."
+        subtitle="Parejas ordenadas por puntos dentro de su división y género. Gana partidos y sube."
         ghost="16"
         stats={[
           { k: "Parejas", v: teams?.length ?? "…", icon: <Users className="h-4 w-4" /> },
           { k: "División", v: division === "all" ? "Todas" : division, icon: <Trophy className="h-4 w-4" /> },
-          { k: "Rama", v: sex === "all" ? "Todas" : sexLabel(sex), icon: <Target className="h-4 w-4" /> },
+          { k: "Género", v: sex === "all" ? "Todas" : sexLabel(sex), icon: <Target className="h-4 w-4" /> },
         ]}
       />
 
@@ -274,7 +284,7 @@ export default function RankingsPage() {
 
         <Select value={sex} onValueChange={setSex}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Rama" />
+            <SelectValue placeholder="Género" />
           </SelectTrigger>
           <SelectContent>
             {sexOptions.map((s) => (
@@ -291,7 +301,7 @@ export default function RankingsPage() {
           <CardContent className="py-12 text-center text-muted-foreground">
             <Users className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
             <p className="text-lg font-medium">No hay equipos en esta división</p>
-            <p className="mt-1">Prueba cambiando la división o la rama.</p>
+            <p className="mt-1">Prueba cambiando la división o el género.</p>
           </CardContent>
         </Card>
       ) : (
@@ -306,7 +316,7 @@ export default function RankingsPage() {
                   </TableHead>
                   <TableHead className="text-right">Puntos</TableHead>
                   <TableHead className="text-right">Record</TableHead>
-                  <TableHead className="text-right">División / Rama</TableHead>
+                  <TableHead className="text-right">División / Género</TableHead>
                   <TableHead className="hidden items-center gap-2 lg:table-cell">
                     <Users className="h-4 w-4" /> Jugadores
                   </TableHead>
@@ -328,6 +338,14 @@ export default function RankingsPage() {
                     <TableCell>
                       <div className="font-medium">{t.name}</div>
                       <div className="text-xs text-muted-foreground">Toca para ver sus partidos</div>
+                      {(() => {
+                        const check = checkLevelSum(t.category_name, [t.player1?.level, t.player2?.level]);
+                        return check.message ? (
+                          <p className="mt-1 flex items-center gap-1 text-2xs font-semibold text-destructive">
+                            <AlertTriangle className="h-3 w-3 shrink-0" /> {check.message}
+                          </p>
+                        ) : null;
+                      })()}
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
                       {t.points.toLocaleString("es-MX")}

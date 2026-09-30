@@ -288,6 +288,8 @@ export interface Team {
   city: string;
   club_id: UUID | null;      // Club al que pertenece la pareja
   division: PadelDivision;   // 1ra, 2da, 3ra, 4ta, 5ta, 6ta, Novatos
+  /** Categoría de inscripción original (ej. "Suma 9", "4ta Femenil"). */
+  category_name?: string | null;
   sex: Sex;                  // M, F, X
   player1: { player_id: UUID; name: string; level: number } | null;
   player2: { player_id: UUID; name: string; level: number } | null;

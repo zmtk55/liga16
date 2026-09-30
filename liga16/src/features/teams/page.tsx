@@ -92,7 +92,7 @@ export default function TeamsPage() {
           </Select>
           <Select value={sex} onValueChange={setSex}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Rama" />
+              <SelectValue placeholder="Género" />
             </SelectTrigger>
             <SelectContent>
               {sexOptions.map((s) => (
@@ -114,7 +114,7 @@ export default function TeamsPage() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            Ningún equipo coincide con la búsqueda. Prueba con otra división o rama.
+            Ningún equipo coincide con la búsqueda. Prueba con otra división o género.
           </CardContent>
         </Card>
       ) : (

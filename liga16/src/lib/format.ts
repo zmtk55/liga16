@@ -88,7 +88,7 @@ export const divisionOptions = [
 ];
 
 export const sexOptions = [
-  { value: "all", label: "Todas las ramas" },
+  { value: "all", label: "Todos los géneros" },
   { value: "M", label: "Varonil" },
   { value: "F", label: "Femenil" },
   { value: "X", label: "Mixto" },

@@ -193,7 +193,7 @@ export default function PlayersPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Select value={sex} onValueChange={setSex}>
             <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Rama" />
+              <SelectValue placeholder="Género" />
             </SelectTrigger>
             <SelectContent>
               {sexOptions.map((s) => (
@@ -325,7 +325,7 @@ export default function PlayersPage() {
                   <TableHead className="w-14">#</TableHead>
                   <TableHead>Jugador</TableHead>
                   <TableHead className="hidden md:table-cell">Ciudad</TableHead>
-                  <TableHead className="hidden sm:table-cell">Rama</TableHead>
+                  <TableHead className="hidden sm:table-cell">Género</TableHead>
                   <TableHead className="hidden sm:table-cell">Cat.</TableHead>
                   <TableHead className="text-right">Nivel</TableHead>
                   <TableHead className="text-right">Puntos</TableHead>
