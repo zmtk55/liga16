@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, Info, HelpCircle } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, Info, HelpCircle, Swords } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
@@ -358,7 +358,17 @@ export default function PlayerDetailPage() {
             player,
             card,
             ranking,
-            record ? { played: record.played, won: record.won, form: record.form } : null,
+            record
+              ? {
+                  played: record.played,
+                  won: record.won,
+                  form: record.form,
+                  opponents: record.recentMatches.map((m) => ({
+                    won: m.won,
+                    opponentLevel: m.opponentLevel,
+                  })),
+                }
+              : null,
           )
         : null,
     [player, card, ranking, record],
@@ -635,7 +645,7 @@ export default function PlayerDetailPage() {
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">
             <Sparkles className="h-4 w-4 text-primary" /> Cómo llega el jugador
-            <Tooltip content="Resumen automático de su forma, estilo y racha con base en su récord, partidos recientes y tendencia de nivel.">
+            <Tooltip content="Resumen automático de su forma, estilo, consistencia y contra quién juega.">
               <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-primary cursor-help" />
             </Tooltip>
           </h3>
@@ -647,7 +657,7 @@ export default function PlayerDetailPage() {
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Zap className="h-4 w-4 text-primary" />
                   Forma competitiva
-                  <Tooltip content="Score 1-5 basado en: win rate global, victorias recientes (últimos 5), y pendiente de tendencia de nivel. 5=En su mejor momento, 4=Bien enchegado, 3=En su línea, 2=Deja vu, 1=Le falta ritmo de juego">
+                  <Tooltip content="Nivel 1 a 5 según su récord completo, sus últimos partidos y si viene subiendo o bajando.">
                     <Badge variant={jev.forma.score >= 4 ? "default" : jev.forma.score <= 2 ? "destructive" : "secondary"}>{jev.forma.score}/5</Badge>
                   </Tooltip>
                 </CardTitle>
@@ -660,7 +670,7 @@ export default function PlayerDetailPage() {
                 </div>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <Tooltip key={n} content={`Nivel ${n}: ${["Le falta ritmo","Deja vu","En su línea","Bien enchegado","Mejor momento"][n-1]}. Distribución de probabilidad del modelo.`}>
+                    <Tooltip key={n} content={`Nivel ${n}: ${["Le cuesta marcar diferencias","Juega de más a menos","Juega parejo","Viene en buen momento","Está jugando su mejor pádel"][n-1]}. Cuánto pesa ese nivel en el análisis.`}>
                       <div className="flex-1">
                         <AnimatedBar value={(jev.forma.distribution[n as 1|2|3|4|5] ?? 0) * 100} max={100} color="primary" className="h-1.5" />
                         <p className="mt-1 text-center text-[10px] text-muted-foreground">{n}</p>
@@ -677,13 +687,13 @@ export default function PlayerDetailPage() {
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Target className="h-4 w-4 text-primary" />
                   Estilo
-                  <Tooltip content="Predicción de estilo basada en: posición preferida (drive/revés), mano dominante, y nivel. Los porcentajes son probabilidades del modelo.">
+                  <Tooltip content="Deduce su estilo de juego a partir de la posición que prefiere y la mano que usa.">
                     <Badge variant="outline">{jev.estilo.choice}</Badge>
                   </Tooltip>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-sm font-medium capitalize">{jev.estilo.choice} · padel {player.preferred_position}</p>
+                <p className="text-sm font-medium capitalize">{jev.estilo.choice}</p>
                 {Object.entries(jev.estilo.probabilities).map(([k, v]) => (
                   <Tooltip key={k} content={`Probabilidad ${((v as number)*100).toFixed(0)}% de estilo ${k}.`}>
                     <div className="flex items-center gap-2 text-xs">
@@ -703,8 +713,8 @@ export default function PlayerDetailPage() {
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Activity className="h-4 w-4 text-primary" />
                   Racha
-                  <Tooltip content="Noul = probabilidad de estar en racha positiva. Fórmula: 35% base + winRate×50% + victoriasRecientes/3×20% + deltaRanking×10%. >65%=en racha, <35%=bache.">
-                    <Badge variant={jev.racha.label === "en racha" ? "default" : jev.racha.label === "bache" ? "destructive" : "secondary"}>{jev.racha.label}</Badge>
+                  <Tooltip content="Qué tan seguido gana, para saber si su nivel es parejo o le da por subir y bajar. 100 sería ganar siempre.">
+                    <Badge variant={jev.racha.label === "sube" ? "default" : jev.racha.label === "le cuesta" ? "destructive" : "secondary"}>{jev.racha.label}</Badge>
                   </Tooltip>
                 </CardTitle>
               </CardHeader>
@@ -712,9 +722,9 @@ export default function PlayerDetailPage() {
                 <div>
                   <div className="flex items-baseline gap-2">
                     <p className="text-3xl font-black tabular-nums">{(jev.racha.probYes * 100).toFixed(0)}%</p>
-                    <span className="text-xs text-muted-foreground">Prob. racha positiva (Noul)</span>
+                    <span className="text-xs text-muted-foreground">Probabilidad de que venga en racha</span>
                   </div>
-                  <AnimatedBar value={jev.racha.probYes * 100} max={100} color={jev.racha.label === "en racha" ? "success" : jev.racha.label === "bache" ? "destructive": "warning" } className="mt-2 h-2.5" />
+                  <AnimatedBar value={jev.racha.probYes * 100} max={100} color={jev.racha.label === "sube" ? "success" : jev.racha.label === "le cuesta" ? "destructive": "warning" } className="mt-2 h-2.5" />
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <Tooltip content="Consistencia = estabilidad del rendimiento. Basada solo en win rate: >70%=88 (Muy consistente), >55%=72 (Consistente), >40%=54, <40%=38 (Volátil).">
@@ -756,6 +766,32 @@ export default function PlayerDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {jev?.rival && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center justify-between text-base">
+                  <span className="flex items-center gap-2">
+                    <Swords className="h-4 w-4" /> Contra quién juega
+                  </span>
+                  {jev.rival.reliable && (
+                    <span className="font-display text-2xl tabular-nums text-primary">
+                      {jev.rival.score}
+                    </span>
+                  )}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {jev.rival.reliable
+                    ? `Ganar a un 5 no es lo mismo que ganar a un 3. Ponderado por ${jev.rival.sample} rivales conocidos.`
+                    : "Faltan rivales con nivel registrado para poder ponderar."}
+                </p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-lg font-bold">{jev.rival.label}</p>
+                <AnimatedBar value={jev.rival.score} max={100} color="primary" className="mt-1.5" />
+              </CardContent>
+            </Card>
+          )}
 
           {qualification && (
             <Card>
@@ -1065,12 +1101,12 @@ export default function PlayerDetailPage() {
                         isStyle={true}
                         tooltip="Estilo predominante: ofensivo, defensivo, equilibrado o transición"
                       />
-                      <ComparisonRow label="Racha (Noul)" 
+                      <ComparisonRow label="Racha" 
                         valueA={`${(jev.racha.probYes * 100).toFixed(0)}% ${jev.racha.label}`} 
                         valueB={`${(compareData.jev.racha.probYes * 100).toFixed(0)}% ${compareData.jev.racha.label}`} 
                         higherIsBetter={true} 
                         unit="%"
-                        tooltip="Probabilidad de racha positiva (Noul). >65%=en racha, <35%=bache"
+                        tooltip="Si le cuesta o viene en racha, según su récord y sus últimos partidos"
                       />
                       <ComparisonRow label="Consistencia" 
                         valueA={`${jev.consistencia.score}/100`} 

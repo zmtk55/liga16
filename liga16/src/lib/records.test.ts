@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlayerRecords, recordWinRate } from "./records";
-import { analyzePairLocal, analyzePlayerLocal } from "./jev";
+import { analyzePairLocal, analyzePlayerLocal, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
@@ -260,7 +260,7 @@ describe("analyzePlayerLocal (señales JEV)", () => {
 
   it("sin partidos no afirma que el jugador está mal", () => {
     const jev = analyzePlayerLocal(player, null, null, { played: 0, won: 0, form: [] });
-    expect(jev.forma.label).toBe("Sin datos todavía");
+    expect(jev.forma.label).toBe("Aún no hay partidos");
     expect(jev.forma.confidence).toBe(0);
     expect(jev.consistencia.label).toBe("Sin datos");
   });
@@ -275,7 +275,7 @@ describe("analyzePlayerLocal (señales JEV)", () => {
       form: ["P", "P"],
     });
     expect(conCard.forma.score).toBeGreaterThan(conDerivado.forma.score);
-    expect(conDerivado.forma.label).toBe("Le falta ritmo de juego");
+    expect(conDerivado.forma.label).toBe("Le cuesta marcar diferencias");
   });
 });
 
@@ -284,19 +284,80 @@ describe("analyzePairLocal (desempeño derivado de resultados)", () => {
     const perf = analyzePairLocal({ played: 10, won: 8, form: ["G", "G", "G"] });
     expect(perf.forma).toBe(5);
     expect(perf.winRate).toBe(80);
-    expect(perf.racha.label).toBe("en racha");
+    expect(perf.racha.label).toBe("sube");
   });
 
   it("marca bache cuando los últimos 3 fueron perdidos", () => {
     const perf = analyzePairLocal({ played: 10, won: 5, form: ["G", "P", "P", "P"] });
-    expect(perf.racha.label).toBe("bache");
+    expect(perf.racha.label).toBe("le cuesta");
     expect(perf.racha.lost).toBe(3);
   });
 
-  it("no inventa racha cuando la pareja no tiene historial", () => {
+  it("sin historial no inventa una racha", () => {
     const perf = analyzePairLocal({ played: 0, won: 0 });
-    // El contrato de JEV usa "sin racha" cuando no hay historial.
-    expect(perf.racha.label).toBe("sin racha");
+    expect(perf.racha.label).toBe("sin datos");
     expect(perf.winRate).toBe(0);
+  });
+
+  it("no usa palabras que un jugador no entiende", () => {
+    const ficha = { preferred_position: "drive", dominant_hand: "right", official_level: 5 } as unknown as PlayerProfile;
+    const perf = analyzePairLocal({ played: 10, won: 1, form: ["P"] });
+    const jev = analyzePlayerLocal(ficha, null, null, { played: 10, won: 1, form: ["P"] });
+    const todo = [perf.formaLabel, perf.racha.label, jev.forma.label, jev.consistencia.label, jev.racha.label].join(" ");
+    for (const palabra of ["Deja vu", "déjà", "engranado", "bache", "Noul"]) {
+      expect(todo).not.toContain(palabra);
+    }
+  });
+});
+
+describe("rivalAdjusted (cuenta contra quién se ganó)", () => {
+  it("reconoce a quien le gana a los mejores", () => {
+    // Gana a dos de 5 y pierde contra un 2.5: el rival no explica la victoria.
+    const contraDebiles = rivalAdjusted({
+      opponents: [
+        { won: true, opponentLevel: 5.5 },
+        { won: true, opponentLevel: 5.2 },
+        { won: false, opponentLevel: 2.4 },
+      ],
+      myLevel: 4,
+      played: 3,
+      won: 2,
+    });
+    // Mismo récord, pero las victorias son contra gente de 2.
+    const contraFuertes = rivalAdjusted({
+      opponents: [
+        { won: true, opponentLevel: 2.5 },
+        { won: true, opponentLevel: 2.2 },
+        { won: false, opponentLevel: 5.4 },
+      ],
+      myLevel: 4,
+      played: 3,
+      won: 2,
+    });
+    expect(contraDebiles.score).toBeGreaterThan(contraFuertes.score);
+    expect(contraDebiles.label).toBe("Rinde de más");
+    expect(contraFuertes.label).toBe("Le cuestan los mejores");
+  });
+
+  it("no se marca confiable con menos de 3 rivales conocidos", () => {
+    const r = rivalAdjusted({
+      opponents: [{ won: true, opponentLevel: 5 }],
+      myLevel: 4,
+      played: 1,
+      won: 1,
+    });
+    expect(r.reliable).toBe(false);
+    expect(r.sample).toBe(1);
+  });
+
+  it("sin nivel de rival conocido devuelve sin datos, no un número inventado", () => {
+    const r = rivalAdjusted({
+      opponents: [{ won: true, opponentLevel: null }],
+      myLevel: 4,
+      played: 1,
+      won: 1,
+    });
+    expect(r.label).toBe("Sin datos");
+    expect(r.score).toBe(0);
   });
 });
