@@ -8,15 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MatchCard } from "@/components/cards/card-kit";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { sexLabel, winRate } from "@/lib/format";
+import { sexLabel, sexOptions, winRate } from "@/lib/format";
 import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/page-hero";
 import { DIVISION_ORDER } from "@/lib/categories";
 import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock } from "lucide-react";
-import { RankingFilters } from "@/components/ranking/ranking-filters";
 
 /**
  * Popup de pareja: cabecera póster + stats + UN partido a la vez con flechas.
@@ -228,9 +228,7 @@ export default function RankingsPage() {
     else next.set(key, value);
     setParams(next, { replace: true });
   };
-  const setDivision = (v: string) => setParam("division", v);
   const setSex = (v: string) => setParam("sex", v);
-  const setQuery = (v: string) => setParam("q", v);
   const [detail, setDetail] = useState<Team | null>(null);
 
   useEffect(() => {
@@ -282,16 +280,27 @@ export default function RankingsPage() {
         ]}
       />
 
-      <RankingFilters
-        className="relative z-10 -mt-4"
-        search={query}
-        onSearch={setQuery}
-        division={division}
-        onDivision={setDivision}
-        sex={sex}
-        onSex={setSex}
-        placeholder="Buscar pareja o jugador…"
-      />
+      {/* El buscador y las pills de división viven en el header (variante
+          "filter", ADR-0009): una sola búsqueda y un solo filtro por sección.
+          Aquí queda solo la rama, que el header no lleva. */}
+      <div className="relative z-10 -mt-4">
+        <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Rama
+        </span>
+        <ToggleGroup
+          type="single"
+          value={sex}
+          onValueChange={(v) => v && setSex(v)}
+          variant="outline"
+          size="sm"
+          className="w-fit justify-start"
+        >
+          <ToggleGroupItem value="all">Todas</ToggleGroupItem>
+          {sexOptions.filter((s) => s.value !== "all").map((s) => (
+            <ToggleGroupItem key={s.value} value={s.value}>{s.label}</ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
 
       {teams === null ? (
         <Skeleton className="h-96 w-full" />

@@ -3,7 +3,6 @@ import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Team } from "@/types";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
 import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -40,7 +39,6 @@ export default function TeamsPage() {
     else next.set(key, value);
     setParams(next, { replace: true });
   };
-  const setQ = (v: string) => setParam("q", v);
   const setDivision = (v: string) => setParam("division", v);
 
   useEffect(() => {
@@ -93,17 +91,10 @@ export default function TeamsPage() {
         stats={stats}
       />
 
-      {/* Filtros: búsqueda + división + rama, sobre el hero */}
+      {/* El buscador vive en el header (variante "search", ADR-0009): una sola
+          búsqueda por sección, siempre en el mismo sitio. Aquí solo lo propio de
+          la sección —división y rama—, que no aplica a las demás. */}
       <div className="relative z-10 -mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar pareja o jugador…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="pl-9"
-          />
-        </div>
         <div className="flex flex-wrap items-center gap-2">
           <GroupFilterBar
             divisions={divisionOptions.filter((o) => o.value !== "all")}

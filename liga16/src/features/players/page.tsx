@@ -4,7 +4,7 @@ import { db } from "@/lib/data";
 import type { PlayerProfile, RankingEntry, PlayerCard } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardShell, CardIdentity, CardFooterStrip, CardStat } from "@/components/cards/card-kit";
-import { Input } from "@/components/ui/input";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlayerAvatar } from "@/components/cards/card-image";
@@ -32,7 +32,6 @@ import {
   LayoutGrid,
   Rows3,
   Table2,
-  Search,
   X,
   Users,
   Target,
@@ -165,18 +164,10 @@ export default function PlayersPage() {
         ]}
       />
 
-      {/* Barra de filtros y vistas */}
+      {/* El buscador vive en el header (variante "search", ADR-0009). Aquí solo
+          lo propio de la sección —la vista—, que no aplica a las demás. */}
       <div className="relative z-10 -mt-4 space-y-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
           <div className="flex items-center gap-2 sm:ml-auto">
             <span className="hidden text-xs uppercase tracking-widest text-muted-foreground md:inline">Vista</span>
             <ToggleGroup
