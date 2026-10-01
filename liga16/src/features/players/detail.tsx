@@ -56,7 +56,7 @@ function AnimatedBar({ value, max = 100, color = "primary", className = "" }: { 
   return (
     <div className={`h-2 rounded-full bg-muted overflow-hidden ${className}`}>
       <div
-        className={`h-full rounded-full transition-all duration-1000 ease-out ${color === "primary" ? "bg-primary" : color === "success" ? "bg-success" : color === "warning" ? "bg-warning" : color === "destructive" ? "bg-destructive" : "bg-primary"}`}
+        className={`h-full rounded-full transition-[width] duration-700 ease-out ${color === "primary" ? "bg-primary" : color === "success" ? "bg-success" : color === "warning" ? "bg-warning" : color === "destructive" ? "bg-destructive" : "bg-primary"}`}
         style={{ width: `${Math.min(100, (animated / max) * 100)}%` }}
       />
     </div>
@@ -94,7 +94,7 @@ function ComparisonRow({ label, valueA, valueB, higherIsBetter, unit, isStyle = 
             <span className="h-1 w-full max-w-24 overflow-hidden rounded-full bg-muted">
               <span
                 className={cn(
-                  "block h-full rounded-full transition-all duration-500",
+                  "block h-full rounded-full transition-[width] duration-500 ease-out",
                   win ? "bg-success" : "bg-muted-foreground/35",
                 )}
                 style={{ width: pct(num) }}

@@ -51,7 +51,7 @@ export function TeamCompareChart({
           </div>
         </div>
       ))}
-      <style>{`@media (prefers-reduced-motion: reduce) { .transition-\\[width\\] { transition: none !important; } }`}</style>
+      <style>{`@media (prefers-reduced-motion: reduce) { [class*="transition-[width]"] { transition: none !important; } }`}</style>
     </div>
   );
 }
