@@ -6,7 +6,7 @@ import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFro
 import { qualificationFor, type StandingLike } from "./qualification";
 import { drawGroupsByCategory, parseRound, roundRobinRounds, type DrawablePair } from "./groups";
 import { groupByDivision } from "./categories";
-import { SECTION_NAVBAR, navbarTypeFor } from "@/components/shadcn-space/blocks/navbar-01/section-navbar";
+import { SECTION_NAVBAR, SECTION_NAVBAR_ADMIN, navbarTypeFor, sectionRootFor } from "@/components/shadcn-space/blocks/navbar-01/section-navbar";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
 const players: PlayerProfile[] = [
@@ -690,5 +690,41 @@ describe("una variante de navbar por tipo de sección", () => {
 
   it("una sección sin declarar cae en el tipo base, no rompe", () => {
     expect(navbarTypeFor("/ruta-que-no-existe")).toBe("browse");
+  });
+
+  it("el admin sigue la misma regla que el sitio público", () => {
+    expect(navbarTypeFor("/admin")).toBe("browse");
+    expect(navbarTypeFor("/admin/jugadores")).toBe("search");
+    expect(navbarTypeFor("/admin/resultados")).toBe("search");
+    expect(navbarTypeFor("/admin/ranking")).toBe("filter");
+    // Máximo tres tipos también en el panel.
+    expect([...new Set(Object.values(SECTION_NAVBAR_ADMIN))].sort()).toEqual([
+      "browse",
+      "filter",
+      "search",
+    ]);
+  });
+
+  it("el admin vive un nivel más abajo, y su raíz se resuelve bien", () => {
+    // El bug: tomar solo el primer segmento daba "/admin" para todas las
+    // pantallas del panel, y ninguna encontraba su tipo ni su placeholder.
+    expect(sectionRootFor("/admin/jugadores")).toBe("/admin/jugadores");
+    expect(sectionRootFor("/admin/ranking")).toBe("/admin/ranking");
+    expect(sectionRootFor("/admin")).toBe("/admin");
+    // El detalle resuelve su raíz aunque no reciba control de lista.
+    expect(sectionRootFor("/admin/jugadores/abc")).toBe("/admin/jugadores");
+    // Y el público sigue resolviendo como antes.
+    expect(sectionRootFor("/torneos")).toBe("/torneos");
+    expect(sectionRootFor("/torneos/copa")).toBe("/torneos");
+  });
+
+  it("las pantallas de detalle del admin no reciben control de lista", () => {
+    // Estas rutas existen y son las que importan: el listado de torneos es
+    // "search", pero su detalle y el asistente son formularios con sus
+    // propios filtros. Heredar el buscador les pondría dos en la pantalla.
+    expect(navbarTypeFor("/admin/torneos")).toBe("search");
+    expect(navbarTypeFor("/admin/torneos/nuevo")).toBe("browse");
+    expect(navbarTypeFor("/admin/torneos/abc")).toBe("browse");
+    expect(navbarTypeFor("/admin/torneos/abc/editar")).toBe("browse");
   });
 });

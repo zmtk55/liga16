@@ -1,6 +1,7 @@
 // Admin → Participantes: todas las parejas de TODOS los torneos en una sola vista.
 // Filtra por torneo/categoría, y permite borrar o mover una pareja a otro torneo.
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Tournament, TournamentCategory, UUID } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -51,7 +52,15 @@ export default function AdminParticipants() {
   const [pairs, setPairs] = useState<AllPair[] | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
-  const [query, setQuery] = useState("");
+  // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q") ?? "";
+  const setQuery = (v: string) => {
+    const next = new URLSearchParams(params);
+    if (!v) next.delete("q");
+    else next.set("q", v);
+    setParams(next, { replace: true });
+  };
   const [fTournament, setFTournament] = useState("all");
   const [fCategory, setFCategory] = useState("all");
   const [deleting, setDeleting] = useState<AllPair | null>(null);
@@ -178,9 +187,6 @@ export default function AdminParticipants() {
       <Card>
         <CardHeader className="gap-3">
           <FilterBar
-            search={query}
-            onSearch={setQuery}
-            searchPlaceholder="Buscar pareja o torneo…"
             selects={[
               {
                 key: "tournament",

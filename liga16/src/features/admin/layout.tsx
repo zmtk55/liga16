@@ -31,6 +31,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { SectionControl } from "@/components/shadcn-space/blocks/navbar-01/section-control";
 
 /** Todos los items comparten forma; `end` y `badge` son opcionales. */
 type NavItem = {
@@ -164,8 +165,9 @@ export default function AdminLayout() {
     <div className="min-h-dvh bg-muted/30">
       <div className="lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
         <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-card lg:flex">
-          <div className="flex h-16 items-center border-b px-5">
+          <div className="flex h-16 items-center justify-between gap-2 border-b px-5">
             <AdminBrand />
+            <SectionControl only="pills" variant="bar" />
           </div>
           <div className="flex-1 overflow-y-auto">
             <AdminNav alertCount={alertCount} />
@@ -194,6 +196,10 @@ export default function AdminLayout() {
               </SheetContent>
             </Sheet>
             <AdminBrand />
+            {/* El mismo control que el header público, por la misma regla
+                (ADR-0009). Antes el admin no tenía buscador en el shell: cada
+                pantalla ponía el suyo y en móvil no había ninguno. */}
+            <SectionControl only="search" className="ml-auto w-28 sm:w-44" />
             <Button asChild variant="ghost" size="icon" className="relative" aria-label={`Bandeja de entrada (${alertCount})`}>
               <Link to="/admin/inbox">
                 <Bell className="h-5 w-5" />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -24,7 +24,15 @@ import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/adm
 
 export default function AdminTournaments() {
   const [list, setList] = useState<Tournament[] | null>(null);
-  const [query, setQuery] = useState("");
+  // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q") ?? "";
+  const setQuery = (v: string) => {
+    const next = new URLSearchParams(params);
+    if (!v) next.delete("q");
+    else next.set("q", v);
+    setParams(next, { replace: true });
+  };
   const [status, setStatus] = useState("all");
 
   useEffect(() => {
@@ -95,9 +103,6 @@ export default function AdminTournaments() {
       <Card>
         <CardHeader className="gap-3">
           <FilterBar
-            search={query}
-            onSearch={setQuery}
-            searchPlaceholder="Buscar torneo o sede…"
             selects={[
               {
                 key: "status",

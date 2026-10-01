@@ -2,6 +2,7 @@
 // Un jugador pertenece al directorio global (player_profiles) pero su equipo
 // solo existe dentro del torneo elegido. Otro torneo = otros equipos.
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { PlayerProfile, Tournament, TournamentCategory } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -67,7 +68,15 @@ export default function AdminTeams() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<{ id: string; name: string; category_id: string | null; crest_url: string | null } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [query, setQuery] = useState("");
+  // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q") ?? "";
+  const setQuery = (v: string) => {
+    const next = new URLSearchParams(params);
+    if (!v) next.delete("q");
+    else next.set("q", v);
+    setParams(next, { replace: true });
+  };
   const [cat, setCat] = useState("all");
 
   useEffect(() => {
@@ -261,9 +270,6 @@ export default function AdminTeams() {
         <Card>
           <CardHeader className="gap-3">
             <FilterBar
-              search={query}
-              onSearch={setQuery}
-              searchPlaceholder="Buscar pareja o jugador…"
               selects={[
                 {
                   key: "cat",
