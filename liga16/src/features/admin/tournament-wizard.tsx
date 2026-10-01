@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { db } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
+import { deleteStoredImage } from "@/components/ui/image-upload";
 import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile, Pair } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,7 @@ import {
   History,
   ImagePlus,
   Layers,
+  Loader2,
   Plus,
   RotateCcw,
   Trophy,
@@ -393,7 +396,9 @@ export default function TournamentWizard() {
   }
 
   async function doPersistStep(target: number) {
-    if (target >= 2 && !tournamentId) {
+    // En modo edición (slug) el torneo ya existe: cada pasada por el paso 2
+    // debe actualizar sus campos (antes solo se creaba y la edición era código muerto).
+    if (target >= 2 && (tournamentId || slug)) {
         const payload = {
           name: tournament.name,
           cover_url: tournament.cover_url,
@@ -421,8 +426,8 @@ export default function TournamentWizard() {
             ranking_method: tournament.ranking_method || DEFAULT_SCORING.ranking_method,
           },
         } as never;
-        if (tournamentId) {
-          const t = await db.getTournament(String(tournamentId));
+        if (tournamentId || slug) {
+          const t = await db.getTournament(String(tournamentId ?? slug));
           await db.updateTournament((t as unknown as { slug: string }).slug, payload);
         } else {
           const created = await db.createTournament(payload);
@@ -841,6 +846,7 @@ teams.forEach((t) => {
                   <CoverUpload
                     value={tournament.cover_url}
                     onChange={(v) => setTournament((t) => ({ ...t, cover_url: v }))}
+                    path={slug ?? "nuevo"}
                   />
                 </div>
                 <div className="grid gap-1.5">
@@ -1327,20 +1333,87 @@ teams.forEach((t) => {
 }
 
 /** Póster 16:9 del torneo: click para subir, con preview y opción de quitar. */
+const COVER_MAX_DIMENSION = 1600;
+
+/** Reescala la imagen a máx. 1600px por lado y la comprime a JPEG (fotos de póster). */
+async function fileToCoverBlob(file: File): Promise<Blob> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("El archivo no es una imagen válida"));
+    el.src = dataUrl;
+  });
+  const scale = Math.min(1, COVER_MAX_DIMENSION / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo procesar la imagen");
+  // JPEG no soporta transparencia: pintamos fondo blanco antes de dibujar.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("No se pudo procesar la imagen"))),
+      "image/jpeg",
+      0.85,
+    ),
+  );
+}
+
 function CoverUpload({
   value,
   onChange,
+  path = "nuevo",
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
+  /** Carpeta dentro del bucket, p. ej. el slug del torneo. */
+  path?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
-  function pick(file: File | null) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => onChange(String(reader.result));
-    reader.readAsDataURL(file);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /** Reemplaza la URL y limpia el objeto anterior del bucket (best-effort). */
+  function commit(next: string | null) {
+    void deleteStoredImage(value, "tournament-covers");
+    onChange(next);
   }
+
+  async function pick(file: File | null) {
+    if (!file) return;
+    if (!supabase) {
+      setError("Storage no configurado");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const blob = await fileToCoverBlob(file);
+      const objPath = `${path}/${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from("tournament-covers")
+        .upload(objPath, blob, { contentType: "image/jpeg", upsert: false });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("tournament-covers").getPublicUrl(objPath);
+      commit(data.publicUrl);
+    } catch (e) {
+      setError((e as Error).message ?? "Error al subir la imagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-2">
       <input
@@ -1353,11 +1426,17 @@ function CoverUpload({
       {value ? (
         <div className="group relative overflow-hidden rounded-xl border">
           <img src={value} alt="Póster del torneo" className="aspect-video w-full object-cover" />
+          {busy && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/60">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          )}
           <div className="absolute right-2 top-2 flex gap-1.5">
             <Button
               type="button"
               variant="secondary"
               size="sm"
+              disabled={busy}
               onClick={() => ref.current?.click()}
             >
               Cambiar
@@ -1367,7 +1446,8 @@ function CoverUpload({
               variant="secondary"
               size="icon"
               className="h-8 w-8"
-              onClick={() => onChange(null)}
+              disabled={busy}
+              onClick={() => commit(null)}
               aria-label="Quitar póster"
             >
               <X className="h-4 w-4" />
@@ -1377,14 +1457,26 @@ function CoverUpload({
       ) : (
         <button
           type="button"
+          disabled={busy}
           onClick={() => ref.current?.click()}
           className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-muted/30 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
           aria-label="Subir póster del torneo"
         >
-          <ImagePlus className="h-8 w-8" />
-          <span className="text-sm font-medium">Subir póster del torneo</span>
+          {busy ? (
+            <Loader2 className="h-8 w-8 animate-spin" />
+          ) : (
+            <ImagePlus className="h-8 w-8" />
+          )}
+          <span className="text-sm font-medium">
+            {busy ? "Subiendo…" : "Subir póster del torneo"}
+          </span>
           <span className="text-xs">JPG o PNG · 16:9 se ve mejor</span>
         </button>
+      )}
+      {error && (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );
