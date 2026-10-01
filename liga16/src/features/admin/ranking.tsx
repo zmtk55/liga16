@@ -94,11 +94,6 @@ export default function AdminRanking() {
       <AdminPageHeader
         title="Ranking de parejas"
         description="Se calcula con los resultados que capturas. Cambia un resultado y esta tabla se mueve sola."
-        action={
-          <Badge variant="outline" className="h-8 gap-1.5 px-3">
-            <BarChart3 className="h-3.5 w-3.5" /> Derivado
-          </Badge>
-        }
       >
         <AdminStatStrip>
           <AdminStat value={resumen.parejas} label="Parejas" />
@@ -163,7 +158,7 @@ export default function AdminRanking() {
                 <TableHead className="w-14">#</TableHead>
                 <TableHead>Pareja</TableHead>
                 <TableHead className="text-right">Puntos</TableHead>
-                <TableHead className="text-right">Record</TableHead>
+                <TableHead className="text-right">Ganadas – Perdidas</TableHead>
                 <TableHead className="text-right">División / Rama</TableHead>
                 <TableHead>Forma</TableHead>
               </TableRow>

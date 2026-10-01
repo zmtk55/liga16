@@ -11,7 +11,7 @@ import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PageHero } from "@/components/page-hero";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
 import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
@@ -169,16 +169,28 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHero
-        eyebrow="Organización"
+      {/* Cabecera como el resto del admin, no hero de landing: el bloque oscuro con
+          el numeral fantasma "16" pesaba más que las tareas del día. Las tres cifras
+          que traía el hero viven ahora en la franja de AdminStatStrip, que es la
+          convención del admin (cada sección orienta con cifras antes de la tabla). */}
+      <AdminPageHeader
         title="Panel"
-        subtitle="Lo que tienes que hacer hoy y cómo van tus torneos."
-        stats={[
-          { k: "Por verificar", v: pendingPlayers.length },
-          { k: "Por capturar", v: pendingMatches.length },
-          { k: "En juego", v: running.length },
-        ]}
-      />
+        description="Lo que tienes que hacer hoy y cómo van tus torneos."
+      >
+        <AdminStatStrip>
+          <AdminStat
+            value={pendingPlayers.length}
+            label="Por verificar"
+            tone={pendingPlayers.length > 0 ? "text-primary" : undefined}
+          />
+          <AdminStat
+            value={pendingMatches.length}
+            label="Por capturar"
+            tone={pendingMatches.length > 0 ? "text-primary" : undefined}
+          />
+          <AdminStat value={running.length} label="En juego" />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       {/* 1. Hoy. Lo único que un organizador abre el admin para hacer. */}
       <section aria-labelledby="hoy" className="space-y-3">

@@ -1841,6 +1841,18 @@ function GroupStandingsCard({
 
   // Jornada summary solo para Liga16
   const isLiga16 = liga16Cat !== null;
+
+  // Leyenda de columnas. Sin ella, PJ/PG/PP/%PTS obligan a adivinar: en la vista
+  // completa PP va justo después de PG y se lee como "puntos por partido", pero
+  // son partidos perdidos. La auditoría de Jev lo señaló como el punto ciego más
+  // claro del admin (confianza 0.99). Mismo patrón que la leyenda de sets en
+  // resultados.tsx: texto visible, no tooltip — en móvil no hay hover.
+  const leyendaColumnas = expanded
+    ? "PJ partidos jugados · PG ganados · PP perdidos · Sets G/P ganados/perdidos · Juegos G/P ganados/perdidos · Dif diferencia a favor · Pts puntos · G/D en Forma = victoria/derrota"
+    : isLiga16
+      ? "PJ partidos jugados · PG ganados · %PG porcentaje de victorias · %PTS puntos ganados sobre el total de puntos jugados · Pos posición"
+      : "PJ partidos jugados · Sets ganados-perdidos · Pts puntos · G/D en Forma = victoria/derrota";
+
   let jornadaSummary: { JUEGOS_JUGADOS: number; TOTAL_JUEGOS: number; JUEGOS_FALTANTES: number } | null = null;
   if (isLiga16) {
     const totalPJ = standings.reduce((sum, s) => sum + s.played, 0);
@@ -1879,37 +1891,37 @@ function GroupStandingsCard({
                 // Columnas Liga16: PJ, PG, %PG, %PTS, JERARQUIA
                 !expanded && (
                   <>
-                    <TableHead className="text-right">PJ</TableHead>
-                    <TableHead className="text-right">PG</TableHead>
-                    <TableHead className="text-right">%PG</TableHead>
-                    <TableHead className="text-right">%PTS</TableHead>
-                    <TableHead className="text-right pr-4">Pos</TableHead>
+                    <TableHead className="text-right" title="Partidos jugados">PJ</TableHead>
+                    <TableHead className="text-right" title="Partidos ganados">PG</TableHead>
+                    <TableHead className="text-right" title="Porcentaje de partidos ganados">%PG</TableHead>
+                    <TableHead className="text-right" title="Puntos ganados sobre el total de puntos jugados">%PTS</TableHead>
+                    <TableHead className="text-right pr-4" title="Posición en la tabla">Pos</TableHead>
                   </>
                 )
               ) : (
                 // Columnas genéricas
                 !expanded && (
                   <>
-                    <TableHead className="text-center w-28">Forma</TableHead>
-                    <TableHead className="text-right">PJ</TableHead>
-                    <TableHead className="text-right">Sets</TableHead>
-                    <TableHead className="text-right pr-4">Pts</TableHead>
+                    <TableHead className="text-center w-28" title="Últimos partidos: G es victoria, D es derrota">Forma</TableHead>
+                    <TableHead className="text-right" title="Partidos jugados">PJ</TableHead>
+                    <TableHead className="text-right" title="Sets ganados - sets perdidos">Sets</TableHead>
+                    <TableHead className="text-right pr-4" title="Puntos acumulados">Pts</TableHead>
                   </>
                 )
               )}
               {expanded && (
                 <>
-                  <TableHead className="text-center w-28">Forma</TableHead>
-                  <TableHead className="text-right">PJ</TableHead>
-                  <TableHead className="text-right">PG</TableHead>
-                  <TableHead className="text-right">PP</TableHead>
-                  <TableHead className="text-right">Sets G</TableHead>
-                  <TableHead className="text-right">Sets P</TableHead>
-                  <TableHead className="text-right">Dif sets</TableHead>
-                  <TableHead className="text-right">Juegos G</TableHead>
-                  <TableHead className="text-right">Juegos P</TableHead>
-                  <TableHead className="text-right">Dif juegos</TableHead>
-                  <TableHead className="text-right pr-4">Pts</TableHead>
+                  <TableHead className="text-center w-28" title="Últimos partidos: G es victoria, D es derrota">Forma</TableHead>
+                  <TableHead className="text-right" title="Partidos jugados">PJ</TableHead>
+                  <TableHead className="text-right" title="Partidos ganados">PG</TableHead>
+                  <TableHead className="text-right" title="Partidos perdidos (no puntos: van juntos a PJ y PG)">PP</TableHead>
+                  <TableHead className="text-right" title="Sets ganados">Sets G</TableHead>
+                  <TableHead className="text-right" title="Sets perdidos">Sets P</TableHead>
+                  <TableHead className="text-right" title="Diferencia de sets a favor">Dif sets</TableHead>
+                  <TableHead className="text-right" title="Juegos ganados">Juegos G</TableHead>
+                  <TableHead className="text-right" title="Juegos perdidos">Juegos P</TableHead>
+                  <TableHead className="text-right" title="Diferencia de juegos a favor">Dif juegos</TableHead>
+                  <TableHead className="text-right pr-4" title="Puntos acumulados">Pts</TableHead>
                 </>
               )}
             </TableRow>
@@ -2005,6 +2017,9 @@ function GroupStandingsCard({
             })}
           </TableBody>
         </Table>
+        <p className="border-t px-4 py-2 text-xs leading-relaxed text-muted-foreground">
+          {leyendaColumnas}
+        </p>
       </CardContent>
     </Card>
   );

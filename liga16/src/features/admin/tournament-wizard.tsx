@@ -911,12 +911,18 @@ teams.forEach((t) => {
 
               <fieldset className="rounded-lg border p-4">
                 <legend className="px-1 text-sm font-semibold">Sistema de puntuación</legend>
+                <p className="text-xs text-muted-foreground">
+                  Un <strong>set</strong> se gana al llegar a los juegos indicados; si ambos llegan al
+                  «tie-break a», ese set se decide en un desempate a puntos. Estos cuatro números y las dos
+                  opciones de abajo definen cómo se juega y cómo se ordenan las parejas: si tu reglamento es el
+                  habitual, no toques nada.
+                </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {[
-                    { k: "sets_to_win", l: "Sets para ganar" },
-                    { k: "games_per_set", l: "Juegos por set" },
-                    { k: "tie_break_at", l: "Tie-break a (juegos)" },
-                    { k: "tie_break_points", l: "Puntos TB" },
+                    { k: "sets_to_win", l: "Sets para ganar", h: "Cuántos sets hay que ganar: 2, 3 o 5" },
+                    { k: "games_per_set", l: "Juegos por set", h: "A cuántos juegos se juega un set: 6, 7 u 11" },
+                    { k: "tie_break_at", l: "Tie-break a (juegos)", h: "Al llegar a estos juegos el set se decide en tie-break" },
+                    { k: "tie_break_points", l: "Puntos TB", h: "Cuántos puntos suma quien gana ese desempate" },
                   ].map((f) => (
                     <div key={f.k} className="grid gap-1">
                       <Label htmlFor={`sc-${f.k}`} className="text-xs text-muted-foreground">{f.l}</Label>
@@ -927,6 +933,7 @@ teams.forEach((t) => {
                         value={tournament[f.k as "sets_to_win"]}
                         onChange={(e) => setTournament((t) => ({ ...t, [f.k]: e.target.value }))}
                       />
+                      <p className="text-[11px] leading-snug text-muted-foreground/80">{f.h}</p>
                     </div>
                   ))}
                 </div>
@@ -936,25 +943,32 @@ teams.forEach((t) => {
                     <Select value={tournament.win_by_two_tiebreak} onValueChange={(v) => setTournament((t) => ({ ...t, win_by_two_tiebreak: v }))}>
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="true">Sí (diferencia de 2)</SelectItem>
-                        <SelectItem value="false">No (muerte súbita)</SelectItem>
+                        <SelectItem value="true">Sí — hay que ganar por 2 puntos</SelectItem>
+                        <SelectItem value="false">No — gana quien llegue primero a la meta</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-[11px] leading-snug text-muted-foreground/80">
+                      Si está en «Sí», el tie-break acaba cuando alguien va ganando por 2; si no, sigue hasta el punto exacto.
+                    </p>
                   </div>
                   <div className="grid gap-1 sm:col-span-2">
                     <Label htmlFor="sc-ranking_method" className="text-xs text-muted-foreground">Método ranking</Label>
                     <Select value={tournament.ranking_method} onValueChange={(v) => setTournament((t) => ({ ...t, ranking_method: v as "match_points" | "points_percentage" }))}>
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="match_points">Puntos por partido (3-0-0)</SelectItem>
-                        <SelectItem value="points_percentage">% Puntos (Liga16: pts a favor / total)</SelectItem>
+                        <SelectItem value="match_points">Puntos por partido — 3 al que gana, 0 al que pierde</SelectItem>
+                        <SelectItem value="points_percentage">% Puntos — porcentaje de puntos ganados</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-[11px] leading-snug text-muted-foreground/80">
+                      Define el orden de la tabla: por resultado (3-0-0) o por porcentaje de puntos ganados.
+                    </p>
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Liga16 4TA/5TA/6TA/SUMA9: usa <strong>% Puntos</strong> y tie-break a <strong>10 pts</strong> (super TB).
-                  Otros torneos: <strong>Puntos por partido</strong> y TB a 7 pts.
+                  Si no cambias nada, los valores de arriba ya quedan bien puestos: Liga16 4TA/5TA/6TA/SUMA9
+                  ordena por <strong>% Puntos</strong> y usa tie-break a <strong>10 pts</strong> (super TB);
+                  otros torneos ordenan por <strong>Puntos por partido</strong> con TB a 7 pts.
                 </p>
               </fieldset>
             </div>

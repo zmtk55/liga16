@@ -114,7 +114,10 @@ export default function AdminInbox() {
               <Inbox className="h-8 w-8 text-muted-foreground/50" />
             </EmptyMedia>
             <EmptyTitle>Todo al día</EmptyTitle>
-            <EmptyDescription>No hay alertas en este momento.</EmptyDescription>
+            <EmptyDescription>
+              No hay alertas en este momento. Aparecerán aquí cuando un jugador quede por verificar, un torneo
+              empiece o cierre inscripciones, o un partido se juegue o se marque en disputa.
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
