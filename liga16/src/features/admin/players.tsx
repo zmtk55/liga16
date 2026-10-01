@@ -37,9 +37,20 @@ import type { PlayerStatus } from "@/types";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
-import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
+import {
+  AdminPageHeader,
+  AdminStat,
+  AdminStatStrip,
+} from "@/components/admin/page-header";
+import {
+  AdminTableEmpty,
+  AdminTableSkeleton,
+} from "@/components/admin/table-state";
+import {
+  RowActionsMenu,
+  RowContextMenu,
+  type RowAction,
+} from "@/components/admin/row-actions";
 
 const SEX_OPTIONS = [
   { value: "M", label: "Varonil" },
@@ -66,19 +77,30 @@ export default function AdminPlayers() {
   const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState("");
   // Filtro por torneo: los jugadores que juegan en él (via equipos inscritos)
-  const [tournaments, setTournaments] = useState<Array<{ id: string; name: string }>>([]);
+  const [tournaments, setTournaments] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [tid, setTid] = useState("all");
   /** Ids de los jugadores inscritos en el torneo filtrado. */
-  const [tournamentPlayers, setTournamentPlayers] = useState<Set<string>>(new Set());
+  const [tournamentPlayers, setTournamentPlayers] = useState<Set<string>>(
+    new Set(),
+  );
   const [verification, setVerification] = useState("all");
 
   const statusOf = (p: PlayerProfile) => p.status ?? "verificado";
-  const pendingCount = (list ?? []).filter((p) => statusOf(p) === "pendiente").length;
+  const pendingCount = (list ?? []).filter(
+    (p) => statusOf(p) === "pendiente",
+  ).length;
 
   const filtered = (list ?? [])
     .filter((p) => {
       const q = query.trim().toLowerCase();
-      if (q && !p.display_name.toLowerCase().includes(q) && !p.username.toLowerCase().includes(q)) return false;
+      if (
+        q &&
+        !p.display_name.toLowerCase().includes(q) &&
+        !p.username.toLowerCase().includes(q)
+      )
+        return false;
       if (tid !== "all" && !tournamentPlayers.has(p.id)) return false;
       if (verification !== "all" && statusOf(p) !== verification) return false;
       return true;
@@ -92,7 +114,9 @@ export default function AdminPlayers() {
 
   useEffect(() => {
     db.listPlayers().then(setList);
-    db.listTournaments().then((ts) => setTournaments(ts.map((t) => ({ id: t.id, name: t.name })))).catch(() => setTournaments([]));
+    db.listTournaments()
+      .then((ts) => setTournaments(ts.map((t) => ({ id: t.id, name: t.name }))))
+      .catch(() => setTournaments([]));
   }, []);
 
   useEffect(() => {
@@ -103,14 +127,16 @@ export default function AdminPlayers() {
     // Jugadores del torneo = los ids de los equipos inscritos. Se usa el id y
     // no el nombre: dos jugadores homónimos, o una pareja renombrada, romperían
     // el filtro sin avisar.
-    db.getTournamentPairs(tid).then((ps) => {
-      const ids = new Set<string>();
-      ps.forEach((p) => {
-        if (p.player1_id) ids.add(p.player1_id);
-        if (p.player2_id) ids.add(p.player2_id);
-      });
-      setTournamentPlayers(ids);
-    }).catch(() => setTournamentPlayers(new Set()));
+    db.getTournamentPairs(tid)
+      .then((ps) => {
+        const ids = new Set<string>();
+        ps.forEach((p) => {
+          if (p.player1_id) ids.add(p.player1_id);
+          if (p.player2_id) ids.add(p.player2_id);
+        });
+        setTournamentPlayers(ids);
+      })
+      .catch(() => setTournamentPlayers(new Set()));
   }, [tid]);
 
   const load = () => db.listPlayers().then(setList);
@@ -120,10 +146,15 @@ export default function AdminPlayers() {
     try {
       await new Promise((r) => setTimeout(r, 400));
       if (editing) {
-        await db.updatePlayer(editing.id, form as unknown as Partial<PlayerProfile>);
+        await db.updatePlayer(
+          editing.id,
+          form as unknown as Partial<PlayerProfile>,
+        );
         toast.success(`Jugador "${form.display_name}" actualizado`);
       } else {
-        await db.createPlayer(form as unknown as Omit<PlayerProfile, "id" | "user_id">);
+        await db.createPlayer(
+          form as unknown as Omit<PlayerProfile, "id" | "user_id">,
+        );
         toast.success(`Jugador "${form.display_name}" creado`);
       }
       setOpenCreate(false);
@@ -153,7 +184,9 @@ export default function AdminPlayers() {
   async function handleApprove(p: PlayerProfile) {
     try {
       await db.setPlayerStatus(p.id, "verificado");
-      toast.success(`${p.display_name} verificado — ya puede inscribirse a torneos`);
+      toast.success(
+        `${p.display_name} verificado — ya puede inscribirse a torneos`,
+      );
       load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al verificar");
@@ -173,7 +206,11 @@ export default function AdminPlayers() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setVerification((v) => (v === "pendiente" ? "all" : "pendiente"))}
+                onClick={() =>
+                  setVerification((v) =>
+                    v === "pendiente" ? "all" : "pendiente",
+                  )
+                }
               >
                 <ShieldCheck className="h-4 w-4" />
                 {pendingCount} por verificar
@@ -181,7 +218,13 @@ export default function AdminPlayers() {
             )}
             {/* Siempre visible: verificar pendientes no puede quitarte la
                 acción de crear un jugador. */}
-            <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditing(null);
+                setOpenCreate(true);
+              }}
+            >
               <Plus className="h-4 w-4" /> Nuevo jugador
             </Button>
           </>
@@ -192,10 +235,18 @@ export default function AdminPlayers() {
           <AdminStat
             value={pendingCount}
             label="Por verificar"
-            tone={pendingCount > 0 ? "text-amber-600 dark:text-amber-400" : undefined}
+            tone={
+              pendingCount > 0
+                ? "text-amber-600 dark:text-amber-400"
+                : undefined
+            }
           />
           <AdminStat
-            value={(list ?? []).filter((p) => (p.status ?? "verificado") === "verificado").length}
+            value={
+              (list ?? []).filter(
+                (p) => (p.status ?? "verificado") === "verificado",
+              ).length
+            }
             label="Verificados"
             tone="text-success"
           />
@@ -215,7 +266,10 @@ export default function AdminPlayers() {
                 allLabel: "Todo el directorio",
                 value: tid,
                 onChange: setTid,
-                options: tournaments.map((t) => ({ value: t.id, label: `Juega en: ${t.name}` })),
+                options: tournaments.map((t) => ({
+                  value: t.id,
+                  label: `Juega en: ${t.name}`,
+                })),
                 className: "sm:w-60",
               },
               {
@@ -225,7 +279,10 @@ export default function AdminPlayers() {
                 value: verification,
                 onChange: setVerification,
                 options: [
-                  { value: "pendiente", label: `Por verificar (${pendingCount})` },
+                  {
+                    value: "pendiente",
+                    label: `Por verificar (${pendingCount})`,
+                  },
                   { value: "verificado", label: "Verificados" },
                   { value: "rechazado", label: "Rechazados" },
                 ],
@@ -234,7 +291,11 @@ export default function AdminPlayers() {
             ]}
             resultCount={filtered.length}
             resultLabel="jugadores"
-            onClear={() => { setQuery(""); setTid("all"); setVerification("all"); }}
+            onClear={() => {
+              setQuery("");
+              setTid("all");
+              setVerification("all");
+            }}
           />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
@@ -258,7 +319,14 @@ export default function AdminPlayers() {
                   title="No hay jugadores todavía"
                   description="Agrega al primer jugador para empezar el directorio."
                   action={
-                    <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+                    <Button
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => {
+                        setEditing(null);
+                        setOpenCreate(true);
+                      }}
+                    >
                       Agregar jugador
                     </Button>
                   }
@@ -280,14 +348,19 @@ export default function AdminPlayers() {
                         {
                           label: "Verificar perfil",
                           icon: <ShieldCheck className="h-4 w-4" />,
-                          onSelect: () => { setApproving(p); },
+                          onSelect: () => {
+                            setApproving(p);
+                          },
                         } as RowAction,
                       ]
                     : []),
                   {
                     label: "Editar",
                     icon: <Pencil className="h-4 w-4" />,
-                    onSelect: () => { setEditing(p); setOpenCreate(true); },
+                    onSelect: () => {
+                      setEditing(p);
+                      setOpenCreate(true);
+                    },
                   },
                   {
                     label: "Eliminar",
@@ -298,29 +371,53 @@ export default function AdminPlayers() {
                   },
                 ];
                 return (
-                <RowContextMenu key={p.id} actions={actions}>
-                  <TableRow className={isPending ? "bg-amber-50/50 dark:bg-amber-950/20" : undefined}>
-                  <TableCell className="font-medium">
-                    <span className="flex items-center gap-2">
-                      {p.display_name}
-                      {isPending && (
-                        <Badge variant="outline" className="border-amber-300 bg-amber-100 text-[10px] uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                          Por verificar
-                        </Badge>
-                      )}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden text-muted-foreground sm:table-cell">@{p.username}</TableCell>
-                  <TableCell className="tabular-nums">{p.declared_level.toFixed(1)}</TableCell>
-                  <TableCell className="hidden md:table-cell">{sexLabel(p.sex)}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {{ right: "Diestro", left: "Zurdo", both: "Ambidiestro" }[p.dominant_hand]}
-                  </TableCell>
-                  <TableCell className="pr-2 text-right">
-                    <RowActionsMenu actions={actions} label={`Acciones para ${p.display_name}`} />
-                  </TableCell>
-                  </TableRow>
-                </RowContextMenu>
+                  <RowContextMenu key={p.id} actions={actions}>
+                    <TableRow
+                      className={
+                        isPending
+                          ? "bg-amber-50/50 dark:bg-amber-950/20"
+                          : undefined
+                      }
+                    >
+                      <TableCell className="font-medium">
+                        <span className="flex items-center gap-2">
+                          {p.display_name}
+                          {isPending && (
+                            <Badge
+                              variant="outline"
+                              className="border-amber-300 bg-amber-100 text-[10px] uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                            >
+                              Por verificar
+                            </Badge>
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden text-muted-foreground sm:table-cell">
+                        @{p.username}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {p.declared_level.toFixed(1)}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {sexLabel(p.sex)}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {
+                          {
+                            right: "Diestro",
+                            left: "Zurdo",
+                            both: "Ambidiestro",
+                          }[p.dominant_hand]
+                        }
+                      </TableCell>
+                      <TableCell className="pr-2 text-right">
+                        <RowActionsMenu
+                          actions={actions}
+                          label={`Acciones para ${p.display_name}`}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  </RowContextMenu>
                 );
               })}
             </TableBody>
@@ -330,7 +427,9 @@ export default function AdminPlayers() {
 
       <ConfirmDialog
         open={!!approving}
-        onOpenChange={(o) => { if (!o) setApproving(null); }}
+        onOpenChange={(o) => {
+          if (!o) setApproving(null);
+        }}
         onConfirm={() => approving && handleApprove(approving)}
         title={`¿Verificar el perfil de ${approving?.display_name ?? "este jugador"}?`}
         description="Al verificarlo, el jugador podrá inscribirse a los torneos del circuito. Revisa antes que sus datos correspondan a una persona real."
@@ -339,7 +438,9 @@ export default function AdminPlayers() {
 
       <ConfirmDialog
         open={!!deleting}
-        onOpenChange={(o) => { if (!o) setDeleting(null); }}
+        onOpenChange={(o) => {
+          if (!o) setDeleting(null);
+        }}
         onConfirm={() => deleting && handleDelete(deleting)}
         title={`¿Eliminar a ${deleting?.display_name ?? "este jugador"}?`}
         description="Se perderá su perfil y sus datos quedaron fuera de los rankings. Esta acción no se puede deshacer."
@@ -348,7 +449,12 @@ export default function AdminPlayers() {
       <PlayerFormDialog
         key={dialogKey}
         open={openCreate}
-        onOpenChange={(o) => { if (!o) { setOpenCreate(false); setEditing(null); } }}
+        onOpenChange={(o) => {
+          if (!o) {
+            setOpenCreate(false);
+            setEditing(null);
+          }
+        }}
         onSave={handleSave}
         onCancel={() => setEditing(null)}
         editing={editing}
@@ -420,74 +526,149 @@ function PlayerFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editing ? "Editar jugador" : "Nuevo jugador"}</DialogTitle>
+          <DialogTitle>
+            {editing ? "Editar jugador" : "Nuevo jugador"}
+          </DialogTitle>
           <DialogDescription>
-            {editing ? `Edita "${editing.display_name}"` : "Registra un nuevo jugador al directorio."}
+            {editing
+              ? `Edita "${editing.display_name}"`
+              : "Registra un nuevo jugador al directorio."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
             <Label htmlFor="nombre">Nombre</Label>
-            <Input id="nombre" value={form.display_name} onChange={(e) => update("display_name", e.target.value)} placeholder="Nombre completo" />
+            <Input
+              id="nombre"
+              value={form.display_name}
+              onChange={(e) => update("display_name", e.target.value)}
+              placeholder="Nombre completo"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="usuario">Usuario</Label>
-              <Input id="usuario" value={form.username} onChange={(e) => update("username", e.target.value)} placeholder="juanperez" />
+              <Input
+                id="usuario"
+                value={form.username}
+                onChange={(e) => update("username", e.target.value)}
+                placeholder="juanperez"
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="nivel">Nivel</Label>
-              <Input id="nivel" type="number" step="0.1" min="1" max="7" value={form.declared_level} onChange={(e) => update("declared_level", e.target.value)} />
-              <p className="text-xs text-muted-foreground">Nivel del 1.0 al 7.0 (se recomienda actualizar a oficial después)</p>
+              <Input
+                id="nivel"
+                type="number"
+                step="0.1"
+                min="1"
+                max="7"
+                value={form.declared_level}
+                onChange={(e) => update("declared_level", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Nivel del 1.0 al 7.0 (se recomienda actualizar a oficial
+                después)
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="sexo">Sexo</Label>
               <Select value={form.sex} onValueChange={(v) => update("sex", v)}>
-                <SelectTrigger id="sexo"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="sexo">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {SEX_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  {SEX_OPTIONS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="mano">Mano</Label>
-              <Select value={form.dominant_hand} onValueChange={(v) => update("dominant_hand", v)}>
-                <SelectTrigger id="mano"><SelectValue /></SelectTrigger>
+              <Select
+                value={form.dominant_hand}
+                onValueChange={(v) => update("dominant_hand", v)}
+              >
+                <SelectTrigger id="mano">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {HAND_OPTIONS.map((h) => <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>)}
+                  {HAND_OPTIONS.map((h) => (
+                    <SelectItem key={h.value} value={h.value}>
+                      {h.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="posicion-preferida">Posición preferida</Label>
-            <Select value={form.preferred_position} onValueChange={(v) => update("preferred_position", v)}>
-              <SelectTrigger id="posicion-preferida"><SelectValue /></SelectTrigger>
+            <Select
+              value={form.preferred_position}
+              onValueChange={(v) => update("preferred_position", v)}
+            >
+              <SelectTrigger id="posicion-preferida">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {POSITION_OPTIONS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                {POSITION_OPTIONS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="ciudad">Ciudad</Label>
-              <Input id="ciudad" value={form.city} onChange={(e) => update("city", e.target.value)} />
+              <Input
+                id="ciudad"
+                value={form.city}
+                onChange={(e) => update("city", e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="estado">Estado</Label>
-              <Input id="estado" value={form.state} onChange={(e) => update("state", e.target.value)} />
+              <Input
+                id="estado"
+                value={form.state}
+                onChange={(e) => update("state", e.target.value)}
+              />
             </div>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="biografia">Biografía</Label>
-            <Input id="biografia" value={form.bio} onChange={(e) => update("bio", e.target.value)} placeholder="Breve descripción" />
+            <Input
+              id="biografia"
+              value={form.bio}
+              onChange={(e) => update("bio", e.target.value)}
+              placeholder="Breve descripción"
+            />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => { onOpenChange(false); onCancel(); }}>Cancelar</Button>
-          <Button onClick={() => onSave(form)} disabled={submitting || !form.display_name.trim() || !form.username.trim()}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              onOpenChange(false);
+              onCancel();
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => onSave(form)}
+            disabled={
+              submitting || !form.display_name.trim() || !form.username.trim()
+            }
+          >
             {submitting ? "Guardando…" : editing ? "Actualizar" : "Crear"}
           </Button>
         </DialogFooter>
