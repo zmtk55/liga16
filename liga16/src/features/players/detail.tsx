@@ -1008,7 +1008,7 @@ export default function PlayerDetailPage() {
                       : `Nivel ${(player.official_level ?? player.declared_level).toFixed(1)}`}
                   </p>
                   <div className="mt-2 flex gap-1">
-                    <Badge variant="secondary">Drive/Revés</Badge>
+                    <Badge variant="secondary">{positionLabel[player.preferred_position]}</Badge>
                     <Badge variant="outline">{handLabel[player.dominant_hand]}</Badge>
                   </div>
                 </div>
