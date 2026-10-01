@@ -6,6 +6,7 @@ import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFro
 import { qualificationFor, type StandingLike } from "./qualification";
 import { drawGroupsByCategory, parseRound, roundRobinRounds, type DrawablePair } from "./groups";
 import { groupByDivision } from "./categories";
+import { SECTION_NAVBAR, navbarTypeFor } from "@/components/shadcn-space/blocks/navbar-01/section-navbar";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
 const players: PlayerProfile[] = [
@@ -655,5 +656,39 @@ describe("la división también es una competencia cerrada", () => {
     ]);
     expect(grupos).toHaveLength(1);
     expect(grupos[0].teams.map((t) => t.name)).toEqual(["primero", "segundo", "tercero"]);
+  });
+});
+
+describe("una variante de navbar por tipo de sección", () => {
+  it("el tipo lo decide la función de la sección, no cada una por su cuenta", () => {
+    // Sin buscar ni filtrar → navegar.
+    expect(navbarTypeFor("/")).toBe("browse");
+    expect(navbarTypeFor("/noticias")).toBe("browse");
+    expect(navbarTypeFor("/calendario")).toBe("browse");
+    // Encontrar por nombre → buscar.
+    expect(navbarTypeFor("/torneos")).toBe("search");
+    expect(navbarTypeFor("/jugadores")).toBe("search");
+    // Moverse dentro de algo agrupado → filtrar.
+    expect(navbarTypeFor("/ranking")).toBe("filter");
+  });
+
+  it("hay máximo tres variantes en producto", () => {
+    // La regla que hace que el sitio se vea parejo: si esto falla, alguien
+    // inventó un cuarto tipo sin escribirlo en el ADR-0009.
+    expect([...new Set(Object.values(SECTION_NAVBAR))].sort()).toEqual([
+      "browse",
+      "filter",
+      "search",
+    ]);
+  });
+
+  it("el detalle de una sección hereda el tipo de su madre", () => {
+    expect(navbarTypeFor("/torneos/copa-reforma")).toBe("search");
+    expect(navbarTypeFor("/jugadores/abc")).toBe("search");
+    expect(navbarTypeFor("/ranking")).toBe("filter");
+  });
+
+  it("una sección sin declarar cae en el tipo base, no rompe", () => {
+    expect(navbarTypeFor("/ruta-que-no-existe")).toBe("browse");
   });
 });
