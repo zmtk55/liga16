@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, useParams } from "react-router";
 import AppLayout from "./layout";
 import Home from "../features/home/page";
+import NavTest from "../features/nav-test/page";
 import { lazy } from "react";
 import { RequireAuth, RequireRole } from "@/components/auth/guards";
 
@@ -27,8 +28,12 @@ function BracketShortcut() {
 const AdminLayout = lazy(() => import("../features/admin/layout"));
 const AdminDashboard = lazy(() => import("../features/admin/dashboard"));
 const AdminTournaments = lazy(() => import("../features/admin/tournaments"));
-const AdminTournamentDetail = lazy(() => import("../features/admin/tournament-detail"));
-const AdminTournamentWizard = lazy(() => import("../features/admin/tournament-wizard"));
+const AdminTournamentDetail = lazy(
+  () => import("../features/admin/tournament-detail"),
+);
+const AdminTournamentWizard = lazy(
+  () => import("../features/admin/tournament-wizard"),
+);
 const AdminClubs = lazy(() => import("../features/admin/clubs"));
 const AdminNews = lazy(() => import("../features/admin/news"));
 const AdminPlayers = lazy(() => import("../features/admin/players"));
@@ -41,7 +46,10 @@ const AdminInbox = lazy(() => import("../features/admin/inbox"));
 // eslint-disable-next-line react-refresh/only-export-components
 function AdminRoute({ children }: { children: React.ReactNode }) {
   return (
-    <RequireRole roles={["admin", "organizer"]} message="Solo administradores y organizadores pueden acceder al panel.">
+    <RequireRole
+      roles={["admin", "organizer"]}
+      message="Solo administradores y organizadores pueden acceder al panel."
+    >
       {children}
     </RequireRole>
   );
@@ -62,7 +70,10 @@ export const router = createBrowserRouter([
           </RequireAuth>
         ),
       },
-      { path: "onboarding", element: <Navigate to="/admin/torneos/nuevo" replace /> },
+      {
+        path: "onboarding",
+        element: <Navigate to="/admin/torneos/nuevo" replace />,
+      },
       { path: "torneos", element: <Tournaments /> },
       { path: "torneos/:slug", element: <TournamentDetail /> },
       { path: "calendario", element: <Calendar /> },
@@ -98,8 +109,12 @@ export const router = createBrowserRouter([
       { path: "resultados", element: <AdminResults /> },
       { path: "padel", element: <AdminClubs /> },
       { path: "noticias", element: <AdminNews /> },
-      { path: "onboarding", element: <Navigate to="/admin/torneos/nuevo" replace /> },
+      {
+        path: "onboarding",
+        element: <Navigate to="/admin/torneos/nuevo" replace />,
+      },
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },
+  { path: "test-navbar", element: <NavTest /> },
 ]);

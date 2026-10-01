@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  divisionOptions,
   tierLabel,
   formatDateRange,
   formatLabel,
@@ -30,6 +31,7 @@ import {
   sexShort,
   winRate,
 } from "@/lib/format";
+import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 
 const HERO_IMAGE = "/images/hero-padel.jpg";
 
@@ -82,7 +84,12 @@ function SectionHeading({
           {title}
         </h2>
       </div>
-      <Button asChild variant="ghost" size="sm" className="shrink-0 rounded-none px-1">
+      <Button
+        asChild
+        variant="ghost"
+        size="sm"
+        className="shrink-0 rounded-none px-1"
+      >
         <Link to={to}>
           {action} <ChevronRight className="ml-1 h-3.5 w-3.5" />
         </Link>
@@ -133,7 +140,8 @@ export default function Home() {
       db.listSponsors(),
       db.listRankings(),
     ]).then(([tournaments, teams, matches, news, sponsors, rankings]) => {
-      if (active) setStats({ tournaments, teams, matches, news, sponsors, rankings });
+      if (active)
+        setStats({ tournaments, teams, matches, news, sponsors, rankings });
     });
     return () => {
       active = false;
@@ -145,7 +153,9 @@ export default function Home() {
     if (!stats) return [];
     return TEAM_GROUP_ORDER.map((key) => {
       const [sex, division] = key.split("|") as [Sex, PadelDivision];
-      const inGroup = stats.teams.filter((t) => t.sex === sex && t.division === division);
+      const inGroup = stats.teams.filter(
+        (t) => t.sex === sex && t.division === division,
+      );
       if (inGroup.length === 0) return null;
       const sorted = [...inGroup].sort(
         (a, b) =>
@@ -156,12 +166,22 @@ export default function Home() {
       );
       return {
         key,
-        label: inGroup[0]?.category_name ?? `Categoría ${division} · ${sexShort(sex)}`,
+        label:
+          inGroup[0]?.category_name ??
+          `Categoría ${division} · ${sexShort(sex)}`,
         teams: sorted.slice(0, 2),
       };
     }).filter((g): g is NonNullable<typeof g> => g !== null);
   }, [stats]);
+  const [div, setDiv] = useState("");
   const featuredTeam = teamGroups[0]?.teams[0] ?? null;
+
+  // Filtra las parejas mostradas por división (pills responsive).
+  const shownGroups = useMemo(
+    () =>
+      div ? teamGroups.filter((g) => g.key.split("|")[1] === div) : teamGroups,
+    [teamGroups, div],
+  );
 
   if (!stats) {
     return (
@@ -339,7 +359,9 @@ export default function Home() {
                   </span>
                 </div>
                 <span className="inline-flex items-center gap-2 border-b border-primary pb-1 text-sm font-bold uppercase tracking-wide">
-                  {featuredIsOpen ? "Inscripciones abiertas" : "Ver convocatoria"}
+                  {featuredIsOpen
+                    ? "Inscripciones abiertas"
+                    : "Ver convocatoria"}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </span>
               </div>
@@ -376,6 +398,15 @@ export default function Home() {
         </section>
       )}
 
+      {/* Pills de división: filtra las parejas mostradas por categoría (responsive) */}
+      <div className="flex items-center justify-between gap-3">
+        <GroupFilterBar
+          divisions={divisionOptions.filter((o) => o.value !== "all")}
+          value={div}
+          onChange={setDiv}
+        />
+      </div>
+
       {/* PAREJAS — top por categoría, con foto cuando el equipo la sube */}
       <section className="space-y-10">
         {featuredTeam && (
@@ -397,14 +428,15 @@ export default function Home() {
               />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-primary-foreground/70">
-                  {featuredTeam.category_name ?? `División ${featuredTeam.division}`}
+                  {featuredTeam.category_name ??
+                    `División ${featuredTeam.division}`}
                 </p>
                 <h3 className="mt-1 truncate font-headline text-2xl uppercase leading-tight sm:text-3xl">
                   {featuredTeam.name}
                 </h3>
                 <p className="mt-1 text-2xs font-semibold text-primary-foreground/80">
-                  Pos. {featuredTeam.position > 0 ? featuredTeam.position : "—"} ·{" "}
-                  {featuredTeam.points} pts · {featuredTeam.played} PJ ·{" "}
+                  Pos. {featuredTeam.position > 0 ? featuredTeam.position : "—"}{" "}
+                  · {featuredTeam.points} pts · {featuredTeam.played} PJ ·{" "}
                   {winRate(featuredTeam.played, featuredTeam.won)}% victorias
                 </p>
               </div>
@@ -421,8 +453,11 @@ export default function Home() {
             action="Ver todas"
           />
           <div className="space-y-3">
-            {teamGroups.map((group) => (
-              <div key={group.key} className="overflow-hidden rounded-xl border bg-card">
+            {shownGroups.map((group) => (
+              <div
+                key={group.key}
+                className="overflow-hidden rounded-xl border bg-card"
+              >
                 <div className="flex items-center justify-between gap-3 border-b bg-muted/50 px-4 py-2.5">
                   <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-foreground/80">
                     {group.label}
@@ -441,7 +476,11 @@ export default function Home() {
                       to={`/equipos/${team.slug}`}
                       className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60"
                     >
-                      <TeamCrest team={team} sizeClass="h-9 w-9" textClass="text-2xs" />
+                      <TeamCrest
+                        team={team}
+                        sizeClass="h-9 w-9"
+                        textClass="text-2xs"
+                      />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold leading-tight">
                           {team.name}
@@ -463,9 +502,11 @@ export default function Home() {
                 </div>
               </div>
             ))}
-            {teamGroups.length === 0 && (
+            {shownGroups.length === 0 && (
               <p className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">
-                Las parejas inscritas aparecerán aquí, organizadas por categoría.
+                {div
+                  ? "No hay parejas inscritas en esta división."
+                  : "Las parejas inscritas aparecerán aquí, organizadas por categoría."}
               </p>
             )}
           </div>
@@ -476,7 +517,9 @@ export default function Home() {
       {featuredMatch && (
         <section>
           <SectionHeading
-            eyebrow={featuredMatch.status === "live" ? "En vivo" : "En la cancha"}
+            eyebrow={
+              featuredMatch.status === "live" ? "En vivo" : "En la cancha"
+            }
             title="Ahora en juego"
             to="/calendario"
             action="Ver agenda"
@@ -497,14 +540,18 @@ export default function Home() {
                 <p className="text-lg font-semibold leading-tight sm:text-2xl">
                   {featuredMatch.side_a.pair_name}
                 </p>
-                <span className="font-headline text-xl text-primary sm:text-3xl">VS</span>
+                <span className="font-headline text-xl text-primary sm:text-3xl">
+                  VS
+                </span>
                 <p className="text-right text-lg font-semibold leading-tight sm:text-2xl">
                   {featuredMatch.side_b.pair_name}
                 </p>
               </div>
               <p className="mt-8 font-mono text-sm tabular-nums text-white/55">
                 {featuredMatch.sets.length > 0
-                  ? featuredMatch.sets.map((set) => `${set.a}–${set.b}`).join("   /   ")
+                  ? featuredMatch.sets
+                      .map((set) => `${set.a}–${set.b}`)
+                      .join("   /   ")
                   : "Por comenzar"}
               </p>
             </div>
@@ -550,7 +597,10 @@ export default function Home() {
           />
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             {stats.news.slice(0, 3).map((item) => (
-              <article key={item.id} className="group border-t-2 border-foreground pt-3">
+              <article
+                key={item.id}
+                className="group border-t-2 border-foreground pt-3"
+              >
                 <div className="relative mb-4 aspect-[16/9] overflow-hidden rounded-xl bg-muted">
                   {item.image_url ? (
                     <img
@@ -577,7 +627,9 @@ export default function Home() {
                     {new Date(item.published_at).getFullYear()}
                   </span>
                 </div>
-                <h3 className="text-lg font-semibold leading-tight">{item.title}</h3>
+                <h3 className="text-lg font-semibold leading-tight">
+                  {item.title}
+                </h3>
                 <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                   {item.excerpt}
                 </p>
@@ -603,7 +655,9 @@ export default function Home() {
                     className="h-7 w-auto max-w-28 object-contain"
                   />
                 ) : (
-                  <span className="text-sm font-bold tracking-tight">{sponsor.name}</span>
+                  <span className="text-sm font-bold tracking-tight">
+                    {sponsor.name}
+                  </span>
                 )}
                 <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">
                   {tierLabel[sponsor.tier]}

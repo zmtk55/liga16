@@ -93,7 +93,7 @@ const Navbar = () => {
                     <NavigationMenuItem key={navItem.title}>
                       <NavigationMenuLink
                         href={navItem.href}
-                        className="px-2 lg:px-4 py-2 text-sm font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background outline outline-transparent hover:outline-border hover:shadow-xs transition tracking-normal"
+                        className="px-2 lg:px-4 py-2 text-sm font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background outline outline-transparent hover:outline-border hover:shadow-xs data-[active]:text-foreground data-[active]:bg-accent/50 focus-visible:outline-2 focus-visible:outline-ring transition tracking-normal"
                       >
                         {navItem.title}
                       </NavigationMenuLink>

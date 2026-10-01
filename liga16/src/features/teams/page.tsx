@@ -7,7 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CardShell, CardIdentity, CardFooterStrip, CardStat } from "@/components/cards/card-kit";
+import {
+  CardShell,
+  CardIdentity,
+  CardFooterStrip,
+  CardStat,
+} from "@/components/cards/card-kit";
 import { PageHero } from "@/components/page-hero";
 import {
   Select,
@@ -17,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
+import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 import { ArrowRight, Search } from "lucide-react";
 
 export default function TeamsPage() {
@@ -27,8 +33,12 @@ export default function TeamsPage() {
 
   useEffect(() => {
     let active = true;
-    db.listTeams().then((data) => { if (active) setTeams(data); });
-    return () => { active = false; };
+    db.listTeams().then((data) => {
+      if (active) setTeams(data);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const filtered = useMemo(() => {
@@ -40,7 +50,9 @@ export default function TeamsPage() {
       if (
         query &&
         !t.name.toLowerCase().includes(query) &&
-        !`${t.player1?.name ?? ""} ${t.player2?.name ?? ""}`.toLowerCase().includes(query)
+        !`${t.player1?.name ?? ""} ${t.player2?.name ?? ""}`
+          .toLowerCase()
+          .includes(query)
       ) {
         return false;
       }
@@ -51,7 +63,10 @@ export default function TeamsPage() {
   const stats = useMemo(
     () => [
       { k: "Parejas", v: teams?.length ?? "…" },
-      { k: "Divisiones", v: teams ? new Set(teams.map((t) => t.division)).size : "…" },
+      {
+        k: "Divisiones",
+        v: teams ? new Set(teams.map((t) => t.division)).size : "…",
+      },
       { k: "Partidos", v: teams?.reduce((s, t) => s + t.played, 0) ?? "…" },
     ],
     [teams],
@@ -77,19 +92,14 @@ export default function TeamsPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-2">
-          <Select value={division} onValueChange={setDivision}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="División" />
-            </SelectTrigger>
-            <SelectContent>
-              {divisionOptions.map((d) => (
-                <SelectItem key={d.value} value={d.value}>
-                  {d.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <GroupFilterBar
+            divisions={divisionOptions.filter((o) => o.value !== "all")}
+            value={division}
+            onChange={setDivision}
+            clearValue="all"
+            className="mt-0.5"
+          />
           <Select value={sex} onValueChange={setSex}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Género" />
@@ -114,7 +124,8 @@ export default function TeamsPage() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            Ningún equipo coincide con la búsqueda. Prueba con otra división o género.
+            Ningún equipo coincide con la búsqueda. Prueba con otra división o
+            género.
           </CardContent>
         </Card>
       ) : (
@@ -134,7 +145,9 @@ export default function TeamsPage() {
                         team.player1?.name ?? team.name.split(" / ")[0],
                         team.player2?.name ?? team.name.split(" / ")[1] ?? "",
                       ].filter(Boolean)}
-                      meta={[team.division, sexLabel(team.sex)].filter(Boolean).join(" · ")}
+                      meta={[team.division, sexLabel(team.sex)]
+                        .filter(Boolean)
+                        .join(" · ")}
                       end={
                         team.position > 0 ? (
                           <span className="text-stat tabular-nums text-muted-foreground/40 transition-colors group-hover:text-primary">
@@ -148,15 +161,26 @@ export default function TeamsPage() {
                     stats={
                       <>
                         <CardStat value={team.played} label="PJ" />
-                        <CardStat value={`${team.won}–${team.lost}`} label="Récord" />
+                        <CardStat
+                          value={`${team.won}–${team.lost}`}
+                          label="Récord"
+                        />
                         <CardStat
                           value={team.played > 0 ? `${wr}%` : "—"}
                           label="Efect."
-                          tone={team.played > 0 && wr >= 60 ? "text-emerald-600 dark:text-emerald-400" : undefined}
+                          tone={
+                            team.played > 0 && wr >= 60
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : undefined
+                          }
                         />
                       </>
                     }
-                    chip={team.played === 0 ? <Badge variant="outline">Nuevo</Badge> : undefined}
+                    chip={
+                      team.played === 0 ? (
+                        <Badge variant="outline">Nuevo</Badge>
+                      ) : undefined
+                    }
                   />
                 </CardShell>
               </Link>
@@ -173,7 +197,11 @@ export default function TeamsPage() {
         <p className="max-w-md text-sm text-muted-foreground">
           Inscríbanse al próximo torneo y aparezcan aquí con su récord oficial.
         </p>
-        <Button asChild size="lg" className="mt-1 font-bold uppercase tracking-wide">
+        <Button
+          asChild
+          size="lg"
+          className="mt-1 font-bold uppercase tracking-wide"
+        >
           <Link to="/torneos">
             Ver torneos abiertos <ArrowRight className="h-4 w-4" />
           </Link>

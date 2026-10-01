@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { ArrowDownRight, ArrowUpRight, BarChart3, ClipboardList, Minus } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  ClipboardList,
+  Minus,
+} from "lucide-react";
 import { db } from "@/lib/data";
 import type { Team } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -15,9 +21,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
+import {
+  AdminPageHeader,
+  AdminStat,
+  AdminStatStrip,
+} from "@/components/admin/page-header";
+import {
+  AdminTableEmpty,
+  AdminTableSkeleton,
+} from "@/components/admin/table-state";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
 import { groupByDivision } from "@/lib/categories";
 
@@ -47,7 +61,11 @@ export default function AdminRanking() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return [...(teams ?? [])]
-      .filter((t) => (division === "all" || t.division === division) && (sex === "all" || t.sex === sex))
+      .filter(
+        (t) =>
+          (division === "all" || t.division === division) &&
+          (sex === "all" || t.sex === sex),
+      )
       .filter((t) => !q || t.name.toLowerCase().includes(q))
       .sort((a, b) => a.position - b.position || b.points - a.points);
   }, [teams, query, division, sex]);
@@ -59,12 +77,15 @@ export default function AdminRanking() {
    */
   const resumen = useMemo(() => {
     const conPartidos = (teams ?? []).filter((t) => t.played > 0);
-    const grupos = groupByDivision(conPartidos.length > 0 ? conPartidos : (teams ?? []));
+    const grupos = groupByDivision(
+      conPartidos.length > 0 ? conPartidos : (teams ?? []),
+    );
     return {
       parejas: (teams ?? []).length,
       conPartidos: conPartidos.length,
       divisiones: grupos.length,
-      cortes: grupos.filter((g) => g.teams.some((t) => t.position === 1)).length,
+      cortes: grupos.filter((g) => g.teams.some((t) => t.position === 1))
+        .length,
     };
   }, [teams]);
 
@@ -105,20 +126,17 @@ export default function AdminRanking() {
 
       <Card>
         <CardHeader className="gap-3">
+          <GroupFilterBar
+            divisions={divisionOptions.filter((d) => d.value !== "all")}
+            value={division}
+            onChange={setDivision}
+            clearValue="all"
+          />
           <FilterBar
             search={query}
             onSearch={setQuery}
             searchPlaceholder="Buscar pareja…"
             selects={[
-              {
-                key: "division",
-                ariaLabel: "Filtrar por división",
-                allLabel: "Todas las divisiones",
-                value: division,
-                onChange: setDivision,
-                options: divisionOptions.filter((d) => d.value !== "all"),
-                className: "sm:w-48",
-              },
               {
                 key: "sex",
                 ariaLabel: "Filtrar por rama",
@@ -161,44 +179,55 @@ export default function AdminRanking() {
                 />
               )}
               {filtered.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className="font-headline text-lg text-muted-foreground">
-                      {t.position > 0 ? t.position : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Link
-                        to={`/equipos/${t.slug}`}
-                        className="font-medium underline-offset-4 hover:underline"
-                      >
-                        {t.name}
-                      </Link>
-                      <div className="text-xs text-muted-foreground">{t.city}</div>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">
-                      {t.points.toLocaleString("es-MX")}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {t.won}–{Math.max(t.lost, 0)}
-                      <div className="text-xs text-muted-foreground">
-                        {winRate(t.played, t.won)}% de efectividad
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="outline">{t.division}</Badge>
-                      <Badge variant="secondary" className="ml-1">
-                        {sexLabel(t.sex)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {t.won > t.lost ? (
-                        <ArrowUpRight className="h-4 w-4 text-success" aria-label="En racha" />
-                      ) : t.won < t.lost ? (
-                        <ArrowDownRight className="h-4 w-4 text-destructive" aria-label="En baja" />
-                      ) : (
-                        <Minus className="h-4 w-4 text-muted-foreground" aria-label="Estable" />
-                      )}
-                    </TableCell>
-                  </TableRow>
+                <TableRow key={t.id}>
+                  <TableCell className="font-headline text-lg text-muted-foreground">
+                    {t.position > 0 ? t.position : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      to={`/equipos/${t.slug}`}
+                      className="font-medium underline-offset-4 hover:underline"
+                    >
+                      {t.name}
+                    </Link>
+                    <div className="text-xs text-muted-foreground">
+                      {t.city}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {t.points.toLocaleString("es-MX")}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {t.won}–{Math.max(t.lost, 0)}
+                    <div className="text-xs text-muted-foreground">
+                      {winRate(t.played, t.won)}% de efectividad
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant="outline">{t.division}</Badge>
+                    <Badge variant="secondary" className="ml-1">
+                      {sexLabel(t.sex)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {t.won > t.lost ? (
+                      <ArrowUpRight
+                        className="h-4 w-4 text-success"
+                        aria-label="En racha"
+                      />
+                    ) : t.won < t.lost ? (
+                      <ArrowDownRight
+                        className="h-4 w-4 text-destructive"
+                        aria-label="En baja"
+                      />
+                    ) : (
+                      <Minus
+                        className="h-4 w-4 text-muted-foreground"
+                        aria-label="Estable"
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
               ))}
             </TableBody>
           </Table>

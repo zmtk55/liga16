@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import type { PlayerStatus } from "@/types";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   AdminPageHeader,
@@ -70,6 +71,8 @@ const POSITION_OPTIONS = [
   { value: "both", label: "Ambos" },
 ];
 
+const LETTERS = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+
 export default function AdminPlayers() {
   const [list, setList] = useState<PlayerProfile[] | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
@@ -86,6 +89,7 @@ export default function AdminPlayers() {
     new Set(),
   );
   const [verification, setVerification] = useState("all");
+  const [letter, setLetter] = useState("");
 
   const statusOf = (p: PlayerProfile) => p.status ?? "verificado";
   const pendingCount = (list ?? []).filter(
@@ -100,6 +104,8 @@ export default function AdminPlayers() {
         !p.display_name.toLowerCase().includes(q) &&
         !p.username.toLowerCase().includes(q)
       )
+        return false;
+      if (letter && !p.display_name.toUpperCase().startsWith(letter))
         return false;
       if (tid !== "all" && !tournamentPlayers.has(p.id)) return false;
       if (verification !== "all" && statusOf(p) !== verification) return false;
@@ -255,6 +261,11 @@ export default function AdminPlayers() {
       </AdminPageHeader>
       <Card>
         <CardHeader className="gap-3">
+          <GroupFilterBar
+            letters={LETTERS}
+            value={letter}
+            onChange={setLetter}
+          />
           <FilterBar
             search={query}
             onSearch={setQuery}
