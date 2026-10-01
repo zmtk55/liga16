@@ -49,8 +49,13 @@ export async function ensurePlayer(name: string, division?: string): Promise<Pla
     return found;
   }
 
-  const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 14) || `jugador${Date.now().toString(36).slice(-4)}`;
-  const created = await db.createPlayer({
+  // Username: slug del nombre; si el slug perdió caracteres (acentos, ñ, etc.)
+  // se randomiza para no chocar con el índice único de username.
+  let slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 14);
+  if (!slug || normalizePlayerName(slug) !== key) {
+    slug = `${slug || "jugador"}${Math.random().toString(36).slice(2, 6)}`;
+  }
+  const payload = {
     display_name: clean,
     username: slug,
     photo_url: null,
@@ -66,6 +71,31 @@ export async function ensurePlayer(name: string, division?: string): Promise<Pla
     bio: null,
     is_public: true,
     role: "player",
-  } as unknown as Omit<PlayerProfile, "id" | "user_id">);
-  return created;
+  } as unknown as Omit<PlayerProfile, "id" | "user_id">;
+
+  try {
+    return await db.createPlayer(payload);
+  } catch (err) {
+    // Carrera: otro request creó al jugador entre la lectura y el insert y el
+    // índice único normalizado (23505) lo bloqueó. Recupera el perfil ganador.
+    let players: PlayerProfile[] = [];
+    try {
+      players = await db.listPlayers();
+    } catch {
+      throw err;
+    }
+    const winner = players.find((p) => normalizePlayerName(p.display_name) === key);
+    if (winner) return winner;
+    // Chocó por username (no por nombre): reintenta con uno aleatorio.
+    try {
+      return await db.createPlayer({
+        ...payload,
+        username: `jug${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 6)}`,
+      } as typeof payload);
+    } catch {
+      throw new Error(
+        "No se pudo registrar el jugador: el nombre ya existe o hubo un conflicto temporal. Revisa el directorio e inténtalo de nuevo.",
+      );
+    }
+  }
 }
