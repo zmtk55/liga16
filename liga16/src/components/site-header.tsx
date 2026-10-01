@@ -1,11 +1,15 @@
 // Navbar pública de Liga16 — patrón "navbar-01" (shadcn-space) adaptado:
 // marca propia, NavigationMenu de shadcn en desktop con estado activo,
 // dropdown de menú en móvil, botón de entrada destacado y menú de cuenta.
-// Reglas UX aplicadas: nav-state-active, nav-label-icon, targets ≥44px,
-// focus visible, transiciones ≤300ms.
-import { Link, NavLink, useLocation, useNavigate } from "react-router";
-import { ArrowUpRight, Menu, Shield, User, UserCog, X } from "lucide-react";
+//
+// El control que acompaña a los links NO es una elección por sección: lo decide
+// `navbarTypeFor` (ADR-0009). Browse no lleva nada, search lleva buscador, filter
+// lleva las pills de división. El filtro vive en la URL, así que sobrevive al
+// ir y venir y se puede compartir.
+import { Link, NavLink, useLocation, useNavigate, useSearchParams } from "react-router";
+import { ArrowUpRight, Menu, Search as SearchIcon, Shield, User, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -25,6 +29,15 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { navbarTypeFor } from "@/components/shadcn-space/blocks/navbar-01/section-navbar";
+import { divisionOptions } from "@/lib/format";
+
+/** Qué busca cada sección de tipo "search". */
+const SEARCH_PLACEHOLDER: Record<string, string> = {
+  "/torneos": "Buscar torneo…",
+  "/jugadores": "Buscar jugador…",
+  "/equipos": "Buscar pareja…",
+};
 
 const publicNav = [
   { to: "/", label: "Inicio" },
@@ -46,9 +59,24 @@ export function SiteHeader() {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [params, setParams] = useSearchParams();
 
   const isAdmin = user?.role === "admin" || user?.role === "organizer";
   const navItems = isAdmin ? [...publicNav, ...adminNav] : publicNav;
+
+  // La variante de esta sección, por regla y no por excepción.
+  const type = navbarTypeFor(pathname);
+  const sectionRoot = "/" + (pathname.split("/")[1] ?? "");
+  const query = params.get("q") ?? "";
+  const division = params.get("division") ?? "all";
+
+  /** Escribe en la URL: el filtro sobrevive la navegación y se puede compartir. */
+  function setParam(key: string, value: string) {
+    const next = new URLSearchParams(params);
+    if (!value || value === "all") next.delete(key);
+    else next.set(key, value);
+    setParams(next, { replace: true });
+  }
 
   async function handleSignOut() {
     await signOut();
@@ -100,6 +128,45 @@ export function SiteHeader() {
               </NavigationMenuList>
             </NavigationMenu>
           </div>
+
+          {/* Control de la sección — misma posición y formato para todos los
+              tipos. Browse no lleva nada; search, buscador; filter, pills. */}
+          {type === "search" && (
+            <div className="relative hidden w-56 lg:block">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setParam("q", e.target.value)}
+                placeholder={SEARCH_PLACEHOLDER[sectionRoot] ?? "Buscar…"}
+                aria-label={SEARCH_PLACEHOLDER[sectionRoot] ?? "Buscar"}
+                className="h-9 pl-9"
+              />
+            </div>
+          )}
+
+          {type === "filter" && (
+            <nav
+              aria-label="Filtrar por división"
+              className="hidden items-center gap-1 lg:flex"
+            >
+              {[{ value: "all", label: "Todas" }, ...divisionOptions.filter((d) => d.value !== "all")].map((d) => (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() => setParam("division", d.value)}
+                  aria-pressed={division === d.value}
+                  className={cn(
+                    "min-h-9 rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                    division === d.value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {d.label.replace(" División", "").replace("División ", "")}
+                </button>
+              ))}
+            </nav>
+          )}
 
           {/* Acciones */}
           <div className="ml-auto flex items-center gap-2 lg:ml-0">

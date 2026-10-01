@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Match, Team } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -214,9 +215,22 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
 
 export default function RankingsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
-  const [division, setDivision] = useState("all");
-  const [sex, setSex] = useState("all");
-  const [query, setQuery] = useState("");
+  // Las pills de división del header (variante "filter", ADR-0009) escriben
+  // aquí: el filtro vive en la URL, así que se comparte y sobrevive al ir y
+  // venir. Antes vivía en useState y se perdía al cambiar de sección.
+  const [params, setParams] = useSearchParams();
+  const division = params.get("division") ?? "all";
+  const sex = params.get("sex") ?? "all";
+  const query = params.get("q") ?? "";
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (!value || value === "all") next.delete(key);
+    else next.set(key, value);
+    setParams(next, { replace: true });
+  };
+  const setDivision = (v: string) => setParam("division", v);
+  const setSex = (v: string) => setParam("sex", v);
+  const setQuery = (v: string) => setParam("q", v);
   const [detail, setDetail] = useState<Team | null>(null);
 
   useEffect(() => {

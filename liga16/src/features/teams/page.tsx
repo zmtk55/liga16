@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Team } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -27,9 +27,21 @@ import { ArrowRight, Search } from "lucide-react";
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
-  const [q, setQ] = useState("");
-  const [division, setDivision] = useState("all");
+  // El buscador del header (variante "search", ADR-0009) escribe aquí: una sola
+  // búsqueda, en un solo sitio, y la URL la hace compartible.
+  const [params, setParams] = useSearchParams();
+  const q = params.get("q") ?? "";
+  const division = params.get("division") ?? "all";
   const [sex, setSex] = useState("all");
+
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (!value || value === "all") next.delete(key);
+    else next.set(key, value);
+    setParams(next, { replace: true });
+  };
+  const setQ = (v: string) => setParam("q", v);
+  const setDivision = (v: string) => setParam("division", v);
 
   useEffect(() => {
     let active = true;

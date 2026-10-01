@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
 import { TournamentCard } from "@/components/cards/resource-card";
@@ -17,7 +18,19 @@ import { Calendar, Trophy, Filter, Users } from "lucide-react";
 
 export default function TournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[] | null>(null);
-  const [status, setStatus] = useState("all");
+  // El buscador del header (variante "search", ADR-0009) escribe aquí; los
+  // filtros de la página usan los mismos parámetros, para que la URL sea la
+  // única fuente y el filtro se pueda compartir.
+  const [params, setParams] = useSearchParams();
+  const q = params.get("q") ?? "";
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (!value || value === "all") next.delete(key);
+    else next.set(key, value);
+    setParams(next, { replace: true });
+  };
+  const status = params.get("status") ?? "all";
+  const setStatus = (v: string) => setParam("status", v);
   const [format, setFormat] = useState("all");
 
   useEffect(() => {
@@ -35,9 +48,13 @@ export default function TournamentsPage() {
     return tournaments.filter(
       (t) =>
         (status === "all" || t.status === status) &&
-        (format === "all" || t.format === format),
+        (format === "all" || t.format === format) &&
+        (!q ||
+          (t.name + " " + (t.club_name ?? "") + " " + (t.city ?? ""))
+            .toLowerCase()
+            .includes(q.toLowerCase())),
     );
-  }, [tournaments, status, format]);
+  }, [tournaments, status, format, q]);
 
   const abiertos = tournaments?.filter((t) => t.status === "registration_open").length ?? 0;
 

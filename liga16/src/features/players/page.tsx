@@ -61,12 +61,21 @@ function levelOf(p: PlayerProfile): number {
 }
 
 export default function PlayersPage() {
-  const [searchParams] = useSearchParams();
+  // El buscador del header (variante "search", ADR-0009) escribe aquí. La
+  // URL manda sobre el useState, o el header escribiría a un sitio y la
+  // página leería de otro.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [players, setPlayers] = useState<PlayerProfile[] | null>(null);
   const [rankings, setRankings] = useState<RankingEntry[] | null>(null);
   const [cards, setCards] = useState<Record<string, PlayerCard> | null>(null);
   const [divisions, setDivisions] = useState<Record<string, string>>({});
-  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const query = searchParams.get("q") ?? "";
+  const setQuery = (v: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (!v) next.delete("q");
+    else next.set("q", v);
+    setSearchParams(next, { replace: true });
+  };
 
   // Filtros y vista
   const [view, setView] = useState<View>("grid");
