@@ -36,7 +36,6 @@ import { Badge } from "@/components/ui/badge";
 import type { PlayerStatus } from "@/types";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   AdminPageHeader,
@@ -59,19 +58,11 @@ const SEX_OPTIONS = [
   { value: "X", label: "Mixto" },
 ];
 
-const HAND_OPTIONS = [
-  { value: "right", label: "Diestro" },
-  { value: "left", label: "Zurdo" },
-  { value: "both", label: "Ambidiestro" },
-];
-
 const POSITION_OPTIONS = [
   { value: "drive", label: "Drive" },
   { value: "reves", label: "Revés" },
   { value: "both", label: "Ambos" },
 ];
-
-const LETTERS = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
 
 export default function AdminPlayers() {
   const [list, setList] = useState<PlayerProfile[] | null>(null);
@@ -89,7 +80,6 @@ export default function AdminPlayers() {
     new Set(),
   );
   const [verification, setVerification] = useState("all");
-  const [letter, setLetter] = useState("");
 
   const statusOf = (p: PlayerProfile) => p.status ?? "verificado";
   const pendingCount = (list ?? []).filter(
@@ -104,8 +94,6 @@ export default function AdminPlayers() {
         !p.display_name.toLowerCase().includes(q) &&
         !p.username.toLowerCase().includes(q)
       )
-        return false;
-      if (letter && !p.display_name.toUpperCase().startsWith(letter))
         return false;
       if (tid !== "all" && !tournamentPlayers.has(p.id)) return false;
       if (verification !== "all" && statusOf(p) !== verification) return false;
@@ -261,11 +249,6 @@ export default function AdminPlayers() {
       </AdminPageHeader>
       <Card>
         <CardHeader className="gap-3">
-          <GroupFilterBar
-            letters={LETTERS}
-            value={letter}
-            onChange={setLetter}
-          />
           <FilterBar
             search={query}
             onSearch={setQuery}
@@ -314,15 +297,13 @@ export default function AdminPlayers() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead className="hidden sm:table-cell">Usuario</TableHead>
                 <TableHead>Nivel</TableHead>
                 <TableHead className="hidden md:table-cell">Sexo</TableHead>
-                <TableHead className="hidden md:table-cell">Mano</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list === null && <AdminTableSkeleton columns={6} />}
+              {list === null && <AdminTableSkeleton columns={4} />}
               {list !== null && list.length === 0 && (
                 <AdminTableEmpty
                   colSpan={6}
@@ -403,23 +384,11 @@ export default function AdminPlayers() {
                           )}
                         </span>
                       </TableCell>
-                      <TableCell className="hidden text-muted-foreground sm:table-cell">
-                        @{p.username}
-                      </TableCell>
                       <TableCell className="tabular-nums">
                         {p.declared_level.toFixed(1)}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         {sexLabel(p.sex)}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {
-                          {
-                            right: "Diestro",
-                            left: "Zurdo",
-                            both: "Ambidiestro",
-                          }[p.dominant_hand]
-                        }
                       </TableCell>
                       <TableCell className="pr-2 text-right">
                         <RowActionsMenu
@@ -600,41 +569,23 @@ function PlayerFormDialog({
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="mano">Mano</Label>
+              <Label htmlFor="posicion-preferida">Posición preferida</Label>
               <Select
-                value={form.dominant_hand}
-                onValueChange={(v) => update("dominant_hand", v)}
+                value={form.preferred_position}
+                onValueChange={(v) => update("preferred_position", v)}
               >
-                <SelectTrigger id="mano">
+                <SelectTrigger id="posicion-preferida">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {HAND_OPTIONS.map((h) => (
-                    <SelectItem key={h.value} value={h.value}>
-                      {h.label}
+                  {POSITION_OPTIONS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="posicion-preferida">Posición preferida</Label>
-            <Select
-              value={form.preferred_position}
-              onValueChange={(v) => update("preferred_position", v)}
-            >
-              <SelectTrigger id="posicion-preferida">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {POSITION_OPTIONS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
