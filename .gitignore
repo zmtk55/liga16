@@ -11,3 +11,6 @@ liga16/dist/
 # Entorno
 .env
 .env.*
+
+# Canvas de diseño Superdesign
+.superdesign/tmp/
