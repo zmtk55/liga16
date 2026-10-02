@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { db } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
-import { deleteStoredImage } from "@/components/ui/image-upload";
+import { deleteStoredImage } from "@/lib/storage";
 import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile, Pair } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

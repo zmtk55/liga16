@@ -41,26 +41,6 @@ async function fileToScaledBlob(file: File): Promise<Blob> {
   );
 }
 
-/** Extrae la ruta del objeto dentro del bucket desde una URL pública. */
-function objectPathFromUrl(url: string, bucket: string): string | null {
-  const marker = `/object/public/${bucket}/`;
-  const idx = url.indexOf(marker);
-  if (idx === -1) return null;
-  try {
-    return decodeURIComponent(url.slice(idx + marker.length));
-  } catch {
-    return url.slice(idx + marker.length);
-  }
-}
-
-/** Borra un objeto de storage a partir de su URL pública (best-effort, ignora errores). */
-export async function deleteStoredImage(url: string | null | undefined, bucket: string): Promise<void> {
-  if (!url || !supabase) return;
-  const objPath = objectPathFromUrl(url, bucket);
-  if (!objPath) return;
-  await supabase.storage.from(bucket).remove([objPath]).catch(() => {});
-}
-
 export default function ImageUpload({
   id,
   value,

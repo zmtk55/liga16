@@ -1,3 +1,9 @@
+// El router es el punto de entrada de la app y tiene que exportarse junto a
+// los componentes que sus rutas usan. La regla de fast-refresh no lo contempla
+// porque `createBrowserRouter()` es una llamada y no una constante literal;
+// partirlo en otro archivo solo movería la tabla de rutas sin cambiar lo que se
+// entrega.
+/* eslint-disable react-refresh/only-export-components */
 import { createBrowserRouter, Navigate, useParams } from "react-router";
 import AppLayout from "./layout";
 import Home from "../features/home/page";
@@ -22,6 +28,7 @@ const SystemStatus = lazy(() => import("../features/admin/system-status"));
 
 /** URL corta del bracket: /admin/torneos/mi-torneo/bracket abre directo la pestaña. */
 function BracketShortcut() {
+
   const { slug } = useParams();
   return <Navigate to={`/admin/torneos/${slug}?tab=bracket`} replace />;
 }
@@ -43,7 +50,6 @@ const AdminResults = lazy(() => import("../features/admin/results"));
 const AdminRanking = lazy(() => import("../features/admin/ranking"));
 const AdminInbox = lazy(() => import("../features/admin/inbox"));
 
-// eslint-disable-next-line react-refresh/only-export-components
 function AdminRoute({ children }: { children: React.ReactNode }) {
   return (
     <RequireRole

@@ -42,7 +42,8 @@ import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import ImageUpload, { deleteStoredImage } from "@/components/ui/image-upload";
+import ImageUpload from "@/components/ui/image-upload";
+import { deleteStoredImage } from "@/lib/storage";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
@@ -426,13 +427,17 @@ function EquipoDialog({
 
   const valid = form.player1_name.trim() && form.player2_name.trim();
 
-  // Foto del equipo sincronizada con el estado del formulario. Si el admin
-  // reemplaza una foto que subió en esta misma sesión (aún no guardada),
-  // el objeto anterior se borra al instante para no dejar huérfanos.
-  const originalCrest = editing?.crest_url ?? null;
-  useEffect(() => {
+  // La foto del equipo viaja al padre dentro de `form`, así que se sincroniza
+  // al renderizar y no en un efecto: un useEffect que llama a setState dispara
+  // un segundo render en cascada en cada cambio de foto.
+  // Patrón de React: ajustar estado durante el render, guardando el valor
+  // anterior para que solo vuelva a Synchronizar cuando `crest` cambia de verdad.
+  const [crestVisto, setCrestVisto] = useState(crest);
+  if (crest !== crestVisto) {
+    setCrestVisto(crest);
     setForm((f) => (f.crest_url === crest ? f : { ...f, crest_url: crest }));
-  }, [crest]);
+  }
+  const originalCrest = editing?.crest_url ?? null;
 
   function changeCrest(next: string | null) {
     setCrest((prev) => {
