@@ -727,4 +727,14 @@ describe("una variante de navbar por tipo de sección", () => {
     expect(navbarTypeFor("/admin/torneos/abc")).toBe("browse");
     expect(navbarTypeFor("/admin/torneos/abc/editar")).toBe("browse");
   });
+
+  it('una pantalla sin lista no se declara "search": sería un control muerto', () => {
+    // Declaré /admin/noticias como "search" sin comprobar que la página
+    // filtrara: el input aparecía y no hacía nada. Con cinco o seis noticias,
+    // además, no hace falta.
+    expect(navbarTypeFor("/admin/noticias")).toBe("browse");
+    expect(SECTION_NAVBAR_ADMIN["/admin/noticias"]).toBe("browse");
+    // Y la misma regla en el sitio público.
+    expect(navbarTypeFor("/noticias")).toBe("browse");
+  });
 });

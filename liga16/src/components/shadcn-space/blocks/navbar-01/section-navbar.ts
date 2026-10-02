@@ -45,7 +45,9 @@ export const SECTION_NAVBAR_ADMIN: Record<string, NavbarType> = {
   "/admin/estado": "browse",
   "/admin/inbox": "browse",
   "/admin/padel": "browse",
-  "/admin/noticias": "search",
+  // Noticias es browse a propósito: son cinco o seis y se leen de un vistazo.
+  // Un buscador ahí sería un control sin propósito, y peor: uno que no filtra.
+  "/admin/noticias": "browse",
   "/admin/torneos": "search",
   "/admin/jugadores": "search",
   "/admin/equipos": "search",
