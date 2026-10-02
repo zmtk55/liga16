@@ -330,6 +330,7 @@ export default function PlayerDetailPage() {
         setMyMatches(mine);
         setAllPlayers(pls.filter((x) => x.id !== p.id));
       })
+      .catch(() => { /* id inexistente: la UI ya muestra "Jugador no encontrado" */ })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [id]);
@@ -345,7 +346,7 @@ export default function PlayerDetailPage() {
       const rk = rks.find((r) => r.player_id === p.id) ?? null;
       const jev = analyzePlayerLocal(p, c, rk);
       setCompareData({ p, c, r: rk, jev });
-    });
+    }).catch(() => { /* id inválido: se queda sin comparador */ });
   }, [compareId]);
 
   // JEV: el análisis local es puro y se calcula al renderizar; si hay API key,
