@@ -31,6 +31,7 @@ import {
   AdminTableSkeleton,
 } from "@/components/admin/table-state";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
 import { groupByDivision } from "@/lib/categories";
@@ -135,18 +136,29 @@ export default function AdminRanking() {
             onChange={setDivision}
             clearValue="all"
           />
+          {/* La rama va en pills y no en un desplegable (ADR-0009, tipo
+              "filter"): se elige a ojo y se cambia varias veces; un Select
+              esconde el resto y obliga a dos clics por filtro. Es el mismo
+              criterio que el ranking público. */}
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Rama
+            </p>
+            <ToggleGroup
+              type="single"
+              value={sex}
+              onValueChange={(v) => v && setSex(v)}
+              variant="outline"
+              size="sm"
+              className="w-fit justify-start"
+            >
+              <ToggleGroupItem value="all">Todas</ToggleGroupItem>
+              {sexOptions.filter((s) => s.value !== "all").map((s) => (
+                <ToggleGroupItem key={s.value} value={s.value}>{s.label}</ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
           <FilterBar
-            selects={[
-              {
-                key: "sex",
-                ariaLabel: "Filtrar por rama",
-                allLabel: "Todas las ramas",
-                value: sex,
-                onChange: setSex,
-                options: sexOptions.filter((s) => s.value !== "all"),
-                className: "sm:w-40",
-              },
-            ]}
             resultCount={filtered.length}
             resultLabel="parejas"
             onClear={() => {
