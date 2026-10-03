@@ -25,14 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
 import { AlertTriangle, Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
 import { checkLevelSum } from "@/lib/qualification";
@@ -44,8 +36,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import ImageUpload from "@/components/ui/image-upload";
 import { deleteStoredImage } from "@/lib/storage";
-import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { CardShell, CardIdentity, CardStat, CardFooterStrip, PairAvatars } from "@/components/cards/card-kit";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface EquipoForm {
   name: string;
@@ -287,38 +280,48 @@ export default function AdminTeams() {
               onClear={() => { setQuery(""); setCat("all"); }}
             />
           </CardHeader>
-          <CardContent className="overflow-x-auto p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">Equipo</TableHead>
-                  <TableHead className="hidden sm:table-cell">Categoría</TableHead>
-                  <TableHead className="hidden md:table-cell">Jugadores</TableHead>
-                  <TableHead className="text-right pr-4">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pairs === null && <AdminTableSkeleton columns={4} />}
-                {pairs !== null && pairs.length === 0 && (
-                  <AdminTableEmpty
-                    colSpan={4}
-                    icon={<Users className="h-5 w-5" />}
-                    title="Sin parejas en este torneo"
-                    description="Inscribe la primera pareja para empezar."
-                    action={
-                      <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-                        Inscribir pareja
-                      </Button>
-                    }
-                  />
-                )}
-                {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-                  <AdminTableEmpty
-                    colSpan={4}
-                    title="Sin coincidencias"
-                    description="Ninguna pareja coincide con la búsqueda o el filtro."
-                  />
-                )}
+          <CardContent className="p-4">
+            {pairs === null && (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-28 rounded-xl" />
+                ))}
+              </div>
+            )}
+
+            {pairs !== null && pairs.length === 0 && (
+              <Empty className="border-0 py-10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Users className="h-5 w-5" />
+                  </EmptyMedia>
+                  <EmptyTitle className="text-base">Sin parejas en este torneo</EmptyTitle>
+                  <EmptyDescription>
+                    Inscribe la primera pareja para empezar.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+                  Inscribir pareja
+                </Button>
+              </Empty>
+            )}
+
+            {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
+              <Empty className="border-0 py-10">
+                <EmptyHeader>
+                  <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
+                  <EmptyDescription>
+                    Ninguna pareja coincide con la búsqueda o el filtro.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+
+            {/* Cards y no tabla: es la misma pieza que usa el sitio público, con
+                los avatares de la pareja y la categoría a la vista. Una tabla
+                de "nombre / categoría" no decía nada de un vistazo. */}
+            {filtered.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((p) => {
                   const [p1, p2] = p.name.split(" / ");
                   const actions: RowAction[] = [
@@ -337,27 +340,47 @@ export default function AdminTeams() {
                   ];
                   return (
                     <RowContextMenu key={p.id} actions={actions}>
-                    <TableRow>
-                      <TableCell className="pl-4 font-medium">{p.name}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {p.category_id ? (
-                          <Badge variant="secondary">{catNameById.get(p.category_id) ?? "—"}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Sin categoría</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {[p1, p2].filter(Boolean).join(" · ") || "—"}
-                      </TableCell>
-                      <TableCell className="pr-2 text-right">
-                        <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
-                      </TableCell>
-                    </TableRow>
+                      <CardShell accent>
+                        <CardContent className="p-4">
+                          <CardIdentity
+                            lead={<PairAvatars names={[p1, p2]} size="sm" />}
+                            titleLines={[p1, p2].filter(Boolean)}
+                            meta={
+                              p.category_id
+                                ? catNameById.get(p.category_id) ?? "Sin categoría"
+                                : "Sin categoría"
+                            }
+                            end={
+                              <RowActionsMenu
+                                actions={actions}
+                                label={`Acciones para ${p.name}`}
+                              />
+                            }
+                          />
+                        </CardContent>
+                        <CardFooterStrip
+                          stats={
+                            <>
+                              <CardStat
+                                value={p.crest_url ? "1" : "0"}
+                                label="Escudo"
+                                tone={p.crest_url ? "text-success" : undefined}
+                              />
+                              <CardStat value={p.category_id ? "Sí" : "No"} label="Inscrita" />
+                            </>
+                          }
+                          chip={
+                            <Badge variant="outline" className="gap-1">
+                              <Pencil className="h-3 w-3" /> Editar
+                            </Badge>
+                          }
+                        />
+                      </CardShell>
                     </RowContextMenu>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
