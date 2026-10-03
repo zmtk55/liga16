@@ -118,7 +118,7 @@ export function SiteHeader() {
               no tienen otro buscador. */}
           <SectionControl only="search" className="w-36 sm:w-52" />
           {/* Las pills van en la barra solo en escritorio; en móvil, en el menú. */}
-          <SectionControl only="pills" variant="bar" className="hidden lg:block" />
+          <SectionControl only="pills" />
 
           {/* Acciones */}
           <div className="ml-auto flex items-center gap-2 lg:ml-0">
@@ -204,8 +204,6 @@ export function SiteHeader() {
         {open && (
           <nav id="site-nav-mobile" className="border-t pt-2 lg:hidden" aria-label="Navegación principal">
             <div className="space-y-1 pb-2">
-              {/* Las pills de división solo aquí: en la barra no caben. */}
-              <SectionControl only="pills" variant="menu" className="mb-2" />
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}

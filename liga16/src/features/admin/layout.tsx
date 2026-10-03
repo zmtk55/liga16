@@ -167,7 +167,7 @@ export default function AdminLayout() {
         <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-card lg:flex">
           <div className="flex h-16 items-center justify-between gap-2 border-b px-5">
             <AdminBrand />
-            <SectionControl only="pills" variant="bar" />
+            <SectionControl only="pills" />
           </div>
           <div className="flex-1 overflow-y-auto">
             <AdminNav alertCount={alertCount} />
