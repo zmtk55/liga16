@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { sexShort, winRate } from "@/lib/format";
+import { initials, sexShort, winRate } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import type { PlayerCardProps } from "./player-card";
 import {
@@ -59,18 +59,29 @@ export function PlayerCardV5({ player, played, won, onOpen }: PlayerCardProps) {
       >
         {/* Frente: foto full-bleed */}
         <div className="absolute inset-0 flex flex-col [backface-visibility:hidden]">
-          <img
-            src={player.photo_url ?? undefined}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-            alt={player.display_name}
-            className={cn(
-              "absolute inset-0 h-full w-full object-cover object-center",
-              "transition-transform duration-500",
-              "group-hover:scale-105",
-            )}
-          />
+          {player.photo_url ? (
+            <img
+              src={player.photo_url}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+              alt={player.display_name}
+              className={cn(
+                "absolute inset-0 h-full w-full object-cover object-center",
+                "transition-transform duration-500",
+                "group-hover:scale-105",
+              )}
+            />
+          ) : (
+            <div
+              aria-hidden
+              className="absolute inset-0 flex items-center justify-center bg-muted"
+            >
+              <span className="text-6xl font-black text-foreground/15">
+                {initials(player.display_name)}
+              </span>
+            </div>
+          )}
 
           {/* Velo sutil */}
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-background/28" />

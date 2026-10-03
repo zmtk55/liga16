@@ -32,9 +32,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
+import {
+  LayoutGrid,
+  List,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { PlayerStatus } from "@/types";
+import type { PlayerCard as PlayerCardStats } from "@/types";
+import { PlayerCardV5 } from "@/features/nav-test/player-card-v5";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -67,6 +77,9 @@ const POSITION_OPTIONS = [
 
 export default function AdminPlayers() {
   const [list, setList] = useState<PlayerProfile[] | null>(null);
+  const [view, setView] = useState<"lista" | "galeria">("lista");
+  /** Stats reales por jugador (db.getPlayerCard) para la galería. */
+  const [cards, setCards] = useState<Record<string, PlayerCardStats>>({});
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<PlayerProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -115,11 +128,31 @@ export default function AdminPlayers() {
       return rank(a) - rank(b) || a.display_name.localeCompare(b.display_name);
     });
 
+  /** Stats reales (partidos/ganados) por jugador para la galería. */
+  const loadCards = (players: PlayerProfile[]) => {
+    Promise.all(players.map((p) => db.getPlayerCard(p.id).catch(() => null)))
+      .then((cs) => {
+        const m: Record<string, PlayerCardStats> = {};
+        cs.forEach((c) => {
+          if (c) m[c.player_id] = c;
+        });
+        setCards(m);
+      })
+      .catch(() => undefined);
+  };
+
+  const load = () =>
+    db.listPlayers().then((l) => {
+      setList(l);
+      loadCards(l);
+    });
+
   useEffect(() => {
-    db.listPlayers().then(setList);
+    load();
     db.listTournaments()
       .then((ts) => setTournaments(ts.map((t) => ({ id: t.id, name: t.name }))))
       .catch(() => setTournaments([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -141,8 +174,6 @@ export default function AdminPlayers() {
       })
       .catch(() => setTournamentPlayers(new Set()));
   }, [tid]);
-
-  const load = () => db.listPlayers().then(setList);
 
   async function handleSave(form: PlayerFormData) {
     setSubmitting(true);
@@ -258,6 +289,32 @@ export default function AdminPlayers() {
       </AdminPageHeader>
       <Card>
         <CardHeader className="gap-3">
+          <div className="flex justify-end">
+            <div className="inline-flex rounded-lg border p-0.5">
+              <Button
+                size="sm"
+                variant={view === "lista" ? "secondary" : "ghost"}
+                aria-label="Ver como lista"
+                aria-pressed={view === "lista"}
+                className="h-7 gap-1.5 px-2.5"
+                onClick={() => setView("lista")}
+              >
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">Lista</span>
+              </Button>
+              <Button
+                size="sm"
+                variant={view === "galeria" ? "secondary" : "ghost"}
+                aria-label="Ver como galería"
+                aria-pressed={view === "galeria"}
+                className="h-7 gap-1.5 px-2.5"
+                onClick={() => setView("galeria")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span className="hidden sm:inline">Galería</span>
+              </Button>
+            </div>
+          </div>
           <FilterBar
             selects={[
               {
@@ -298,6 +355,7 @@ export default function AdminPlayers() {
             }}
           />
         </CardHeader>
+        {view === "lista" ? (
         <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
@@ -409,6 +467,45 @@ export default function AdminPlayers() {
             </TableBody>
           </Table>
         </CardContent>
+        ) : (
+          <CardContent className="p-4">
+            {list === null && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Cargando jugadores…
+              </p>
+            )}
+            {list !== null && filtered.length === 0 && (
+              <div className="flex flex-col items-center py-8 text-center">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <p className="mt-2 text-sm font-medium">
+                  {list.length === 0
+                    ? "No hay jugadores todavía"
+                    : "Sin coincidencias"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {list.length === 0
+                    ? "Agrega al primer jugador para empezar el directorio."
+                    : "Ningún jugador coincide con la búsqueda o el filtro."}
+                </p>
+              </div>
+            )}
+            {filtered.length > 0 && (
+              <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filtered.map((p) => {
+                  const c = cards[p.id];
+                  return (
+                    <PlayerCardV5
+                      key={p.id}
+                      player={p}
+                      played={c?.played}
+                      won={c?.won}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       <ConfirmDialog
