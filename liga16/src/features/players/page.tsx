@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
-import type { PlayerProfile, RankingEntry, PlayerCard } from "@/types";
+import { buildDirectoryStats, type DirStats } from "@/lib/data/record-stats";
+import type { PlayerProfile, RankingEntry } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardShell, CardIdentity, CardFooterStrip, CardStat } from "@/components/cards/card-kit";
 
@@ -66,7 +67,7 @@ export default function PlayersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [players, setPlayers] = useState<PlayerProfile[] | null>(null);
   const [rankings, setRankings] = useState<RankingEntry[] | null>(null);
-  const [cards, setCards] = useState<Record<string, PlayerCard> | null>(null);
+  const [stats, setStats] = useState<Record<string, DirStats> | null>(null);
   const [divisions, setDivisions] = useState<Record<string, string>>({});
   const query = searchParams.get("q") ?? "";
   const setQuery = (v: string) => {
@@ -85,19 +86,15 @@ export default function PlayersPage() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([db.listPlayers(), db.listRankings(), db.listPlayerDivisions()]).then(async ([list, rks, divs]) => {
+    Promise.all([db.listPlayers(), db.listRankings(), db.listPlayerDivisions()]).then(([list, rks, divs]) => {
       if (!active) return;
       setPlayers(list);
       setRankings(rks);
-      const byId: Record<string, PlayerCard> = {};
-      await Promise.all(list.map(async (p) => {
-        const c = await db.getPlayerCard(p.id);
-        if (c) byId[p.id] = c;
-      }));
-      if (active) {
-        setCards(byId);
-        setDivisions(divs); // categorías REALES: división de la pareja de cada jugador
-      }
+      setDivisions(divs); // categorías REALES: división de la pareja de cada jugador
+      // Récord derivado de los partidos: player_cards está sin poblar.
+      buildDirectoryStats(list)
+        .then((st) => { if (active) setStats(st); })
+        .catch(() => undefined);
     });
     return () => { active = false; };
   }, []);
@@ -254,7 +251,7 @@ export default function PlayersPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => {
             const rk = rankById.get(p.id);
-            const card = cards?.[p.id];
+            const st = stats?.[p.id];
             return (
               <Link key={p.id} to={`/jugadores/${p.id}`} className="group block focus:outline-none">
                 <CardShell accent className="h-full">
@@ -281,7 +278,7 @@ export default function PlayersPage() {
                       <>
                         <CardStat value={levelOf(p).toFixed(1)} label="Nivel" />
                         <CardStat value={rk ? rk.points.toLocaleString("es-MX") : "—"} label="Puntos" />
-                        <CardStat value={card && card.played > 0 ? `${card.won}–${card.played - card.won}` : "—"} label="Récord" />
+                        <CardStat value={st && st.played > 0 ? `${st.won}–${st.played - st.won}` : "—"} label="Récord" />
                       </>
                     }
                   />

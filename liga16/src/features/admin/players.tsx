@@ -43,7 +43,10 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { PlayerStatus } from "@/types";
-import type { PlayerCard as PlayerCardStats } from "@/types";
+import {
+  buildDirectoryStats,
+  type DirStats,
+} from "@/lib/data/record-stats";
 import { PlayerCardV5 } from "@/features/nav-test/player-card-v5";
 import { sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -78,8 +81,8 @@ const POSITION_OPTIONS = [
 export default function AdminPlayers() {
   const [list, setList] = useState<PlayerProfile[] | null>(null);
   const [view, setView] = useState<"lista" | "galeria">("lista");
-  /** Stats reales por jugador (db.getPlayerCard) para la galería. */
-  const [cards, setCards] = useState<Record<string, PlayerCardStats>>({});
+  /** Récord derivado (jugado/ganado) por jugador para la galería. */
+  const [stats, setStats] = useState<Record<string, DirStats>>({});
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<PlayerProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -128,23 +131,17 @@ export default function AdminPlayers() {
       return rank(a) - rank(b) || a.display_name.localeCompare(b.display_name);
     });
 
-  /** Stats reales (partidos/ganados) por jugador para la galería. */
-  const loadCards = (players: PlayerProfile[]) => {
-    Promise.all(players.map((p) => db.getPlayerCard(p.id).catch(() => null)))
-      .then((cs) => {
-        const m: Record<string, PlayerCardStats> = {};
-        cs.forEach((c) => {
-          if (c) m[c.player_id] = c;
-        });
-        setCards(m);
-      })
+  /** Récord derivado de partidos (player_cards nunca se actualiza). */
+  const loadStats = (players: PlayerProfile[]) => {
+    buildDirectoryStats(players)
+      .then(setStats)
       .catch(() => undefined);
   };
 
   const load = () =>
     db.listPlayers().then((l) => {
       setList(l);
-      loadCards(l);
+      loadStats(l);
     });
 
   useEffect(() => {
@@ -492,7 +489,7 @@ export default function AdminPlayers() {
             {filtered.length > 0 && (
               <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filtered.map((p) => {
-                  const c = cards[p.id];
+                  const c = stats[p.id];
                   return (
                     <PlayerCardV5
                       key={p.id}
