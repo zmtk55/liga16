@@ -44,7 +44,6 @@ export type CompareRival = {
   position: string | null;
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const sampleTeams: CompareRival[] = [
   {
     id: "t1",
@@ -250,7 +249,6 @@ export function PlayerCardV6({ player, played, won, onOpen }: PlayerCardProps) {
                   buzz("select");
                   setRivalId(v);
                 }}
-                onClick={(e) => e.stopPropagation()}
               >
                 <SelectTrigger
                   size="sm"
