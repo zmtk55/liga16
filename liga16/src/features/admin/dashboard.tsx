@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
 import { formatDateRange } from "@/lib/format";
 import { groupByDivision } from "@/lib/categories";
+import Wheel from "@/features/admin/wheel";
 
 interface DashboardData {
   tournaments: Tournament[];
@@ -76,6 +77,14 @@ export default function AdminDashboard() {
     () => (data?.tournaments ?? []).filter((t) => t.status === "registration_open"),
     [data],
   );
+  /* Cuánto del calendario ya está capturado: la pregunta que el
+     dial responde de un vistazo. */
+  const finishedMatches = useMemo(
+    () => (data?.matches ?? []).filter((m) => m.status === "finished").length,
+    [data],
+  );
+  const totalMatches = data?.matches.length ?? 0;
+  const progress = totalMatches ? Math.round((finishedMatches / totalMatches) * 100) : 0;
 
   /** Solo lo que hay que hacer. Si no hay nada, se dice que no hay nada. */
   const tasks = [
@@ -284,7 +293,7 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* Clasificación: quién está arriba, en su propia división. */}
         <section aria-labelledby="clasificacion" className="space-y-3">
           <div className="flex items-baseline justify-between gap-3">
@@ -352,6 +361,22 @@ export default function AdminDashboard() {
                   </div>
                 ))
               )}
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Progreso: qué tanto del calendario ya trae resultado.
+            El dial es la respuesta de un vistazo; el pie la dice en números. */}
+        <section aria-labelledby="progreso" className="space-y-3">
+          <h2 id="progreso" className="text-sm font-semibold">
+            Calendario capturado
+          </h2>
+          <Card>
+            <CardContent className="flex flex-col items-center py-4">
+              <Wheel value={progress} label="Partidos capturados" />
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                {finishedMatches} de {totalMatches} partidos con resultado
+              </p>
             </CardContent>
           </Card>
         </section>

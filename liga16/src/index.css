@@ -143,6 +143,63 @@
   }
 }
 
+/* === Instrumento: el dial del panel (features/admin/wheel.tsx) ===
+   El componente devuelve un NOMBRE de banda y esta hoja tiene los
+   valores: así el dial gana paleta clara y oscura y su verde puede
+   ser el verde del resto de la app sin que un archivo nombre un
+   número que el otro tenga que igualar. */
+.hum {
+  --hum-lit: hsl(var(--success));
+  color: hsl(var(--foreground));
+}
+.hum[data-state="crit"] { --hum-lit: hsl(var(--destructive)); }
+.hum[data-state="low"] { --hum-lit: hsl(var(--warning)); }
+.hum[data-state="ok"] { --hum-lit: hsl(var(--success)); }
+/* alto es azul (no naranja: el primario de la liga y el ámbar del
+   aviso son demasiado cercanos para distinguir dos bandas) */
+.hum[data-state="high"] { --hum-lit: hsl(217 91% 52%); }
+.dark .hum[data-state="high"] { --hum-lit: hsl(217 91% 66%); }
+
+.hum-dial {
+  position: relative;
+  width: min(220px, 100%);
+  margin-inline: auto;
+}
+.hwheel {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  cursor: grab;
+}
+.hwheel:active {
+  cursor: grabbing;
+}
+.hwheel[data-dragging="true"] {
+  cursor: grabbing;
+}
+.hwheel-readout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  pointer-events: none;
+}
+.hum-figure {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hum-unit {
+  align-self: center;
+  margin-top: 0.4em;
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+
 /* Una sola regla global: si la persona pidió menos movimiento, nada en la app
    late, pulsa ni se desliza. Antes solo se callaba `.animate-fade-in` y quedaban
    vivos los pulsos de "en vivo", los pings y las transiciones. */
