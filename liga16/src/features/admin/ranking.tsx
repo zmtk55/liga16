@@ -2,25 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  BarChart3,
-  ClipboardList,
-  Minus,
-} from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, BarChart3, ClipboardList, Minus } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Team } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { CardShell, CardIdentity, CardStat, CardFooterStrip, PairAvatars } from "@/components/cards/card-kit";
 import {
   AdminPageHeader,
   AdminStat,
@@ -169,18 +156,6 @@ export default function AdminRanking() {
           />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-14">#</TableHead>
-                <TableHead>Pareja</TableHead>
-                <TableHead className="text-right">Puntos</TableHead>
-                <TableHead className="text-right">Ganadas – Perdidas</TableHead>
-                <TableHead className="text-right">División / Rama</TableHead>
-                <TableHead>Forma</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
               {teams === null && <AdminTableSkeleton columns={6} />}
               {teams !== null && filtered.length === 0 && (
                 <AdminTableEmpty
@@ -190,59 +165,57 @@ export default function AdminRanking() {
                   description="Las parejas se inscriben desde Equipos y sus resultados se capturan en Resultados."
                 />
               )}
-              {filtered.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="font-headline text-lg text-muted-foreground">
-                    {t.position > 0 ? t.position : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/equipos/${t.slug}`}
-                      className="font-medium underline-offset-4 hover:underline"
-                    >
-                      {t.name}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">
-                      {t.city}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {t.points.toLocaleString("es-MX")}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {t.won}–{Math.max(t.lost, 0)}
-                    <div className="text-xs text-muted-foreground">
-                      {winRate(t.played, t.won)}% de efectividad
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant="outline">{t.division}</Badge>
-                    <Badge variant="secondary" className="ml-1">
-                      {sexLabel(t.sex)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {t.won > t.lost ? (
-                      <ArrowUpRight
-                        className="h-4 w-4 text-success"
-                        aria-label="En racha"
+              {/* Cards y no tabla: puesto, récord y efectividad son lo que se
+                  lee de un vistazo; en tabla había que cruzarlos horizontalmente.
+                  Es el mismo CardKit del ranking público. */}
+              <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                {filtered.map((t) => {
+                  const [p1, p2] = t.name.split(" / ");
+                  const pct = t.played > 0 ? winRate(t.played, t.won) : 0;
+                  return (
+                    <CardShell key={t.id} accent={t.position === 1}>
+                      <CardContent className="p-4">
+                        <CardIdentity
+                          lead={<PairAvatars names={[p1, p2]} size="sm" />}
+                          titleLines={[p1, p2].filter(Boolean)}
+                          meta={[t.division, sexLabel(t.sex)].filter(Boolean).join(" · ")}
+                          end={
+                            <span className="text-stat tabular-nums text-muted-foreground/60">
+                              {t.position > 0 ? `#${t.position}` : "—"}
+                            </span>
+                          }
+                        />
+                      </CardContent>
+                      <CardFooterStrip
+                        stats={
+                          <>
+                            <CardStat value={t.points.toLocaleString("es-MX")} label="Pts" />
+                            <CardStat value={`${t.won}–${Math.max(t.lost, 0)}`} label="Récord" />
+                            <CardStat
+                              value={t.played > 0 ? `${pct}%` : "—"}
+                              label="Efect."
+                              tone={pct >= 60 ? "text-emerald-600 dark:text-emerald-400" : undefined}
+                            />
+                          </>
+                        }
+                        chip={
+                          t.won > t.lost ? (
+                            <Badge variant="outline" className="gap-1 text-success">
+                              <ArrowUpRight className="h-3 w-3" /> Racha
+                            </Badge>
+                          ) : t.won < t.lost ? (
+                            <Badge variant="outline" className="gap-1 text-destructive">
+                              <ArrowDownRight className="h-3 w-3" /> Baja
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1"><Minus className="h-3 w-3" /> Estable</Badge>
+                          )
+                        }
                       />
-                    ) : t.won < t.lost ? (
-                      <ArrowDownRight
-                        className="h-4 w-4 text-destructive"
-                        aria-label="En baja"
-                      />
-                    ) : (
-                      <Minus
-                        className="h-4 w-4 text-muted-foreground"
-                        aria-label="Estable"
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </CardShell>
+                  );
+                })}
+              </div>
         </CardContent>
       </Card>
     </div>

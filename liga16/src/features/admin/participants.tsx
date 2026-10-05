@@ -22,19 +22,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CardShell, CardIdentity, CardStat, CardFooterStrip, PairAvatars } from "@/components/cards/card-kit";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 import { FolderInput, Trash2, UsersRound } from "lucide-react";
 
@@ -213,33 +207,44 @@ export default function AdminParticipants() {
           />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Pareja</TableHead>
-                <TableHead className="hidden sm:table-cell">Torneo</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead className="text-right pr-4">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pairs === null && <AdminTableSkeleton columns={4} />}
-              {pairs !== null && pairs.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={4}
-                  icon={<UsersRound className="h-5 w-5" />}
-                  title="No hay participantes todavía"
-                  description="Las parejas se inscriben desde el asistente de torneos o desde Equipos."
-                />
-              )}
-              {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={4}
-                  title="Sin coincidencias"
-                  description="Ninguna pareja coincide con la búsqueda o el filtro."
-                />
-              )}
+          {/* Cards y no tabla: es el mismo CardKit del sitio público y el
+              mismo patrón que Equipos. Una tabla de "pareja / torneo /
+              categoría" no decía nada de un vistazo. */}
+          {pairs === null && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 rounded-xl" />
+              ))}
+            </div>
+          )}
+
+          {pairs !== null && pairs.length === 0 && (
+            <Empty className="border-0 py-10">
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><UsersRound className="h-5 w-5" /></EmptyMedia>
+                <EmptyTitle className="text-base">No hay participantes todavía</EmptyTitle>
+                <EmptyDescription>
+                  Las parejas se inscriben desde el asistente de torneos o desde Equipos.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+          {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
+            <Empty className="border-0 py-10">
+              <EmptyHeader>
+                <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
+                <EmptyDescription>
+                  Ninguna pareja coincide con la búsqueda o el filtro.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+          {filtered.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((p) => {
+                const [p1, p2] = p.name.split(" / ");
                 const actions: RowAction[] = [
                   {
                     label: "Mover a otro torneo",
@@ -255,32 +260,40 @@ export default function AdminParticipants() {
                   },
                 ];
                 return (
-                <RowContextMenu key={p.id} actions={actions}>
-                  <TableRow>
-                  <TableCell className="pl-4 font-medium">{p.name}</TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {p.tournament_name ? (
-                      <Badge variant="outline">{p.tournament_name}</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {p.category_id ? (
-                      <Badge variant="secondary">{p.category_name ?? catNameById.get(p.category_id) ?? "—"}</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Sin categoría</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="pr-2 text-right">
-                    <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
-                  </TableCell>
-                  </TableRow>
-                </RowContextMenu>
+                  <RowContextMenu key={p.id} actions={actions}>
+                    <CardShell accent>
+                      <CardContent className="p-4">
+                        <CardIdentity
+                          lead={<PairAvatars names={[p1, p2]} size="sm" />}
+                          titleLines={[p1, p2].filter(Boolean)}
+                          meta={p.category_id
+                            ? (p.category_name ?? catNameById.get(p.category_id) ?? "Sin categoría")
+                            : "Sin categoría"}
+                          end={
+                            <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
+                          }
+                        />
+                      </CardContent>
+                      <CardFooterStrip
+                        stats={
+                          <>
+                            <CardStat
+                              value={p.tournament_name ? "Sí" : "No"}
+                              label="En torneo"
+                              tone={p.tournament_name ? "text-success" : undefined}
+                            />
+                          </>
+                        }
+                        chip={p.tournament_name
+                          ? <Badge variant="outline">{p.tournament_name}</Badge>
+                          : <Badge variant="secondary">Sin torneo</Badge>}
+                      />
+                    </CardShell>
+                  </RowContextMenu>
                 );
               })}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

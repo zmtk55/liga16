@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -25,22 +24,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
 import type { MatchStatus } from "@/types";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { MatchScoreboard } from "@/components/match-scoreboard";
+import { MatchCard } from "@/components/cards/card-kit";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
-import { MatchStatusBadge } from "@/components/admin/status-badge";
 import { matchStatusLabel } from "@/lib/format";
 import {
   determineMatchWinner,
@@ -210,79 +202,60 @@ export default function AdminResults() {
           />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Partido</TableHead>
-                <TableHead className="hidden sm:table-cell">Torneo</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list === null && <AdminTableSkeleton columns={4} />}
-              {list !== null && list.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={4}
-                  icon={<Trophy className="h-5 w-5" />}
-                  title="No hay resultados todavía"
-                  description="Los partidos se capturan desde la pestaña Jornada de cada torneo."
-                />
-              )}
-              {list !== null && list.length > 0 && filtered.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={4}
-                  title="Sin coincidencias"
-                  description="Ningún partido coincide con la búsqueda o el filtro."
-                />
-              )}
-              {filtered.map((m) => (
-                <TableRow key={m.id}>
-                  {/* SIEMPRE se ve quién juega contra quién */}
-                  <TableCell>
-                    <div className="min-w-0">
-                      <p className="mb-1 truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
-                        {m.tournament_name}{m.round ? ` · ${m.round}` : ""}
-                      </p>
-                      <p className={cn("truncate text-sm font-semibold", m.winner === "a" && "text-success")}>
-                        {m.side_a.pair_name}
-                      </p>
-                      <p className="my-0.5 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">vs</p>
-                      <p className={cn("truncate text-sm font-semibold", m.winner === "b" && "text-success")}>
-                        {m.side_b.pair_name}
-                      </p>
-                      {(m.status === "finished" || m.status === "live") && m.sets.length > 0 && (
-                        <div className="mt-1.5">
-                          <MatchScoreboard
-                            sideA={m.side_a.pair_name}
-                            sideB={m.side_b.pair_name}
-                            sets={m.sets}
-                            winner={m.winner}
-                            status={m.status}
-                            size="sm"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <p className="font-medium">{m.tournament_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {[m.category_name, m.round].filter(Boolean).join(" · ") || "—"}
-                    </p>
-                  </TableCell>
-                  <TableCell>
-                    <MatchStatusBadge status={m.status} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => setEditingId(m.id)} aria-label={`Editar resultado de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}>
-                      Editar
-                    </Button>
-                  </TableCell>
-                </TableRow>
+          {/* MatchCard y no fila de tabla: es LA card de partido del sistema
+              —la misma que usa el calendario público—, con la hora, los sets
+              y el estado ya resueltos en pantalla. Una tabla obligaba a leer
+              cada partido en vertical. */}
+          {list === null && (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          )}
+
+          {list !== null && list.length === 0 && (
+            <Empty className="border-0 py-10">
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><Trophy className="h-5 w-5" /></EmptyMedia>
+                <EmptyTitle className="text-base">No hay resultados todavía</EmptyTitle>
+                <EmptyDescription>
+                  Los partidos se capturan desde la pestaña Jornada de cada torneo.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+          {list !== null && list.length > 0 && filtered.length === 0 && (
+            <Empty className="border-0 py-10">
+              <EmptyHeader>
+                <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
+                <EmptyDescription>
+                  Ningún partido coincide con la búsqueda o el filtro.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+          {filtered.length > 0 && (
+            <div className="grid gap-3 p-4 lg:grid-cols-2">
+              {filtered.map((m) => (
+                <div key={m.id} className="relative">
+                  <MatchCard match={m} />
+                  <div className="absolute right-3 top-3 flex gap-1">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setEditingId(m.id)}
+                      aria-label={`Editar resultado de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}
+                    >
+                      {m.status === "finished" ? "Ver" : "Capturar"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

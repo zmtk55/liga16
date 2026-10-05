@@ -4,21 +4,15 @@ import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatDateRange, tournamentStatusLabel } from "@/lib/format";
 import { ExternalLink, Pencil, Plus, Trash2, Trophy } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
+import { CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 
@@ -119,38 +113,41 @@ export default function AdminTournaments() {
           />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Nombre</TableHead>
-                <TableHead className="hidden sm:table-cell">Sede</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="hidden md:table-cell">Fechas</TableHead>
-                <TableHead className="text-right pr-4">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list === null && <AdminTableSkeleton columns={5} />}
-              {list !== null && list.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={5}
-                  icon={<Trophy className="h-5 w-5" />}
-                  title="No hay torneos todavía"
-                  description="Crea el primero con el asistente de torneo."
-                  action={
-                    <Button asChild size="sm" className="mt-4">
-                      <Link to="/admin/torneos/nuevo">Crear torneo</Link>
-                    </Button>
-                  }
-                />
-              )}
-              {list !== null && list.length > 0 && filtered.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={5}
-                  title="Sin coincidencias"
-                  description="Ningún torneo coincide con la búsqueda o el filtro."
-                />
-              )}
+          {/* Cards y no tabla (mismo CardKit del sitio público): el nombre,
+              la sede y las fechas ya son el contenido de una tarjeta; en tabla
+              había que leerlas en horizontal. */}
+          {list === null && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 rounded-xl" />
+              ))}
+            </div>
+          )}
+
+          {list !== null && list.length === 0 && (
+            <Empty className="border-0 py-10">
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><Trophy className="h-5 w-5" /></EmptyMedia>
+                <EmptyTitle className="text-base">No hay torneos todavía</EmptyTitle>
+                <EmptyDescription>Crea el primero con el asistente de torneo.</EmptyDescription>
+              </EmptyHeader>
+              <Button asChild size="sm" className="mt-4">
+                <Link to="/admin/torneos/nuevo">Crear torneo</Link>
+              </Button>
+            </Empty>
+          )}
+
+          {list !== null && list.length > 0 && filtered.length === 0 && (
+            <Empty className="border-0 py-10">
+              <EmptyHeader>
+                <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
+                <EmptyDescription>Ningún torneo coincide con la búsqueda o el filtro.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+          {filtered.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((t) => {
                 const actions: RowAction[] = [
                   {
@@ -172,34 +169,35 @@ export default function AdminTournaments() {
                   },
                 ];
                 return (
-                <RowContextMenu key={t.id} actions={actions}>
-                  <TableRow>
-                  <TableCell className="pl-4 font-medium">
-                    <Link
-                      to={`/admin/torneos/${t.slug}`}
-                      className="font-medium underline-offset-4 hover:underline"
-                    >
-                      {t.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="hidden text-muted-foreground sm:table-cell">
-                    {t.club_name ?? t.city}
-                  </TableCell>
-                  <TableCell>
-                    <TournamentStatusBadge status={t.status} />
-                  </TableCell>
-                  <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
-                    {formatDateRange(t.start_date, t.end_date)}
-                  </TableCell>
-                  <TableCell className="pr-2 text-right">
-                    <RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} />
-                  </TableCell>
-                </TableRow>
-                </RowContextMenu>
+                  <RowContextMenu key={t.id} actions={actions}>
+                    <CardShell accent={t.status === "in_progress"}>
+                      <CardContent className="p-4">
+                        <CardIdentity
+                          lead={<Trophy className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
+                          title={t.name}
+                          meta={[t.club_name ?? t.city, formatDateRange(t.start_date, t.end_date)]
+                            .filter(Boolean)
+                            .join(" · ")}
+                          end={<TournamentStatusBadge status={t.status} />}
+                        />
+                      </CardContent>
+                      <CardFooterStrip
+                        stats={
+                          <>
+                            <CardStat value={t.city || "—"} label="Ciudad" />
+                            <CardStat value={t.format === "groups_knockout" ? "Grupos" : "Eliminación"} label="Formato" />
+                          </>
+                        }
+                        chip={
+                          <RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} />
+                        }
+                      />
+                    </CardShell>
+                  </RowContextMenu>
                 );
               })}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
