@@ -127,6 +127,24 @@ export default function AdminResults() {
   const editingMatch = list?.find((m) => m.id === editingId) ?? null;
 
   /**
+   * Agrupación por jornada. En desktop, 60 cards planas en dos columnas eran
+   * 5600px de scroll sin puntos de referencia: cada jornada encabeza su
+   * bloque con cuántos partidos trae y cuántos faltan por capturar. El orden
+   * es numérico, no el del listado, que llega revuelto.
+   */
+  const roundGroups = useMemo(() => {
+    const map = new Map<string, Match[]>();
+    for (const m of filtered) {
+      const key = m.round || "Sin jornada";
+      const arr = map.get(key);
+      if (arr) arr.push(m);
+      else map.set(key, [m]);
+    }
+    const num = (r: string) => Number(r.match(/\d+/)?.[0] ?? 0);
+    return Array.from(map.entries()).sort((a, b) => num(a[0]) - num(b[0]));
+  }, [filtered]);
+
+  /**
    * Cifras de cabecera. Lo que importa en esta pantalla es el trabajo que
    * falta: partidos sin capturar y partidos en juego. Lo terminado es contexto.
    */
@@ -201,7 +219,10 @@ export default function AdminResults() {
             onClear={() => { setQuery(""); setFTournament("all"); setFStatus("all"); }}
           />
         </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
+        {/* Sin overflow-x: el contenedor deja de ser scroll propio y los
+            encabezados de jornada sí se quedan pegados (sticky) al hacer
+            scroll; las cards truncan de fábrica y no desbordan. */}
+        <CardContent className="p-0">
           {/* MatchCard y no fila de tabla: es LA card de partido del sistema
               —la misma que usa el calendario público—, con la hora, los sets
               y el estado ya resueltos en pantalla. Una tabla obligaba a leer
@@ -238,22 +259,43 @@ export default function AdminResults() {
           )}
 
           {filtered.length > 0 && (
-            <div className="grid gap-3 p-4 lg:grid-cols-2">
-              {filtered.map((m) => (
-                <div key={m.id} className="relative">
-                  <MatchCard match={m} />
-                  <div className="absolute right-3 top-3 flex gap-1">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setEditingId(m.id)}
-                      aria-label={`Editar resultado de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}
-                    >
-                      {m.status === "finished" ? "Ver" : "Capturar"}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-6 p-4">
+              {roundGroups.map(([round, ms], gi) => {
+                const pend = ms.filter((m) => m.status === "scheduled").length;
+                const hid = `ronda-${gi}`;
+                return (
+                  <section key={round} aria-labelledby={hid} className="space-y-3">
+                    <div className="sticky top-0 z-10 flex items-baseline justify-between gap-2 rounded-lg bg-card/95 py-1.5 backdrop-blur">
+                      <h2 id={hid} className="text-sm font-semibold">
+                        {round}
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        {ms.length} partidos
+                        {pend > 0 && (
+                          <span className="text-primary"> · {pend} por capturar</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {ms.map((m) => (
+                        <div key={m.id} className="relative">
+                          <MatchCard match={m} />
+                          <div className="absolute right-3 top-3 flex gap-1">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setEditingId(m.id)}
+                              aria-label={`Editar resultado de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}
+                            >
+                              {m.status === "finished" ? "Ver" : "Capturar"}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           )}
         </CardContent>
