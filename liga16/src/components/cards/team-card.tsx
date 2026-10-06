@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { sexLabel, winRate } from "@/lib/format";
+import { teamCategoryLabel } from "@/lib/categories";
 import { buzz } from "@/lib/haptics";
 // La estrella vive en el playground porque nació allí; ya es parte del
 // sistema (la usa la galería de jugadores) y duplicarla sería peor que
@@ -182,11 +183,16 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               ))}
             </h3>
             <div className="mt-0.5 flex items-center gap-2 text-[10px] text-foreground/80">
+              {/* La categoría REAL del torneo ("Suma 9", "4ta Masculino"), que es
+                  como la gente la reconoce; la división derivada es solo el
+                  bucket de orden. Antes la card mostraba la división sola y una
+                  pareja de Suma 9 aparecía como "6ta", que no es su categoría.
+                  Mismo criterio que ya usa el Home. */}
               <Badge
                 variant="outline"
                 className="rounded-full border-foreground/20 bg-foreground/10 text-foreground"
               >
-                {team.division}
+                {teamCategoryLabel(team)}
               </Badge>
               <span className="shrink-0">{sexLabel(team.sex)}</span>
               <span className="truncate">· {team.city}</span>
@@ -221,7 +227,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
             <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
               {[
                 team.position > 0 ? `#${team.position}` : null,
-                team.division,
+                teamCategoryLabel(team),
                 sexLabel(team.sex),
               ]
                 .filter(Boolean)

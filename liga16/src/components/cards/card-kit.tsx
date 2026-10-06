@@ -13,6 +13,13 @@
  *  2. Tipografía solo por tokens semánticos: text-stat (valor), text-caption (etiqueta),
  *     font-headline (jerarquía editorial). Las pages no inventan tamaños.
  *  3. Color solo por token: bg-card, text-muted-foreground, bg-success, surface-inverse… nunca hex.
+ *  4. Un slot cuyo contenido pone quien llama se envuelve en `<div>`, nunca en `<p>`:
+ *     `meta`, `title` y `value` son `ReactNode`, y `<p>` no admite descendientes de
+ *     bloque. Con un `<div>` del caller dentro, el DOM quedaba `<p><div>…</div></p>`:
+ *     HTML inválido y React avisando por consola
+ *     (`In HTML, <div> cannot be a descendant of <p>`) en cada render.
+ *     ElWrapper sigue siendo de bloque, así que `truncate` se comporta igual; lo que
+ *     decide es el TIPO de la prop: `ReactNode` → `<div>`, `string` → `<p>`/`<span>`.
  */
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -78,9 +85,12 @@ export function CardIdentity({
             ))}
           </div>
         ) : (
-          <p className="truncate text-sm font-bold tracking-tight">{title}</p>
+          // `div` y no `p`: `title` es ReactNode y quien llama puede pasar un bloque.
+          <div className="truncate text-sm font-bold tracking-tight">{title}</div>
         )}
-        {meta && <p className="mt-0.5 truncate text-xs text-muted-foreground">{meta}</p>}
+        {meta && (
+          <div className="mt-0.5 truncate text-xs text-muted-foreground">{meta}</div>
+        )}
       </div>
       {end && <div className="shrink-0">{end}</div>}
     </div>
@@ -99,7 +109,8 @@ export function CardStat({
 }) {
   return (
     <div className="flex min-w-0 flex-col items-center px-1 py-1.5">
-      <span className={cn("text-stat tabular-nums", tone)}>{value}</span>
+      {/* `value` es ReactNode → bloque. `label` es string → puede seguir siendo inline. */}
+      <div className={cn("text-stat tabular-nums", tone)}>{value}</div>
       <span className="text-caption uppercase text-muted-foreground">{label}</span>
     </div>
   );

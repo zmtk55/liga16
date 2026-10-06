@@ -14,9 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { divisionOptions, sexOptions } from "@/lib/format";
-import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
-import { ArrowRight } from "lucide-react";
+import { sexOptions } from "@/lib/format";
+import {
+  teamCategoryKey,
+  teamCategoryLabel,
+} from "@/lib/categories";
+import { ArrowRight, X } from "lucide-react";
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -24,8 +27,11 @@ export default function TeamsPage() {
   // búsqueda, en un solo sitio, y la URL la hace compartible.
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
-  const division = params.get("division") ?? "all";
-  const [sex, setSex] = useState("all");
+  // La categoría real del torneo ("Suma 9", "4ta Masculino"), no la división
+  // derivada. Vive en la URL como el resto de filtros de la sección: sobrevive
+  // al ir y venir y un enlace ya filtrado se puede compartir.
+  const categoria = params.get("categoria") ?? "all";
+  const sex = params.get("sex") ?? "all";
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -33,7 +39,7 @@ export default function TeamsPage() {
     else next.set(key, value);
     setParams(next, { replace: true });
   };
-  const setDivision = (v: string) => setParam("division", v);
+  const setSex = (v: string) => setParam("sex", v);
 
   useEffect(() => {
     let active = true;
@@ -49,7 +55,7 @@ export default function TeamsPage() {
     if (!teams) return [];
     const query = q.trim().toLowerCase();
     return teams.filter((t) => {
-      if (division !== "all" && t.division !== division) return false;
+      if (categoria !== "all" && teamCategoryKey(t) !== categoria) return false;
       if (sex !== "all" && t.sex !== sex) return false;
       if (
         query &&
@@ -62,18 +68,43 @@ export default function TeamsPage() {
       }
       return true;
     });
-  }, [teams, q, division, sex]);
+  }, [teams, q, categoria, sex]);
+
+  /**
+   * Las categorías salen de los equipos CARGADOS, no de una lista fija.
+   *
+   * El filtro era `divisionOptions` —1ra…Novatos, escritos a mano— y por eso
+   * "Suma 9" no aparecía aunque la pareja compitiese ahí: `division` es un
+   bucket derivado y el nombre real se perdía. Peor: la lista ofrecía
+   divisiones que en el circuito no existen. Si no hay 2da, no hay por qué
+   ofrecer 2da.
+   *
+   * Con esto el filtro ofrece exactamente lo que hay, y "Suma 9" aparece solo y
+   * separada porque existe de verdad. Tampoco hay orden inventado: se ordenan
+   * por tamaño (la categoría con más parejas primero) y luego por nombre, sin
+   * una tabla de "¿qué división es más fuerte?" que ya existe duplicada en
+   * varios sitios y es justo lo que hay que dejar de repetir.
+   */
+  const categorias = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; n: number }>();
+    for (const t of teams ?? []) {
+      const key = teamCategoryKey(t);
+      const prev = map.get(key);
+      if (prev) prev.n++;
+      else map.set(key, { key, label: teamCategoryLabel(t), n: 1 });
+    }
+    return [...map.values()].sort(
+      (a, b) => b.n - a.n || a.label.localeCompare(b.label, "es"),
+    );
+  }, [teams]);
 
   const stats = useMemo(
     () => [
       { k: "Parejas", v: teams?.length ?? "…" },
-      {
-        k: "Divisiones",
-        v: teams ? new Set(teams.map((t) => t.division)).size : "…",
-      },
+      { k: "Categorías", v: teams ? categorias.length : "…" },
       { k: "Partidos", v: teams?.reduce((s, t) => s + t.played, 0) ?? "…" },
     ],
-    [teams],
+    [teams, categorias],
   );
 
   return (
@@ -87,16 +118,25 @@ export default function TeamsPage() {
 
       {/* El buscador vive en el header (variante "search", ADR-0009): una sola
           búsqueda por sección, siempre en el mismo sitio. Aquí solo lo propio de
-          la sección —división y rama—, que no aplica a las demás. */}
-      <div className="relative z-10 -mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+          la sección —la categoría en la que compiten y la rama—, que no aplica a
+          las demás. */}
+      <div className="relative z-10 -mt-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <GroupFilterBar
-            divisions={divisionOptions.filter((o) => o.value !== "all")}
-            value={division}
-            onChange={setDivision}
-            clearValue="all"
-            className="mt-0.5"
-          />
+          {categorias.length > 1 && (
+            <Select value={categoria} onValueChange={(v) => setParam("categoria", v)}>
+              <SelectTrigger className="w-[220px]" aria-label="Filtrar por categoría">
+                <SelectValue placeholder="Categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {categorias.map((c) => (
+                  <SelectItem key={c.key} value={c.key}>
+                    {c.label} · {c.n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={sex} onValueChange={setSex}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Género" />
@@ -109,7 +149,32 @@ export default function TeamsPage() {
               ))}
             </SelectContent>
           </Select>
+          {(categoria !== "all" || sex !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => {
+                setParam("categoria", "all");
+                setParam("sex", "all");
+              }}
+            >
+              <X className="h-3.5 w-3.5" /> Limpiar
+            </Button>
+          )}
         </div>
+        {categorias.length > 1 && (
+          <p className="text-xs text-muted-foreground">
+            Las categorías son las del torneo ("Suma 9", "4ta Masculino"), no la
+            división en la que caen. Solo aparecen las que existen.{" "}
+            <Link
+              to="/torneos"
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Ver los torneos
+            </Link>
+          </p>
+        )}
       </div>
 
       {teams === null ? (

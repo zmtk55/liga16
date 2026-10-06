@@ -2,6 +2,7 @@
 // Activa cuando VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY están definidas.
 // Requiere aplicar supabase/schema.sql en el proyecto (ver README.md).
 import { supabase } from '@/lib/supabase';
+import { divisionFromCategory } from "@/lib/categories";
 import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
 import { DIVISION_ORDER } from '@/lib/categories';
@@ -23,25 +24,25 @@ function slugifyName(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-function divisionFromCategoryName(name: string | null | undefined): PadelDivision {
-  const n = (name ?? '').toLowerCase();
-  if (n.includes('novato')) return 'Novatos';
-  // "Suma 9 / +9" compite en 6ta (varonil)
-  if (/\b(suma\s*9|\+9)\b/.test(n)) return '6ta';
-  const m = n.match(/\b(1ra|2da|3ra|4ta|5ta|6ta)\b/);
-  if (m) return m[0] as PadelDivision;
-  const ord = n.match(/\b(primera|segunda|tercera|cuarta|quinta|sexta)\b/);
-  if (ord) {
-    const map: Record<string, PadelDivision> = {
-      primera: '1ra', segunda: '2da', tercera: '3ra',
-      cuarta: '4ta', quinta: '5ta', sexta: '6ta',
-    };
-    return map[ord[0]];
-  }
-  return '4ta';
-}
-
-function sexFromCategory(sex: string | null | undefined, name: string | null | undefined): Sex | null {
+/**
+ * En qué división compite una categoría.
+ *
+ * El nombre es la vía normal porque así funcionan las categorías reales
+ * ("4ta Masculino", "Novatos Mixto", "Suma 9"): las que existen en el circuito
+ * se llaman así y se reconocen.
+ *
+ * Los NIVELES son el respaldo, no la fuente. Antes, cualquier categoría que el
+ * nombre no reconocía caía en silencio a '4ta' —una pareja de "Suma 11", "Open"
+ * o "Intermedio" quedaba rankeada dentro de 4ta, mezclada con parejas de 4ta de
+ * verdad, y no había forma de enterarse—. Ahora, si el nombre no dice nada, la
+ * división sale del rango de niveles del torneo y, si tampoco lo hay, del nivel
+ * de los propios jugadores de la pareja.
+ *
+ * El orden importa: los niveles solo se miran cuando el NOMBRE falla. Así una
+ * categoría que hoy funciona ("3ra Masculino" con niveles 5.0–5.9) sigue
+ * saliendo por el nombre y no cambia de división por culpa de esto.
+ */
+export function sexFromCategory(sex: string | null | undefined, name: string | null | undefined): Sex | null {
   if (sex === 'M' || sex === 'F' || sex === 'X') return sex;
   const n = (name ?? '').toLowerCase();
   if (n.includes('femenil')) return 'F';
@@ -57,7 +58,13 @@ interface PairRow {
   player2_id: string | null;
   crest_url: string | null;
   created_at: string | null;
-  tournament_categories: { id: string; name: string; sex: string | null } | null;
+  tournament_categories: {
+    id: string;
+    name: string;
+    sex: string | null;
+    min_level: number | null;
+    max_level: number | null;
+  } | null;
   tournaments: { id: string; name: string; city: string | null } | null;
 }
 
@@ -80,7 +87,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
   const [pairsRes, matchesRes] = await Promise.all([
     client()
       .from('pairs')
-      .select('id, name, category_id, player1_id, player2_id, crest_url, created_at, tournament_categories(id, name, sex), tournaments(id, name, city)')
+      .select('id, name, category_id, player1_id, player2_id, crest_url, created_at, tournament_categories(id, name, sex, min_level, max_level), tournaments(id, name, city)')
       .order('created_at', { ascending: false }),
     client()
       .from('matches')
@@ -172,6 +179,10 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       sexFromCategory(row.tournament_categories?.sex, catName) ??
       (sexes.length ? (sexes.every((s) => s === sexes[0]) ? (sexes[0] as Sex) : 'X') : 'X');
     const city = row.tournaments?.city || p1?.city || p2?.city || '';
+    // Nivel de la pareja: el promedio de sus jugadores, para cuando la categoría
+    // no dice en qué división compite (ver `divisionFromCategory`).
+    const levels = [p1?.level, p2?.level].filter((l): l is number => typeof l === 'number');
+    const pairLevel = levels.length ? levels.reduce((s, l) => s + l, 0) / levels.length : null;
     teams.set(slug, {
       id: row.id,
       slug,
@@ -179,7 +190,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       crest_url: row.crest_url ?? null,
       city,
       club_id: null,
-      division: divisionFromCategoryName(catName),
+      division: divisionFromCategory(catName, row.tournament_categories, pairLevel),
       category_name: catName,
       sex,
       player1: p1 ? { player_id: row.player1_id as string, name: p1.display_name, level: p1.level } : null,
@@ -644,7 +655,7 @@ export const supabaseProvider: DataProvider = {
     if (error) return map;
     for (const row of data as unknown as { player1_id: string; player2_id: string; tournament_categories?: { name?: string } | null }[]) {
       if (!row.tournament_categories?.name) continue;
-      const div = divisionFromCategoryName(row.tournament_categories.name);
+      const div = divisionFromCategory(row.tournament_categories.name);
       for (const pid of [row.player1_id, row.player2_id]) {
         if (pid && !map[pid]) map[pid] = div; // la pareja más reciente gana
       }

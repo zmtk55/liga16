@@ -166,7 +166,7 @@ export default function AdminDashboard() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-20 w-full" />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28" />
           ))}
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {tasks.map((t) => (
               <Link
                 key={t.key}
@@ -265,7 +265,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {running.map((t) => (
               <Card key={t.id} className="overflow-hidden">
                 <CardContent className="space-y-3 p-4">
@@ -293,7 +293,14 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      {/* `grid-cols-1` no es decorativo: sin él la columna implícita es `auto`, que
+          se dimensiona a max-content y no baja del ancho que pide su contenido más
+          ancho. Los “Líderes por división” piden ~405px (pareja truncada + badge de
+          estado) en una columna de 358px, la columna se salía de la pantalla y con
+          ella `/admin` entero a 390. `repeat(1, minmax(0,1fr))` deja que la columna
+          mida lo que mida el contenedor y `min-w-0`/`truncate` de las filas hagan
+          su trabajo. Mismo motivo en los otros dos grids de la página. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* Clasificación: quién está arriba, en su propia división. */}
         <section aria-labelledby="clasificacion" className="space-y-3">
           <div className="flex items-baseline justify-between gap-3">

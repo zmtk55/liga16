@@ -13,11 +13,9 @@ import {
   AdminStat,
   AdminStatStrip,
 } from "@/components/admin/page-header";
-import {
-  AdminTableEmpty,
-  AdminTableSkeleton,
-} from "@/components/admin/table-state";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
@@ -155,15 +153,33 @@ export default function AdminRanking() {
             }}
           />
         </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-              {teams === null && <AdminTableSkeleton columns={6} />}
+        <CardContent className="p-0">
+              {/* Esta pantalla pasó de tabla a cards, pero el esqueleto y el
+                  estado vacío seguían siendo los de tabla: rendereaban `<tr>`
+                  sueltos dentro de un `<div>`. El parser del navegador sube los
+                  elementos de tabla fuera del div, el `<div>` de CardContent
+                  acababa como hijo de `<tr>` y React avisaba por consola de un
+                  error de hidratación en cada render. Aquí los estados son de
+                  cards, como las de Equipos. */}
+              {teams === null && (
+                <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Cargando ranking">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-24 w-full" />
+                  ))}
+                </div>
+              )}
               {teams !== null && filtered.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={6}
-                  icon={<BarChart3 className="h-5 w-5" />}
-                  title="No hay parejas en este filtro"
-                  description="Las parejas se inscriben desde Equipos y sus resultados se capturan en Resultados."
-                />
+                <Empty className="border-0 py-10">
+                  <EmptyHeader>
+                    <EmptyMedia>
+                      <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                    </EmptyMedia>
+                    <EmptyTitle className="text-base">No hay parejas en este filtro</EmptyTitle>
+                    <EmptyDescription>
+                      Las parejas se inscriben desde Equipos y sus resultados se capturan en Resultados.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               )}
               {/* Cards y no tabla: puesto, récord y efectividad son lo que se
                   lee de un vistazo; en tabla había que cruzarlos horizontalmente.

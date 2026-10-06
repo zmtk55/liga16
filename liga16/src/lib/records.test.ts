@@ -5,10 +5,10 @@ import { tournamentProgress } from "./tournament-progress";
 import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFrom, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
 import { drawGroupsByCategory, parseRound, roundRobinRounds, type DrawablePair } from "./groups";
-import { groupByDivision } from "./categories";
+import { groupByDivision, teamCategoryKey, teamCategoryLabel, divisionFromCategory } from "./categories";
 import { SECTION_NAVBAR, SECTION_NAVBAR_ADMIN, navbarTypeFor, sectionRootFor } from "@/components/shadcn-space/blocks/navbar-01/section-navbar";
 import { SITE_NAV, navFor, primaryNav } from "./site-nav";
-import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
+import type { Match, Pair, PlayerCard, PlayerProfile, Team } from "@/types";
 
 const players: PlayerProfile[] = [
   { id: "p-ana", display_name: "Ana" },
@@ -787,5 +787,91 @@ describe("los links del sitio tienen una sola lista", () => {
   it("toda sección con link tiene icono, para la barra inferior", () => {
     // La barra inferior pinta el icono; un item sin él se vería hueco.
     for (const item of SITE_NAV) expect(item.icon).toBeDefined();
+  });
+});
+
+// El filtro de categorías de /equipos ofrece lo que existe de verdad. El bug que
+// venía: el filtro era una lista fija de divisiones (1ra..Novatos) y "Suma 9"
+// no aparecía aunque la pareja compitiese ahí, porque `division` es un bucket
+// derivado y no el nombre con el que se inscribió.
+describe("la categoría de una pareja es la del torneo, no el bucket derivado", () => {
+  const base = {
+    id: "t1", slug: "perla-celaya", name: "Perla / Celaya", crest_url: null,
+    city: "Querétaro", club_id: null, sex: "M", position: 1, points: 9,
+    played: 3, won: 2, lost: 1, sets_for: 12, sets_against: 10, titles: 0,
+    player1: null, player2: null, photo1_url: null, photo2_url: null,
+  } as unknown as Team;
+
+  it('muestra el nombre real ("Suma 9") y no la división en la que cae', () => {
+    const t = { ...base, division: "6ta", category_name: "Suma 9" } as unknown as Team;
+    expect(teamCategoryLabel(t)).toBe("Suma 9");
+    // La clave es ese nombre: es lo que hace que Suma 9 sea filtrable APARTE
+    // de 6ta, que es justo lo que el usuario pedía.
+    expect(teamCategoryKey(t)).toBe("suma 9");
+    expect(teamCategoryKey(t)).not.toBe(teamCategoryKey({ ...t, category_name: "6ta" } as unknown as Team));
+  });
+
+  it("sin categoría real cae a la división, y esa clave no choca con un nombre", () => {
+    const t = { ...base, division: "3ra", category_name: null } as unknown as Team;
+    expect(teamCategoryLabel(t)).toBe("División 3ra");
+    expect(teamCategoryKey(t)).toBe("division:3ra");
+    // El prefijo evita que "sin categoría" y una categoría llamada igual colisionen.
+    expect(teamCategoryKey({ ...t, category_name: "division:3ra" } as unknown as Team)).toBe("division:3ra");
+  });
+
+  it('el nombre real manda aunque venga con espacios de más', () => {
+    const t = { ...base, division: "6ta", category_name: "  Suma 9  " } as unknown as Team;
+    expect(teamCategoryLabel(t)).toBe("Suma 9");
+    expect(teamCategoryKey(t)).toBe("suma 9");
+  });
+
+  it("no inventa el orden de las categorías con una tabla fija", () => {
+    // Regresión del enfoque que se descartó: se ofrecían las divisiones de
+    // `divisionOptions` (1ra…Novatos, escritas a mano) y se ordenaban con otra
+    // tabla más. Aquí solo se promete que dos categorías distintas nunca
+    // comparten clave, que es lo que hace que "Suma 9" sea filtrable APARTE.
+    const suma9 = { ...base, division: "6ta", category_name: "Suma 9" } as unknown as Team;
+    const sexta = { ...base, id: "t2", slug: "otra", division: "6ta", category_name: "6ta" } as unknown as Team;
+    expect(teamCategoryKey(suma9)).not.toBe(teamCategoryKey(sexta));
+  });
+});
+
+// El bug quenowrap salga esto: una categoría cuyo nombre nadie reconoce caía en
+// silencio a "4ta", así que una pareja de "Suma 11" quedaba rankeada mezclada con
+// parejas de 4ta de verdad. El admin SÍ puede crear esas categorías —el campo es
+// texto libre y solo se valida que no esté vacío ni repetido—.
+describe("una categoría que el nombre no reconoce usa el dato del torneo", () => {
+  it("el nombre manda cuando sí dice algo", () => {
+    expect(divisionFromCategory("4ta Masculino")).toBe("4ta");
+    expect(divisionFromCategory("Novatos Mixto")).toBe("Novatos");
+    expect(divisionFromCategory("3ra Femenil")).toBe("3ra");
+    expect(divisionFromCategory("Suma 9")).toBe("6ta");
+    // Y aunque la categoría traiga niveles que no cuadran, no se tocan.
+    expect(divisionFromCategory("3ra Masculino", { min_level: 5.0, max_level: 5.9 })).toBe("3ra");
+  });
+
+  it("+9 sí cae en 6ta (el caso especial nunca se disparaba)", () => {
+    // El `\b` antes de `\+` no puede cumplirse: `+` no es carácter de palabra.
+    expect(divisionFromCategory("+9")).toBe("6ta");
+    expect(divisionFromCategory("+9 Varonil")).toBe("6ta");
+  });
+
+  it("Suma 11 y Suma 7 salen de los niveles, no de 4ta", () => {
+    expect(divisionFromCategory("Suma 11", { min_level: 4.0, max_level: 4.9 })).toBe("4ta");
+    expect(divisionFromCategory("Suma 7", { min_level: 3.6, max_level: 4.0 })).toBe("5ta");
+    expect(divisionFromCategory("Open", { min_level: 5.0, max_level: 5.9 })).toBe("2da");
+    expect(divisionFromCategory("Intermedio", { min_level: 3.4, max_level: 3.9 })).toBe("6ta");
+  });
+
+  it("sin niveles, cae al nivel de los jugadores de la pareja", () => {
+    expect(divisionFromCategory("Intermedio", null, 5.2)).toBe("3ra");
+    expect(divisionFromCategory("Ronda decks", null, 3.2)).toBe("Novatos");
+  });
+
+  it("no vuelve a 4ta por defecto cuando no hay nada", () => {
+    // Antes era SIEMPRE 4ta. Ahora sin datos es Novatos, que al menos es la
+    // división donde no se está mintiendo sobre la fuerza de nadie.
+    expect(divisionFromCategory("Algo Raro")).toBe("Novatos");
+    expect(divisionFromCategory(null)).toBe("Novatos");
   });
 });
