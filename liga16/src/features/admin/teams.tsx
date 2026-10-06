@@ -319,7 +319,15 @@ export default function AdminTeams() {
 
             {/* Cards y no tabla: es la misma pieza que usa el sitio público, con
                 los avatares de la pareja y la categoría a la vista. Una tabla
-                de "nombre / categoría" no decía nada de un vistazo. */}
+                de "nombre / categoría" no decía nada de un vistazo.
+
+                Aquí NO entra la `TeamCard` (la de /equipos) a propósito: esta
+                lista no son equipos del circuito sino parejas inscritas en UN
+                torneo, y su forma local solo trae id/nombre/categoría/escudo —
+                sin división, rama, stats ni slug, que es justo lo que la card
+                con foto muestra. Además la tarjeta de foto se abre con click
+                (flip) y rompería el click derecho de editar/eliminar. Mientras
+                esta vista sea de gestión, prima que editar rápido. */}
             {filtered.length > 0 && (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((p) => {

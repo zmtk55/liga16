@@ -2,16 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Team } from "@/types";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  CardShell,
-  CardIdentity,
-  CardFooterStrip,
-  CardStat,
-} from "@/components/cards/card-kit";
+import { TeamCard } from "@/components/cards/team-card";
 import { PageHero } from "@/components/page-hero";
 import {
   Select,
@@ -20,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { divisionOptions, sexLabel, sexOptions, winRate } from "@/lib/format";
+import { divisionOptions, sexOptions } from "@/lib/format";
 import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 import { ArrowRight } from "lucide-react";
 
@@ -132,63 +126,15 @@ export default function TeamsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {filtered.map((team) => {
-            const wr = winRate(team.played, team.won);
-            return (
-              <Link
-                key={team.slug}
-                to={`/equipos/${team.slug}`}
-                className="group block focus:outline-none"
-              >
-                <CardShell accent className="h-full">
-                  <CardContent className="p-4">
-                    <CardIdentity
-                      titleLines={[
-                        team.player1?.name ?? team.name.split(" / ")[0],
-                        team.player2?.name ?? team.name.split(" / ")[1] ?? "",
-                      ].filter(Boolean)}
-                      meta={[team.division, sexLabel(team.sex)]
-                        .filter(Boolean)
-                        .join(" · ")}
-                      end={
-                        team.position > 0 ? (
-                          <span className="text-stat tabular-nums text-muted-foreground/40 transition-colors group-hover:text-primary">
-                            #{team.position}
-                          </span>
-                        ) : undefined
-                      }
-                    />
-                  </CardContent>
-                  <CardFooterStrip
-                    stats={
-                      <>
-                        <CardStat value={team.played} label="PJ" />
-                        <CardStat
-                          value={`${team.won}–${team.lost}`}
-                          label="Récord"
-                        />
-                        <CardStat
-                          value={team.played > 0 ? `${wr}%` : "—"}
-                          label="Efect."
-                          tone={
-                            team.played > 0 && wr >= 60
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : undefined
-                          }
-                        />
-                      </>
-                    }
-                    chip={
-                      team.played === 0 ? (
-                        <Badge variant="outline">Nuevo</Badge>
-                      ) : undefined
-                    }
-                  />
-                </CardShell>
-              </Link>
-            );
-          })}
+        /* Mismas reglas de retícula que la galería de jugadores: la card es de
+           ancho fijo (max-w-xs), así que en columnas anchas se centra en su hueco
+           en vez de estirar el diseño. El enlace al detalle va dentro de la card
+           —envolverla con un Link haría que el click fuera siempre navegación y
+           nunca un flip. */
+        <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((team) => (
+            <TeamCard key={team.slug} team={team} />
+          ))}
         </div>
       )}
 
