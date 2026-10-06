@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Suspense, lazy } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Match, Team } from "@/types";
@@ -12,8 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
 import { MatchCard } from "@/components/cards/card-kit";
 import { initials, sexLabel, winRate } from "@/lib/format";
-
-const TeamCompareChart = lazy(() => import("./compare-chart").then((m) => ({ default: m.TeamCompareChart })));
 
 export default function TeamDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -30,7 +28,11 @@ export default function TeamDetailPage() {
         if (!active) return;
         const t = list.find((x) => x.slug === slug) ?? null;
         setTeam(t);
-        setAllTeams(list.filter((x) => x.slug !== slug));
+        // Solo rivales de la MISMA categoría (división + género), sin el propio equipo
+        setAllTeams(
+          list.filter((x) => x.slug !== slug && x.division === t?.division && x.sex === t?.sex),
+        );
+        setCompareName("");
         // Partidos donde participa la pareja (por nombre del lado A o B)
         setMatches(
           allMatches.filter(
@@ -301,7 +303,7 @@ export default function TeamDetailPage() {
                 <Select value={compareName} onValueChange={setCompareName}>
                   <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
                   <SelectContent>
-                    {allTeams.slice(0, 50).map((t) => (
+                    {allTeams.map((t) => (
                       <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -309,26 +311,22 @@ export default function TeamDetailPage() {
               </CardHeader>
               <CardContent>
                 {compareTeam ? (
-                  <>
-                    <div className="grid grid-cols-4 gap-2 text-center text-xs mb-3">
-                      {[
-                        { k: "Win%", a: winRatePct, b: winRate(compareTeam.played, compareTeam.won) },
-                        { k: "PJ", a: team.played, b: compareTeam.played },
-                        { k: "Sets G", a: setStats.sf, b: compareTeam.sets_for },
-                        { k: "Puntos", a: team.points, b: compareTeam.points },
-                      ].map((row) => (
-                        <div key={row.k} className="rounded-lg border p-2">
-                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{row.k}</p>
-                          <p className="mt-1 font-black tabular-nums">{row.a} <span className="text-muted-foreground font-normal">vs</span> {row.b}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <Suspense fallback={<Skeleton className="h-48 w-full" />}>
-                      <TeamCompareChart a={{ name: team.name, won: team.won, lost: team.lost, setsFor: setStats.sf, setsAgainst: setStats.sa, points: team.points }} b={{ name: compareTeam.name, won: compareTeam.won, lost: compareTeam.lost, setsFor: compareTeam.sets_for, setsAgainst: compareTeam.sets_against, points: compareTeam.points }} />
-                    </Suspense>
-                  </>
+                  <CompareBlock
+                    nameA={team.name}
+                    nameB={compareTeam.name}
+                    rows={[
+                      { k: "Win%", a: winRatePct, b: winRate(compareTeam.played, compareTeam.won), suffix: "%" },
+                      { k: "PJ", a: team.played, b: compareTeam.played },
+                      { k: "Sets G", a: setStats.sf, b: compareTeam.sets_for },
+                      { k: "Puntos", a: team.points, b: compareTeam.points },
+                    ]}
+                  />
                 ) : (
-                  <p className="text-sm text-muted-foreground">Elige un equipo para ver la comparativa con barras animadas.</p>
+                  <p className="text-sm text-muted-foreground">
+                    {allTeams.length === 0
+                      ? "No hay otros equipos en tu categoría todavía."
+                      : "Elige un equipo de tu categoría para comparar."}
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -336,6 +334,70 @@ export default function TeamDetailPage() {
         </div>
 
       </section>
+    </div>
+  );
+}
+
+// Comparativa cara a cara: valores a los lados del indicador, barra partida
+// proporcional (el que va adelante va saturado) y animación al montar.
+function CompareBlock({
+  nameA,
+  nameB,
+  rows,
+}: {
+  nameA: string;
+  nameB: string;
+  rows: { k: string; a: number; b: number; suffix?: string }[];
+}) {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setOn(true), 30);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-primary" />
+          <span className="truncate">{nameA}</span>
+        </span>
+        <span className="shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground/70">vs</span>
+        <span className="flex min-w-0 items-center justify-end gap-1.5">
+          <span className="truncate">{nameB}</span>
+          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-muted-foreground/50" />
+        </span>
+      </div>
+
+      {rows.map((r) => {
+        const total = r.a + r.b;
+        const pa = total > 0 ? (r.a / total) * 100 : 50;
+        const leadA = r.a >= r.b;
+        return (
+          <div key={r.k}>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-baseline gap-3">
+              <span className={`text-right text-sm font-black tabular-nums ${leadA ? "text-foreground" : "text-muted-foreground/60"}`}>
+                {r.a}{r.suffix ?? ""}
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{r.k}</span>
+              <span className={`text-left text-sm font-black tabular-nums ${!leadA ? "text-foreground" : "text-muted-foreground/60"}`}>
+                {r.b}{r.suffix ?? ""}
+              </span>
+            </div>
+            <div className="mt-1 flex h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full transition-[width] duration-700 ease-out ${leadA ? "bg-primary" : "bg-primary/40"}`}
+                style={{ width: on ? `${pa}%` : "0%" }}
+              />
+              <div
+                className={`h-full transition-[width] duration-700 ease-out ${leadA ? "bg-muted-foreground/40" : "bg-muted-foreground"}`}
+                style={{ width: on ? `${100 - pa}%` : "0%" }}
+              />
+            </div>
+          </div>
+        );
+      })}
+      <style>{`@media (prefers-reduced-motion: reduce) { [class*="transition-[width]"] { transition: none !important; } }`}</style>
     </div>
   );
 }

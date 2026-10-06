@@ -246,7 +246,14 @@ export default function AdminLayout() {
                     con el logo y con el botón de salir. Arriba del contenido tiene
                     todo el ancho, y la regla se sigue cumpliendo igual: un solo
                     control por sección, siempre en el mismo sitio. Para las
-                    secciones "browse" no se dibuja nada. */}
+                    secciones "browse" no se dibuja nada.
+
+                    Esto sustituye al parche del commit 186a4e0 (fila propia en el
+                    sidebar solo para tipo "search"): aquel duplicaba el control
+                    con una segunda llamada a SectionControl, que es justamente el
+                    patrón de dos llamadas que este layout ya no tiene. La fila
+                    del sidebar, además, daba el buscador a 216px de ancho útil
+                    dentro de una columna de 248px. */}
                 <SectionControl className="mb-4 sm:max-w-md" />
                 <Outlet />
               </>

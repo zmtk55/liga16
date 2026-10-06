@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, Info, HelpCircle, Swords } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, Info, HelpCircle, Swords, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
@@ -23,6 +23,7 @@ import { recordWinRate, type PlayerRecord } from "@/lib/records";
 import { qualificationFor, type QualificationView } from "@/lib/qualification";
 
 const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
+const PlayerStatsCharts = lazy(() => import("./stats-charts").then((m) => ({ default: m.PlayerStatsCharts })));
 
 const handLabel: Record<PlayerProfile["dominant_hand"], string> = { right: "Diestro", left: "Zurdo", both: "Ambidiestro" };
 const positionLabel: Record<PlayerProfile["preferred_position"], string> = { drive: "Drive", reves: "Revés", both: "Ambos" };
@@ -434,7 +435,8 @@ export default function PlayerDetailPage() {
     );
   }
 
-  const trendData = card?.trend.map((v, i) => ({ i, v })) ?? [];
+  // El historial derivado manda para la tendencia: player_cards nunca se actualiza.
+  const trendData = (record?.trend?.length ? record.trend : card?.trend ?? []).map((v, i) => ({ i, v }));
   const won = cardWon(card);
   const played = cardPlayed(card);
   const partner = cardPartner(card);
@@ -639,6 +641,31 @@ export default function PlayerDetailPage() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ====== Estadísticas: gráficas del historial derivado ====== */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6">
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" /> Estadísticas
+            </CardTitle>
+            {record && record.played > 0 && (
+              <Badge variant="outline">{record.played} partidos en el historial</Badge>
+            )}
+          </CardHeader>
+          <CardContent>
+            {!record || record.played === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Sin partidos capturados todavía — las gráficas aparecen con tu primer partido.
+              </p>
+            ) : (
+              <Suspense fallback={<Skeleton className="h-56 w-full" />}>
+                <PlayerStatsCharts record={record} />
+              </Suspense>
+            )}
           </CardContent>
         </Card>
       </section>
@@ -1028,7 +1055,7 @@ export default function PlayerDetailPage() {
 
               {trendData.length > 0 && (
                 <div>
-                  <p className="mb-1 text-xs font-medium">Tendencia de nivel</p>
+                  <p className="mb-1 text-xs font-medium">Juegos por partido · últimos 10</p>
                   <Suspense fallback={<Skeleton className="h-40 w-full" />}><LevelTrendChart data={trendData} /></Suspense>
                 </div>
               )}
