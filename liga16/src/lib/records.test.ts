@@ -836,18 +836,25 @@ describe("la categoría de una pareja es la del torneo, no el bucket derivado", 
   });
 });
 
-// El bug quenowrap salga esto: una categoría cuyo nombre nadie reconoce caía en
+// El bug que motivó esto: una categoría cuyo nombre nadie reconoce caía en
 // silencio a "4ta", así que una pareja de "Suma 11" quedaba rankeada mezclada con
-// parejas de 4ta de verdad. El admin SÍ puede crear esas categorías —el campo es
-// texto libre y solo se valida que no esté vacío ni repetido—.
-describe("una categoría que el nombre no reconoce usa el dato del torneo", () => {
-  it("el nombre manda cuando sí dice algo", () => {
+// parejas de 4ta de verdad. La raíz era ADIVINAR la división leyendo el nombre,
+// cuando la base ya la guarda en `tournament_categories.category` (padel_division).
+describe("la división sale de la base, no de adivinar el nombre", () => {
+  it("usa la categoría que guardó el torneo, antes que el nombre", () => {
+    expect(divisionFromCategory("Suma 11", "5ta")).toBe("5ta");
+    expect(divisionFromCategory("Suma 7", "3ra")).toBe("3ra");
+    expect(divisionFromCategory("Open", "1ra")).toBe("1ra");
+    expect(divisionFromCategory("Intermedio", "6ta")).toBe("6ta");
+    // Aunque el nombre diga otra cosa, manda el dato guardado.
+    expect(divisionFromCategory("4ta Masculino", "2da")).toBe("2da");
+  });
+
+  it("el nombre queda de respaldo para categorías sin la columna", () => {
     expect(divisionFromCategory("4ta Masculino")).toBe("4ta");
     expect(divisionFromCategory("Novatos Mixto")).toBe("Novatos");
     expect(divisionFromCategory("3ra Femenil")).toBe("3ra");
     expect(divisionFromCategory("Suma 9")).toBe("6ta");
-    // Y aunque la categoría traiga niveles que no cuadran, no se tocan.
-    expect(divisionFromCategory("3ra Masculino", { min_level: 5.0, max_level: 5.9 })).toBe("3ra");
   });
 
   it("+9 sí cae en 6ta (el caso especial nunca se disparaba)", () => {
@@ -856,14 +863,14 @@ describe("una categoría que el nombre no reconoce usa el dato del torneo", () =
     expect(divisionFromCategory("+9 Varonil")).toBe("6ta");
   });
 
-  it("Suma 11 y Suma 7 salen de los niveles, no de 4ta", () => {
-    expect(divisionFromCategory("Suma 11", { min_level: 4.0, max_level: 4.9 })).toBe("4ta");
-    expect(divisionFromCategory("Suma 7", { min_level: 3.6, max_level: 4.0 })).toBe("5ta");
-    expect(divisionFromCategory("Open", { min_level: 5.0, max_level: 5.9 })).toBe("2da");
-    expect(divisionFromCategory("Intermedio", { min_level: 3.4, max_level: 3.9 })).toBe("6ta");
+  it("un valor guardado que no está en el enum no rompe nada", () => {
+    // El enum de la base es 1ra..6ta/Novatos; si algún día guardara otra cosa,
+    // se ignora y se cae al nombre en vez de colar un valor inválido.
+    expect(divisionFromCategory("4ta Masculino", "no-existe")).toBe("4ta");
+    expect(divisionFromCategory("Suma 11", "no-existe", 5.2)).toBe("3ra");
   });
 
-  it("sin niveles, cae al nivel de los jugadores de la pareja", () => {
+  it("sin nada guardado, cae al nivel de los jugadores de la pareja", () => {
     expect(divisionFromCategory("Intermedio", null, 5.2)).toBe("3ra");
     expect(divisionFromCategory("Ronda decks", null, 3.2)).toBe("Novatos");
   });

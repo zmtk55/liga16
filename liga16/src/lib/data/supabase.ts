@@ -62,8 +62,7 @@ interface PairRow {
     id: string;
     name: string;
     sex: string | null;
-    min_level: number | null;
-    max_level: number | null;
+    category: string | null;
   } | null;
   tournaments: { id: string; name: string; city: string | null } | null;
 }
@@ -87,7 +86,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
   const [pairsRes, matchesRes] = await Promise.all([
     client()
       .from('pairs')
-      .select('id, name, category_id, player1_id, player2_id, crest_url, created_at, tournament_categories(id, name, sex, min_level, max_level), tournaments(id, name, city)')
+      .select('id, name, category_id, player1_id, player2_id, crest_url, created_at, tournament_categories(id, name, sex, category), tournaments(id, name, city)')
       .order('created_at', { ascending: false }),
     client()
       .from('matches')
@@ -183,6 +182,11 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
     // no dice en qué división compite (ver `divisionFromCategory`).
     const levels = [p1?.level, p2?.level].filter((l): l is number => typeof l === 'number');
     const pairLevel = levels.length ? levels.reduce((s, l) => s + l, 0) / levels.length : null;
+    const cat = row.tournament_categories?.category ?? null;
+    // `category` es lo que el torneo GUARDA (columna padel_division, not null);
+    // el nombre es lo que la GENTE reconoce. El bucket sale del dato y no de
+    // adivinar cuántas letras tiene la palabra —"Suma 11" no es "4ta" porque
+    // el regex no la conozca—.
     teams.set(slug, {
       id: row.id,
       slug,
@@ -190,7 +194,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       crest_url: row.crest_url ?? null,
       city,
       club_id: null,
-      division: divisionFromCategory(catName, row.tournament_categories, pairLevel),
+      division: divisionFromCategory(catName, cat, pairLevel),
       category_name: catName,
       sex,
       player1: p1 ? { player_id: row.player1_id as string, name: p1.display_name, level: p1.level } : null,

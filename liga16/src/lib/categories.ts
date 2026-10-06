@@ -12,26 +12,27 @@ export const DIVISION_ORDER: PadelDivision[] = ["1ra", "2da", "3ra", "4ta", "5ta
 /**
  * En qué división compite una categoría.
  *
- * El nombre es la vía normal porque así funcionan las categorías reales
- * ("4ta Masculino", "Novatos Mixto", "Suma 9"): las que existen en el circuito
- * se llaman así y se reconocen.
+ * La BASE lo dice: `tournament_categories.category` es una columna
+ * `padel_division` que el torneo guarda al crear la categoría. Eso es la fuente
+ * de verdad y es lo que se usa primero. Antes esta función存在的 solo para
+ * adivinar la división leyendo el NOMBRE con un regex, y adivinar salía mal:
+ * "Suma 11", "Suma 7", "Open" o "Intermedio" no caían en ningún patrón y
+ * terminaban en '4ta', dentro de una mesa donde no compiten.
  *
- * Los NIVELES son el respaldo, no la fuente. Antes, cualquier categoría que el
- * nombre no reconocía caía en silencio a '4ta' —una pareja de "Suma 11", "Open"
- * o "Intermedio" quedaba rankeada dentro de 4ta, mezclada con parejas de 4ta de
- * verdad, y no había forma de enterarse—. Ahora, si el nombre no dice nada, la
- * división sale del rango de niveles del torneo y, si tampoco lo hay, del nivel
- * de los propios jugadores de la pareja.
- *
- * El orden importa: los niveles solo se miran cuando el NOMBRE falla. Así una
- * categoría que hoy funciona ("3ra Masculino" con niveles 5.0–5.9) sigue
- * saliendo por el nombre y no cambia de división por culpa de esto.
+ * El nombre queda como respaldo para categorías viejas que no traigan la
+ * columna, y detrás el nivel de los jugadores, que al menos es un dato real y no
+ * una respuesta inventada. Si no hay nada, Novatos: es la única división donde
+ * no se está mintiendo sobre la fuerza de nadie.
  */
 export function divisionFromCategory(
   name: string | null | undefined,
-  levels?: { min_level?: number | null; max_level?: number | null } | null,
+  saved?: string | null,
   playerLevel?: number | null,
 ): PadelDivision {
+  // 1. Lo que guardó el torneo. Si el valor no está en el enum, se ignora.
+  if (saved && (DIVISION_ORDER as string[]).includes(saved)) return saved as PadelDivision;
+
+  // 2. El nombre, para lo que ya existe y no tenga la columna.
   const n = (name ?? '').trim().toLowerCase();
   if (n.includes('novato')) return 'Novatos';
   // "Suma 9" y "+9" compiten en 6ta (varonil). El `\b` de antes del `\+` no
@@ -48,18 +49,16 @@ export function divisionFromCategory(
     };
     return map[ord[1]];
   }
-  // El nombre no dice nada: primero el rango del torneo, luego el nivel de la
-  // pareja. Se mira el techo del rango porque es la fuerza máxima admitida y por
-  // eso define en qué mesa se juega.
-  const top = levels?.max_level ?? levels?.min_level ?? playerLevel ?? null;
-  if (top == null) return 'Novatos';
-  // Escala de padel 1.0–7.0.
-  if (top >= 6) return '1ra';
-  if (top >= 5.5) return '2da';
-  if (top >= 5) return '3ra';
-  if (top >= 4.5) return '4ta';
-  if (top >= 4) return '5ta';
-  if (top >= 3.5) return '6ta';
+
+  // 3. El nivel de los propios jugadores de la pareja.
+  if (playerLevel != null) {
+    if (playerLevel >= 6) return '1ra';
+    if (playerLevel >= 5.5) return '2da';
+    if (playerLevel >= 5) return '3ra';
+    if (playerLevel >= 4.5) return '4ta';
+    if (playerLevel >= 4) return '5ta';
+    if (playerLevel >= 3.5) return '6ta';
+  }
   return 'Novatos';
 }
 
