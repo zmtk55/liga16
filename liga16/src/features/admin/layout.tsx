@@ -165,9 +165,8 @@ export default function AdminLayout() {
     <div className="min-h-dvh bg-muted/30">
       <div className="lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
         <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-card lg:flex">
-          <div className="flex h-16 items-center justify-between gap-2 border-b px-5">
+          <div className="flex h-16 shrink-0 items-center border-b px-5">
             <AdminBrand />
-            <SectionControl only="pills" />
           </div>
           <div className="flex-1 overflow-y-auto">
             <AdminNav alertCount={alertCount} />
@@ -196,10 +195,6 @@ export default function AdminLayout() {
               </SheetContent>
             </Sheet>
             <AdminBrand />
-            {/* El mismo control que el header público, por la misma regla
-                (ADR-0009). Antes el admin no tenía buscador en el shell: cada
-                pantalla ponía el suyo y en móvil no había ninguno. */}
-            <SectionControl only="search" className="ml-auto w-28 sm:w-44" />
             <Button asChild variant="ghost" size="icon" className="relative" aria-label={`Bandeja de entrada (${alertCount})`}>
               <Link to="/admin/inbox">
                 <Bell className="h-5 w-5" />
@@ -243,6 +238,16 @@ export default function AdminLayout() {
                     </p>
                   </div>
                 )}
+                {/* El control de sección (ADR-0009) va sobre el contenido, no en
+                    la barra. El admin no es una navbar: es sidebar + contenido, y
+                    la barra de arriba la ocupa la marca y la bandeja. Meter el
+                    buscador ahí lo dejaba en 110px dentro de una columna de 248px
+                    —y el buscador del Ranking, en 67px en móvil—, porque competía
+                    con el logo y con el botón de salir. Arriba del contenido tiene
+                    todo el ancho, y la regla se sigue cumpliendo igual: un solo
+                    control por sección, siempre en el mismo sitio. Para las
+                    secciones "browse" no se dibuja nada. */}
+                <SectionControl className="mb-4 sm:max-w-md" />
                 <Outlet />
               </>
             )}

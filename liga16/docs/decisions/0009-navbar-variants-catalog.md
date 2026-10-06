@@ -29,6 +29,43 @@ Consecuencia concreta: **cada sección se elige por su función, no por excepci�
 no abre una discusión de diseño: se le asigna A, B o C y ya. Si necesita un cuarto tipo, se escribe aquí
 primero, con el motivo.
 
+## Corrección 2026-10-05 — una pieza, un control, y la barra no se desborda
+
+La regla de arriba estaba escrita pero el código no la cumplía en tres sitios, y de ahí venía la
+sensación de que cada barra fuera un producto distinto.
+
+**1. `SectionControl` se llamaba dos veces.** El header hacía `<SectionControl only="search" />` y
+`<SectionControl only="pills" />`, y cada llamada decidía por su cuenta qué dibujar. El resultado fue que
+`/ranking` pintaba el input **y** las ocho pills de división sueltas en la misma fila: la barra crecía
+a 84px de alto y, medida en el navegador, a 1024px la página se salía de lado (`scrollWidth` 1076
+contra `clientWidth` 1024). El dropdown "Más filtros" que ya existía para evitar exactamente eso
+**nunca se veía**: solo se abría en la rama que el header no usaba.
+
+Ahora `SectionControl` no recibe `only`: el tipo de la sección decide una sola vez y la pieza se
+llama una vez. El filtro de división vive en un popover que muestra la división activa, no en ocho
+pills en la fila.
+
+**2. Los links del sitio estaban escritos tres veces.** `publicNav` en el `SiteHeader`, `items` en la
+`MobileBottomNav` y `DEFAULT_NAV_LINKS` en el catálogo. Tres listas que se desincronizaban solas: la
+barra inferior ofrecía cinco secciones y la hamburguesa siete, sin que nadie lo hubiera decidido, y
+agregar una sección al menú no la ponía abajo. Ahora hay una sola lista en `@/lib/site-nav`, con un
+flag `primary` que decide qué entra en la barra inferior y qué solo aparece en la hamburguesa.
+
+**3. El breakpoint de los links desktop era `lg` y no cabía.** Los siete links ocupan ~627px; con la
+marca, el buscador y las acciones, a 1024 el buscador quedaba en 50px —más estrecho que su propia
+lupa—. Los links pasan a `xl` (1280), donde sí caben enteros. Entre `lg` y `xl` manda el buscador y
+la navegación va por la hamburguesa, que ya existe.
+
+**4. El admin no es una navbar.** Es sidebar + contenido, y el control de sección estaba metido en la
+barra de arriba, donde competía con la marca y el botón de salir: 110px de buscador en la columna de
+248px y 67px en móvil. El control va ahora sobre el contenido, que tiene todo el ancho. La regla se
+sigue cumpliendo igual —un control por sección, siempre en el mismo sitio— porque lo que la regla
+fija es *dónde se busca*, no *qué píxel*.
+
+Verificado en el navegador a 390 / 768 / 1024 / 1280 / 1440, en las cinco secciones con control y en
+el admin: cero desbordamiento horizontal, altura de barra constante (65px) y buscador de 208px o más
+de 768 para arriba.
+
 `NavbarPlayerSearch` (V4) queda en el catálogo pero **no se usa en producto**: su alerta de jugador es
 una función de cuenta, no de navegación, y pertenece a la sesión —no al encabezado de una sección—.
 
@@ -57,6 +94,10 @@ El sitio necesita varios layouts de encabezado (tema dark/light, iconos, búsque
 
 ## Relacionado
 
+- `src/lib/site-nav.ts` (la lista única de links y qué va en la barra inferior)
+- `src/components/shadcn-space/blocks/navbar-01/section-control.tsx`
+- `src/components/site-header.tsx`
+- `src/components/mobile-bottom-nav.tsx`
 - `src/features/nav-test/page.tsx`
 - `src/components/shadcn-space/blocks/navbar-01/navbar-variants.tsx`
 - `src/lib/format.ts` (`divisionOptions`, `sexOptions`)

@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Home, Trophy, Users, BarChart3, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buzz } from "@/lib/haptics";
 import { db } from "@/lib/data";
+import { primaryNav } from "@/lib/site-nav";
 
-const items = [
-  { to: "/", label: "Inicio", icon: Home },
-  { to: "/torneos", label: "Torneos", icon: Trophy },
-  { to: "/ranking", label: "Ranking", icon: BarChart3 },
-  { to: "/equipos", label: "Equipos", icon: Users },
-  { to: "/calendario", label: "Agenda", icon: CalendarDays },
-] as const;
+// Los destinos salen de la MISMA lista que la barra de escritorio y la
+// hamburguesa (`@/lib/site-nav`): aquí solo se filtran los `primary`, que son
+// los cinco que caben bajo el pulgar. Antes esta barra traía su propia lista
+// escrita a mano —con cinco secciones distintas de las siete del escritorio—,
+// así que agregar una sección al menú no la ponía aquí y faltaba sola.
+const items = primaryNav();
 
 export function MobileBottomNav() {
   const { pathname } = useLocation();

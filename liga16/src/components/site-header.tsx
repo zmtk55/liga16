@@ -4,10 +4,14 @@
 //
 // El control que acompaña a los links NO es una elección por sección: lo decide
 // `navbarTypeFor` (ADR-0009). Browse no lleva nada, search lleva buscador, filter
-// lleva las pills de división. El filtro vive en la URL, así que sobrevive al
+// lleva buscador + división. El filtro vive en la URL, así que sobrevive al
 // ir y venir y se puede compartir.
+//
+// Los links salen de `navFor` en `@/lib/site-nav`: la barra de escritorio y el
+// menú móvil toman la MISMA lista, con el filtro de admin aplicado. Antes cada
+// barra llevaba la suya y se desincronizaban solas.
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
-import { ArrowUpRight, Menu, Shield, User, UserCog, X } from "lucide-react";
+import { ArrowUpRight, Menu, Shield, User, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,31 +32,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { navFor } from "@/lib/site-nav";
 import { SectionControl } from "@/components/shadcn-space/blocks/navbar-01/section-control";
 
-
-
-const publicNav = [
-  { to: "/", label: "Inicio" },
-  { to: "/torneos", label: "Torneos" },
-  { to: "/equipos", label: "Equipos" },
-  { to: "/jugadores", label: "Jugadores" },
-  { to: "/ranking", label: "Ranking" },
-  { to: "/calendario", label: "Agenda" },
-  { to: "/noticias", label: "Noticias" },
-];
-
-const adminNav = [
-  { to: "/padel", label: "Sede" },
-  { to: "/admin", label: "Admin", icon: Shield },
-];
-
-/**
- * El control de la sección, por tipo (ADR-0009). Se renderiza en el nav de
- * escritorio y en el menú móvil: el control depende del TIPO de sección, no
- * del ancho. Antes solo vivía en escritorio, y una sección "search" se
- * quedaba sin buscador en móvil —que era justo el caso de Torneos.
- */
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const { user, signOut, loading } = useAuth();
@@ -60,7 +42,7 @@ export function SiteHeader() {
   const { pathname } = useLocation();
 
   const isAdmin = user?.role === "admin" || user?.role === "organizer";
-  const navItems = isAdmin ? [...publicNav, ...adminNav] : publicNav;
+  const navItems = navFor(isAdmin);
 
   async function handleSignOut() {
     await signOut();
@@ -72,7 +54,11 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6">
-        <nav className="flex h-11 w-full items-center justify-between gap-3.5">
+        {/* Una sola fila y sin anchos fijos: marca, links, control y acciones se
+            reparten el espacio con flex y el buscador cede antes que el resto.
+            Antes el buscador tenía w-52 y los links no cedían, así que a 1024
+            la fila se salía de la pantalla. */}
+        <nav className="flex w-full items-center gap-3" aria-label="Principal">
           {/* Marca */}
           <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="Liga16 — Inicio">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground font-headline text-lg uppercase leading-none text-background">
@@ -83,9 +69,15 @@ export function SiteHeader() {
             </span>
           </Link>
 
-          {/* Links desktop — pastillas en contenedor píldora */}
-          <div className="hidden lg:block">
-            <NavigationMenu className="max-lg:hidden rounded-full bg-muted p-0.5">
+          {/* Links desktop — pastillas en contenedor píldora.
+              Aparecen en `xl` (1280) y no en `lg` (1024) por una razón medible:
+              los siete links ocupan ~627px y, con la marca y las acciones, a
+              1024 no le queda sitio para el buscador —que quedaba en 50px,
+              más estrecho que su propio icono de lupa—. A 1280 sí cabe entero.
+              Entre `lg` y `xl` el buscador manda: es el control de la sección y
+              la página se navega con la hamburguesa, que ya existe. */}
+          <div className="hidden min-w-0 xl:block">
+            <NavigationMenu className="rounded-full bg-muted p-0.5">
               <NavigationMenuList className="flex gap-0">
                 {navItems.map((item) => (
                   <NavigationMenuItem key={item.to}>
@@ -94,7 +86,7 @@ export function SiteHeader() {
                         to={item.to}
                         end={item.to === "/"}
                         className={cn(
-                          "flex min-h-9 items-center rounded-full px-4 py-2 text-sm font-medium tracking-normal outline outline-transparent transition duration-200 hover:bg-background hover:text-foreground hover:outline-border hover:shadow-xs focus-visible:outline-2 focus-visible:outline-ring",
+                          "flex min-h-9 items-center whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium tracking-normal outline outline-transparent transition duration-200 hover:bg-background hover:text-foreground hover:outline-border hover:shadow-xs focus-visible:outline-2 focus-visible:outline-ring",
                           // El estado activo se calcula fuera: el className función
                           // se corrompe al pasar por el Slot de Radix.
                           (item.to === "/" ? pathname === "/" : pathname.startsWith(item.to))
@@ -113,15 +105,13 @@ export function SiteHeader() {
             </NavigationMenu>
           </div>
 
-          {/* Buscador en la barra también en móvil: enterrarlo tras el menú de
-              hamburguesa lo haría inalcanzable en las secciones "search", que
-              no tienen otro buscador. */}
-          <SectionControl only="search" className="w-36 sm:w-52" />
-          {/* Las pills van en la barra solo en escritorio; en móvil, en el menú. */}
-          <SectionControl only="pills" />
+          {/* El control de sección (ADR-0009). En móvil también: enterrarlo tras
+              la hamburguesa dejaría sin buscador a las secciones "search", que no
+              tienen otro. `min-w-0` para que sea lo que cede el espacio. */}
+          <SectionControl className="xl:max-w-none" />
 
           {/* Acciones */}
-          <div className="ml-auto flex items-center gap-2 lg:ml-0">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <ThemeToggle />
 
             {loading ? (
@@ -172,7 +162,7 @@ export function SiteHeader() {
               </DropdownMenu>
             ) : (
               // CTA destacado estilo navbar-01 (solo desktop; en móvil vive en el menú)
-              <Button asChild className="group hidden h-10 rounded-full ps-4 pe-3 sm:inline-flex">
+              <Button asChild className="group hidden h-10 shrink-0 rounded-full ps-4 pe-3 sm:inline-flex">
                 <Link to="/login">
                   Entrar
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-background text-foreground transition-transform duration-200 group-hover:rotate-45">
@@ -182,56 +172,57 @@ export function SiteHeader() {
               </Button>
             )}
 
-            {/* Botón de menú móvil */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full lg:hidden"
-              onClick={() => {
-                buzz("tap");
-                setOpen((v) => !v);
-              }}
-              aria-expanded={open}
-              aria-controls="site-nav-mobile"
-              aria-label={open ? "Cerrar menú" : "Abrir menú"}
-            >
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
+            {/* Menú móvil: el dropdown del catálogo (NavbarSearch/V5 usan este
+                mismo patrón) y la misma lista de links que el escritorio. */}
+            <DropdownMenu open={open} onOpenChange={setOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full xl:hidden"
+                  aria-label={open ? "Cerrar menú" : "Abrir menú"}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="mt-2 w-56">
+                {navItems.map((item) => (
+                  <DropdownMenuItem key={item.to} asChild>
+                    <NavLink
+                      to={item.to}
+                      end={item.to === "/"}
+                      onClick={() => {
+                        buzz("tap");
+                        setOpen(false);
+                      }}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex min-h-10 items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium",
+                          isActive ? "bg-accent/15 text-foreground" : "",
+                          item.to === "/admin" && "text-primary",
+                        )
+                      }
+                    >
+                      {item.to === "/admin" && <Shield className="h-3.5 w-3.5" />}
+                      {item.label}
+                    </NavLink>
+                  </DropdownMenuItem>
+                ))}
+                {!user && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/login" onClick={() => setOpen(false)}>
+                        Entrar
+                        <ArrowUpRight className="ml-1 h-4 w-4" />
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </nav>
-
-        {/* Menú móvil: panel desplegable, items ≥44px con estado activo */}
-        {open && (
-          <nav id="site-nav-mobile" className="border-t pt-2 lg:hidden" aria-label="Navegación principal">
-            <div className="space-y-1 pb-2">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/"}
-                  onClick={() => setOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex min-h-11 items-center gap-1 rounded-lg px-3 py-2.5 text-sm font-medium transition duration-150 hover:bg-accent/10 hover:pl-4 hover:text-foreground active:scale-[0.98]",
-                      isActive ? "bg-accent/15 text-foreground" : "text-muted-foreground",
-                      item.to === "/admin" && "text-primary",
-                    )
-                  }
-                >
-                  {item.to === "/admin" && <Shield className="h-3.5 w-3.5" />}
-                  {item.label}
-                </NavLink>
-              ))}
-              {!user && (
-                <Button asChild className="mt-2 h-11 w-full rounded-full" size="lg">
-                  <Link to="/login" onClick={() => setOpen(false)}>
-                    Entrar <ArrowUpRight className="ml-1 h-4 w-4" />
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </nav>
-        )}
       </div>
     </header>
   );

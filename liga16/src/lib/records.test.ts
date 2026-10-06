@@ -7,6 +7,7 @@ import { qualificationFor, type StandingLike } from "./qualification";
 import { drawGroupsByCategory, parseRound, roundRobinRounds, type DrawablePair } from "./groups";
 import { groupByDivision } from "./categories";
 import { SECTION_NAVBAR, SECTION_NAVBAR_ADMIN, navbarTypeFor, sectionRootFor } from "@/components/shadcn-space/blocks/navbar-01/section-navbar";
+import { SITE_NAV, navFor, primaryNav } from "./site-nav";
 import type { Match, Pair, PlayerCard, PlayerProfile } from "@/types";
 
 const players: PlayerProfile[] = [
@@ -736,5 +737,55 @@ describe("una variante de navbar por tipo de sección", () => {
     expect(SECTION_NAVBAR_ADMIN["/admin/noticias"]).toBe("browse");
     // Y la misma regla en el sitio público.
     expect(navbarTypeFor("/noticias")).toBe("browse");
+  });
+});
+
+// Los links del sitio vivían escritos en tres archivos (la barra de escritorio,
+// la barra inferior y el catálogo del playground). Cada lista cambió por su
+// cuenta y el resultado fue que la barra inferior ofrecía cinco secciones y la
+// hamburguesa siete, sin que nadie lo hubiera decidido. Estos tests fijan las
+// tres propiedades de las que depende que no vuelva a pasar.
+describe("los links del sitio tienen una sola lista", () => {
+  it("la barra inferior sale de la lista, no de una propia", () => {
+    const bottom = primaryNav().map((i) => i.to);
+    // Todo lo que va abajo está en la lista y marcado como primary.
+    for (const to of bottom) {
+      const item = SITE_NAV.find((i) => i.to === to);
+      expect(item, `${to} no está en SITE_NAV`).toBeDefined();
+      expect(item!.primary).toBe(true);
+    }
+    // Y no hay destinos duplicados: dos entradas con el mismo `to` harían que
+    // la fila mostrara dos veces la misma sección.
+    expect(new Set(SITE_NAV.map((i) => i.to)).size).toBe(SITE_NAV.length);
+  });
+
+  it("lo que hay en la barra inferior también está en el menú completo", () => {
+    // Si alguien quita una sección de la lista y la deja escrita a mano en la
+    // barra inferior, esta comparación es la que lo nota.
+    const full = navFor(false).map((i) => i.to);
+    for (const item of primaryNav()) expect(full).toContain(item.to);
+  });
+
+  it("lo que va abajo son las secciones de a diario, y no son demasiadas", () => {
+    // Cinco es lo que cabe bajo el pulgar con etiqueta legible; seis ya se
+    // aprietan. El número es una decisión, no un accidente: se escribe aquí.
+    expect(primaryNav()).toHaveLength(5);
+  });
+
+  it("Sede y Admin solo aparecen para quien administra", () => {
+    const publico = navFor(false).map((i) => i.to);
+    const admin = navFor(true).map((i) => i.to);
+    expect(publico).not.toContain("/admin");
+    expect(publico).not.toContain("/padel");
+    expect(admin).toContain("/admin");
+    expect(admin).toContain("/padel");
+    // Y nada de lo que va en la barra inferior es una sección de admin: la
+    // barra inferior es para quien llega de visita.
+    for (const item of primaryNav()) expect(item.adminOnly).toBeFalsy();
+  });
+
+  it("toda sección con link tiene icono, para la barra inferior", () => {
+    // La barra inferior pinta el icono; un item sin él se vería hueco.
+    for (const item of SITE_NAV) expect(item.icon).toBeDefined();
   });
 });
