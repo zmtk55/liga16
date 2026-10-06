@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet } from "react-router";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
 import {
   Activity,
   BarChart3,
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { SectionControl } from "@/components/shadcn-space/blocks/navbar-01/section-control";
+import { navbarTypeFor } from "@/components/shadcn-space/blocks/navbar-01/section-navbar";
 
 /** Todos los items comparten forma; `end` y `badge` son opcionales. */
 type NavItem = {
@@ -157,9 +158,15 @@ function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function AdminLayout() {
   const [openNav, setOpenNav] = useState(false);
+  const { pathname } = useLocation();
   const { loading, isConfigured } = useAuth();
   const { alerts: adminAlerts } = useAdminAlerts();
   const alertCount = adminAlerts.length;
+  // El buscador del shell existía sólo en el header móvil (lg:hidden): en
+  // desktop el sidebar llevaba only="pills", que para páginas de tipo
+  // "search" devuelve null — Resultados sin buscador visible. Fila propia
+  // debajo de la marca, ancho completo: un solo buscador por pantalla (ADR-0009).
+  const showSidebarSearch = navbarTypeFor(pathname) === "search";
 
   return (
     <div className="min-h-dvh bg-muted/30">
@@ -169,6 +176,11 @@ export default function AdminLayout() {
             <AdminBrand />
             <SectionControl only="pills" />
           </div>
+          {showSidebarSearch && (
+            <div className="border-b px-5 py-2.5">
+              <SectionControl only="search" className="w-full" />
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto">
             <AdminNav alertCount={alertCount} />
           </div>

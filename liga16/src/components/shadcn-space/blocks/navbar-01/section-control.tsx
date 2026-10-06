@@ -31,7 +31,7 @@ const SEARCH_PLACEHOLDER: Record<string, string> = {
   "/admin/jugadores": "Buscar jugador…",
   "/admin/equipos": "Buscar pareja…",
   "/admin/participantes": "Buscar pareja o torneo…",
-  "/admin/resultados": "Buscar partido…",
+  "/admin/resultados": "Buscar equipo o jugador…",
   "/admin/ranking": "Buscar pareja…",
   "/admin/noticias": "Buscar noticia…",
 };
