@@ -375,7 +375,7 @@ export default function MyProfile() {
       <Alert>
         <div className="flex items-start gap-3">
           {status === "verificado" ? (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
           ) : status === "pendiente" ? (
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
           ) : (

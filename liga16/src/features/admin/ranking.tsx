@@ -210,7 +210,7 @@ export default function AdminRanking() {
                             <CardStat
                               value={t.played > 0 ? `${pct}%` : "—"}
                               label="Efect."
-                              tone={pct >= 60 ? "text-emerald-600 dark:text-emerald-400" : undefined}
+                              tone={pct >= 60 ? "text-emerald-700 dark:text-emerald-400" : undefined}
                             />
                           </>
                         }

@@ -303,7 +303,7 @@ export function MatchCard({
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
-                match.court_name ? "bg-primary/10 text-primary" : "border border-dashed text-muted-foreground",
+                match.court_name ? "bg-primary/10 text-primary-strong" : "border border-dashed text-muted-foreground",
               )}
             >
               <MapPin className="h-3 w-3" />

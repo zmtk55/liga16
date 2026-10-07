@@ -8,7 +8,7 @@ const tournamentTone: Record<TournamentStatus, string> = {
   published: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300",
   registration_open: "border-success/30 bg-success/10 text-success",
   registration_closed: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
-  in_progress: "border-primary/30 bg-primary/10 text-primary",
+  in_progress: "border-primary/30 bg-primary/10 text-primary-strong",
   finished: "border-border bg-secondary text-secondary-foreground",
   cancelled: "border-destructive/30 bg-destructive/10 text-destructive",
 };

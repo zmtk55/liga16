@@ -209,7 +209,7 @@ export default function AdminDashboard() {
         {tasks.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex items-center gap-3 py-5">
-              <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              <ShieldCheck className="h-5 w-5 text-emerald-700" />
               <p className="text-sm text-muted-foreground">
                 Nada pendiente. No hay perfiles por verificar ni partidos por capturar.
               </p>

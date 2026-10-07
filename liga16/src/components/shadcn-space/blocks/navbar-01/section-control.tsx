@@ -106,7 +106,7 @@ export function SectionControl({ className }: { className?: string }) {
             size="sm"
             className={cn(
               "h-9 shrink-0 gap-1.5 rounded-full font-medium",
-              divisionActiva && "border-primary/40 bg-primary/10 text-primary",
+              divisionActiva && "border-primary/40 bg-primary/10 text-primary-strong",
             )}
             aria-label={divisionActiva ? `División: ${divisionActiva}` : "Filtrar por división"}
           >

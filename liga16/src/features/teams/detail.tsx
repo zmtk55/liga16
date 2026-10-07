@@ -205,13 +205,13 @@ export default function TeamDetailPage() {
                     <Link to={`/jugadores/${p.player_id}`} className="shrink-0" aria-label={`Ver dashboard de ${p.name}`}>
                       <Avatar className="h-14 w-14 border-2 border-white/20 transition-transform hover:scale-105">
                         <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${p.name}`} />
-                        <AvatarFallback className="bg-primary text-white">{initials(p.name)}</AvatarFallback>
+                        <AvatarFallback className="bg-primary text-primary-foreground">{initials(p.name)}</AvatarFallback>
                       </Avatar>
                     </Link>
                   ) : (
                     <Avatar className="h-14 w-14 border-2 border-white/20 shrink-0">
                       <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${p?.name ?? "Jugador"}`} />
-                      <AvatarFallback className="bg-primary text-white">{p ? initials(p.name) : "?"}</AvatarFallback>
+                      <AvatarFallback className="bg-primary text-primary-foreground">{p ? initials(p.name) : "?"}</AvatarFallback>
                     </Avatar>
                   )}
                   <div className="min-w-0 flex-1">

@@ -751,7 +751,7 @@ teams.forEach((t) => {
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                   i < step
-                    ? "bg-emerald-600 text-white"
+                    ? "bg-emerald-700 text-white"
                     : i === step
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
