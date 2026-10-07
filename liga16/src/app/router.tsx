@@ -86,8 +86,22 @@ export const router = createBrowserRouter([
       { path: "ranking", element: <Rankings /> },
       { path: "equipos", element: <Teams /> },
       { path: "equipos/:slug", element: <TeamDetail /> },
-      { path: "jugadores", element: <Players /> },
-      { path: "jugadores/:id", element: <PlayerDetail /> },
+      {
+        path: "jugadores",
+        element: (
+          <RequireAuth>
+            <Players />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "jugadores/:id",
+        element: (
+          <RequireAuth>
+            <PlayerDetail />
+          </RequireAuth>
+        ),
+      },
       { path: "padel", element: <Clubs /> },
       { path: "noticias", element: <News /> },
     ],

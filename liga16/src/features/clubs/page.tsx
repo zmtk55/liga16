@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { MapPin, Phone, Clock, Users, CalendarDays, ChevronRight, Building2, Target } from "lucide-react";
+import { MapPin, Phone, Clock, CalendarDays, ChevronRight, Building2, Target } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Club, Court } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,22 +105,7 @@ export default function ClubsPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link to="/jugadores" className="group">
-          <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Users className="h-4 w-4" /> Jugadores
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-              </div>
-              <CardTitle className="text-lg">Directorio</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Ver jugadores, rankings y perfiles del circuito.</p>
-            </CardContent>
-          </Card>
-        </Link>
+
         <Card className="transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

@@ -9,7 +9,6 @@ const explore = [
 ];
 
 const community = [
-  { to: "/jugadores", label: "Jugadores" },
   { to: "/noticias", label: "Noticias" },
   { to: "/padel", label: "Sede" },
 ];
