@@ -10,6 +10,28 @@ export interface CategoryValue {
 export const DIVISION_ORDER: PadelDivision[] = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
 
 /**
+ * Cómo se escribe una división con palabras.
+ *
+ * "5ta" es una abreviatura que el sistema usa para ordenar y filtrar; para
+ * quien lee la card, "Quinta categoría" dice lo mismo sin que tenga que
+ * descifrar la terminación. El ordinal va con su género propio: "5ta" es
+ * quinta, "5to" sería quinto, y aquí sale la forma larga que no tiene ambigüedad.
+ */
+const DIVISION_WORDS: Record<PadelDivision, string> = {
+  "1ra": "Primera categoría",
+  "2da": "Segunda categoría",
+  "3ra": "Tercera categoría",
+  "4ta": "Cuarta categoría",
+  "5ta": "Quinta categoría",
+  "6ta": "Sexta categoría",
+  Novatos: "Categoría novatos",
+};
+
+export function divisionLabel(division: PadelDivision): string {
+  return DIVISION_WORDS[division] ?? division;
+}
+
+/**
  * En qué división compite una categoría.
  *
  * La BASE lo dice: `tournament_categories.category` es una columna

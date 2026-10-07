@@ -34,7 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { sexLabel, winRate } from "@/lib/format";
-import { teamCategoryLabel } from "@/lib/categories";
+import { divisionLabel, teamCategoryLabel } from "@/lib/categories";
 import { buzz } from "@/lib/haptics";
 // La estrella vive en el playground porque nació allí; ya es parte del
 // sistema (la usa la galería de jugadores) y duplicarla sería peor que
@@ -170,8 +170,18 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               </span>
             ) : null}
           </div>
-          {/* Favorito clickeable */}
-          <FavStar className="absolute top-3 left-3 z-20" />
+          {/* La DIVISIÓN, escrita con palabras y arriba a la izquierda: es el
+              dato que la gente busca primero ("¿en qué categoría juego?") y la
+              abreviatura "5ta" hay que descifrarla. Va como rótulo propio, no
+              dentro de la línea de la categoría del torneo, porque son dos cosas
+              distintas: "Suma 9" es la categoría con la que se inscribieron y
+              "Sexta categoría" es la mesa en la que compiten. */}
+          <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
+            <span className="rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
+              {divisionLabel(team.division)}
+            </span>
+            <FavStar />
+          </div>
 
           {/* Panel con blur en la zona inferior (face-safe) */}
           <div className="relative z-10 mx-3 mb-3 mt-auto rounded-xl border border-foreground/15 bg-background/75 p-2.5 backdrop-blur-md dark:bg-background/45">
