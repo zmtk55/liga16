@@ -272,7 +272,7 @@ export default function AdminResults() {
                       <p className="text-xs text-muted-foreground">
                         {ms.length} partidos
                         {pend > 0 && (
-                          <span className="text-primary"> · {pend} por capturar</span>
+                          <span className="text-primary-strong"> · {pend} por capturar</span>
                         )}
                       </p>
                     </div>

@@ -131,17 +131,19 @@ export function PlayerAvatar({
     );
   }
 
+  // Tonos -700 (o el token, que ya es oscuro): con -600 y texto blanco las
+  // iniciales medían 2.9:1 sobre el ámbar y 3.4:1 sobre el naranja.
   const colors = [
-    "bg-primary",
+    "bg-primary text-primary-foreground",
     "bg-success",
-    "bg-blue-600",
-    "bg-purple-600",
-    "bg-amber-600",
+    "bg-blue-700",
+    "bg-purple-700",
+    "bg-amber-700",
     "bg-destructive",
-    "bg-cyan-600",
-    "bg-orange-600",
-    "bg-teal-600",
-    "bg-indigo-600",
+    "bg-cyan-700",
+    "bg-orange-700",
+    "bg-teal-700",
+    "bg-indigo-700",
   ];
   const colorIndex = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
 

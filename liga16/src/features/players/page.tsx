@@ -306,7 +306,7 @@ export default function PlayersPage() {
                   </p>
                 </div>
                 {rk && rk.position <= 3 && (
-                  <span className="shrink-0 text-sm tabular-nums font-bold text-primary">#{rk.position}</span>
+                  <span className="shrink-0 text-sm tabular-nums font-bold text-primary-strong">#{rk.position}</span>
                 )}
               </Link>
             );

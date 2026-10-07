@@ -77,7 +77,7 @@ function SectionHeading({
   return (
     <div className="mb-4 flex items-end justify-between gap-4">
       <div>
-        <p className="mb-1 text-xs font-bold uppercase tracking-[0.24em] text-primary">
+        <p className="mb-1 text-xs font-bold uppercase tracking-[0.24em] text-primary-strong">
           {eyebrow}
         </p>
         <h2 className="font-headline text-3xl uppercase leading-none tracking-tight sm:text-4xl">
@@ -120,7 +120,7 @@ function TeamCrest({
   return (
     <span
       aria-hidden
-      className={`${sizeClass} ${textClass} flex shrink-0 items-center justify-center rounded-lg border bg-primary/10 font-bold uppercase text-primary`}
+      className={`${sizeClass} ${textClass} flex shrink-0 items-center justify-center rounded-lg border bg-primary/10 font-bold uppercase text-primary-strong`}
     >
       {initialsOf(team.name)}
     </span>
@@ -256,7 +256,7 @@ export default function Home() {
             <h1 className="font-headline text-[4.25rem] uppercase leading-[0.82] tracking-[-0.035em] sm:text-[7rem] md:text-[9rem]">
               Pádel
               <br />
-              <span className="text-primary">en juego.</span>
+              <span className="text-primary-strong">en juego.</span>
             </h1>
 
             {featured && (
