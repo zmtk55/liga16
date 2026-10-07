@@ -89,7 +89,7 @@ function ComparisonRow({ label, valueA, valueB, higherIsBetter, unit, isStyle = 
             win ? "text-success" : "text-muted-foreground",
           )}>
             {value}
-            {unit && <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">{unit}</span>}
+            {unit && <span className="ml-0.5 text-xs font-medium text-muted-foreground">{unit}</span>}
           </span>
           {isNumeric && (
             <span className="h-1 w-full max-w-24 overflow-hidden rounded-full bg-muted">
@@ -245,7 +245,7 @@ function TrendBars({
                 animation: "fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
               }}
             />
-            <span className="pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-1.5 py-0.5 text-[10px] tabular-nums text-background group-hover:block">
+            <span className="pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-1.5 py-0.5 text-xs tabular-nums text-background group-hover:block">
               {v}
             </span>
           </div>
@@ -544,7 +544,7 @@ export default function PlayerDetailPage() {
                       style={{ width: `${winPct}%` }}
                     />
                   </div>
-                  <p className="mt-2 text-[11px] text-white/45">
+                  <p className="mt-2 text-xs text-white/45">
                     {won} victorias de {played} partidos disputados
                     {partnerCount > 1 ? ` · ${partnerCount} parejas en su historial` : ""}
                   </p>
@@ -606,7 +606,7 @@ export default function PlayerDetailPage() {
                 )}
                 <div className="absolute -bottom-3 -left-3 rounded-2xl bg-white px-3 py-2 text-black shadow-xl">
                   <p className="text-xs font-bold">{team?.name ?? "Sin equipo"}</p>
-                  <p className="text-[11px] text-muted-foreground">{team?.division ?? "Libre"}</p>
+                  <p className="text-xs text-muted-foreground">{team?.division ?? "Libre"}</p>
                 </div>
               </div>
             </div>
@@ -636,7 +636,7 @@ export default function PlayerDetailPage() {
                 { k: "Títulos", v: card?.titles ?? 0 },
               ].map((s) => (
                 <div key={s.k} className="p-4 transition-colors hover:bg-muted/50">
-                  <p className="text-[11px] uppercase tracking-widest text-muted-foreground">{s.k}</p>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground">{s.k}</p>
                   <p className="mt-1 text-xl font-black tabular-nums">{s.v}</p>
                 </div>
               ))}
@@ -702,7 +702,7 @@ export default function PlayerDetailPage() {
                     <Tooltip key={n} content={`Nivel ${n}: ${["Le cuesta marcar diferencias","Juega de más a menos","Juega parejo","Viene en buen momento","Está jugando su mejor pádel"][n-1]}. Cuánto pesa ese nivel en el análisis.`}>
                       <div className="flex-1">
                         <AnimatedBar value={(jev.forma.distribution[n as 1|2|3|4|5] ?? 0) * 100} max={100} color="primary" className="h-1.5" />
-                        <p className="mt-1 text-center text-[10px] text-muted-foreground">{n}</p>
+                        <p className="mt-1 text-center text-xs text-muted-foreground">{n}</p>
                       </div>
                     </Tooltip>
                   ))}
@@ -781,7 +781,7 @@ export default function PlayerDetailPage() {
                     <div className="rounded-lg bg-muted p-3">
                       <p className="text-muted-foreground">Consistencia</p>
                       <p className="text-2xl font-black">{jev.consistencia.score}/100</p>
-                      <p className="text-[10px] text-muted-foreground">{jev.consistencia.label}</p>
+                      <p className="text-xs text-muted-foreground">{jev.consistencia.label}</p>
                     </div>
                   </Tooltip>
                   <Tooltip content="Si su nivel viene subiendo, estable o bajando respecto a como venía jugando.">
@@ -794,7 +794,7 @@ export default function PlayerDetailPage() {
                     <div className="rounded-lg bg-muted p-3">
                       <p className="text-muted-foreground">Forma</p>
                       <p className="text-2xl font-black">{jev.forma.score}/5</p>
-                      <p className="text-[10px] text-muted-foreground">{jev.forma.label}</p>
+                      <p className="text-xs text-muted-foreground">{jev.forma.label}</p>
                     </div>
                   </Tooltip>
                 </div>
@@ -866,15 +866,15 @@ export default function PlayerDetailPage() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-muted/60 p-3">
                     <p className="font-display text-2xl tabular-nums">{qualification.position}º</p>
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Posición</p>
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Posición</p>
                   </div>
                   <div className="rounded-lg bg-muted/60 p-3">
                     <p className="font-display text-2xl tabular-nums">{qualification.pointsNeeded}</p>
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Puntos</p>
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Puntos</p>
                   </div>
                   <div className="rounded-lg bg-muted/60 p-3">
                     <p className="font-display text-2xl tabular-nums">{qualification.setsNeeded ?? "—"}</p>
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Sets</p>
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Sets</p>
                   </div>
                 </div>
 
@@ -930,7 +930,7 @@ export default function PlayerDetailPage() {
                     ].map((s) => (
                       <div key={s.label} className="rounded-lg bg-muted/60 p-3">
                         <p className="font-headline text-2xl tabular-nums">{s.value}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
                           {s.label}
                         </p>
                       </div>
@@ -943,7 +943,7 @@ export default function PlayerDetailPage() {
                         <p className="text-xs font-medium text-muted-foreground">
                           Sets ganados por partido
                         </p>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           últimos {record.trend.length}
                         </p>
                       </div>

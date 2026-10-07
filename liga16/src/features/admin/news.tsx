@@ -175,7 +175,7 @@ export default function AdminNews() {
                       {n.image_url ? (
                         <img src={n.image_url} alt="" className="h-10 w-16 shrink-0 rounded object-cover" />
                       ) : (
-                        <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">
+                        <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded bg-muted text-xs font-bold text-muted-foreground">
                           SIN
                         </span>
                       )}

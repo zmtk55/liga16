@@ -50,7 +50,7 @@ function AlertRow({ alert }: { alert: AdminAlert }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm font-medium">{alert.title}</p>
-            <Badge className={cn('border-transparent text-[10px]', severityTone[alert.severity])}>
+            <Badge className={cn('border-transparent text-xs', severityTone[alert.severity])}>
               {severityLabelKey(alert.severity)}
             </Badge>
           </div>
@@ -83,7 +83,7 @@ export default function AdminInbox() {
         action={
           <div className="flex items-center gap-2">
             {DATA_MODE === 'demo' && (
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge variant="secondary" className="text-xs">
                 Modo demo
               </Badge>
             )}
@@ -131,7 +131,7 @@ export default function AdminInbox() {
                 <h2 id={`sev-${sev}`} className="text-sm font-semibold">
                   {severityLabel[sev]}
                 </h2>
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-xs">
                   {items.length}
                 </Badge>
               </div>

@@ -463,7 +463,7 @@ function MatchEditDialog({
                   <span className="text-xs font-semibold uppercase tracking-wide">
                     Set {i + 1}
                     {i >= 2 && (
-                      <span className="ml-2 text-[10px] font-normal normal-case text-amber-600 dark:text-amber-400">
+                      <span className="ml-2 text-xs font-normal normal-case text-amber-600 dark:text-amber-400">
                         Super tie-break a 10 (dif. 2)
                       </span>
                     )}
@@ -487,7 +487,7 @@ function MatchEditDialog({
                     <Input type="number" min={0} aria-label={`Tie-break de ${match.side_b.pair_name} en set ${i + 1}`} placeholder="TB" className="h-8 text-xs" value={set.tiebreak_b} onChange={(e) => updateSet(i, "tiebreak_b", e.target.value)} />
                   </div>
                 </div>
-                <p className="mt-1.5 text-[10px] text-muted-foreground">Caja grande = juegos ganados · TB = tie-break (solo 6-6)</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">Caja grande = juegos ganados · TB = tie-break (solo 6-6)</p>
               </div>
             ))}
 

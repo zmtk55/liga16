@@ -224,7 +224,7 @@ function CategoryBracket({
     <section className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             En qué anda
           </p>
           {prog ? (
@@ -241,7 +241,7 @@ function CategoryBracket({
           )}
         </div>
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             Partidos
           </p>
           <p className="mt-1 font-display text-xl leading-none tabular-nums">
@@ -250,7 +250,7 @@ function CategoryBracket({
           </p>
         </div>
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             {prog?.champion ? "Campeón" : "Finalistas"}
           </p>
           {prog?.champion ? (
@@ -1014,12 +1014,12 @@ return (
                           onClick={() => setEditingMatchId(m.id)}
                         >
                           <div className="flex flex-col items-start gap-1 shrink-0 w-28">
-                            <Badge variant="secondary" className="w-full text-[10px] font-normal">{groupName}</Badge>
-                            <Badge variant="outline" className="w-full text-[10px] font-normal">{jornadaNum}</Badge>
+                            <Badge variant="secondary" className="w-full text-xs font-normal">{groupName}</Badge>
+                            <Badge variant="outline" className="w-full text-xs font-normal">{jornadaNum}</Badge>
                           </div>
                           <div className="flex flex-col items-start gap-1 shrink-0 w-20">
                             <span className="text-xs tabular-nums text-muted-foreground">{timeDisplay}</span>
-                            <Badge variant="secondary" className="w-full text-[10px] font-normal">{courtDisplay}</Badge>
+                            <Badge variant="secondary" className="w-full text-xs font-normal">{courtDisplay}</Badge>
                           </div>
                           <span className={`flex-1 truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
                             {m.side_a.pair_name} <span className="text-muted-foreground"> vs </span> {m.side_b.pair_name}
@@ -1268,7 +1268,7 @@ return (
                           <div key={id} className="space-y-1">
                             <SortablePair id={id} name={nameById[id] ?? id} onRemove={() => handleRemovePair(id)} />
                             <Select value={g.name} onValueChange={(v) => reassignPair(id, v)}>
-                              <SelectTrigger className="h-6 text-[11px] text-muted-foreground" aria-label={`Reasignar ${nameById[id]}`}>
+                              <SelectTrigger className="h-6 text-xs text-muted-foreground" aria-label={`Reasignar ${nameById[id]}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1458,7 +1458,7 @@ return (
                                             <span className={`block max-w-full truncate font-normal ${done ? "line-through decoration-border" : ""}`}>
                                               {m.side_a.pair_name} vs {m.side_b.pair_name}
                                             </span>
-                                            <span className="block max-w-full truncate text-[10px] font-normal text-muted-foreground">{m.round}{done ? ` · ${m.sets.map((s) => `${s.a}-${s.b}`).join(" ")}` : ""}</span>
+                                            <span className="block max-w-full truncate text-xs font-normal text-muted-foreground">{m.round}{done ? ` · ${m.sets.map((s) => `${s.a}-${s.b}`).join(" ")}` : ""}</span>
                                           </Button>
                                         </td>
                                       );
@@ -2143,7 +2143,7 @@ function GroupStandingsCard({
                             {row.form.map((f, fi) => (
                               <span
                                 key={fi}
-                                className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[9px] font-bold text-white ${
+                                className={`flex h-4.5 w-4.5 items-center justify-center rounded text-xs font-bold text-white ${
                                   f === "G" ? "bg-success" : "bg-destructive"
                                 }`}
                                 title={f === "G" ? "Victoria" : "Derrota"}
@@ -2167,7 +2167,7 @@ function GroupStandingsCard({
                           {row.form.map((f, fi) => (
                             <span
                               key={fi}
-                              className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[9px] font-bold text-white ${
+                              className={`flex h-4.5 w-4.5 items-center justify-center rounded text-xs font-bold text-white ${
                                 f === "G" ? "bg-success" : "bg-destructive"
                               }`}
                               title={f === "G" ? "Victoria" : "Derrota"}

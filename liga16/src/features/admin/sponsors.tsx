@@ -162,7 +162,7 @@ export default function AdminSponsors() {
                     {s.logo_url ? (
                       <img src={s.logo_url} alt={s.name} className="h-10 w-auto max-w-[120px] shrink-0 rounded object-contain" />
                     ) : (
-                      <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">
+                      <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded bg-muted text-xs font-bold text-muted-foreground">
                         SIN
                       </span>
                     )}

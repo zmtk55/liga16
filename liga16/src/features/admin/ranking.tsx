@@ -126,7 +126,7 @@ export default function AdminRanking() {
               esconde el resto y obliga a dos clics por filtro. Es el mismo
               criterio que el ranking público. */}
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Rama
             </p>
             <ToggleGroup

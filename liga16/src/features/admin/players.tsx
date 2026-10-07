@@ -438,7 +438,7 @@ export default function AdminPlayers() {
                           {isPending && (
                             <Badge
                               variant="outline"
-                              className="border-amber-300 bg-amber-100 text-[10px] uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                              className="border-amber-300 bg-amber-100 text-xs uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
                             >
                               Por verificar
                             </Badge>

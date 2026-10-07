@@ -84,7 +84,7 @@ function AdminBrand({ onNavigate }: { onNavigate?: () => void }) {
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold leading-tight">Liga16</span>
-        <span className="block text-[11px] leading-tight text-muted-foreground">Administración</span>
+        <span className="block text-xs leading-tight text-muted-foreground">Administración</span>
       </span>
     </Link>
   );
@@ -117,7 +117,7 @@ function AdminNav({ onNavigate, alertCount }: { onNavigate?: () => void; alertCo
                 {badge === "alerts" && alertCount && alertCount > 0 && (
                   <Badge
                     variant="secondary"
-                    className="ml-auto text-[10px] font-semibold"
+                    className="ml-auto text-xs font-semibold"
                   >
                     {alertCount}
                   </Badge>
@@ -139,7 +139,7 @@ function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium">{user?.email ?? "Sesión no iniciada"}</p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {isConfigured ? `Rol: ${user?.role ?? "—"}` : "Modo demo local"}
           </p>
         </div>

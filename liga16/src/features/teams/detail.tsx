@@ -183,7 +183,7 @@ export default function TeamDetailPage() {
                   {formGlyphs.map((g, i) => (
                     <span
                       key={i}
-                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black ${
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${
                         g === "G" ? "bg-success text-success-foreground" : "bg-white/10 text-white/60"
                       }`}
                     >
@@ -244,7 +244,7 @@ export default function TeamDetailPage() {
                 { k: "Por jugar", v: pendientes.length },
               ].map((s) => (
                 <div key={s.k} className="p-4 transition-colors hover:bg-muted/50">
-                  <p className="text-[11px] uppercase tracking-widest text-muted-foreground">{s.k}</p>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground">{s.k}</p>
                   <p className="mt-1 text-xl font-black tabular-nums">{s.v}</p>
                 </div>
               ))}
@@ -362,7 +362,7 @@ function CompareBlock({
           <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-primary" />
           <span className="truncate">{nameA}</span>
         </span>
-        <span className="shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground/70">vs</span>
+        <span className="shrink-0 text-xs uppercase tracking-widest text-muted-foreground/70">vs</span>
         <span className="flex min-w-0 items-center justify-end gap-1.5">
           <span className="truncate">{nameB}</span>
           <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-muted-foreground/50" />
@@ -379,7 +379,7 @@ function CompareBlock({
               <span className={`text-right text-sm font-black tabular-nums ${leadA ? "text-foreground" : "text-muted-foreground/60"}`}>
                 {r.a}{r.suffix ?? ""}
               </span>
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{r.k}</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{r.k}</span>
               <span className={`text-left text-sm font-black tabular-nums ${!leadA ? "text-foreground" : "text-muted-foreground/60"}`}>
                 {r.b}{r.suffix ?? ""}
               </span>

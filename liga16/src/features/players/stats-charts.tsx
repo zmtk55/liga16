@@ -89,7 +89,7 @@ export function PlayerStatsCharts({ record }: { record: PlayerRecord }) {
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span className="font-display text-3xl font-black tabular-nums">{pct}%</span>
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">efectividad</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">efectividad</span>
           </div>
         </div>
         <div className="mt-1 flex justify-center gap-4 text-xs">
@@ -142,7 +142,7 @@ export function PlayerStatsCharts({ record }: { record: PlayerRecord }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <p className="mt-1 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
+        <p className="mt-1 text-center text-xs uppercase tracking-widest text-muted-foreground">
           más antiguo ← → más reciente
         </p>
       </ChartBox>

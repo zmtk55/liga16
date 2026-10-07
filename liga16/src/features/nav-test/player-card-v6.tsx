@@ -123,7 +123,7 @@ function StatCell({ value, label }: { value: string; label: string }) {
       <span className="block text-xs leading-tight font-bold text-white">
         {value}
       </span>
-      <span className="block text-[8px] leading-tight text-white/60">
+      <span className="block text-xs leading-tight text-white/60">
         {label}
       </span>
     </div>

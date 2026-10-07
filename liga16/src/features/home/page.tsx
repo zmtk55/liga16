@@ -77,7 +77,7 @@ function SectionHeading({
   return (
     <div className="mb-4 flex items-end justify-between gap-4">
       <div>
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.24em] text-primary">
+        <p className="mb-1 text-xs font-bold uppercase tracking-[0.24em] text-primary">
           {eyebrow}
         </p>
         <h2 className="font-headline text-3xl uppercase leading-none tracking-tight sm:text-4xl">
@@ -241,13 +241,13 @@ export default function Home() {
 
         <div className="relative mx-auto flex min-h-[620px] max-w-7xl flex-col justify-between px-4 pb-7 pt-8 md:px-8 md:pb-8 md:pt-10">
           <div className="flex items-center justify-between">
-            <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.24em] text-white/70 sm:text-xs">
+            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.24em] text-white/70 sm:text-xs">
               <Flame className="h-3.5 w-3.5 text-primary" />
               {liveCount > 0
                 ? `${liveCount} ${liveCount === 1 ? "partido en vivo" : "partidos en vivo"}`
                 : "Circuito de pádel"}
             </p>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">
               {sedeLabel}
             </p>
           </div>
@@ -261,7 +261,7 @@ export default function Home() {
 
             {featured && (
               <div className="mt-7 border-l-2 border-primary pl-4 sm:mt-9 sm:pl-5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">
                   Próximo torneo
                 </p>
                 <p className="mt-1 max-w-xl text-lg font-semibold leading-tight sm:text-2xl">
@@ -308,7 +308,7 @@ export default function Home() {
                 <dd className="truncate font-headline text-xl uppercase sm:text-3xl">
                   {item.value}
                 </dd>
-                <dt className="mt-1 text-[8px] font-bold uppercase tracking-[0.22em] text-white/45 sm:text-[10px]">
+                <dt className="mt-1 text-xs font-bold uppercase tracking-[0.22em] text-white/60">
                   {item.label}
                 </dt>
               </div>
@@ -336,7 +336,7 @@ export default function Home() {
                   <span className="flex h-11 w-11 items-center justify-center bg-primary font-headline text-xl">
                     16
                   </span>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
+                  <span className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">
                     Liga16
                     <br />
                     Torneo oficial
@@ -381,7 +381,7 @@ export default function Home() {
                 <span className="absolute -bottom-16 -right-3 font-headline text-[19rem] leading-none text-black/[0.13]">
                   16
                 </span>
-                <span className="absolute left-8 top-8 text-[10px] font-bold uppercase tracking-[0.3em] text-black/55">
+                <span className="absolute left-8 top-8 text-xs font-bold uppercase tracking-[0.3em] text-black/55">
                   {sedeLabel}
                 </span>
                 <div className="absolute inset-y-0 left-[34%] w-px rotate-[18deg] bg-black/20" />
@@ -527,11 +527,11 @@ export default function Home() {
           <div className="grid overflow-hidden rounded-2xl bg-surface-inverse text-white lg:grid-cols-[1.45fr_0.55fr]">
             <div className="p-6 sm:p-8 lg:p-10">
               <div className="flex items-center justify-between gap-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">
                   {featuredMatch.tournament_name} · {featuredMatch.round}
                 </p>
                 {featuredMatch.status === "live" && (
-                  <Badge className="animate-pulse rounded-none bg-primary text-[10px] uppercase tracking-widest">
+                  <Badge className="animate-pulse rounded-none bg-primary text-xs uppercase tracking-widest">
                     En vivo
                   </Badge>
                 )}
@@ -562,7 +562,7 @@ export default function Home() {
                   key={match.id}
                   className="flex min-h-28 flex-col justify-center border-b border-white/10 p-5 last:border-b-0 sm:p-6"
                 >
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">
                     {match.tournament_name}
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-snug">
@@ -613,17 +613,17 @@ export default function Home() {
                       <span className="absolute -bottom-8 -right-1 font-headline text-[9rem] leading-none text-primary/35">
                         16
                       </span>
-                      <span className="absolute left-4 top-4 text-[9px] font-bold uppercase tracking-[0.24em] text-white/45">
+                      <span className="absolute left-4 top-4 text-xs font-bold uppercase tracking-[0.24em] text-white/45">
                         Liga16
                       </span>
                     </div>
                   )}
                 </div>
                 <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-primary">
+                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
                     {item.tag}
                   </span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
+                  <span className="font-mono text-xs text-muted-foreground">
                     {new Date(item.published_at).getFullYear()}
                   </span>
                 </div>
@@ -642,7 +642,7 @@ export default function Home() {
       {/* Patrocinadores como créditos, no como dashboard */}
       {stats.sponsors.length > 0 && (
         <section className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">
             Con el apoyo de
           </p>
           <div className="flex flex-wrap gap-x-8 gap-y-3">
@@ -659,7 +659,7 @@ export default function Home() {
                     {sponsor.name}
                   </span>
                 )}
-                <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   {tierLabel[sponsor.tier]}
                 </span>
               </div>

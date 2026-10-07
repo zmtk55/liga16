@@ -134,7 +134,7 @@ function SortablePairCard({
       </div>
       {groups.length > 1 && (
         <Select value={currentGroup} onValueChange={onReassign}>
-          <SelectTrigger className="h-6 border-none bg-transparent px-1 text-[11px] text-muted-foreground shadow-none" aria-label={`Mover ${name} a otro grupo`}>
+          <SelectTrigger className="h-6 border-none bg-transparent px-1 text-xs text-muted-foreground shadow-none" aria-label={`Mover ${name} a otro grupo`}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -749,7 +749,7 @@ teams.forEach((t) => {
           {STEPS.map((s, i) => (
             <li key={s.id} className="flex flex-1 items-center gap-1.5">
               <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                   i < step
                     ? "bg-emerald-600 text-white"
                     : i === step
@@ -933,7 +933,7 @@ teams.forEach((t) => {
                         value={tournament[f.k as "sets_to_win"]}
                         onChange={(e) => setTournament((t) => ({ ...t, [f.k]: e.target.value }))}
                       />
-                      <p className="text-[11px] leading-snug text-muted-foreground/80">{f.h}</p>
+                      <p className="text-xs leading-snug text-muted-foreground/80">{f.h}</p>
                     </div>
                   ))}
                 </div>
@@ -947,7 +947,7 @@ teams.forEach((t) => {
                         <SelectItem value="false">No — gana quien llegue primero a la meta</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-[11px] leading-snug text-muted-foreground/80">
+                    <p className="text-xs leading-snug text-muted-foreground/80">
                       Si está en «Sí», el tie-break acaba cuando alguien va ganando por 2; si no, sigue hasta el punto exacto.
                     </p>
                   </div>
@@ -960,7 +960,7 @@ teams.forEach((t) => {
                         <SelectItem value="points_percentage">% Puntos — porcentaje de puntos ganados</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-[11px] leading-snug text-muted-foreground/80">
+                    <p className="text-xs leading-snug text-muted-foreground/80">
                       Define el orden de la tabla: por resultado (3-0-0) o por porcentaje de puntos ganados.
                     </p>
                   </div>
@@ -1107,7 +1107,7 @@ teams.forEach((t) => {
                         {t.logo ? (
                           <img src={t.logo} alt="" className="h-7 w-7 rounded object-contain" />
                         ) : (
-                          <span className="flex h-7 w-7 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground">{initialsEquipo(t)}</span>
+                          <span className="flex h-7 w-7 items-center justify-center rounded bg-muted text-xs font-bold text-muted-foreground">{initialsEquipo(t)}</span>
                         )}
                         <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
                         <Badge variant="outline" className="shrink-0">{t.division} · {sexShort(t.sex)}</Badge>
@@ -1197,7 +1197,7 @@ teams.forEach((t) => {
                             <RotateCcw className="h-3 w-3 text-amber-600" />
                             <span>
                               Sorteo #{history.length - i} — {h.length} grupos, {h.reduce((a, g) => a + g.pairIds.length, 0)} equipos
-                              {i === 0 && <span className="ml-2 text-[10px] text-emerald-600">(más reciente)</span>}
+                              {i === 0 && <span className="ml-2 text-xs text-emerald-600">(más reciente)</span>}
                             </span>
                           </Button>
                         ))}

@@ -171,6 +171,28 @@ export const matches: Match[] = [
     side_a: { pair_id: 'pair-5', pair_name: 'Camacho / Suárez' },
     side_b: { pair_id: null, pair_name: 'Cervantes / Robles' },
     sets: [], winner: null },
+  // Partidos por jugarse: sin ellos la agenda y el panel no tienen nada que
+  // mostrar y cualquier flujo de "próximos partidos" queda sin probar.
+  { id: 'm-7', tournament_id: 't-1', tournament_name: 'Copa Liga16 Apertura 2026', category_name: '4ta Masculino',
+    round: '4ta Masculino · Grupo A · J1', court_name: 'Cancha 1', scheduled_at: '2026-10-09T23:00:00Z', status: 'scheduled',
+    side_a: { pair_id: 'pair-7', pair_name: 'Fuentes / Rojas' },
+    side_b: { pair_id: 'pair-8', pair_name: 'Lira / Valle' },
+    sets: [], winner: null },
+  { id: 'm-8', tournament_id: 't-1', tournament_name: 'Copa Liga16 Apertura 2026', category_name: '5ta Masculino',
+    round: '5ta Masculino · Grupo A · J1', court_name: 'Cancha 2', scheduled_at: '2026-10-09T23:00:00Z', status: 'scheduled',
+    side_a: { pair_id: null, pair_name: 'Garza / Anaya' },
+    side_b: { pair_id: null, pair_name: 'Quintana / Cervantes' },
+    sets: [], winner: null },
+  { id: 'm-9', tournament_id: 't-1', tournament_name: 'Copa Liga16 Apertura 2026', category_name: '5ta Masculino',
+    round: '5ta Masculino · Grupo B · J1', court_name: 'Cancha 1', scheduled_at: '2026-10-10T00:30:00Z', status: 'scheduled',
+    side_a: { pair_id: null, pair_name: 'Cervantes / Robles' },
+    side_b: { pair_id: null, pair_name: 'Herrera / Montes' },
+    sets: [], winner: null },
+  { id: 'm-10', tournament_id: 't-2', tournament_name: 'Reforma Master 500', category_name: '4ta Masculino',
+    round: '4ta Masculino · J1', court_name: 'Cancha 2', scheduled_at: '2026-10-23T22:00:00Z', status: 'scheduled',
+    side_a: { pair_id: null, pair_name: 'Montoya / Palau' },
+    side_b: { pair_id: null, pair_name: 'Rivas / Ong' },
+    sets: [], winner: null },
 ];
 
 export const news: NewsItem[] = [
