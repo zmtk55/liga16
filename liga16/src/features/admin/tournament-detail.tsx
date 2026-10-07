@@ -1571,23 +1571,32 @@ return (
                             <span className="text-xs font-normal text-muted-foreground">{plural(g.items.length)}</span>
                           </p>
                           {g.items.map((m) => (
-                            <Card key={m.id}>
-                              <CardContent className="flex flex-wrap items-center gap-3 py-3 text-sm">
-                                <span className="font-medium flex-1 min-w-48">
-                                  {m.side_a.pair_name} <span className="text-muted-foreground">vs</span> {m.side_b.pair_name}
-                                </span>
-                                {m.court_name && <Badge variant="secondary">{m.court_name}</Badge>}
-                                {m.scheduled_at && <span className="text-xs tabular-nums text-muted-foreground">{formatMatchTime(m.scheduled_at)}</span>}
+                            <Card key={m.id} className="overflow-hidden">
+                              <CardContent className="flex items-center gap-3 px-3 py-2 text-sm">
+                                <div className="flex min-w-0 flex-1 items-center gap-3">
+                                  <div className="flex w-14 shrink-0 flex-col items-center rounded-md bg-muted/60 px-1 py-1">
+                                    <span className="text-sm font-bold tabular-nums leading-none">{m.scheduled_at ? localTimeHHMM(m.scheduled_at) : "--:--"}</span>
+                                    <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{m.court_name ?? "S/C"}</span>
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate font-medium leading-tight">
+                                      {m.side_a.pair_name} <span className="text-muted-foreground">vs</span> {m.side_b.pair_name}
+                                    </p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      {club?.name ?? "—"} {m.round ? `· ${m.round}` : ""}
+                                    </p>
+                                  </div>
+                                </div>
                                 {(scheduleIssues.get(m.id) ?? []).map((issue, i) => (
                                   <Badge key={i} variant="outline" className="border-destructive/50 text-destructive">
                                     {issue.label}
                                   </Badge>
                                 ))}
                                 <Button variant="ghost" size="sm" onClick={() => openReschedule(m)} aria-label={`Reprogramar ${m.side_a.pair_name} contra ${m.side_b.pair_name}`}>
-                                  <CalendarClock className="h-4 w-4" /> Reprogramar
+                                  <CalendarClock className="h-4 w-4" />
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
-                                  {m.status === "finished" ? "Ver resultado" : "Editar / Capturar"}
+                                  {m.status === "finished" ? "Ver" : "Editar"}
                                 </Button>
                               </CardContent>
                             </Card>
