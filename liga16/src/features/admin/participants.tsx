@@ -1,9 +1,11 @@
 // Admin → Participantes: todas las parejas de TODOS los torneos en una sola vista.
-// Filtra por torneo/categoría, y permite borrar o mover una pareja a otro torneo.
+// Filtra por torneo/categoría, muestra el estado de pago de las inscripciones
+// del flujo público, y permite confirmar el pago, borrar o mover una pareja.
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
-import type { Tournament, TournamentCategory, UUID } from "@/types";
+import type { AllPair } from "@/lib/data/provider";
+import type { RegistrationStatus, Tournament, TournamentCategory } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,16 +32,25 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
-import { FolderInput, Trash2, UsersRound } from "lucide-react";
+import { BadgeCheck, FolderInput, Trash2, UsersRound } from "lucide-react";
 
-interface AllPair {
-  id: UUID;
-  name: string;
-  category_id: UUID | null;
-  category_name: string | null;
-  tournament_id: UUID | null;
-  tournament_name: string | null;
-  created_at: string | null;
+const AMBER = "text-amber-600 dark:text-amber-400";
+
+/** Estados en los que la inscripción espera que el admin confirme el pago. */
+const POR_COBRAR: RegistrationStatus[] = ["started", "payment_pending", "payment_review"];
+
+/** Cómo se lee el estado de pago en la card. Sin inscripción = alta desde el admin. */
+function pagoDe(status: RegistrationStatus | null): { value: string; tone?: string } {
+  switch (status) {
+    case null: return { value: "—" };
+    case "paid": return { value: "Pagado", tone: "text-success" };
+    case "payment_review": return { value: "Por revisar", tone: AMBER };
+    case "started":
+    case "payment_pending": return { value: "Pendiente", tone: AMBER };
+    case "refunded": return { value: "Reembolsado" };
+    case "cancelled": return { value: "Cancelada" };
+    case "no_show": return { value: "No asistió" };
+  }
 }
 
 export default function AdminParticipants() {
@@ -113,8 +124,23 @@ export default function AdminParticipants() {
       torneos: new Set(conTorneo.map((p) => p.tournament_id)).size,
       sinTorneo: all.length - conTorneo.length,
       sinCategoria: all.filter((p) => !p.category_id).length,
+      porCobrar: all.filter((p) => p.registration_status && POR_COBRAR.includes(p.registration_status)).length,
     };
   }, [pairs]);
+
+  async function handleConfirmPayment(p: AllPair) {
+    if (!p.registration_id) return;
+    setBusy(true);
+    try {
+      await db.setRegistrationStatus(p.registration_id, "paid");
+      toast.success(`Pago de "${p.name}" confirmado`);
+      load();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al confirmar el pago");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleDelete(p: AllPair) {
     setBusy(true);
@@ -168,12 +194,17 @@ export default function AdminParticipants() {
           <AdminStat
             value={resumen.sinTorneo}
             label="Sin torneo"
-            tone={resumen.sinTorneo > 0 ? "text-amber-600 dark:text-amber-400" : undefined}
+            tone={resumen.sinTorneo > 0 ? AMBER : undefined}
           />
           <AdminStat
             value={resumen.sinCategoria}
             label="Sin categoría"
-            tone={resumen.sinCategoria > 0 ? "text-amber-600 dark:text-amber-400" : undefined}
+            tone={resumen.sinCategoria > 0 ? AMBER : undefined}
+          />
+          <AdminStat
+            value={resumen.porCobrar}
+            label="Pagos por confirmar"
+            tone={resumen.porCobrar > 0 ? AMBER : undefined}
           />
         </AdminStatStrip>
       </AdminPageHeader>
@@ -245,7 +276,16 @@ export default function AdminParticipants() {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((p) => {
                 const [p1, p2] = p.name.split(" / ");
+                const pago = pagoDe(p.registration_status);
+                const porCobrar = p.registration_status !== null && POR_COBRAR.includes(p.registration_status);
                 const actions: RowAction[] = [
+                  ...(porCobrar
+                    ? [{
+                        label: "Confirmar pago",
+                        icon: <BadgeCheck className="h-4 w-4" />,
+                        onSelect: () => { if (!busy) handleConfirmPayment(p); },
+                      }]
+                    : []),
                   {
                     label: "Mover a otro torneo",
                     icon: <FolderInput className="h-4 w-4" />,
@@ -282,6 +322,7 @@ export default function AdminParticipants() {
                               label="En torneo"
                               tone={p.tournament_name ? "text-success" : undefined}
                             />
+                            <CardStat value={pago.value} label="Pago" tone={pago.tone} />
                           </>
                         }
                         chip={p.tournament_name

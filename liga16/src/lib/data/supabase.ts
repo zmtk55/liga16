@@ -7,7 +7,7 @@ import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
 import { DIVISION_ORDER } from '@/lib/categories';
 import type { TournamentFilters } from '@/types';
-import type { Team, PadelDivision, Sex, Match, Court, Sponsor, Pair, PlayerProfile, PlayerStatus, MyProfileInput } from '@/types';
+import type { Team, PadelDivision, Sex, Match, Court, Sponsor, Pair, PlayerProfile, PlayerStatus, MyProfileInput, RegistrationStatus, PaymentMethod } from '@/types';
 
 function client() {
   if (!supabase) throw new Error('Supabase no está configurado. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
@@ -424,6 +424,14 @@ export const supabaseProvider: DataProvider = {
     return true;
   },
 
+  async setRegistrationStatus(registrationId: string, status: RegistrationStatus) {
+    const { error } = await client()
+      .from('registrations')
+      .update({ status, paid_at: status === 'paid' ? new Date().toISOString() : null })
+      .eq('id', registrationId);
+    if (error) throw error;
+  },
+
   async listMatchesByTournament(tournamentId: string) {
     const { data, error } = await client()
       .from('matches').select('*').eq('tournament_id', tournamentId);
@@ -718,18 +726,35 @@ export const supabaseProvider: DataProvider = {
   async listAllPairs() {
     const { data, error } = await client()
       .from('pairs')
-      .select('*, tournament_categories(name), tournaments(id, name)')
+      // `registrations` se embebe por su FK pair_id: una pareja del flujo
+      // público trae su inscripción; una creada desde el admin, ninguna.
+      .select('id, name, tournament_id, category_id, player1_id, player2_id, created_at, tournament_categories(name), tournaments(id, name), registrations(id, status, payment_method, amount_cents, created_at)')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((r: Record<string, unknown>) => ({
-      id: r.id as string,
-      name: r.name as string,
-      category_id: (r.category_id as string) ?? null,
-      category_name: (r.tournament_categories as { name: string } | null)?.name ?? null,
-      tournament_id: (r.tournament_id as string) ?? ((r.tournaments as { id: string } | null)?.id ?? null),
-      tournament_name: (r.tournaments as { name: string } | null)?.name ?? null,
-      created_at: (r.created_at as string) ?? null,
-    }));
+
+    type RegRow = { id: string; status: RegistrationStatus; payment_method: PaymentMethod; amount_cents: number | null; created_at: string };
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    return rows.map((r) => {
+      // Si hubiera varias (una por jugador inscrito), cuenta la más reciente.
+      const reg = ((r.registrations as RegRow[] | null) ?? [])
+        .slice()
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+      return {
+        id: r.id as string,
+        name: r.name as string,
+        category_id: (r.category_id as string) ?? null,
+        category_name: (r.tournament_categories as { name: string } | null)?.name ?? null,
+        tournament_id: (r.tournament_id as string) ?? ((r.tournaments as { id: string } | null)?.id ?? null),
+        tournament_name: (r.tournaments as { name: string } | null)?.name ?? null,
+        created_at: (r.created_at as string) ?? null,
+        player1_id: (r.player1_id as string | null) ?? null,
+        player2_id: (r.player2_id as string | null) ?? null,
+        registration_id: reg?.id ?? null,
+        registration_status: reg?.status ?? null,
+        payment_method: reg?.payment_method ?? null,
+        amount_cents: reg?.amount_cents ?? null,
+      };
+    });
   },
 
   async listTeams() {

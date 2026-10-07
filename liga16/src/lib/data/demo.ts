@@ -5,9 +5,16 @@ import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
   rankingEvents, rankings, sponsors, teams, tournaments,
 } from './seed';
-import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RankingEntry, RankingEvent, Registration, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
+import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RankingEntry, RankingEvent, RegistrationStatus, RegistrationWithPayment, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
 
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
+
+/** Nombre de categoría de una pareja a partir de su category_id (la BD trae la
+ * relación, en demo no). Devuelve null si no hay categoría. */
+function catNameOf(categoryId: string | null): string | null {
+  if (!categoryId) return null;
+  return store.categories.find((c) => c.id === categoryId)?.name ?? null;
+}
 
 /** En demo, "mi cuenta" es este jugador: permite recorrer el autoregistro sin Supabase. */
 const DEMO_ME_ID = 'p-3';
@@ -26,6 +33,10 @@ const store = {
   leagues: [...leagues] as League[],
   rankingEvents: [...rankingEvents] as RankingEvent[],
   sponsors: [...sponsors] as import('@/types').Sponsor[],
+  /** Registros de inscripción (flujo público). En demo vivían en un objeto
+   * separado que nunca se leía, así que las parejas del público nunca
+   * llegaban a la vista de participantes. Ahora comparte el store. */
+  registrations: [] as RegistrationWithPayment[],
 };
 
 export const demoProvider: DataProvider = {
@@ -97,15 +108,37 @@ export const demoProvider: DataProvider = {
 
   async listAllPairs() {
     await delay();
-    return store.pairs.map((p) => ({
-      id: p.id,
-      name: p.name,
-      category_id: p.category_id ?? null,
-      category_name: null,
-      tournament_id: p.tournament_id,
-      tournament_name: store.tournaments.find((t) => t.id === p.tournament_id)?.name ?? null,
-      created_at: null,
-    }));
+    const regById = new Map<string, RegistrationWithPayment>();
+    for (const r of store.registrations) regById.set(r.pair_id, r);
+    return store.pairs.map((p) => {
+      const reg = regById.get(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        category_id: p.category_id ?? null,
+        category_name: catNameOf(p.category_id),
+        tournament_id: p.tournament_id,
+        tournament_name: store.tournaments.find((t) => t.id === p.tournament_id)?.name ?? null,
+        created_at: null,
+        player1_id: p.player1_id || null,
+        player2_id: p.player2_id || null,
+        registration_id: reg?.id ?? null,
+        registration_status: reg?.status ?? null,
+        payment_method: reg?.payment_method ?? null,
+        amount_cents: reg?.amount_cents ?? null,
+      };
+    });
+  },
+
+  async setRegistrationStatus(registrationId: string, status: RegistrationStatus) {
+    await delay();
+    const idx = store.registrations.findIndex((r) => r.id === registrationId);
+    if (idx === -1) throw new Error('Inscripción no encontrada');
+    store.registrations[idx] = {
+      ...store.registrations[idx],
+      status,
+      paid_at: status === 'paid' ? new Date().toISOString() : null,
+    };
   },
 
   async createPair(data: { tournament_id: string; category_id?: string | null; name: string; seed?: number | null; player1_id?: string | null; player2_id?: string | null }) {
@@ -466,14 +499,35 @@ export const demoProvider: DataProvider = {
   // Registro
   async registerPair(input: RegisterPairInput) {
     await delay(300);
-    const registration: Registration = {
+    // Antes esto creaba un objeto `registration` aislado que nunca se leía:
+    // el jugador se inscribía y su pareja no aparecia en /admin/participantes.
+    // Ahora la pareja entra en el store principal y el registro lleva el estado
+    // de pago para que el admin pueda verlo y aprobarlo.
+    const pairId = `pair-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const pair: Pair = {
+      id: pairId,
+      tournament_id: input.tournament_id,
+      category_id: input.category_id,
+      name: input.pair_name,
+      player1_id: null,
+      player2_id: null,
+      seed: null,
+    } as unknown as Pair;
+    store.pairs.push(pair);
+
+    const regStatus = input.payment_method === 'transfer' ? 'payment_review' : 'payment_pending';
+    const registration: RegistrationWithPayment = {
       id: `reg-${Date.now()}`,
       tournament_id: input.tournament_id,
       category_id: input.category_id,
-      pair_id: `pair-${Date.now()}`,
-      status: input.payment_method === 'transfer' ? 'payment_review' : 'payment_pending',
+      pair_id: pairId,
+      status: regStatus,
       created_at: new Date().toISOString(),
+      payment_method: input.payment_method,
+      amount_cents: null,
+      paid_at: null,
     };
+    store.registrations.push(registration);
     return { registration };
   },
 };

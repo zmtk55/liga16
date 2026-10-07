@@ -175,6 +175,17 @@ export interface Registration {
   created_at: string;
 }
 
+/**
+ * Registro con sus datos de pago. El esquema de Supabase guarda
+ * payment_method, amount_cents y paid_at en la misma tabla `registrations`, y
+ * el estado del pago es el propio `status` del registro.
+ */
+export interface RegistrationWithPayment extends Registration {
+  payment_method: PaymentMethod;
+  amount_cents: number | null;
+  paid_at: string | null;
+}
+
 export interface Payment {
   id: UUID;
   registration_id: UUID;

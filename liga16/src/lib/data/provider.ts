@@ -13,6 +13,7 @@ import type {
   RankingEntry,
   RankingEvent,
   Registration,
+  RegistrationStatus,
   Sponsor,
   Team,
   Tournament,
@@ -20,6 +21,7 @@ import type {
   TournamentFilters,
   UUID,
   Court,
+  PaymentMethod,
 } from '@/types';
 
 export interface RegisterPairInput {
@@ -30,6 +32,29 @@ export interface RegisterPairInput {
   pair_name: string;
   accepted_rules: boolean;
   payment_method: 'cash' | 'transfer';
+}
+
+/**
+ * Fila de la vista global de participantes. Los ids de jugador están
+ * presentes para conectar la pareja con el directorio (nivel, ciudad, foto),
+ * y los campos `registration_*` traen su inscripción del flujo público, si la
+ * tiene. Una pareja creada desde el admin no tiene inscripción: todo es null.
+ */
+export interface AllPair {
+  id: UUID;
+  name: string;
+  category_id: UUID | null;
+  category_name: string | null;
+  tournament_id: UUID | null;
+  tournament_name: string | null;
+  created_at: string | null;
+  player1_id: UUID | null;
+  player2_id: UUID | null;
+  registration_id: UUID | null;
+  /** El estado de pago vive aquí: payment_pending → payment_review → paid. */
+  registration_status: RegistrationStatus | null;
+  payment_method: PaymentMethod | null;
+  amount_cents: number | null;
 }
 
 export interface DataProvider {
@@ -43,10 +68,19 @@ export interface DataProvider {
   createTournamentCategory(data: Omit<TournamentCategory, 'id'>): Promise<TournamentCategory>;
   deleteTournamentCategory(id: string): Promise<void>;
   getTournamentPairs(tournamentId: string): Promise<Pair[]>;
-  listAllPairs(): Promise<Array<{ id: UUID; name: string; category_id: UUID | null; category_name: string | null; tournament_id: UUID | null; tournament_name: string | null; created_at: string | null }>>;
+  /**
+   * Todas las parejas del circuito, con el nombre de categoría y torneo ya
+   * resueltos, más los ids de jugador para conectar con el directorio.
+   */
+  listAllPairs(): Promise<AllPair[]>;
   createPair(data: { tournament_id: UUID; category_id?: UUID | null; name: string; seed?: number | null; player1_id?: UUID | null; player2_id?: UUID | null; crest_url?: string | null }): Promise<Pair>;
   updatePair(id: UUID, data: { name?: string; category_id?: UUID | null; seed?: number | null; tournament_id?: UUID; crest_url?: string | null }): Promise<Pair>;
   deletePair(id: UUID): Promise<boolean>;
+  /**
+   * Cambia el estado de una inscripción (p. ej. confirmar el pago). Pasar a
+   * `paid` sella `paid_at` con la hora actual; cualquier otro estado lo limpia.
+   */
+  setRegistrationStatus(registrationId: UUID, status: RegistrationStatus): Promise<void>;
   listMatchesByTournament(tournamentId: string): Promise<Match[]>;
   createMatches(matches: Array<Omit<Match, 'id'>>): Promise<Match[]>;
   updateMatch(id: string, updates: Partial<Match>): Promise<Match | null>;
