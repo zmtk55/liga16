@@ -70,7 +70,7 @@ export function GroupFilterBar({
         <button
           type="button"
           onClick={() => onChange?.(clearValue)}
-          className="text-xs text-muted-foreground underline"
+          className="inline-flex h-7 items-center rounded-md px-2 text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Limpiar filtro de grupos"
         >
           Limpiar

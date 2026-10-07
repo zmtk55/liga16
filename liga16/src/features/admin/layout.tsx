@@ -233,8 +233,8 @@ export default function AdminLayout() {
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                     <p>
-                      Modo demo: los cambios se guardan solo en este navegador y no se
-                      sincronizan con Supabase.
+                      Modo demo: los cambios viven en memoria — duran hasta que
+                      recargues la página y no se sincronizan con Supabase.
                     </p>
                   </div>
                 )}

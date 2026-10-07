@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MapPin, Calendar } from "lucide-react";
-import { initials, formatMatchTime12, formatMatchDay, formatMatchMonth } from "@/lib/format";
+import { initials, formatMatchTime, formatMatchDay, formatMatchMonth } from "@/lib/format";
 import type { Match } from "@/types";
 
 /** Contenedor uniforme: mismo radio, borde, hover y transición en TODO el sistema. */
@@ -156,7 +156,7 @@ export function PairAvatars({
           key={i}
           className={cn(
             "border-2 border-background bg-primary/10",
-            size === "sm" ? "h-8 w-8 text-[10px]" : "h-10 w-10 text-xs",
+            size === "sm" ? "h-8 w-8 text-xs" : "h-10 w-10 text-xs",
           )}
         >
           <AvatarFallback className="bg-primary/10 font-bold text-primary">
@@ -201,7 +201,7 @@ export function MatchCard({
 }) {
   const isLive = match.status === "live";
   const hasScore = match.sets.length > 0;
-  const timeParts = match.scheduled_at ? formatMatchTime12(match.scheduled_at).split(" ") : null;
+  const matchTime = match.scheduled_at ? formatMatchTime(match.scheduled_at) : null;
 
   const sideRow = (side: "a" | "b") => {
     const names = pairNames(side === "a" ? match.side_a.pair_name : match.side_b.pair_name);
@@ -270,10 +270,9 @@ export function MatchCard({
             isLive ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border/80 bg-muted/40",
           )}
         >
-          {timeParts ? (
+          {matchTime ? (
             <>
-              <span className="font-headline text-xl leading-none tabular-nums">{timeParts[0]}</span>
-              <span className="text-2xs font-bold uppercase">{timeParts[1] ?? ""}</span>
+              <span className="font-headline text-xl leading-none tabular-nums">{matchTime}</span>
               <span className="mt-1 text-2xs font-semibold uppercase text-muted-foreground">
                 {formatMatchDay(match.scheduled_at!)} {formatMatchMonth(match.scheduled_at!)}
               </span>
@@ -303,7 +302,7 @@ export function MatchCard({
           <div className="mt-2">
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
                 match.court_name ? "bg-primary/10 text-primary" : "border border-dashed text-muted-foreground",
               )}
             >

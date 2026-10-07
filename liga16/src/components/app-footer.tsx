@@ -44,13 +44,13 @@ export function AppFooter() {
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
             <FooterGroup title="Explorar" items={explore} />
             <FooterGroup title="Comunidad" items={community} />
-            <p className="col-span-2 text-[11px] leading-relaxed text-muted-foreground/70 sm:col-span-1">
+            <p className="col-span-2 text-caption leading-relaxed text-muted-foreground sm:col-span-1">
               Aviso de Privacidad · Términos y Condiciones · Soporte y ayuda · Eliminar mi cuenta
             </p>
           </div>
         </div>
 
-        <div className="mt-5 border-t pt-3 text-center text-[11px] text-muted-foreground">
+        <div className="mt-5 border-t pt-3 text-center text-caption text-muted-foreground">
           © {new Date().getFullYear()} Liga16 — Todos los derechos reservados.
         </div>
       </div>
@@ -58,6 +58,8 @@ export function AppFooter() {
   );
 }
 
+/** Los iconos se ven de 16px pero se tocan con 32px: el área de clic del
+ * ícono desnudo era de 16x16, menor que la mitad del mínimo cómodo. */
 function SocialLinks() {
   return (
     <>
@@ -65,8 +67,8 @@ function SocialLinks() {
         href="https://facebook.com"
         target="_blank"
         rel="noreferrer"
-        aria-label="Facebook"
-        className="text-muted-foreground transition-colors hover:text-primary"
+        aria-label="Liga16 en Facebook"
+        className="-m-2 flex h-8 w-8 items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <Facebook className="h-4 w-4" />
       </a>
@@ -74,8 +76,8 @@ function SocialLinks() {
         href="https://instagram.com"
         target="_blank"
         rel="noreferrer"
-        aria-label="Instagram"
-        className="text-muted-foreground transition-colors hover:text-primary"
+        aria-label="Liga16 en Instagram"
+        className="-m-2 flex h-8 w-8 items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <Instagram className="h-4 w-4" />
       </a>
@@ -83,16 +85,20 @@ function SocialLinks() {
   );
 }
 
+/** Cada grupo del footer es una sección real de la página: por eso `h2` y no
+ * `h3` (con `h3` la jerarquía saltaba de `h1` a `h3` en todas las páginas). */
 function FooterGroup({ title, items }: { title: string; items: { to: string; label: string }[] }) {
   return (
     <div>
-      <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{title}</h3>
+      <h2 className="text-caption font-semibold uppercase tracking-widest text-muted-foreground">
+        {title}
+      </h2>
       <ul className="mt-2 space-y-1.5">
         {items.map((item) => (
           <li key={item.to + item.label}>
             <Link
               to={item.to}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-block py-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               {item.label}
             </Link>

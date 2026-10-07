@@ -161,11 +161,11 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               posición, así que en su lugar se marca como nueva. */}
           <div className="absolute top-3 right-3 z-20">
             {team.position > 0 ? (
-              <span className="rounded-full bg-black/45 px-2 py-1 text-[11px] font-bold tabular-nums text-white">
+              <span className="rounded-full bg-black/45 px-2 py-1 text-xs font-bold tabular-nums text-white">
                 #{team.position}
               </span>
             ) : team.played === 0 ? (
-              <span className="rounded-full bg-black/45 px-2 py-1 text-[11px] font-bold text-white">
+              <span className="rounded-full bg-black/45 px-2 py-1 text-xs font-bold text-white">
                 Nuevo
               </span>
             ) : null}
@@ -177,7 +177,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               distintas: "Suma 9" es la categoría con la que se inscribieron y
               "Sexta categoría" es la mesa en la que compiten. */}
           <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
-            <span className="rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
+            <span className="rounded-full bg-black/55 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white backdrop-blur-sm">
               {divisionLabel(team.division)}
             </span>
             <FavStar />
@@ -192,7 +192,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
                 </span>
               ))}
             </h3>
-            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-foreground/80">
+            <div className="mt-0.5 flex items-center gap-2 text-xs text-foreground/80">
               {/* La categoría REAL del torneo ("Suma 9", "4ta Masculino"), que es
                   como la gente la reconoce; la división derivada es solo el
                   bucket de orden. Antes la card mostraba la división sola y una
@@ -234,7 +234,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
         {/* Reverso: stats grandes para comparar */}
         <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <div className="flex h-full flex-col rounded-xl border border-border/60 bg-background p-4 text-foreground">
-            <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+            <p className="truncate text-xs uppercase tracking-wide text-muted-foreground">
               {[
                 team.position > 0 ? `#${team.position}` : null,
                 teamCategoryLabel(team),
@@ -278,7 +278,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
                   <ArrowUpRight className="ml-1.5 h-3.5 w-4" />
                 </Link>
               </Button>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Toca para voltear
               </p>
             </div>
@@ -293,7 +293,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
 function StatChip({ value, label }: { value: ReactNode; label: string }) {
   return (
     <span className="rounded-full bg-black/55 px-2 py-0.5 font-bold text-white">
-      {value} <span className="text-[10px] opacity-80">{label}</span>
+      {value} <span className="text-xs opacity-80">{label}</span>
     </span>
   );
 }
@@ -304,7 +304,7 @@ function BigStat({ value, label }: { value: ReactNode; label: string }) {
       <span className="text-3xl leading-none font-extrabold tabular-nums">
         {value}
       </span>
-      <span className="mt-1 text-[10px] uppercase text-muted-foreground">
+      <span className="mt-1 text-xs uppercase text-muted-foreground">
         {label}
       </span>
     </div>

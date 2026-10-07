@@ -76,7 +76,16 @@ import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
-import { formatDateRange, formatLabel, formatMatchTime12 } from "@/lib/format";
+import { formatDateRange, formatLabel, formatMatchTime } from "@/lib/format";
+import {
+  findScheduleIssues,
+  isSlotFree,
+  localDayKey,
+  localTimeHHMM,
+  rescheduleTo,
+  todayKey,
+  tournamentDays,
+} from "@/lib/schedule";
 
 function SortablePair({
   id,
@@ -485,7 +494,44 @@ export default function AdminTournamentDetail() {
   const [matchCategory, setMatchCategory] = useState("all");
   const [courts, setCourts] = useState<Court[]>([]);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
-  const [jornadaDay, setJornadaDay] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  /** Reprogramar: día, hora y cancha de un partido, sin entrar al diálogo de captura. */
+  const [rescheduleId, setRescheduleId] = useState<string | null>(null);
+  const [reschedule, setReschedule] = useState({ day: "", time: "", court: "" });
+
+  function openReschedule(m: Match) {
+    setReschedule({
+      day: localDayKey(m.scheduled_at ?? "") || todayKey(),
+      time: localTimeHHMM(m.scheduled_at ?? "") || "19:00",
+      court: m.court_name ?? "",
+    });
+    setRescheduleId(m.id);
+  }
+
+  async function saveReschedule() {
+    if (!rescheduleId || !reschedule.day || !reschedule.time) return;
+    const scheduled_at = rescheduleTo(reschedule.day, reschedule.time);
+    try {
+      const updated = await db.updateMatch(rescheduleId, {
+        scheduled_at,
+        court_name: reschedule.court || null,
+      });
+      setMatches((prev) => prev.map((m) => (m.id === rescheduleId ? { ...m, ...updated } : m)));
+      setRescheduleId(null);
+      toast.success(
+        `Reprogramado al ${new Date(`${reschedule.day}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })} a las ${reschedule.time}`,
+      );
+    } catch (e) {
+      toast.error((e as Error).message ?? "No se pudo reprogramar el partido");
+    }
+  }
+  const [jornadaDay, setJornadaDay] = useState<string>(() => todayKey());
+  /**
+   * La jornada se abre en un día que tenga partidos, no en "hoy": si el torneo se
+   * agendó para el sábado y hoy es martes, entrar y ver un día vacío era leer
+   * "no pasa nada" cuando en realidad había cuatro partidos esperando captura.
+   * Solo salta una vez; después manda lo que elija la persona.
+   */
+  const [jornadaAutoOpened, setJornadaAutoOpened] = useState(false);
   // Edición de fechas del torneo
   const [datesOpen, setDatesOpen] = useState(false);
   const [datesForm, setDatesForm] = useState({ start_date: "", end_date: "", registration_deadline: "" });
@@ -555,9 +601,20 @@ export default function AdminTournamentDetail() {
 
   const rounds = useMemo(() => [...new Set(matches.map((m) => m.round))].sort(), [matches]);
 
+  useEffect(() => {
+    if (jornadaAutoOpened || matches.length === 0) return;
+    setJornadaAutoOpened(true);
+    const days = [...new Set(matches.map((m) => localDayKey(m.scheduled_at ?? "")).filter(Boolean))].sort();
+    if (days.length > 0 && !days.includes(jornadaDay)) setJornadaDay(days[0]);
+  }, [matches, jornadaAutoOpened, jornadaDay]);
+
   const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
 
-  const matchDays = useMemo(() => [...new Set(matches.map((m) => (m.scheduled_at ?? "").slice(0, 10)).filter(Boolean))].sort(), [matches]);
+  // El día de un partido es el día LOCAL: `scheduled_at` es un instante UTC y su
+  // prefijo de fecha apunta al día siguiente para todo partido de la tarde noche.
+  const matchDays = useMemo(() => [...new Set(matches.map((m) => localDayKey(m.scheduled_at ?? "")).filter(Boolean))].sort(), [matches]);
+  /** Chques de cancha/hora y partidos sin cancha, por id: se pintan en la fila. */
+  const scheduleIssues = useMemo(() => findScheduleIssues(matches), [matches]);
   const matchCourtsList = useMemo(() => [...new Set(matches.map((m) => m.court_name).filter(Boolean))] as string[], [matches]);
   /**
    * La categoría de un partido: la que se guardó al crearlo. En los partidos
@@ -915,16 +972,16 @@ export default function AdminTournamentDetail() {
             <span className="text-sm text-muted-foreground">Día:</span>
             <DatePicker
               value={jornadaDay}
-              onChange={(v) => setJornadaDay(v ?? new Date().toISOString().split("T")[0])}
+              onChange={(v) => setJornadaDay(v ?? todayKey())}
               ariaLabel="Elegir día de la jornada"
             />
             <Badge variant="outline">
-              {matches.filter((m) => (m.scheduled_at ?? "").startsWith(jornadaDay)).length} partidos
+              {matches.filter((m) => localDayKey(m.scheduled_at ?? "") === jornadaDay).length} partidos
             </Badge>
           </div>
           {(() => {
             const dayMatches = matches
-              .filter((m) => (m.scheduled_at ?? "").startsWith(jornadaDay))
+              .filter((m) => localDayKey(m.scheduled_at ?? "") === jornadaDay)
               .sort((a, b) =>
                 String(a.court_name).localeCompare(String(b.court_name)) ||
                 String(a.scheduled_at).localeCompare(String(b.scheduled_at)),
@@ -947,9 +1004,7 @@ return (
                       const { group: groupName, jornada } = parseRound(m.round ?? "");
                       const jornadaNum = jornada ? `J${jornada}` : "";
                       const courtDisplay = m.court_name ?? "—";
-                      const timeDisplay = m.scheduled_at
-                        ? new Date(m.scheduled_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
-                        : "—";
+                      const timeDisplay = m.scheduled_at ? formatMatchTime(m.scheduled_at) : "—";
                       return (
                         <Button
                           key={m.id}
@@ -1128,7 +1183,17 @@ return (
               </Button>
             )}
             {groups.length > 0 && (
-              <Button variant="secondary" onClick={() => setScheduleOpen(true)} disabled={saving}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  // Al abrir se marcan los días del torneo: son la disponibilidad
+                  // obvia y dejar la casilla vacía hacía que "Generar" fallara con
+                  // un toast que nadie entendía de dónde salía.
+                  setScheduleConfig((c) => ({ ...c, days: c.days.length > 0 ? c.days : tournamentDays(tournament) }));
+                  setScheduleOpen(true);
+                }}
+                disabled={saving}
+              >
                 <CalendarClock className="h-4 w-4 mr-1" /> Generar calendario
               </Button>
             )}
@@ -1140,7 +1205,7 @@ return (
           </p>
           {pairs && pairs.length < 2 && (
             <p className="text-sm text-amber-600 dark:text-amber-400">
-              Tienes {pairs.length} equipo{pairs.length === 1 ? "" : "s"} inscrito{pairs.length === 1 ? "" : "s"} — se necesitan al menos 2 para sortear o generar partidos. Regístralos en la pestaña Equipos.
+              Tienes {pairs.length} equipo{pairs.length === 1 ? "" : "s"} inscrito{pairs.length === 1 ? "" : "s"} — se necesitan al menos 2 para sortear o generar partidos. Regístralos en la pestaña Parejas.
             </p>
           )}
 
@@ -1261,6 +1326,28 @@ return (
             </Card>
           ) : (
             <>
+              {/* Lo primero que necesita ver quien entra al calendario: qué falta
+                  capturar y qué está chocado, antes de la lista. */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">
+                  {matches.filter((m) => m.status !== "finished").length} sin capturar
+                </Badge>
+                <Badge variant="outline">
+                  {matchDays.length} día{matchDays.length === 1 ? "" : "s"}
+                </Badge>
+                <Badge variant="outline">
+                  {matchCourtsList.length} cancha{matchCourtsList.length === 1 ? "" : "s"}
+                </Badge>
+                {scheduleIssues.size > 0 ? (
+                  <Badge variant="outline" className="border-destructive/50 text-destructive">
+                    {scheduleIssues.size} con problema{scheduleIssues.size === 1 ? "" : "s"}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-success/50 text-success">
+                    Sin choques
+                  </Badge>
+                )}
+              </div>
               <FilterBar
                 search={matchQuery}
                 onSearch={setMatchQuery}
@@ -1334,9 +1421,9 @@ return (
                   return (
                     <div className="space-y-6">
                       {days.map((day) => {
-                        const dayMatches = filteredMatches.filter((m) => (m.scheduled_at ?? "").startsWith(day));
+                        const dayMatches = filteredMatches.filter((m) => localDayKey(m.scheduled_at ?? "") === day);
                         if (dayMatches.length === 0) return null;
-                        const times = [...new Set(dayMatches.map((m) => (m.scheduled_at ?? "").slice(11, 16)))].sort();
+                        const times = [...new Set(dayMatches.map((m) => localTimeHHMM(m.scheduled_at ?? "")))].sort();
                         return (
                           <div key={day} className="overflow-x-auto rounded-xl border">
                             <p className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold">
@@ -1357,7 +1444,7 @@ return (
                                   <tr key={t} className="border-b last:border-0">
                                     <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{t}</td>
                                     {courtCols.map((c) => {
-                                      const m = dayMatches.find((x) => x.court_name === c && (x.scheduled_at ?? "").slice(11, 16) === t);
+                                      const m = dayMatches.find((x) => x.court_name === c && localTimeHHMM(x.scheduled_at ?? "") === t);
                                       if (!m) return <td key={c} className="px-3 py-2" />;
                                       const done = m.status === "finished" && m.winner;
                                       return (
@@ -1392,7 +1479,7 @@ return (
                   // como filtro, no como etiqueta visual. Agrupamos por día.
                   const groups: { key: string; label: string; items: typeof filteredMatches }[] = [];
                   for (const m of filteredMatches) {
-                    const key = m.scheduled_at ? m.scheduled_at.slice(0, 10) : "sin-fecha";
+                    const key = m.scheduled_at ? localDayKey(m.scheduled_at) : "sin-fecha";
                     const label = m.scheduled_at
                       ? new Date(`${key}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })
                       : "Sin fecha";
@@ -1417,7 +1504,15 @@ return (
                                   {m.side_a.pair_name} <span className="text-muted-foreground">vs</span> {m.side_b.pair_name}
                                 </span>
                                 {m.court_name && <Badge variant="secondary">{m.court_name}</Badge>}
-                                {m.scheduled_at && <span className="text-xs tabular-nums text-muted-foreground">{formatMatchTime12(m.scheduled_at)}</span>}
+                                {m.scheduled_at && <span className="text-xs tabular-nums text-muted-foreground">{formatMatchTime(m.scheduled_at)}</span>}
+                                {(scheduleIssues.get(m.id) ?? []).map((issue, i) => (
+                                  <Badge key={i} variant="outline" className="border-destructive/50 text-destructive">
+                                    {issue.label}
+                                  </Badge>
+                                ))}
+                                <Button variant="ghost" size="sm" onClick={() => openReschedule(m)} aria-label={`Reprogramar ${m.side_a.pair_name} contra ${m.side_b.pair_name}`}>
+                                  <CalendarClock className="h-4 w-4" /> Reprogramar
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
                                   {m.status === "finished" ? "Ver resultado" : "Editar / Capturar"}
                                 </Button>
@@ -1434,6 +1529,94 @@ return (
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Diálogo: reprogramar un partido (día · hora · cancha). Es la pieza que
+          faltaba: cambiarle el día a un partido no debería obligar a entrar al
+          diálogo de captura, que es para otra cosa. */}
+      <Dialog
+        open={!!rescheduleId}
+        onOpenChange={(o) => {
+          if (!o) setRescheduleId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reprogramar partido</DialogTitle>
+            <DialogDescription>
+              {(() => {
+                const m = matches.find((x) => x.id === rescheduleId);
+                return m ? `${m.side_a.pair_name} contra ${m.side_b.pair_name}` : "Cambia el día, la hora o la cancha.";
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="repro-dia">Día</Label>
+              <Input
+                id="repro-dia"
+                type="date"
+                value={reschedule.day}
+                onChange={(e) => setReschedule((r) => ({ ...r, day: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="repro-hora">Hora</Label>
+              <Input
+                id="repro-hora"
+                type="time"
+                value={reschedule.time}
+                onChange={(e) => setReschedule((r) => ({ ...r, time: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="repro-cancha">Cancha</Label>
+              <Select
+                value={reschedule.court || "__none__"}
+                onValueChange={(v) => setReschedule((r) => ({ ...r, court: v === "__none__" ? "" : v }))}
+              >
+                <SelectTrigger id="repro-cancha">
+                  <SelectValue placeholder="Sin cancha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sin cancha</SelectItem>
+                  {[...new Set([...courts.map((c) => c.name), ...matchCourtsList])]
+                    .filter(Boolean)
+                    .sort()
+                    .map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {(() => {
+              if (!reschedule.day || !reschedule.time || !reschedule.court) return null;
+              const libre = isSlotFree(matches, {
+                day: reschedule.day,
+                time: reschedule.time,
+                court: reschedule.court,
+                ignoreId: rescheduleId ?? undefined,
+              });
+              return (
+                <p className={libre ? "text-xs text-muted-foreground" : "text-xs font-medium text-destructive"}>
+                  {libre
+                    ? `${reschedule.court} está libre a esa hora.`
+                    : `Ya hay otro partido en ${reschedule.court} a esa hora.`}
+                </p>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleId(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveReschedule} disabled={!reschedule.day || !reschedule.time}>
+              Guardar cambio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo: editar fechas del torneo */}
       <Dialog open={datesOpen} onOpenChange={setDatesOpen}>
@@ -1513,12 +1696,10 @@ return (
             <div className="grid gap-2">
               <Label id="lbl-dias-con-juego">Días con juego</Label>
               {(() => {
-                const start = new Date(`${tournament?.start_date ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
-                const end = new Date(`${tournament?.end_date ?? tournament?.start_date ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
-                const options: string[] = [];
-                for (let d = new Date(start); d <= end && options.length < 21; d.setDate(d.getDate() + 1)) {
-                  options.push(d.toISOString().slice(0, 10));
-                }
+                // Los días que salen aquí son exactamente los que precargueé al
+                // abrir el diálogo: una sola regla para "qué días tiene el torneo".
+                const options: string[] = tournamentDays(tournament);
+                if (options.length === 0) options.push(todayKey());
                 const toggle = (day: string, on: boolean) =>
                   setScheduleConfig((c) => ({ ...c, days: on ? [...c.days, day].sort() : c.days.filter((x) => x !== day) }));
                 return (
@@ -1642,7 +1823,7 @@ return (
           match={matches.find((m) => m.id === editingMatchId)!}
           nextMatchId={
             matches
-              .filter((m) => (m.scheduled_at ?? "").startsWith(jornadaDay) && m.status !== "finished")
+              .filter((m) => localDayKey(m.scheduled_at ?? "") === jornadaDay && m.status !== "finished")
               .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
               .find((m) => m.id !== editingMatchId)?.id ?? null
           }

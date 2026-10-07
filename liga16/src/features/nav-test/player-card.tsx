@@ -102,7 +102,7 @@ export function PlayerCardCompareBack({
         <BigStat value={String(lost ?? "—")} label="Perdidos" />
       </div>
 
-      <p className="mt-2 text-center text-[10px] uppercase tracking-wide text-muted-foreground">
+      <p className="mt-2 text-center text-xs uppercase tracking-wide text-muted-foreground">
         Toca para voltear
       </p>
     </div>
@@ -115,7 +115,7 @@ function BigStat({ value, label }: { value: string; label: string }) {
       <span className="text-3xl leading-none font-extrabold tabular-nums">
         {value}
       </span>
-      <span className="mt-1 text-[10px] uppercase text-muted-foreground">
+      <span className="mt-1 text-xs uppercase text-muted-foreground">
         {label}
       </span>
     </div>

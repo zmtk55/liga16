@@ -50,7 +50,7 @@ export function RankingFilters({
       </div>
 
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           División
         </p>
         {/* En móvil la fila se desliza en vez de partirse en tres líneas */}
@@ -71,7 +71,7 @@ export function RankingFilters({
       </div>
 
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Rama
         </p>
         <ToggleGroup

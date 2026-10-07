@@ -87,7 +87,7 @@ export default function AdminInbox() {
                 Modo demo
               </Badge>
             )}
-            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={refresh} disabled={loading} aria-label="Actualizar alertas">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>

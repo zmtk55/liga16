@@ -12,14 +12,22 @@
     --popover: 0 0% 100%;
     --popover-foreground: 24 100% 10%;
     --primary: 16 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    /* Tinta sobre superficies primary. Blanco sobre este naranja mide 3.4:1 y
+       falla AA (piden 4.5:1); la tinta casi negra mide 5:1 y no depende de
+       que el naranja se oscurezca o no. */
+    --primary-foreground: 24 100% 8%;
     --secondary: 24 60% 92%;
     --secondary-foreground: 24 100% 20%;
     --muted: 24 40% 94%;
     --muted-foreground: 24 40% 36%;
     --accent: 16 100% 95%;
     --accent-foreground: 16 80% 30%;
-    --destructive: 0 84% 60%;
+    /* El mismo naranja, pero OSCURECIDO: para usarlo como texto o icono sobre
+       el fondo de la página. `--primary` pintado da 3.4:1 y como texto small
+       queda por debajo de AA; este da 6.9:1 sobre el fondo claro. El tema
+       oscuro usa el mismo rol con un tono más claro. */
+    --primary-strong: 16 85% 32%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
     --border: 24 40% 88%;
     --input: 24 40% 88%;
@@ -31,17 +39,20 @@
     --surface-inverse-foreground: 0 0% 96%;
     --surface-inverse-border: 240 5% 18%;
 
-    /* Semántico de éxito (rachas, victorias, sets ganados) */
-    --success: 152 65% 34%;
+    /* Semántico de éxito (rachas, victorias, sets ganados).
+       152 65% 34% daba 4.09:1 sobre el fondo claro: AA pide 4.5:1. */
+    --success: 152 65% 32%;
     --success-foreground: 0 0% 100%;
 
     /* Semántico de aviso (tendencias neutras, barras de probabilidad) */
     --warning: 38 92% 50%;
 
     /* Escala tipográfica semántica: números de stats y etiquetas mini.
-       Las pages NUNCA inventan tamaños: usan text-stat / text-caption. */
+       Las pages NUNCA inventan tamaños: usan text-stat / text-caption.
+       El piso de la escala es 12px: por debajo el texto ya no se lee sin
+       effort (y `scripts/check-ui.mjs` falla si alguien escribe text-[10px]). */
     --text-stat: 1.125rem;
-    --text-caption: 0.6875rem;
+    --text-caption: 0.75rem;
 
     --sidebar-background: 16 100% 50%;
     --sidebar-foreground: 0 0% 100%;
@@ -61,13 +72,16 @@
     --popover: 240 6% 10%;
     --popover-foreground: 0 0% 96%;
     --primary: 16 100% 54%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 24 100% 8%;
     --secondary: 240 5% 16%;
     --secondary-foreground: 0 0% 96%;
     --muted: 240 5% 16%;
     --muted-foreground: 240 5% 64%;
     --accent: 16 40% 25%;
     --accent-foreground: 16 100% 92%;
+    /* Ver `--primary-strong` en :root: mismo rol, tono claro porque el fondo
+       oscuro necesita luminosidad para legible. */
+    --primary-strong: 16 100% 68%;
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 6% 16%;

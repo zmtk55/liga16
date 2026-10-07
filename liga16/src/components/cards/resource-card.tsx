@@ -53,8 +53,11 @@ export function ResourceCard({
           </div>
         )}
 
-        {/* Dark hover overlay — visible on mobile (touch), hover-only on desktop */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+        {/* Dark hover overlay — visible on mobile (touch), hover-only on desktop.
+            `group-focus-within` va con `group-hover`: sin esto, quien navega con
+            teclado llegaba al enlace y al botón sin verlos (opacidad 0 = invisible,
+            pero seguían siendo tabulables). */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 flex flex-col justify-end p-4">
           {description && (
             <p className="mb-3 line-clamp-2 text-sm text-white/90">
               {description}

@@ -7,10 +7,11 @@
  * alguien reintroduce un componente (o al revés) y el build truena con
  * "Cannot find module" en archivos que nadie estaba importando.
  *
- * Tres chequeos:
+ * Cuatro chequeos:
  *   1. ERROR  componente en components/ui que nada alcanza desde las entradas
  *   2. ERROR  import de un paquete que no está en package.json
  *   3. AVISO  dependencia declarada que nada importa
+ *   4. ERROR  tamaño de texto inventado por debajo del piso de la escala (12px)
  *
  * Uso: npm run check:ui
  */
@@ -131,6 +132,23 @@ const unusedPackages = [...declared].filter(
     !configText.includes(d),
 );
 
+// ── 4. Tipografía: el piso de la escala es 12px ──────────────────────────
+// La app tiene una escala semántica (text-stat / text-caption / text-xs). Los
+// `text-[10px]` escritos a mano la esquivaban: más de cien apariciones que nadie
+// podía cambiar de golpe y que nadie leía. Cualquier tamaño inventado por debajo
+// de 12px es un error, aunque compile y aunque se vea bien en la máquina de quien
+// lo escribió.
+const MIN_FONT_PX = 12;
+const tinyType = [];
+for (const file of sources) {
+  const rel = path.relative(root, file);
+  fs.readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+    for (const m of line.matchAll(/text-\[(\d+(?:\.\d+)?)px\]/g)) {
+      if (Number(m[1]) < MIN_FONT_PX) tinyType.push(`${rel}:${i + 1}  text-[${m[1]}px]`);
+    }
+  });
+}
+
 // ── Reporte ───────────────────────────────────────────────────────────────
 let errors = 0;
 if (unused.length) {
@@ -147,6 +165,17 @@ if (missingPackages.size) {
     for (const f of [...files].slice(0, 3)) console.error(`      ${f}`);
   }
   console.error(`\n   Instálalos o quita esos imports.\n`);
+}
+if (tinyType.length) {
+  errors++;
+  console.error(`\n✖ ${tinyType.length} texto(s) por debajo de ${MIN_FONT_PX}px:\n`);
+  for (const t of tinyType.slice(0, 20)) console.error(`   ${t}`);
+  if (tinyType.length > 20) console.error(`   … y ${tinyType.length - 20} más`);
+  console.error(
+    `\n   Usa la escala semántica: text-xs (12px), text-caption para etiquetas\n` +
+      `   en versalitas, text-stat para cifras. Cambia --text-caption en index.css\n` +
+      `   si de verdad el piso necesita moverse, no cada pantalla por su cuenta.\n`,
+  );
 }
 if (unusedPackages.length) {
   console.warn(`\n⚠ ${unusedPackages.length} dependencia(s) declaradas sin usar:\n`);

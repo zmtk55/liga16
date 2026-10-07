@@ -120,17 +120,15 @@ export function formatMatchDateTime(iso: string): string {
   }).format(parseDate(iso));
 }
 
-/** Hora corta 12h para México: "5:26 pm". */
-export function formatMatchTime12(iso: string): string {
+/** Hora del partido en 24h: "19:30". La app usa 24h en todas partes (el
+ * generador de calendario lista "08:00…22:00"), así que la card y la agenda no
+ * pueden seguir con "7:30 pm". */
+export function formatMatchTime(iso: string): string {
   return new Intl.DateTimeFormat("es-MX", {
-    hour: "numeric",
+    hour: "2-digit",
     minute: "2-digit",
-    hour12: true,
-  })
-    .format(parseDate(iso))
-    .toLowerCase()
-    .replace(/a\.\s*m\./, "am")
-    .replace(/p\.\s*m\./, "pm");
+    hour12: false,
+  }).format(parseDate(iso));
 }
 
 /** Día del mes para el chip de fecha de la agenda: "12". */

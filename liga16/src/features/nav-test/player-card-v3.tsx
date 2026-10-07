@@ -96,7 +96,7 @@ export function PlayerCardV3({ player, played, won, onOpen }: PlayerCardProps) {
             <h3 className="text-sm font-bold text-foreground">
               {player.display_name}
             </h3>
-            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-foreground/80">
+            <div className="mt-0.5 flex items-center gap-2 text-xs text-foreground/80">
               <Badge
                 variant="outline"
                 className="rounded-full border-foreground/20 bg-foreground/10 text-foreground"
@@ -108,7 +108,7 @@ export function PlayerCardV3({ player, played, won, onOpen }: PlayerCardProps) {
             </div>
 
             {/* Stats: chips oscuros siempre legibles (sin verde/naranja) */}
-            <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-foreground/10 pt-1.5 text-[10px]">
+            <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-foreground/10 pt-1.5 text-xs">
               <div className="flex flex-wrap items-center gap-1.5">
                 {wr !== null && (
                   <span className="rounded-full bg-black/55 px-2 py-0.5 font-bold text-white">

@@ -313,7 +313,7 @@ export function NavbarPlayerSearch({
             >
               <Bell className="h-4 w-4" />
               {alertCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-0.5 text-[10px] font-bold text-destructive-foreground">
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold leading-none text-destructive-foreground">
                   {alertCount}
                 </span>
               )}

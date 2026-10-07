@@ -107,7 +107,7 @@ function CmpRow({ a, label, b }: { a: string; label: string; b: string }) {
       <span className="text-right text-sm leading-none font-extrabold tabular-nums">
         {a}
       </span>
-      <span className="text-[9px] tracking-wide text-muted-foreground uppercase">
+      <span className="text-xs tracking-wide text-muted-foreground uppercase">
         {label}
       </span>
       <span className="text-left text-sm leading-none font-extrabold tabular-nums text-muted-foreground">
@@ -120,7 +120,7 @@ function CmpRow({ a, label, b }: { a: string; label: string; b: string }) {
 function StatCell({ value, label }: { value: string; label: string }) {
   return (
     <div className="rounded-md bg-black/55 px-1 py-0.5 text-center">
-      <span className="block text-[10px] leading-tight font-bold text-white">
+      <span className="block text-xs leading-tight font-bold text-white">
         {value}
       </span>
       <span className="block text-[8px] leading-tight text-white/60">
@@ -237,7 +237,7 @@ export function PlayerCardV6({ player, played, won, onOpen }: PlayerCardProps) {
             <p className="truncate text-[13px] font-bold text-foreground">
               {player.display_name}
             </p>
-            <p className="truncate text-[10px] text-foreground/80">
+            <p className="truncate text-xs text-foreground/80">
               {categoria} · {sexShort(player.sex)} · Nivel {level}
             </p>
 
@@ -252,7 +252,7 @@ export function PlayerCardV6({ player, played, won, onOpen }: PlayerCardProps) {
               >
                 <SelectTrigger
                   size="sm"
-                  className="h-6 flex-1 rounded-full border-white/20 bg-black/40 text-[11px] text-white hover:bg-black/55"
+                  className="h-6 flex-1 rounded-full border-white/20 bg-black/40 text-xs text-white hover:bg-black/55"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <span className="text-white/60">Comparar</span>
@@ -317,7 +317,7 @@ export function PlayerCardV6({ player, played, won, onOpen }: PlayerCardProps) {
             </div>
 
             {/* Gráfica G/P: barra apilada siempre visible */}
-            <div className="mt-1.5 flex items-center gap-1.5 text-[9px] font-bold text-foreground">
+            <div className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-foreground">
               <span>G {won ?? "—"}</span>
               <div className="flex h-2.5 flex-1 overflow-hidden rounded-full bg-foreground/15">
                 <div
@@ -337,12 +337,12 @@ export function PlayerCardV6({ player, played, won, onOpen }: PlayerCardProps) {
         {/* Reverso ×3: stats de los dos */}
         <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <div className="flex h-full flex-col rounded-xl border border-border/60 bg-background p-3 text-foreground">
-            <p className="truncate text-center text-[11px] font-bold">
+            <p className="truncate text-center text-xs font-bold">
               {player.display_name}{" "}
               <span className="text-muted-foreground">vs</span>{" "}
               <span className="text-muted-foreground">{rival.name}</span>
             </p>
-            <p className="truncate text-center text-[9px] text-muted-foreground">
+            <p className="truncate text-center text-xs text-muted-foreground">
               {rival.subtitle}
             </p>
 
@@ -401,7 +401,7 @@ export function PlayerCardV6({ player, played, won, onOpen }: PlayerCardProps) {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <p className="mt-1 text-center text-[9px] tracking-wide text-muted-foreground uppercase">
+            <p className="mt-1 text-center text-xs tracking-wide text-muted-foreground uppercase">
               Toca para cerrar
             </p>
           </div>

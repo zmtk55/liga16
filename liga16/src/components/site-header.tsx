@@ -92,7 +92,7 @@ export function SiteHeader() {
                           (item.to === "/" ? pathname === "/" : pathname.startsWith(item.to))
                             ? "bg-background text-foreground shadow-xs outline-border"
                             : "text-muted-foreground",
-                          item.to === "/admin" && "text-primary",
+                          item.to === "/admin" && "text-primary-strong",
                         )}
                       >
                         {item.to === "/admin" && <Shield className="mr-1 h-3.5 w-3.5" />}
@@ -199,7 +199,7 @@ export function SiteHeader() {
                         cn(
                           "flex min-h-10 items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium",
                           isActive ? "bg-accent/15 text-foreground" : "",
-                          item.to === "/admin" && "text-primary",
+                          item.to === "/admin" && "text-primary-strong",
                         )
                       }
                     >

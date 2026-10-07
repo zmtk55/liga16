@@ -2,6 +2,9 @@
 // Modo simple (una fecha) o rango (inicio/fin en un solo control).
 import * as React from "react";
 import { format } from "date-fns";
+// Sin locale, date-fns y react-day-picker hablan inglés en una app que no lo hace:
+// "Sat 26 Sep 2026" y un calendario en "January".
+import { es } from "date-fns/locale";
 import { CalendarIcon, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -52,7 +55,7 @@ export function DatePicker({
           <span className="flex min-w-0 items-center gap-2">
             <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate">
-              {date ? format(date, "EEE d MMM yyyy") : placeholder}
+              {date ? format(date, "EEE d MMM yyyy", { locale: es }) : placeholder}
             </span>
           </span>
           {clearable && date ? (
@@ -68,6 +71,7 @@ export function DatePicker({
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
+          locale={es}
           mode="single"
           selected={date}
           captionLayout="dropdown"
@@ -115,7 +119,7 @@ export function DateTimePicker({
   }
 
   const label = day
-    ? `${format(day, "EEE d MMM yyyy")}${time ? ` · ${time}` : ""}`
+    ? `${format(day, "EEE d MMM yyyy", { locale: es })}${time ? ` · ${time}` : ""}`
     : placeholder;
 
   return (
@@ -136,6 +140,7 @@ export function DateTimePicker({
       </PopoverTrigger>
       <PopoverContent className="w-auto p-3" align="start">
         <Calendar
+          locale={es}
           mode="single"
           selected={day}
           captionLayout="dropdown"
@@ -184,9 +189,9 @@ export function DateRangePicker({
 
   const label =
     from && to
-      ? `${format(from, "d MMM")} – ${format(to, "d MMM yyyy")}`
+      ? `${format(from, "d MMM", { locale: es })} – ${format(to, "d MMM yyyy", { locale: es })}`
       : from
-        ? `Desde ${format(from, "d MMM")}`
+        ? `Desde ${format(from, "d MMM", { locale: es })}`
         : "Rango de fechas";
 
   return (
@@ -203,6 +208,7 @@ export function DateRangePicker({
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
+          locale={es}
           mode="range"
           numberOfMonths={2}
           selected={from && to ? { from, to } : undefined}

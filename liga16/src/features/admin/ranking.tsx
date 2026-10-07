@@ -107,7 +107,7 @@ export default function AdminRanking() {
         </p>
         <Link
           to="/admin/resultados"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          className="inline-flex min-h-9 items-center gap-2 text-sm font-semibold text-primary-strong underline-offset-4 hover:underline"
         >
           <ClipboardList className="h-4 w-4" /> Ir a Resultados
         </Link>

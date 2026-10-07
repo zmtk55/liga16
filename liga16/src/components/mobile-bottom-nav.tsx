@@ -107,7 +107,7 @@ export function MobileBottomNav() {
                   </span>
                   <span
                     className={cn(
-                      "text-[10px] leading-none transition-colors duration-200",
+                      "text-xs leading-none transition-colors duration-200",
                       active ? "font-bold text-white" : "font-medium text-white/50 group-hover:text-white/80",
                     )}
                   >
