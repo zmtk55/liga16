@@ -7,7 +7,6 @@
 import { createBrowserRouter, Navigate, useParams } from "react-router";
 import AppLayout from "./layout";
 import Home from "../features/home/page";
-import NavTest from "../features/nav-test/page";
 import { lazy } from "react";
 import { RequireAuth, RequireRole } from "@/components/auth/guards";
 
@@ -136,5 +135,4 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },
-  { path: "test-navbar", element: <NavTest /> },
 ]);

@@ -14,7 +14,6 @@ import type { PlayerCardProps } from "./player-card";
 import {
   FavStar,
   PlayerCardCompareBack,
-  samplePlayers,
   divisionFromLevel,
 } from "./player-card";
 
@@ -159,12 +158,3 @@ export function PlayerCardV5({ player, played, won, onOpen }: PlayerCardProps) {
   );
 }
 
-export function PlayerCardV5Demo() {
-  return (
-    <section className="grid gap-6 justify-items-center sm:grid-cols-2 sm:justify-items-start lg:max-w-3xl">
-      {samplePlayers.map((p) => (
-        <PlayerCardV5 key={p.player.id} {...p} />
-      ))}
-    </section>
-  );
-}
