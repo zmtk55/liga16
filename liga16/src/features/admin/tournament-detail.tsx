@@ -43,6 +43,7 @@ import {
   UserPlus,
   Search,
   Trophy,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,13 +71,20 @@ import {
 import type { Court } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterBar } from "@/components/ui/filter-bar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { buildBracket, moveSeed, resolveBracket, type BracketEntry } from "@/lib/bracket";
 import { tournamentProgress } from "@/lib/tournament-progress";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
-import { formatDateRange, formatLabel, formatMatchTime } from "@/lib/format";
+import { formatDateRange, formatLabel, formatMatchTime, tournamentStatusLabel } from "@/lib/format";
 import {
   findScheduleIssues,
   isSlotFree,
@@ -898,6 +906,52 @@ export default function AdminTournamentDetail() {
     }
   }
 
+  const STATUS_TRANSITIONS: Record<Tournament["status"], { label: string; target: Tournament["status"] }[]> = {
+    draft: [
+      { label: "Publicar", target: "published" },
+      { label: "Cancelar", target: "cancelled" },
+    ],
+    published: [
+      { label: "Abrir inscripciones", target: "registration_open" },
+      { label: "Pasar a borrador", target: "draft" },
+      { label: "Cancelar", target: "cancelled" },
+    ],
+    registration_open: [
+      { label: "Cerrar inscripciones", target: "registration_closed" },
+      { label: "Iniciar torneo", target: "in_progress" },
+      { label: "Volver a publicar", target: "published" },
+    ],
+    registration_closed: [
+      { label: "Abrir inscripciones", target: "registration_open" },
+      { label: "Iniciar torneo", target: "in_progress" },
+      { label: "Volver a publicar", target: "published" },
+    ],
+    in_progress: [
+      { label: "Finalizar", target: "finished" },
+      { label: "Cancelar", target: "cancelled" },
+    ],
+    finished: [{ label: "Reabrir", target: "registration_open" }],
+    cancelled: [{ label: "Reactivar", target: "draft" }],
+  };
+
+  const [changingStatus, setChangingStatus] = useState<{ target: Tournament["status"] } | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
+
+  async function handleStatusChange(target: Tournament["status"]) {
+    if (!tournament) return;
+    setStatusSaving(true);
+    try {
+      await db.updateTournament(tournament.slug, { status: target });
+      setTournament({ ...tournament, status: target });
+      toast.success(`Torneo cambiado a ${tournamentStatusLabel[target]}`);
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al cambiar estado");
+    } finally {
+      setStatusSaving(false);
+      setChangingStatus(null);
+    }
+  }
+
   if (!tournament) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   const club = clubs.find((c) => c.id === tournament.club_id);
@@ -930,7 +984,26 @@ export default function AdminTournamentDetail() {
         backLabel="Torneos"
         action={
           <>
-            <TournamentStatusBadge status={tournament.status} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={statusSaving}>
+                  <TournamentStatusBadge status={tournament.status} />
+                  <ChevronDown className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {(STATUS_TRANSITIONS[tournament.status] ?? []).map((tr) => (
+                  <DropdownMenuItem
+                    key={tr.target}
+                    onClick={() => setChangingStatus({ target: tr.target })}
+                    disabled={statusSaving}
+                  >
+                    <Check className="h-3.5 w-3.5 mr-2" />
+                    {tr.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             {tournament.semifinal_slots != null && (
               <Badge variant="outline" className="h-8 gap-1.5 px-3">
                 <Trophy className="h-3.5 w-3.5" />
@@ -1836,6 +1909,15 @@ return (
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!changingStatus}
+        onOpenChange={(o) => { if (!o) setChangingStatus(null); }}
+        onConfirm={() => changingStatus && handleStatusChange(changingStatus.target)}
+        title={changingStatus ? `¿Cambiar estado a "${tournamentStatusLabel[changingStatus.target]}"?` : ""}
+        description="Esta acción afecta la visibilidad y accesibilidad del torneo."
+        confirmLabel="Confirmar"
+      />
     </div>
   );
 }

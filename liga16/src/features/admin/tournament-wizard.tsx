@@ -398,11 +398,11 @@ export default function TournamentWizard() {
   async function doPersistStep(target: number) {
     // En modo edición (slug) el torneo ya existe: cada pasada por el paso 2
     // debe actualizar sus campos (antes solo se creaba y la edición era código muerto).
-    if (target >= 2 && (tournamentId || slug)) {
-        const payload = {
+    if (target >= 2) {
+      const payload = {
           name: tournament.name,
           cover_url: tournament.cover_url,
-          club_id: null,
+          club_id: clubId,
           city: club.city,
           state: club.state,
           start_date: tournament.start_date,
@@ -411,7 +411,6 @@ export default function TournamentWizard() {
           status: tournament.status,
           modality: "pairs",
           format: tournament.format,
-          organizer_id: null,
           price_cents: Math.round(tournament.price_mxn * 100),
           currency: "MXN",
           rules_summary: tournament.rules_summary || null,

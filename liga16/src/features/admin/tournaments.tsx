@@ -4,8 +4,8 @@ import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDateRange, tournamentStatusLabel } from "@/lib/format";
-import { ExternalLink, Pencil, Plus, Trash2, Trophy } from "lucide-react";
+import { formatDateRange, formatLabel, tournamentStatusLabel } from "@/lib/format";
+import { ExternalLink, Pencil, Plus, Trash2, Trophy, Check } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -16,9 +16,40 @@ import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/p
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 
+const STATUS_TRANSITIONS: Record<Tournament["status"], { label: string; target: Tournament["status"] }[]> = {
+  draft: [
+    { label: "Publicar", target: "published" },
+    { label: "Cancelar", target: "cancelled" },
+  ],
+  published: [
+    { label: "Abrir inscripciones", target: "registration_open" },
+    { label: "Pasar a borrador", target: "draft" },
+    { label: "Cancelar", target: "cancelled" },
+  ],
+  registration_open: [
+    { label: "Cerrar inscripciones", target: "registration_closed" },
+    { label: "Iniciar torneo", target: "in_progress" },
+    { label: "Volver a publicar", target: "published" },
+  ],
+  registration_closed: [
+    { label: "Abrir inscripciones", target: "registration_open" },
+    { label: "Iniciar torneo", target: "in_progress" },
+    { label: "Volver a publicar", target: "published" },
+  ],
+  in_progress: [
+    { label: "Finalizar", target: "finished" },
+    { label: "Cancelar", target: "cancelled" },
+  ],
+  finished: [
+    { label: "Reabrir", target: "registration_open" },
+  ],
+  cancelled: [
+    { label: "Reactivar", target: "draft" },
+  ],
+};
+
 export default function AdminTournaments() {
   const [list, setList] = useState<Tournament[] | null>(null);
-  // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const setQuery = (v: string) => {
@@ -41,8 +72,8 @@ export default function AdminTournaments() {
   });
 
   const [deleting, setDeleting] = useState<Tournament | null>(null);
+  const [changingStatus, setChangingStatus] = useState<{ tournament: Tournament; target: Tournament["status"] } | null>(null);
 
-  /** Cifras de cabecera: qué está vivo, qué se puede abrir y qué ya pasó. */
   const resumen = useMemo(() => {
     const all = list ?? [];
     return {
@@ -62,6 +93,18 @@ export default function AdminTournaments() {
       toast.error((e as Error).message ?? "Error al eliminar");
     } finally {
       setDeleting(null);
+    }
+  }
+
+  async function handleStatusChange(t: Tournament, target: Tournament["status"]) {
+    try {
+      await db.updateTournament(t.slug, { status: target });
+      toast.success(`"${t.name}" cambiado a ${tournamentStatusLabel[target]}`);
+      db.listTournaments().then(setList);
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al cambiar estado");
+    } finally {
+      setChangingStatus(null);
     }
   }
 
@@ -113,9 +156,6 @@ export default function AdminTournaments() {
           />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          {/* Cards y no tabla (mismo CardKit del sitio público): el nombre,
-              la sede y las fechas ya son el contenido de una tarjeta; en tabla
-              había que leerlas en horizontal. */}
           {list === null && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -149,6 +189,7 @@ export default function AdminTournaments() {
           {filtered.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((t) => {
+                const canTransition = STATUS_TRANSITIONS[t.status] ?? [];
                 const actions: RowAction[] = [
                   {
                     label: "Abrir",
@@ -160,14 +201,22 @@ export default function AdminTournaments() {
                     icon: <Pencil className="h-4 w-4" />,
                     to: `/admin/torneos/${t.slug}/editar`,
                   },
-                  {
-                    label: "Eliminar",
-                    icon: <Trash2 className="h-4 w-4" />,
-                    onSelect: () => setDeleting(t),
-                    destructive: true,
-                    separator: true,
-                  },
                 ];
+                for (const tr of canTransition) {
+                  actions.push({
+                    label: tr.label,
+                    icon: <Check className="h-4 w-4" />,
+                    onSelect: () => setChangingStatus({ tournament: t, target: tr.target }),
+                    separator: tr.target === "cancelled" || tr.target === "finished",
+                  });
+                }
+                actions.push({
+                  label: "Eliminar",
+                  icon: <Trash2 className="h-4 w-4" />,
+                  onSelect: () => setDeleting(t),
+                  destructive: true,
+                  separator: true,
+                });
                 return (
                   <RowContextMenu key={t.id} actions={actions}>
                     <CardShell accent={t.status === "in_progress"}>
@@ -175,7 +224,7 @@ export default function AdminTournaments() {
                         <CardIdentity
                           lead={<Trophy className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
                           title={t.name}
-                          meta={[t.club_name ?? t.city, formatDateRange(t.start_date, t.end_date)]
+                          meta={[t.club_name ?? t.city, formatDateRange(t.start_date, t.end_date), formatLabel[t.format] ?? t.format]
                             .filter(Boolean)
                             .join(" · ")}
                           end={<TournamentStatusBadge status={t.status} />}
@@ -185,7 +234,7 @@ export default function AdminTournaments() {
                         stats={
                           <>
                             <CardStat value={t.city || "—"} label="Ciudad" />
-                            <CardStat value={t.format === "groups_knockout" ? "Grupos" : "Eliminación"} label="Formato" />
+                            <CardStat value={formatLabel[t.format] ?? t.format} label="Formato" />
                           </>
                         }
                         chip={
@@ -207,6 +256,15 @@ export default function AdminTournaments() {
         onConfirm={() => deleting && handleDelete(deleting)}
         title={`¿Eliminar el torneo "${deleting?.name ?? ""}"?`}
         description="Se borran sus partidos, equipos y categorías. No se puede deshacer."
+      />
+
+      <ConfirmDialog
+        open={!!changingStatus}
+        onOpenChange={(o) => { if (!o) setChangingStatus(null); }}
+        onConfirm={() => changingStatus && handleStatusChange(changingStatus.tournament, changingStatus.target)}
+        title={`¿Cambiar estado del torneo "${changingStatus?.tournament.name ?? ""}"?`}
+        description={`Se cambiará a "${tournamentStatusLabel[changingStatus?.target ?? ""]}"`}
+        confirmLabel="Confirmar"
       />
     </div>
   );
