@@ -9,7 +9,7 @@ import { ExternalLink, Pencil, Plus, Trash2, Trophy, Check } from "lucide-react"
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
-import { CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
+import { CardShell, CardIdentity } from "@/components/cards/card-kit";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -159,7 +159,16 @@ export default function AdminTournaments() {
           {list === null && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-28 rounded-xl" />
+                <CardShell key={i} className="h-full">
+                  <Skeleton className="aspect-[16/7] w-full" />
+                  <CardContent className="pt-12">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="mt-2 h-3 w-1/2" />
+                  </CardContent>
+                  <div className="flex items-center justify-end border-t border-border/60 bg-muted/40 px-3 py-1.5">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                  </div>
+                </CardShell>
               ))}
             </div>
           )}
@@ -219,28 +228,29 @@ export default function AdminTournaments() {
                 });
                 return (
                   <RowContextMenu key={t.id} actions={actions}>
-                    <CardShell accent={t.status === "in_progress"}>
-                      <CardContent className="p-4">
-                        <CardIdentity
-                          lead={<Trophy className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
-                          title={t.name}
-                          meta={[t.club_name ?? t.city, formatDateRange(t.start_date, t.end_date), formatLabel[t.format] ?? t.format]
-                            .filter(Boolean)
-                            .join(" · ")}
-                          end={<TournamentStatusBadge status={t.status} />}
-                        />
-                      </CardContent>
-                      <CardFooterStrip
-                        stats={
-                          <>
-                            <CardStat value={t.city || "—"} label="Ciudad" />
-                            <CardStat value={formatLabel[t.format] ?? t.format} label="Formato" />
-                          </>
-                        }
-                        chip={
-                          <RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} />
-                        }
-                      />
+                    <CardShell banner={t.cover_url} bannerAlt={`Cubierta del torneo ${t.name}`} className="relative">
+                      {t.cover_url && (
+                        <>
+                          <h3 className="absolute left-4 top-4 z-10 line-clamp-1 text-base font-bold text-white drop-shadow-sm">
+                            {t.name}
+                          </h3>
+                          <div className="absolute right-4 top-4 z-10">
+                            <TournamentStatusBadge status={t.status} />
+                          </div>
+                        </>
+                      )}
+                      <CardContent className={t.cover_url ? "pt-12" : "p-4"}>
+                          <CardIdentity
+                            lead={<Trophy className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
+                            titleLines={[
+                              t.club_name ?? t.city,
+                              `${formatDateRange(t.start_date, t.end_date)} · ${formatLabel[t.format] ?? t.format}`,
+                            ]}
+                          />
+                        </CardContent>
+                      <div className="flex items-center justify-end border-t border-border/60 bg-muted/40 px-3 py-1.5">
+                        <RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} />
+                      </div>
                     </CardShell>
                   </RowContextMenu>
                 );
