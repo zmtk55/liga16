@@ -74,9 +74,9 @@ export function CardIdentity({
       {lead}
       <div className="min-w-0 flex-1">
         {titleLines ? (
-          <div className="leading-tight">
+          <div className="flex flex-col justify-center gap-0.5 leading-tight">
             {titleLines.map((line, i) => (
-              <p key={i} className="truncate text-sm font-bold tracking-tight">
+              <p key={i} className="min-h-[1.25rem] truncate text-sm font-bold tracking-tight">
                 {line}
                 {i < titleLines.length - 1 && (
                   <span className="ml-1.5 text-caption text-muted-foreground">/</span>
@@ -133,10 +133,10 @@ export function CardFooterStrip({
         className,
       )}
     >
-      <div className="flex min-w-0 flex-1 items-center justify-around divide-x divide-border/60">
+      <div className="flex min-w-0 flex-1 items-stretch justify-around gap-1 divide-x divide-border/60">
         {stats}
       </div>
-      {chip && <div className="shrink-0">{chip}</div>}
+      {chip && <div className="ml-1 shrink-0">{chip}</div>}
     </div>
   );
 }

@@ -6,8 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { MatchCard } from "@/components/cards/card-kit";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { MatchCard, PairAvatars, CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { sexLabel, sexOptions, winRate } from "@/lib/format";
@@ -16,7 +16,7 @@ import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/page-hero";
 import { DIVISION_ORDER } from "@/lib/categories";
-import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock, LayoutGrid, BarChart3, List, GitCompare } from "lucide-react";
 
 /**
  * Popup de pareja: cabecera póster + stats + UN partido a la vez con flechas.
@@ -230,6 +230,9 @@ export default function RankingsPage() {
   };
   const setSex = (v: string) => setParam("sex", v);
   const [detail, setDetail] = useState<Team | null>(null);
+  const [view, setView] = useState<"table" | "cards" | "chart">("table");
+  const [compare, setCompare] = useState<[Team | null, Team | null]>([null, null]);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -299,7 +302,31 @@ export default function RankingsPage() {
           {sexOptions.filter((s) => s.value !== "all").map((s) => (
             <ToggleGroupItem key={s.value} value={s.value}>{s.label}</ToggleGroupItem>
           ))}
+          </ToggleGroup>
+        </div>
+
+      {/* Selector de vista: tabla · cards · gráfico, y comparar 2 parejas */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ToggleGroup
+          type="single"
+          value={view}
+          onValueChange={(v) => v && setView(v as typeof view)}
+          variant="outline"
+          size="sm"
+          className="w-fit justify-start"
+        >
+          <ToggleGroupItem value="table"><List className="h-4 w-4" /> Tabla</ToggleGroupItem>
+          <ToggleGroupItem value="cards"><LayoutGrid className="h-4 w-4" /> Cards</ToggleGroupItem>
+          <ToggleGroupItem value="chart"><BarChart3 className="h-4 w-4" /> Gráfico</ToggleGroupItem>
         </ToggleGroup>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCompareOpen(true)}
+          disabled={!compare[0] && !compare[1]}
+        >
+          <GitCompare className="h-4 w-4" /> Comparar {compare[0] && compare[1] ? "✓" : ""}
+        </Button>
       </div>
 
       {teams === null ? (
@@ -312,6 +339,82 @@ export default function RankingsPage() {
             <p className="mt-1">Prueba cambiando la división o el género.</p>
           </CardContent>
         </Card>
+      ) : view === "chart" ? (
+        <Card>
+          <CardContent className="space-y-2 p-4">
+            {filtered.map((t) => {
+              const max = Math.max(...filtered.map((x) => x.points), 1);
+              const pct = Math.max((t.points / max) * 100, 4);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => { buzz("tap"); setDetail(t); }}
+                  className="group flex w-full items-center gap-3 rounded-lg px-2 py-1 text-left transition-colors hover:bg-muted/40"
+                >
+                  <span className="w-6 shrink-0 text-sm font-bold tabular-nums text-muted-foreground">
+                    {t.position > 0 ? t.position : "—"}
+                  </span>
+                  <span className="w-36 shrink-0 truncate text-sm font-medium">{t.name}</span>
+                  <div className="relative h-6 min-w-0 flex-1 overflow-hidden rounded-md bg-muted">
+                    <div
+                      className="h-full rounded-md bg-primary/80 transition-all group-hover:bg-primary"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
+                    {t.points.toLocaleString("es-MX")}
+                  </span>
+                </button>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : view === "cards" ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((t) => (
+            <CardShell key={t.id} accent>
+              <CardContent className="p-4">
+                <CardIdentity
+                  lead={<PairAvatars names={[t.player1?.name, t.player2?.name]} size="sm" />}
+                  titleLines={[t.name].filter(Boolean)}
+                  meta={`${t.division} · ${sexLabel(t.sex)}`}
+                  end={
+                    <span className="text-2xl font-extrabold tabular-nums text-muted-foreground">
+                      {t.position > 0 ? t.position : "—"}
+                    </span>
+                  }
+                />
+                <div className="mt-3 flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setCompare((c) => [c[0] ? c[0] : t, c[1]]);
+                      setCompareOpen(true);
+                    }}
+                  >
+                    <GitCompare className="h-3 w-3" /> Comparar
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { buzz("tap"); setDetail(t); }}>
+                    Partidos
+                  </Button>
+                </div>
+              </CardContent>
+              <CardFooterStrip
+                stats={
+                  <>
+                    <CardStat value={t.points.toLocaleString("es-MX")} label="Puntos" />
+                    <CardStat value={`${t.won}–${Math.max(t.lost, 0)}`} label="Record" />
+                    <CardStat value={`${winRate(t.played, t.won)}%`} label="Efectiv." />
+                  </>
+                }
+                chip={<Badge variant="outline">{t.division}</Badge>}
+              />
+            </CardShell>
+          ))}
+        </div>
       ) : (
         <Card>
           <CardContent className="overflow-x-auto p-0">
@@ -379,6 +482,72 @@ export default function RankingsPage() {
       )}
 
       <TeamDetailDialog team={detail} onClose={() => setDetail(null)} />
+
+      {/* Comparar 2 parejas lado a lado */}
+      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitCompare className="h-5 w-5" /> Comparar parejas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2 py-2">
+            <div className="grid grid-cols-2 gap-2">
+              {[0, 1].map((i) => (
+                <Select
+                  key={i}
+                  value={compare[i]?.id ?? "__none__"}
+                  onValueChange={(v) =>
+                    setCompare((c) => {
+                      const next: [Team | null, Team | null] = [c[0], c[1]];
+                      next[i] = filtered.find((t) => t.id === v) ?? null;
+                      return next;
+                    })
+                  }
+                >
+                  <SelectTrigger aria-label={`Pareja ${i + 1}`}>
+                    <SelectValue placeholder={`Pareja ${i + 1}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">—</SelectItem>
+                    {filtered.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ))}
+            </div>
+          </div>
+          {compare[0] && compare[1] && (
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div />
+              {[0, 1].map((i) => (
+                <div key={i} className="font-semibold">{compare[i]?.name}</div>
+              ))}
+              {[
+                ["Posición", (t: Team) => String(t.position || "—")],
+                ["Puntos", (t: Team) => t.points.toLocaleString("es-MX")],
+                ["Record", (t: Team) => `${t.won}–${Math.max(t.lost, 0)}`],
+                ["Efectividad", (t: Team) => `${winRate(t.played, t.won)}%`],
+                ["División", (t: Team) => t.division],
+                ["Jugadores", (t: Team) => `${t.player1?.name ?? "—"} / ${t.player2?.name ?? "—"}`],
+              ].map(([label, fn]) => (
+                <div key={label as string} className="contents">
+                  <div className="py-1 text-xs text-muted-foreground">{label}</div>
+                  {[0, 1].map((i) => (
+                    <div key={i} className="py-1 text-sm font-semibold tabular-nums">
+                      {(fn as (t: Team) => string)(compare[i]!)}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompareOpen(false)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
