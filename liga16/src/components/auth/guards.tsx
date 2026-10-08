@@ -65,6 +65,11 @@ export function RequireRole({ children, roles, message }: RequireRoleProps) {
     return <>{children}</>;
   }
 
+  // Demo local: permitir ver todo el admin para desarrollo (el rol real se valida en Supabase).
+  if (!isConfigured && !user?.role) {
+    return <>{children}</>;
+  }
+
   const role = user?.role;
   if (!role || !roles.includes(role)) {
     return (

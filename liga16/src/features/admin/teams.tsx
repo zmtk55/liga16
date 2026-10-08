@@ -370,7 +370,7 @@ export default function AdminTeams() {
                           stats={
                             <>
                               <CardStat
-                                value={p.crest_url ? "1" : "0"}
+                                value={p.crest_url ? "Sí" : "No"}
                                 label="Escudo"
                                 tone={p.crest_url ? "text-success" : undefined}
                               />

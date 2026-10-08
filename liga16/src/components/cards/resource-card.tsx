@@ -36,7 +36,7 @@ export function ResourceCard({
 
         {/* Floating status badge */}
         {badge && (
-          <div className="absolute top-3 right-3 animate-float">
+          <div className="absolute top-3 right-3 z-20 animate-float">
             <Badge variant="secondary" className="shadow-sm">
               {badge}
             </Badge>
@@ -45,7 +45,7 @@ export function ResourceCard({
 
         {/* Live indicator pulse */}
         {tournament.status === "in_progress" && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+          <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
