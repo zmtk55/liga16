@@ -531,23 +531,26 @@ export default function RankingsPage() {
               {[0, 1].map((i) => (
                 <div key={i} className="font-semibold">{compare[i]?.name}</div>
               ))}
-              {[
-                ["Posición", (t: Team) => String(t.position || "—")],
-                ["Puntos", (t: Team) => t.points.toLocaleString("es-MX")],
-                ["Record", (t: Team) => `${t.won}–${Math.max(t.lost, 0)}`],
-                ["Efectividad", (t: Team) => `${winRate(t.played, t.won)}%`],
-                ["División", (t: Team) => t.division],
-                ["Jugadores", (t: Team) => `${t.player1?.name ?? "—"} / ${t.player2?.name ?? "—"}`],
-              ] as [string, (t: Team) => string][]).map(([label, fn]) => (
-                <div key={label} className="contents">
-                  <div className="py-1 text-xs text-muted-foreground">{label}</div>
-                  {[0, 1].map((i) => (
-                    <div key={i} className="py-1 text-sm font-semibold tabular-nums">
-                      {(fn as (t: Team) => string)(compare[i]!)}
-                    </div>
-                  ))}
-                </div>
-              ))}
+              {(() => {
+                const records: [string, (t: Team) => string][] = [
+                  ["Posición", (t: Team) => String(t.position || "—")],
+                  ["Puntos", (t: Team) => t.points.toLocaleString("es-MX")],
+                  ["Record", (t: Team) => `${t.won}–${Math.max(t.lost, 0)}`],
+                  ["Efectividad", (t: Team) => `${winRate(t.played, t.won)}%`],
+                  ["División", (t: Team) => t.division],
+                  ["Jugadores", (t: Team) => `${t.player1?.name ?? "—"} / ${t.player2?.name ?? "—"}`],
+                ];
+                return records.map(([label, fn]) => (
+                  <div key={label} className="contents">
+                    <div className="py-1 text-xs text-muted-foreground">{label}</div>
+                    {[0, 1].map((i) => (
+                      <div key={i} className="py-1 text-sm font-semibold tabular-nums">
+                        {fn(compare[i]!)}
+                      </div>
+                    ))}
+                  </div>
+                ));
+              })()}
             </div>
           )}
           <DialogFooter>
