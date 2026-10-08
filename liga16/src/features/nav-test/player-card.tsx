@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { initials, sexShort, winRate } from "@/lib/format";
+import { initials, sexLabel, winRate } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import { Star } from "lucide-react";
 import type { PlayerProfile } from "@/types";
@@ -82,7 +82,7 @@ export function PlayerCardCompareBack({
         <div className="min-w-0">
           <p className="truncate font-bold">{player.display_name}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {categoria} · {sexShort(player.sex)} · Nivel {level}
+            {categoria} · {sexLabel(player.sex)} · Nivel {level}
           </p>
         </div>
       </div>

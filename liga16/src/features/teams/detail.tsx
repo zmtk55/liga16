@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
 import { MatchCard } from "@/components/cards/card-kit";
 import { initials, sexLabel, winRate } from "@/lib/format";
+import { teamCategoryLabel } from "@/lib/categories";
 
 export default function TeamDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -130,7 +131,7 @@ export default function TeamDetailPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div>
-                  <p className="text-sm tracking-widest text-white/60 uppercase">Categoría {team.division} · Liga16</p>
+                  <p className="text-sm tracking-widest text-white/60 uppercase">{teamCategoryLabel(team)} · Liga16</p>
                   <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">{team.name}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{team.position || "—"} de la categoría</Badge>
@@ -154,7 +155,7 @@ export default function TeamDetailPage() {
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
                   <p className="text-xs text-white/50">Posición</p>
                   <p className="text-2xl font-black tabular-nums">#{team.position || "—"}</p>
-                  <p className="text-xs text-white/50">Categoría {team.division}</p>
+                  <p className="text-xs text-white/50">{teamCategoryLabel(team)}</p>
                 </div>
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
                   <p className="text-xs text-white/50">Puntos</p>

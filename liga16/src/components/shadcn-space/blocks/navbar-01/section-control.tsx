@@ -90,10 +90,7 @@ export function SectionControl({ className }: { className?: string }) {
   const divisiones = divisionOptions.filter((d) => d.value !== "all");
   const divisionActiva =
     division !== "all"
-      ? (divisionOptions.find((d) => d.value === division)?.label ?? division).replace(
-          " División",
-          "",
-        )
+      ? (divisionOptions.find((d) => d.value === division)?.label ?? division)
       : null;
 
   return (

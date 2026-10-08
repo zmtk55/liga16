@@ -34,7 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { sexLabel, winRate } from "@/lib/format";
-import { divisionLabel, teamCategoryLabel } from "@/lib/categories";
+import { teamCategoryLabel } from "@/lib/categories";
 import { buzz } from "@/lib/haptics";
 // La estrella vive en el playground porque nació allí; ya es parte del
 // sistema (la usa la galería de jugadores) y duplicarla sería peor que
@@ -170,15 +170,16 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               </span>
             ) : null}
           </div>
-          {/* La DIVISIÓN, escrita con palabras y arriba a la izquierda: es el
-              dato que la gente busca primero ("¿en qué categoría juego?") y la
-              abreviatura "5ta" hay que descifrarla. Va como rótulo propio, no
-              dentro de la línea de la categoría del torneo, porque son dos cosas
-              distintas: "Suma 9" es la categoría con la que se inscribieron y
-              "Sexta categoría" es la mesa en la que compiten. */}
+          {/* La DIVISIÓN con su abreviatura, arriba a la izquierda: es el dato
+              que la gente busca primero ("¿en qué categoría juego?"). Va como
+              rótulo propio y no dentro de la línea de la categoría del torneo
+              porque son dos cosas distintas: "Suma 9" es la categoría con la que
+              se inscribieron y "6ta" es la mesa en la que compiten. Antes acá
+              salía "Sexta categoría", que además de ser otra respuesta para lo
+              mismo obligaba a descifrar una abreviatura que nadie descifra. */}
           <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
             <span className="rounded-full bg-black/55 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white backdrop-blur-sm">
-              {divisionLabel(team.division)}
+              {team.division}
             </span>
             <FavStar />
           </div>

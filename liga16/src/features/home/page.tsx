@@ -12,9 +12,7 @@ import { db } from "@/lib/data";
 import type {
   Match,
   NewsItem,
-  PadelDivision,
   RankingEntry,
-  Sex,
   Sponsor,
   Team,
   Tournament,
@@ -23,28 +21,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  divisionOptions,
   matchStatusLabel,
   tournamentStatusLabel,
   tierLabel,
   formatDateRange,
   formatLabel,
   formatMatchDateTime,
-  sexShort,
   winRate,
 } from "@/lib/format";
+import {
+  DIVISION_ORDER,
+  teamCategoryKey,
+  teamCategoryLabel,
+} from "@/lib/categories";
 import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
 
 const HERO_IMAGE = "/images/hero-padel.jpg";
-
-// Categorías del circuito en orden de publicación: 2 parejas por categoría.
-// La etiqueta visible usa el nombre real de la categoría cuando existe.
-const TEAM_GROUP_ORDER: Array<`${Sex}|${PadelDivision}`> = [
-  "F|5ta",
-  "F|4ta",
-  "F|6ta",
-  "M|6ta",
-];
 
 type HomeData = {
   tournaments: Tournament[];
@@ -150,32 +142,29 @@ export default function Home() {
     };
   }, []);
 
-  // Parejas: top 2 de CADA categoría que tenga parejas en los datos.
-  // `TEAM_GROUP_ORDER` es el ORDEN editorial de publicación, no una lista
-  // blanca: antes lo era, y cualquier categoría con parejas que no estuviera
-  // escrita ahí (una 7ma, una nueva) se perdía sin aviso. Ahora se arma desde
-  // los datos y esa lista solo ordena; lo demás entra al final, por el orden
-  // canónico de `divisionOptions`.
+  // Parejas: top 2 de CADA CATEGORÍA REAL del circuito.
+  //
+  // Se agrupa por `teamCategoryKey` —el nombre que el torneo le puso al
+  // Inscripción, con respaldo en la división—, igual que hace /equipos. Antes
+  // esta página agrupaba por el enum de divisiones, y eso rompía en dos
+  // direcciones: el filtro ofrecía divisiones que la liga no tiene, y no podía
+  // ofrecer categorías que sí existen ("Suma 9"). Tampoco hay lista blanca: se
+  // arma desde los datos.
   const teamGroups = useMemo(() => {
     if (!stats) return [];
     const byKey = new Map<string, Team[]>();
     for (const team of stats.teams) {
-      const key = `${team.sex}|${team.division}`;
+      const key = teamCategoryKey(team);
       const list = byKey.get(key);
       if (list) list.push(team);
       else byKey.set(key, [team]);
     }
-    const rankOf = (key: string) => {
-      const editorial = TEAM_GROUP_ORDER.indexOf(key as `${Sex}|${PadelDivision}`);
-      if (editorial >= 0) return editorial;
-      const divisionRank = divisionOptions.findIndex(
-        (o) => o.value === key.split("|")[1],
-      );
-      return TEAM_GROUP_ORDER.length + (divisionRank < 0 ? divisionOptions.length : divisionRank);
+    const divisionRank = (t: Team) => {
+      const i = DIVISION_ORDER.indexOf(t.division);
+      return i < 0 ? DIVISION_ORDER.length : i;
     };
     return [...byKey.entries()]
       .map(([key, teams]) => {
-        const [sex, division] = key.split("|") as [Sex, PadelDivision];
         const sorted = [...teams].sort(
           (a, b) =>
             (a.position || Number.MAX_SAFE_INTEGER) -
@@ -183,20 +172,21 @@ export default function Home() {
             b.points - a.points ||
             b.won - a.won,
         );
-        return {
-          key,
-          label: teams[0]?.category_name ?? `Categoría ${division} · ${sexShort(sex)}`,
-          teams: sorted.slice(0, 2),
-        };
+        return { key, label: teamCategoryLabel(teams[0]), teams: sorted.slice(0, 2) };
       })
-      .sort((a, b) => rankOf(a.key) - rankOf(b.key));
+      .sort(
+        (a, b) =>
+          divisionRank(a.teams[0]) - divisionRank(b.teams[0]) ||
+          a.label.localeCompare(b.label, "es"),
+      );
   }, [stats]);
-  const [div, setDiv] = useState("");
-  // Filtra las parejas mostradas por división (pills responsive).
+
+  const [cat, setCat] = useState("");
+  // El filtro filtra por CATEGORÍA, no por división: la lista sale de las que
+  // existen de verdad, no del enum.
   const shownGroups = useMemo(
-    () =>
-      div ? teamGroups.filter((g) => g.key.split("|")[1] === div) : teamGroups,
-    [teamGroups, div],
+    () => (cat ? teamGroups.filter((g) => g.key === cat) : teamGroups),
+    [teamGroups, cat],
   );
   // La pareja destacada sale del grupo FILTRADO. Antes tomaba `teamGroups[0]`
   // y con un filtro activo señalaba una categoría que no era la elegida.
@@ -464,9 +454,9 @@ export default function Home() {
             flotaba entre secciones, sin dueño, y se leía como otra pieza. */}
         <div className="flex items-center justify-between gap-3 pt-3">
           <GroupFilterBar
-            divisions={divisionOptions.filter((o) => o.value !== "all")}
-            value={div}
-            onChange={setDiv}
+            divisions={teamGroups.map((g) => ({ value: g.key, label: g.label }))}
+            value={cat}
+            onChange={setCat}
           />
         </div>
         <div className="space-y-3">
@@ -522,19 +512,19 @@ export default function Home() {
           {shownGroups.length === 0 && (
             <div className="rounded-xl border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">
-                {div
-                  ? "No hay parejas inscritas en esta división."
+                {cat
+                  ? "No hay parejas inscritas en esta categoría."
                   : "Las parejas inscritas aparecerán aquí, organizadas por categoría."}
               </p>
-              {div && (
+              {cat && (
                 // El vacío ofrece la salida, no solo la ausencia.
                 <Button
                   variant="ghost"
                   size="sm"
                   className="mt-3 rounded-none"
-                  onClick={() => setDiv("")}
+                  onClick={() => setCat("")}
                 >
-                  {divisionOptions[0].label}
+                  Ver todas
                 </Button>
               )}
             </div>

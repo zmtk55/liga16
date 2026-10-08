@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { initials, sexShort, winRate } from "@/lib/format";
+import { initials, sexLabel, winRate } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import type { PlayerCardProps } from "./player-card";
 import {
@@ -105,7 +105,7 @@ export function PlayerCardV5({ player, played, won, onOpen }: PlayerCardProps) {
               >
                 {categoria}
               </Badge>
-              <span>{sexShort(player.sex)}</span>
+              <span>{sexLabel(player.sex)}</span>
               <span>· Nivel {level}</span>
             </div>
 

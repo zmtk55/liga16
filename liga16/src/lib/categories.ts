@@ -1,4 +1,5 @@
 // Validación y formato de categorías de torneo (nombre libre + rama).
+import { sexLabel } from "@/lib/format";
 import type { PadelDivision, Sex, Team } from "@/types";
 
 export interface CategoryValue {
@@ -10,26 +11,16 @@ export interface CategoryValue {
 export const DIVISION_ORDER: PadelDivision[] = ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"];
 
 /**
- * Cómo se escribe una división con palabras.
+ * NO hay expansor de divisiones a palabras.
  *
- * "5ta" es una abreviatura que el sistema usa para ordenar y filtrar; para
- * quien lee la card, "Quinta categoría" dice lo mismo sin que tenga que
- * descifrar la terminación. El ordinal va con su género propio: "5ta" es
- * quinta, "5to" sería quinto, y aquí sale la forma larga que no tiene ambigüedad.
+ * Existió `divisionLabel()` con un mapa que volvía "5ta" → "Quinta categoría",
+ * alimentado por la idea de que la abreviatura hay que descifrarla. No: en el
+ * circuito se dice "5ta" y la tarjeta mostraba "Quinta categoría" al lado de la
+ * categoría real del torneo. Dos respuestas para el mismo dato.
+ *
+ * La división se muestra tal cual viene (`team.division`), y la categoría que
+ * el torneo le puso al inscribirse manda sobre ella. Ver teamCategoryLabel.
  */
-const DIVISION_WORDS: Record<PadelDivision, string> = {
-  "1ra": "Primera categoría",
-  "2da": "Segunda categoría",
-  "3ra": "Tercera categoría",
-  "4ta": "Cuarta categoría",
-  "5ta": "Quinta categoría",
-  "6ta": "Sexta categoría",
-  Novatos: "Categoría novatos",
-};
-
-export function divisionLabel(division: PadelDivision): string {
-  return DIVISION_WORDS[division] ?? division;
-}
 
 /**
  * En qué división compite una categoría.
@@ -91,29 +82,29 @@ export function categoriasValidas(cats: CategoryValue[]): boolean {
     new Set(cats.map((c) => c.label.trim().toLowerCase())).size === cats.length;
 }
 
-/** Cómo se llama la rama en español. */
-export function ramaLabel(sex: Sex): string {
-  return sex === "M" ? "Varonil" : sex === "F" ? "Femenil" : "Mixto";
-}
-
 /** Label legible para mostrar una categoría en cualquier lista. */
 export function categoriaLabel(c: { label: string; sex: Sex }): string {
-  return `${c.label.trim()} · ${ramaLabel(c.sex)}`;
+  return `${c.label.trim()} · ${sexLabel(c.sex)}`;
 }
 
 /**
  * La categoría REAL de una pareja: el nombre que le dio el torneo al inscribirse
  * ("Suma 9", "4ta Masculino", "Novatos Mixto"). `Team.division` es un bucket
  * derivado de ese nombre y sirve para ORDENAR y rankear; esto es lo que la gente
- * reconoce, y no siempre coincide: `divisionFromCategoryName` manda "Suma 9" a
- * 6ta, así que una pareja de Suma 9 no es "6ta" aunque compitan ahí.
+ * reconoce, y no siempre coincide: `divisionFromCategory` manda "Suma 9" a 6ta,
+ * así que una pareja de Suma 9 no es "6ta" aunque compitan ahí.
+ *
+ * Cuando no hay nombre, cae a la división tal cual —"5ta"— y no a "División 5ta":
+ * el prefijo no agrega nada y hacía que el mismo dato apareciera de tres formas.
+ * Las dos se distinguen igual al filtrar porque la clave lleva su propio prefijo
+ * (ver teamCategoryKey).
  *
  * Por eso los filtros no pueden ofrecer una lista fija de divisiones: la
  * categoría es texto libre y una lista fija no puede ofrecer "Suma 9" aunque
  * exista de verdad en el circuito.
  */
 export function teamCategoryLabel(t: Team): string {
-  return t.category_name?.trim() || `División ${t.division}`;
+  return t.category_name?.trim() || t.division;
 }
 
 /**
@@ -153,7 +144,7 @@ export function groupByDivision(teams: Team[]): DivisionGroup[] {
       return {
         division,
         sex,
-        label: `${division} · ${ramaLabel(sex)}`,
+        label: `${division} · ${sexLabel(sex)}`,
         // Mismo criterio que la tabla de posiciones: posición, luego puntos.
         teams: list.sort((a, b) => a.position - b.position || b.points - a.points),
       };

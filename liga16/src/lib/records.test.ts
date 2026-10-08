@@ -811,11 +811,14 @@ describe("la categoría de una pareja es la del torneo, no el bucket derivado", 
     expect(teamCategoryKey(t)).not.toBe(teamCategoryKey({ ...t, category_name: "6ta" } as unknown as Team));
   });
 
-  it("sin categoría real cae a la división, y esa clave no choca con un nombre", () => {
+  it("sin categoría real cae a la división tal cual, y esa clave no choca con un nombre", () => {
     const t = { ...base, division: "3ra", category_name: null } as unknown as Team;
-    expect(teamCategoryLabel(t)).toBe("División 3ra");
+    // Sin prefijo: en el circuito se dice "3ra". "División 3ra" y "Categoría 3ra"
+    // hicieron que el mismo dato apareciera de tres formas distintas.
+    expect(teamCategoryLabel(t)).toBe("3ra");
     expect(teamCategoryKey(t)).toBe("division:3ra");
-    // El prefijo evita que "sin categoría" y una categoría llamada igual colisionen.
+    // El prefijo de la clave sigue evitando que "sin categoría" y una categoría
+    // llamada igual colisionen al filtrar.
     expect(teamCategoryKey({ ...t, category_name: "division:3ra" } as unknown as Team)).toBe("division:3ra");
   });
 

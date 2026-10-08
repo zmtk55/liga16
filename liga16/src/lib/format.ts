@@ -76,14 +76,21 @@ export const tierLabel: Record<string, string> = {
   bronce: 'Bronce',
 };
 
+/**
+ * Las divisiones se muestran con la abreviatura del circuito, tal cual: "5ta",
+ * "4ta", "Novatos". Antes el label decía "5ta División" y dos componentes
+ * (`GroupFilterBar` y `SectionControl`) lo recortaban con un
+ * `.replace(" División", "")`: dos parches para la misma etiqueta es la señal
+ * de que la etiqueta estaba mal. El valor y el label coinciden a propósito.
+ */
 export const divisionOptions = [
-  { value: "all", label: "Todas las divisiones" },
-  { value: "1ra", label: "1ra División" },
-  { value: "2da", label: "2da División" },
-  { value: "3ra", label: "3ra División" },
-  { value: "4ta", label: "4ta División" },
-  { value: "5ta", label: "5ta División" },
-  { value: "6ta", label: "6ta División" },
+  { value: "all", label: "Todas" },
+  { value: "1ra", label: "1ra" },
+  { value: "2da", label: "2da" },
+  { value: "3ra", label: "3ra" },
+  { value: "4ta", label: "4ta" },
+  { value: "5ta", label: "5ta" },
+  { value: "6ta", label: "6ta" },
   { value: "Novatos", label: "Novatos" },
 ];
 
@@ -93,12 +100,6 @@ export const sexOptions = [
   { value: "F", label: "Femenil" },
   { value: "X", label: "Mixto" },
 ];
-
-export function sexShort(sex: string): string {
-  if (sex === "M") return "Varonil";
-  if (sex === "F") return "Femenil";
-  return "Mixto";
-}
 
 export function sexLabel(sex: string): string {
   if (sex === "M") return "Varonil";

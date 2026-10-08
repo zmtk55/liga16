@@ -38,7 +38,7 @@ import { categoriasValidas } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 import { scheduleRounds, type Group } from "@/lib/groups";
-import { sexShort } from "@/lib/format";
+import { sexLabel } from "@/lib/format";
 import { toast } from "sonner";
 import { ensurePlayer } from "@/lib/players";
 import {
@@ -1051,7 +1051,7 @@ teams.forEach((t) => {
                         <SelectContent>
                           {categories.map((c) => (
                             <SelectItem key={`${c.label}-${c.sex}`} value={`${c.label}|${c.sex}`}>
-                              {c.label} · {sexShort(c.sex)}
+                              {c.label} · {sexLabel(c.sex)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1109,7 +1109,7 @@ teams.forEach((t) => {
                           <span className="flex h-7 w-7 items-center justify-center rounded bg-muted text-xs font-bold text-muted-foreground">{initialsEquipo(t)}</span>
                         )}
                         <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
-                        <Badge variant="outline" className="shrink-0">{t.division} · {sexShort(t.sex)}</Badge>
+                        <Badge variant="outline" className="shrink-0">{t.division} · {sexLabel(t.sex)}</Badge>
                         {t.group && <Badge variant="secondary" className="shrink-0">{t.group}</Badge>}
                         <Button
                           type="button"

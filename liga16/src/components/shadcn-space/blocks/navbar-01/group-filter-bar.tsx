@@ -42,7 +42,7 @@ export function GroupFilterBar({
                 : "bg-muted text-muted-foreground hover:text-foreground",
             )}
           >
-            {d.label.replace(" División", "")}
+            {d.label}
           </button>
         );
       })}
