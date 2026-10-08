@@ -560,12 +560,12 @@ describe("una categoría es una competencia cerrada", () => {
   const cat4: DrawablePair[] = Array.from({ length: 4 }, (_, i) => ({
     id: `4ta-${i}`,
     category_id: "c-4ta",
-    categoryName: "4ta Masculino",
+    categoryName: "4ta Varonil",
   }));
   const cat5: DrawablePair[] = Array.from({ length: 4 }, (_, i) => ({
     id: `5ta-${i}`,
     category_id: "c-5ta",
-    categoryName: "5ta Masculino",
+    categoryName: "5ta Varonil",
   }));
   const todas = [...cat4, ...cat5];
   const categoriaDe = new Map(todas.map((p) => [p.id, p.categoryName]));
@@ -579,8 +579,8 @@ describe("una categoría es una competencia cerrada", () => {
 
   it("con varias categorías el nombre del grupo dice cuál es", () => {
     const names = drawGroupsByCategory(todas).map((g) => g.name);
-    expect(names.some((n) => n.startsWith("4ta Masculino · "))).toBe(true);
-    expect(names.some((n) => n.startsWith("5ta Masculino · "))).toBe(true);
+    expect(names.some((n) => n.startsWith("4ta Varonil · "))).toBe(true);
+    expect(names.some((n) => n.startsWith("5ta Varonil · "))).toBe(true);
   });
 
   it("con una sola categoría los grupos se llaman como siempre", () => {
@@ -603,8 +603,8 @@ describe("una categoría es una competencia cerrada", () => {
   });
 
   it("el nombre del grupo con categoría se separa bien de la jornada", () => {
-    expect(parseRound("4ta Masculino · Grupo A · J2")).toEqual({
-      group: "4ta Masculino · Grupo A",
+    expect(parseRound("4ta Varonil · Grupo A · J2")).toEqual({
+      group: "4ta Varonil · Grupo A",
       jornada: 2,
     });
     expect(parseRound("Grupo A · J1")).toEqual({ group: "Grupo A", jornada: 1 });
@@ -850,11 +850,11 @@ describe("la división sale de la base, no de adivinar el nombre", () => {
     expect(divisionFromCategory("Open", "1ra")).toBe("1ra");
     expect(divisionFromCategory("Intermedio", "6ta")).toBe("6ta");
     // Aunque el nombre diga otra cosa, manda el dato guardado.
-    expect(divisionFromCategory("4ta Masculino", "2da")).toBe("2da");
+    expect(divisionFromCategory("4ta Varonil", "2da")).toBe("2da");
   });
 
   it("el nombre queda de respaldo para categorías sin la columna", () => {
-    expect(divisionFromCategory("4ta Masculino")).toBe("4ta");
+    expect(divisionFromCategory("4ta Varonil")).toBe("4ta");
     expect(divisionFromCategory("Novatos Mixto")).toBe("Novatos");
     expect(divisionFromCategory("3ra Femenil")).toBe("3ra");
     expect(divisionFromCategory("Suma 9")).toBe("6ta");
@@ -869,7 +869,7 @@ describe("la división sale de la base, no de adivinar el nombre", () => {
   it("un valor guardado que no está en el enum no rompe nada", () => {
     // El enum de la base es 1ra..6ta/Novatos; si algún día guardara otra cosa,
     // se ignora y se cae al nombre en vez de colar un valor inválido.
-    expect(divisionFromCategory("4ta Masculino", "no-existe")).toBe("4ta");
+    expect(divisionFromCategory("4ta Varonil", "no-existe")).toBe("4ta");
     expect(divisionFromCategory("Suma 11", "no-existe", 5.2)).toBe("3ra");
   });
 

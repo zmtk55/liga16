@@ -89,7 +89,7 @@ export function categoriaLabel(c: { label: string; sex: Sex }): string {
 
 /**
  * La categoría REAL de una pareja: el nombre que le dio el torneo al inscribirse
- * ("Suma 9", "4ta Masculino", "Novatos Mixto"). `Team.division` es un bucket
+ * ("Suma 9", "4ta Varonil", "Novatos Mixto"). `Team.division` es un bucket
  * derivado de ese nombre y sirve para ORDENAR y rankear; esto es lo que la gente
  * reconoce, y no siempre coincide: `divisionFromCategory` manda "Suma 9" a 6ta,
  * así que una pareja de Suma 9 no es "6ta" aunque compitan ahí.

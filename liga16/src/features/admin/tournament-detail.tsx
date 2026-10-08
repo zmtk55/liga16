@@ -84,7 +84,7 @@ import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
-import { formatDateRange, formatLabel, formatMatchTime, tournamentStatusLabel } from "@/lib/format";
+import { formatDateRange, formatLabel, formatMatchTime, SIN_CATEGORIA, tournamentStatusLabel } from "@/lib/format";
 import {
   findScheduleIssues,
   isSlotFree,
@@ -440,7 +440,7 @@ function BracketPanel({
         const catMatches = matches.filter(
           (m) => ids.has(m.side_a.pair_id ?? "") && ids.has(m.side_b.pair_id ?? ""),
         );
-        const name = nameByCatId.get(categoryId) ?? (categoryId ? "" : "Sin categoría");
+        const name = nameByCatId.get(categoryId) ?? (categoryId ? "" : SIN_CATEGORIA);
         return (
           <div key={categoryId || "__sin_categoria__"} className="space-y-4">
             {byCategory.length > 1 && (
@@ -627,7 +627,7 @@ export default function AdminTournamentDetail() {
   /**
    * La categoría de un partido: la que se guardó al crearlo. En los partidos
    * antiguos, que no la traían, se cae al nombre del grupo —el sorteo los nombra
-   * "4ta Masculino · Grupo A" cuando el torneo tiene varias categorías.
+   * "4ta Varonil · Grupo A" cuando el torneo tiene varias categorías.
    */
   function matchCategoryName(m: Match): string {
     if (m.category_name) return m.category_name;
@@ -1151,7 +1151,7 @@ return (
                   <div className="grid gap-1.5 w-56">
                     <Label htmlFor="categoria">Categoría</Label>
                     <Select value={newPairCategory || categories[0]?.id} onValueChange={setNewPairCategory}>
-                      <SelectTrigger id="categoria"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                      <SelectTrigger id="categoria"><SelectValue placeholder={SIN_CATEGORIA} /></SelectTrigger>
                       <SelectContent>
                         {categories.map((c) => (
                           <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -1221,7 +1221,7 @@ return (
                           {p.category_id ? (
                             <Badge variant="secondary">{catNameById.get(p.category_id) ?? "—"}</Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Sin categoría</span>
+                            <span className="text-xs text-muted-foreground">{SIN_CATEGORIA}</span>
                           )}
                         </TableCell>
                         <TableCell className="pr-4 text-right space-x-1">
@@ -1745,9 +1745,9 @@ return (
             <div className="grid gap-1.5">
               <Label htmlFor="categoria-2">Categoría</Label>
               <Select value={pairForm.category_id || "__none__"} onValueChange={(v) => setPairForm((f) => ({ ...f, category_id: v === "__none__" ? "" : v }))}>
-                <SelectTrigger id="categoria-2"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                <SelectTrigger id="categoria-2"><SelectValue placeholder={SIN_CATEGORIA} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">Sin categoría</SelectItem>
+                  <SelectItem value="__none__">{SIN_CATEGORIA}</SelectItem>
                   {categories.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}

@@ -37,6 +37,7 @@ import { deleteStoredImage } from "@/lib/storage";
 import { PairAvatar } from "@/components/cards/card-kit";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SIN_CATEGORIA } from "@/lib/format";
 
 interface EquipoForm {
   name: string;
@@ -101,6 +102,11 @@ export default function AdminTeams() {
   };
 
   const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+  // Un solo lugar que decide qué se muestra cuando la pareja no tiene categoría.
+  // Estaba repetido tres veces con un ternario que además sobraba: `Map.get` ya
+  // devuelve undefined para una clave ausente.
+  const categoryOf = (id: string | null): string =>
+    (id ? catNameById.get(id) : undefined) ?? SIN_CATEGORIA;
 
   const filtered = (pairs ?? []).filter((p) => {
     const q = query.trim().toLowerCase();
@@ -340,7 +346,7 @@ export default function AdminTeams() {
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium">{p1} / {p2 ?? "—"}</p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {p.category_id ? catNameById.get(p.category_id) ?? "Sin categoría" : "Sin categoría"}
+                              {categoryOf(p.category_id)}
                             </p>
                           </div>
                         </button>
@@ -364,13 +370,13 @@ export default function AdminTeams() {
                           <div>
                             <h3 className="text-base font-semibold">{sp1} / {sp2 || "—"}</h3>
                             <p className="text-xs text-muted-foreground">
-                              {sel.category_id ? catNameById.get(sel.category_id) ?? "Sin categoría" : "Sin categoría"}
+                              {categoryOf(sel.category_id)}
                             </p>
                           </div>
                         </div>
 
                         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                          <div><dt className="text-xs text-muted-foreground">Categoría</dt><dd>{sel.category_id ? catNameById.get(sel.category_id) ?? "Sin categoría" : "Sin categoría"}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">Categoría</dt><dd>{categoryOf(sel.category_id)}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Escudo</dt><dd>{sel.crest_url ? "Sí" : "No"}</dd></div>
                         </dl>
 
@@ -541,7 +547,7 @@ function EquipoDialog({
           <div className="grid gap-1.5">
             <Label htmlFor="categoria">Categoría</Label>
             <Select value={form.category_id || "__none__"} onValueChange={(v) => setForm((f) => ({ ...f, category_id: v === "__none__" ? "" : v }))}>
-              <SelectTrigger id="categoria"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+              <SelectTrigger id="categoria"><SelectValue placeholder={SIN_CATEGORIA} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Sin categoría</SelectItem>
                 {categories.map((c) => (

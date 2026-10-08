@@ -15,14 +15,11 @@ import {
 import { Eraser, Plus, X } from "lucide-react";
 import type { Sex } from "@/types";
 import type { CategoryValue } from "@/lib/categories";
+import { SEX_BRANCHES } from "@/lib/format";
 
 export type { CategoryValue };
 
-const RAMAS: { value: Sex; label: string }[] = [
-  { value: "M", label: "Varonil" },
-  { value: "F", label: "Femenil" },
-  { value: "X", label: "Mixto" },
-];
+const RAMAS = SEX_BRANCHES;
 
 const CLASICAS: [string, Sex][] = [
   ["1ra", "M"], ["2da", "M"], ["3ra", "M"], ["4ta", "M"], ["5ta", "M"], ["6ta", "M"],

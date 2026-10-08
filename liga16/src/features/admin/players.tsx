@@ -48,7 +48,7 @@ import {
   type DirStats,
 } from "@/lib/data/record-stats";
 import { PlayerCardV5 } from "@/features/nav-test/player-card-v5";
-import { sexLabel } from "@/lib/format";
+import { SEX_BRANCHES, sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -66,11 +66,7 @@ import {
   type RowAction,
 } from "@/components/admin/row-actions";
 
-const SEX_OPTIONS = [
-  { value: "M", label: "Varonil" },
-  { value: "F", label: "Femenil" },
-  { value: "X", label: "Mixto" },
-];
+const SEX_OPTIONS = SEX_BRANCHES;
 
 const POSITION_OPTIONS = [
   { value: "drive", label: "Drive" },

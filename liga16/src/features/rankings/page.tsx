@@ -414,7 +414,7 @@ export default function RankingsPage() {
                   <>
                     <CardStat value={t.points.toLocaleString("es-MX")} label="Puntos" />
                     <CardStat value={`${t.won}–${Math.max(t.lost, 0)}`} label="Record" />
-                    <CardStat value={`${winRate(t.played, t.won)}%`} label="Efectiv." />
+                    <CardStat value={`${winRate(t.played, t.won)}%`} label="Efect." />
                   </>
                 }
                 chip={<Badge variant="outline">{t.division}</Badge>}

@@ -434,8 +434,7 @@ export default function Home() {
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-primary-foreground/70">
-                {featuredTeam.category_name ??
-                  `División ${featuredTeam.division}`}
+                {teamCategoryLabel(featuredTeam)}
               </p>
               <h3 className="mt-1 truncate font-headline text-2xl uppercase leading-tight sm:text-3xl">
                 {featuredTeam.name}

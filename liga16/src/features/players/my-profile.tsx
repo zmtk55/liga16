@@ -20,12 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { SEX_BRANCHES } from "@/lib/format";
 
-const SEX_OPTIONS = [
-  { value: "M", label: "Varonil" },
-  { value: "F", label: "Femenil" },
-  { value: "X", label: "Mixto" },
-] as const;
+const SEX_OPTIONS = SEX_BRANCHES;
 
 const HAND_OPTIONS = [
   { value: "right", label: "Diestro" },

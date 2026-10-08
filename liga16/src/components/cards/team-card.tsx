@@ -194,7 +194,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               ))}
             </h3>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-foreground/80">
-              {/* La categoría REAL del torneo ("Suma 9", "4ta Masculino"), que es
+              {/* La categoría REAL del torneo ("Suma 9", "4ta Varonil"), que es
                   como la gente la reconoce; la división derivada es solo el
                   bucket de orden. Antes la card mostraba la división sola y una
                   pareja de Suma 9 aparecía como "6ta", que no es su categoría.

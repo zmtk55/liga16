@@ -29,7 +29,7 @@ export interface DrawablePair {
  * aparte, así que un grupo NUNCA mezcla 4tas con 5tas. Cada grupo se arma solo
  * con parejas de su categoría, con el mismo reparto parejo.
  *
- * Con más de una categoría en juego el nombre lleva la delante ("4ta Masculino ·
+ * Con más de una categoría en juego el nombre lleva la delante ("4ta Varonil ·
  * Grupo A"): dos "Grupo A" de categorías distintas tienen que poder convivir sin
  * que el admin los confunda al leerlos.
  */
@@ -66,7 +66,7 @@ export function drawGroupsByCategory(pairs: DrawablePair[]): Group[] {
 }
 
 /**
- * "4ta Masculino · Grupo A · J2" -> { group: "4ta Masculino · Grupo A", jornada: 2 }.
+ * "4ta Varonil · Grupo A · J2" -> { group: "4ta Varonil · Grupo A", jornada: 2 }.
  *
  * El nombre del grupo puede llevar la categoría delante, así que se parte por la
  * ETIQUETA de jornada al final, no por el primer separador.

@@ -1,4 +1,12 @@
-export function formatMoney(cents: number, currency = 'MXN'): string {
+import type { Sex } from '@/types';
+
+/**
+ * La moneda se exige: el torneo la trae (`Tournament.currency`) y las dos
+ * pantallas que muestran precio ya la pasan. Con default a 'MXN', un tercer
+ * llamador se olvidaría del campo y mostraría pesos a un torneo en otra moneda
+ * sin que nada se quejara.
+ */
+export function formatMoney(cents: number, currency: string): string {
      return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(cents / 100);
 }
 
@@ -24,11 +32,12 @@ export function formatDateRange(start: string, end: string): string {
      return `${formatDate(start)} – ${formatDate(end)}`;
 }
 
-export function formatDateTime(iso: string): string {
-     return new Intl.DateTimeFormat('es-MX', {
-          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-     }).format(parseDate(iso));
-}
+/**
+ * Sin categoría: texto que aparece en cinco lugares de admin (placeholder,
+ * opción vacía, celda sin valor). Estaba escrito cinco veces; cambiarlo obliga
+ * a cazarlo en todas.
+ */
+export const SIN_CATEGORIA = 'Sin categoría';
 
 export const tournamentStatusLabel: Record<string, string> = {
   draft: 'Borrador',
@@ -94,17 +103,26 @@ export const divisionOptions = [
   { value: "Novatos", label: "Novatos" },
 ];
 
-export const sexOptions = [
-  { value: "all", label: "Todos los géneros" },
+/**
+ * Las tres ramas del circuito. Esta es LA lista: `sexOptions` y `sexLabel` se
+ * derivan de acá. Estaba escrita a mano en otros cuatro archivos
+ * (`category-matrix`, `admin/players`, `players/detail`, `my-profile`), y con
+ * cinco copias cambiar una palabra era trabajo de cinco lados.
+ */
+export const SEX_BRANCHES: { value: Sex; label: string }[] = [
   { value: "M", label: "Varonil" },
   { value: "F", label: "Femenil" },
   { value: "X", label: "Mixto" },
 ];
 
+/** Lo mismo más la entrada "todas", para los filtros que ofrecen limpiar. */
+export const sexOptions = [
+  { value: "all", label: "Todos los géneros" },
+  ...SEX_BRANCHES,
+];
+
 export function sexLabel(sex: string): string {
-  if (sex === "M") return "Varonil";
-  if (sex === "F") return "Femenil";
-  return "Mixto";
+  return SEX_BRANCHES.find((b) => b.value === sex)?.label ?? "Mixto";
 }
 
 export function winRate(played: number, won: number): number {

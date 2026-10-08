@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatDate, initials, sexLabel } from "@/lib/format";
+import { formatDate, initials, SEX_BRANCHES, sexLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import ImageUpload from "@/components/ui/image-upload";
 import { MatchCard, PairAvatar } from "@/components/cards/card-kit";
@@ -548,7 +548,7 @@ export default function PlayerDetailPage() {
                   }
                 />
                 <StatTile label="Títulos" value={String(card?.titles ?? 0)} caption="en el circuito" icon={<Crown className="h-4 w-4 text-warning" />} />
-                <StatTile label="% victoria" value={`${winPct}%`} caption={`${won} de ${played} PJ`} />
+                <StatTile label="% victorias" value={`${winPct}%`} caption={`${won} de ${played} PJ`} />
                 <StatTile label="Nivel" value={(player.official_level ?? player.declared_level).toFixed(1)} caption={player.official_level != null ? "oficial" : "declarado"} />
               </div>
 
@@ -1210,9 +1210,11 @@ function ProfileEditDialog({
               <Select value={form.sex} onValueChange={(v) => set("sex", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="M">Varonil</SelectItem>
-                  <SelectItem value="F">Femenil</SelectItem>
-                  <SelectItem value="X">Mixto</SelectItem>
+                  {SEX_BRANCHES.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>
+                      {b.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

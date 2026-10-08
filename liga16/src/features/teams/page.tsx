@@ -27,7 +27,7 @@ export default function TeamsPage() {
   // búsqueda, en un solo sitio, y la URL la hace compartible.
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
-  // La categoría real del torneo ("Suma 9", "4ta Masculino"), no la división
+  // La categoría real del torneo ("Suma 9", "4ta Varonil"), no la división
   // derivada. Vive en la URL como el resto de filtros de la sección: sobrevive
   // al ir y venir y un enlace ya filtrado se puede compartir.
   const categoria = params.get("categoria") ?? "all";
@@ -165,7 +165,7 @@ export default function TeamsPage() {
         </div>
         {categorias.length > 1 && (
           <p className="text-xs text-muted-foreground">
-            Las categorías son las del torneo ("Suma 9", "4ta Masculino"), no la
+            Las categorías son las del torneo ("Suma 9", "4ta Varonil"), no la
             división en la que caen. Solo aparecen las que existen.{" "}
             <Link
               to="/torneos"

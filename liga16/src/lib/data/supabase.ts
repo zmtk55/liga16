@@ -28,7 +28,7 @@ function slugifyName(name: string): string {
  * En qué división compite una categoría.
  *
  * El nombre es la vía normal porque así funcionan las categorías reales
- * ("4ta Masculino", "Novatos Mixto", "Suma 9"): las que existen en el circuito
+ * ("4ta Varonil", "Novatos Mixto", "Suma 9"): las que existen en el circuito
  * se llaman así y se reconocen.
  *
  * Los NIVELES son el respaldo, no la fuente. Antes, cualquier categoría que el
@@ -39,7 +39,7 @@ function slugifyName(name: string): string {
  * de los propios jugadores de la pareja.
  *
  * El orden importa: los niveles solo se miran cuando el NOMBRE falla. Así una
- * categoría que hoy funciona ("3ra Masculino" con niveles 5.0–5.9) sigue
+ * categoría que hoy funciona ("3ra Varonil" con niveles 5.0–5.9) sigue
  * saliendo por el nombre y no cambia de división por culpa de esto.
  */
 export function sexFromCategory(sex: string | null | undefined, name: string | null | undefined): Sex | null {
