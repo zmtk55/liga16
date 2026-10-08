@@ -50,6 +50,7 @@ export default function ImageUpload({
   size = "md",
   bucket,
   path = "uploads",
+  overlay = false,
 }: {
   id: string;
   value: string | null;
@@ -61,8 +62,10 @@ export default function ImageUpload({
   bucket?: string;
   /** Carpeta dentro del bucket, p. ej. el id del equipo. */
   path?: string;
+  /** Botón de cámara como overlay sobre la foto (no debajo). */
+  overlay?: boolean;
 }) {
-  const box = size === "lg" ? "h-20 w-20" : "h-16 w-16";
+  const box = size === "lg" ? "h-40 w-40 md:h-48 md:w-48" : "h-24 w-24";
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +113,7 @@ export default function ImageUpload({
           onClick={() => ref.current?.click()}
           disabled={busy}
           className={`flex ${box} items-center justify-center overflow-hidden ${
-            round ? "rounded-full" : "rounded-lg"
+            round ? "rounded-full" : "rounded-xl"
           } border bg-muted/50 transition-colors hover:border-primary/60 disabled:opacity-60`}
           aria-label={label}
           title={label}
@@ -118,12 +121,26 @@ export default function ImageUpload({
           {busy ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           ) : value ? (
-            <img src={value} alt="" className={`h-full w-full object-cover ${round ? "rounded-full" : "object-contain p-1"}`} />
+            <img src={value} alt="" className={`h-full w-full object-cover ${round ? "rounded-full" : "rounded-xl"}`} />
           ) : (
-            <ImagePlus className="h-5 w-5 text-muted-foreground" />
+            <div className="flex flex-col items-center gap-1 text-muted-foreground">
+              <ImagePlus className="h-6 w-6" />
+              <span className="text-2xs font-medium">{label}</span>
+            </div>
           )}
         </button>
-        {value && !busy && (
+        {overlay && value && !busy && (
+          <button
+            type="button"
+            onClick={() => ref.current?.click()}
+            className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white backdrop-blur transition-colors hover:bg-black/80"
+            aria-label={`Cambiar ${label.toLowerCase()}`}
+            title={`Cambiar ${label.toLowerCase()}`}
+          >
+            <ImagePlus className="h-3.5 w-3.5" /> Cambiar
+          </button>
+        )}
+        {value && !overlay && !busy && (
           <button
             type="button"
             onClick={() => onChange(null)}

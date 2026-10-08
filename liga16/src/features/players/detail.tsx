@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, Info, HelpCircle, Swords, BarChart3 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
@@ -64,66 +64,58 @@ function AnimatedBar({ value, max = 100, color = "primary", className = "" }: { 
   );
 }
 
-// ComparisonRow component for player comparison table
-function ComparisonRow({ label, valueA, valueB, higherIsBetter, unit, isStyle = false, tooltip }: { label: string; valueA: string | number; valueB: string | number; higherIsBetter: boolean; unit?: string; isStyle?: boolean; tooltip?: string }) {
-  const isNumeric = !isStyle && !isNaN(Number(valueA)) && !isNaN(Number(valueB));
-  const numA = isNumeric ? Number(valueA) : parseFloat(String(valueA).replace(/[^0-9.-]/g, "")) || 0;
-  const numB = isNumeric ? Number(valueB) : parseFloat(String(valueB).replace(/[^0-9.-]/g, "")) || 0;
-  let winner: 'A' | 'B' | 'tie' = 'tie';
-
-  if (!isStyle) {
-    if (numA > numB) winner = higherIsBetter ? 'A' : 'B';
-    else if (numB > numA) winner = higherIsBetter ? 'B' : 'A';
-  }
-  const max = Math.max(numA, numB, 1);
-  const pct = (v: number) => `${Math.max(6, Math.min(100, (v / max) * 100))}%`;
-
-  const cell = (value: string | number, side: 'A' | 'B') => {
-    const win = winner === side;
-    const num = side === 'A' ? numA : numB;
+/** Tarjeta de comparativa: jugador vs rival con métricas visuales. */
+function CompareCard({ name, level, winPct, won, played, highlight }: {
+  name: string;
+  level: number;
+  winPct: number;
+  won: number;
+  played: number;
+  highlight?: boolean;
+}) {
+  const levelStr = level.toFixed(1);
+  const tier = (label: string, a: number, b: number, max: number) => {
+    const pctA = Math.max(8, Math.min(100, (a / Math.max(1, max)) * 100));
+    const pctB = Math.max(8, Math.min(100, (b / Math.max(1, max)) * 100));
+    const aWins = a >= b;
     return (
-      <td className="py-3 px-2">
-        <div className="flex flex-col items-center gap-1">
-          <span className={cn(
-            "font-mono text-sm font-bold tabular-nums",
-            win ? "text-success" : "text-muted-foreground",
-          )}>
-            {value}
-            {unit && <span className="ml-0.5 text-xs font-medium text-muted-foreground">{unit}</span>}
-          </span>
-          {isNumeric && (
-            <span className="h-1 w-full max-w-24 overflow-hidden rounded-full bg-muted">
-              <span
-                className={cn(
-                  "block h-full rounded-full transition-[width] duration-500 ease-out",
-                  win ? "bg-success" : "bg-muted-foreground/35",
-                )}
-                style={{ width: pct(num) }}
-              />
-            </span>
-          )}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-xs">
+          <span className={cn("font-bold tabular-nums", aWins ? "text-success" : "text-white/70")}>{a}</span>
+          <span className="text-white/40">{label}</span>
+          <span className={cn("font-bold tabular-nums", !aWins ? "text-destructive" : "text-white/70")}>{b}</span>
         </div>
-      </td>
+        <div className="flex gap-1">
+          <span className="flex-1 overflow-hidden rounded-full bg-white/10">
+            <span className={cn("block h-1.5 rounded-full", aWins ? "bg-success" : "bg-white/40")} style={{ width: `${pctA}%` }} />
+          </span>
+          <span className="flex-1 overflow-hidden rounded-full bg-white/10">
+            <span className={cn("block h-1.5 rounded-full", !aWins ? "bg-destructive" : "bg-white/40")} style={{ width: `${pctB}%` }} />
+          </span>
+        </div>
+      </div>
     );
   };
-
+  const rival = { level: 4.0, jev: 50, winPct: 60, won: 5, played: 8 };
   return (
-    <tr className="transition-colors hover:bg-muted/30">
-      <td className="py-3 px-2">
-        <Tooltip content={tooltip || label}>
-          <span className="flex items-center gap-1.5 text-sm font-medium">
-            {label}
-            {tooltip && <HelpCircle className="h-3 w-3 text-muted-foreground/50" />}
-          </span>
-        </Tooltip>
-      </td>
-      {cell(valueA, 'A')}
-      {cell(valueB, 'B')}
-    </tr>
+    <div className={cn("rounded-2xl border p-4 md:p-5", highlight ? "border-primary/40 bg-primary/[0.06]" : "border-white/10 bg-white/[0.04]")}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-headline text-lg font-bold text-white truncate">{name}</p>
+          <p className="text-xs text-white/50">{played} partidos · {won} ganados</p>
+        </div>
+        <Badge className={cn("shrink-0", highlight ? "bg-primary/20 text-primary" : "bg-white/10 text-white/70")}>N {levelStr}</Badge>
+      </div>
+      <div className="mt-4 space-y-3">
+        {tier("Nivel", level, rival.level, 8)}
+        {tier("Win %", winPct, rival.winPct, 100)}
+        {tier("Victorias", won, rival.won, 20)}
+      </div>
+    </div>
   );
 }
 
-/** Tile de estadística: número grande, rótulo chico arriba, contexto abajo. */
+/** Tile de estadística: número grande, rótulo chico arriba, contexto abajo. *//** Tile de estadística: número grande, rótulo chico arriba, contexto abajo. */
 function StatTile({
   label,
   value,
@@ -265,8 +257,8 @@ export default function PlayerDetailPage() {
   const [ranking, setRanking] = useState<RankingEntry | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
   const [myMatches, setMyMatches] = useState<Match[]>([]);
-  const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>([]);
   const [compareId, setCompareId] = useState<string>("");
+  const [rivals, setRivals] = useState<PlayerProfile[]>([]);
   const [pairInfo, setPairInfo] = useState<{ tournament: string | null; tournamentSlug: string | null; category: string | null } | null>(null);
   const [compareData, setCompareData] = useState<{ p: PlayerProfile; c: PlayerCard | null; r: RankingEntry | null; jev: JevAnalysis } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -345,7 +337,15 @@ export default function PlayerDetailPage() {
           )
           .sort((a, b) => String(b.scheduled_at).localeCompare(String(a.scheduled_at)));
         setMyMatches(mine);
-        setAllPlayers(pls.filter((x) => x.id !== p.id));
+        // Rivales = jugadores del MISMO torneo (no todos). Para comparar
+        // deportivamente hace falta que jueguen en el mismo circuito.
+        const myTournamentId = tournaments.find((tr) => tr.name === latest?.tournament_name)?.id ?? null;
+        const rivals = (allPairs ?? []).filter(
+          (ap) => ap.tournament_id === myTournamentId && (ap.player1_id === p.id || ap.player2_id === p.id),
+        );
+        const rivalIds = new Set(rivals.flatMap((ap) => [ap.player1_id, ap.player2_id].filter(Boolean) as string[]));
+        rivalIds.delete(p.id);
+        setRivals(pls.filter((x) => x.id !== p.id && rivalIds.has(x.id)));
       })
       .catch(() => { /* id inexistente: la UI ya muestra "Jugador no encontrado" */ })
       .finally(() => { if (active) setLoading(false); });
@@ -601,8 +601,7 @@ export default function PlayerDetailPage() {
               )}
             </div>
 
-            <div className="relative flex flex-col items-center gap-3 lg:justify-end">
-              <div className="relative">
+<div className="relative">
                 <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-primary/20 via-transparent to-transparent blur-2xl" />
                 {player.photo_url ? (
                   <img src={player.photo_url} alt={player.display_name} className="h-[340px] w-[300px] object-cover object-top rounded-2xl border border-white/10 shadow-2xl md:h-[420px] md:w-[340px]" />
@@ -611,23 +610,23 @@ export default function PlayerDetailPage() {
                     <span className="text-6xl font-black text-white/90">{initials(player.display_name)}</span>
                   </div>
                 )}
+                {canEditPhoto && (
+                  <ImageUpload
+                    id="player-photo"
+                    value={player.photo_url}
+                    round
+                    overlay
+                    label="Foto de perfil"
+                    onChange={(dataUrl) => {
+                      if (dataUrl === null) return;
+                      setPlayer({ ...player, photo_url: dataUrl });
+                      db.updatePlayer(player.id, { photo_url: dataUrl })
+                        .then(() => toast.success("Foto de perfil actualizada"))
+                        .catch((e: Error) => toast.error(e.message ?? "No se pudo guardar la foto"));
+                    }}
+                  />
+                )}
               </div>
-              {canEditPhoto && (
-                <ImageUpload
-                  id="player-photo"
-                  value={player.photo_url}
-                  round
-                  label="Foto de perfil"
-                  onChange={(dataUrl) => {
-                    if (dataUrl === null) return;
-                    setPlayer({ ...player, photo_url: dataUrl });
-                    db.updatePlayer(player.id, { photo_url: dataUrl })
-                      .then(() => toast.success("Foto de perfil actualizada"))
-                      .catch((e: Error) => toast.error(e.message ?? "No se pudo guardar la foto"));
-                  }}
-                />
-              )}
-            </div>
           </div>
         </div>
       </section>
@@ -1037,117 +1036,54 @@ export default function PlayerDetailPage() {
           </Card>
         </div>
 
-        {isAdmin && (
-          <Card className="border-dashed">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>                  <p className="text-xs text-muted-foreground">Elige otro jugador y compara estadísticas deportivas lado a lado.</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="max-w-sm">
-                <Select value={compareId} onValueChange={setCompareId}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona rival para comparar" /></SelectTrigger>
-                  <SelectContent>
-                    {allPlayers.slice(0, 30).map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.display_name} · {p.city} · N {(p.official_level ?? p.declared_level).toFixed(1)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+{isAdmin && (
+        <Card className="border-dashed">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>
+            <p className="text-xs text-muted-foreground">Solo rivales del mismo torneo. Elige a quién encarar.</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="max-w-sm">
+              <Select value={compareId} onValueChange={setCompareId}>
+                <SelectTrigger><SelectValue placeholder="Selecciona rival del mismo torneo" /></SelectTrigger>
+                <SelectContent>
+                  {rivals.length === 0 ? (
+                    <SelectItem value="__none__" disabled>Sin rivales en este torneo</SelectItem>
+                  ) : (
+                    rivals.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.display_name} · N {(p.official_level ?? p.declared_level).toFixed(1)}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-              {compareData ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-muted-foreground">
-                        <th className="py-2 text-left">Métrica</th>
-                        <th className="py-2 text-center font-black flex items-center justify-center gap-1">
-                          {player.display_name.split(" ")[0]}
-                          <Tooltip content="Tus estadísticas actuales">
-                            <Info className="h-3 w-3 text-muted-foreground" />
-                          </Tooltip>
-                        </th>
-                        <th className="py-2 text-center font-black flex items-center justify-center gap-1">
-                          {compareData.p.display_name.split(" ")[0]}
-                          <Tooltip content="Estadísticas del jugador comparado">
-                            <Info className="h-3 w-3 text-muted-foreground" />
-                          </Tooltip>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      <ComparisonRow label="Nivel" 
-                        valueA={(player.official_level ?? player.declared_level).toFixed(1)} 
-                        valueB={(compareData.p.official_level ?? compareData.p.declared_level).toFixed(1)} 
-                        higherIsBetter={true} 
-                        unit=""
-                        tooltip="Nivel oficial (o declarado si no hay oficial) del 1.0 al 7.0"
-                      />
-                      <ComparisonRow label="Puntos ranking" 
-                        valueA={ranking?.points.toLocaleString("es-MX") ?? "—"} 
-                        valueB={compareData.r?.points.toLocaleString("es-MX") ?? "—"} 
-                        higherIsBetter={true} 
-                        unit="pts"
-                        tooltip="Puntos acumulados en eventos de ranking"
-                      />
-                      <ComparisonRow label="Ganados" 
-                        valueA={won} 
-                        valueB={cardWon(compareData.c)} 
-                        higherIsBetter={true} 
-                        unit={`de ${played} / ${cardPlayed(compareData.c)}`}
-                        tooltip="Partidos ganados (entre paréntesis, los jugados por cada uno)"
-                      />
-                      <ComparisonRow label="Win %" 
-                        valueA={`${winPct}%`} 
-                        valueB={`${Math.round((cardWon(compareData.c) / Math.max(1, cardPlayed(compareData.c))) * 100)}%`} 
-                        higherIsBetter={true} 
-                        unit="%"
-                        tooltip="Porcentaje de victorias"
-                      />
-                      <ComparisonRow label="Títulos" 
-                        valueA={card?.titles ?? 0} 
-                        valueB={compareData.c?.titles ?? 0} 
-                        higherIsBetter={true} 
-                        unit=""
-                        tooltip="Títulos de circuito ganados"
-                      />
-                      <ComparisonRow label="Forma" 
-                        valueA={`${jev.forma.score}/5 — ${jev.forma.label}`} 
-                        valueB={`${compareData.jev.forma.score}/5 — ${compareData.jev.forma.label}`} 
-                        higherIsBetter={true} 
-                        unit=""
-                        tooltip="Forma competitiva 1-5 (ver tarjeta Forma). Score numérico para comparar."
-                      />
-                      <ComparisonRow label="Estilo" 
-                        valueA={jev.estilo.choice} 
-                        valueB={compareData.jev.estilo.choice} 
-                        higherIsBetter={false} 
-                        unit=""
-                        isStyle={true}
-                        tooltip="Estilo predominante: ofensivo, defensivo, equilibrado o transición"
-                      />
-                      <ComparisonRow label="Racha" 
-                        valueA={`${(jev.racha.probYes * 100).toFixed(0)}% ${jev.racha.label}`} 
-                        valueB={`${(compareData.jev.racha.probYes * 100).toFixed(0)}% ${compareData.jev.racha.label}`} 
-                        higherIsBetter={true} 
-                        unit="%"
-                        tooltip="Si le cuesta o viene en racha, según su récord y sus últimos partidos"
-                      />
-                      <ComparisonRow label="Consistencia" 
-                        valueA={`${jev.consistencia.score}/100`} 
-                        valueB={`${compareData.jev.consistencia.score}/100`} 
-                        higherIsBetter={true} 
-                        unit=""
-                        tooltip="Estabilidad del rendimiento. Basada en win rate: >70%=88, >55%=72, >40%=54, <40%=38"
-                      />
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Selecciona un rival para ver la comparativa deportiva.</p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+            {compareData ? (
+              <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+                <CompareCard
+                  name={player.display_name}
+                  level={player.official_level ?? player.declared_level}
+                  winPct={winPct}
+                  won={won}
+                  played={played}
+                  highlight
+                />
+                <CompareCard
+                  name={compareData.p.display_name}
+                  level={compareData.p.official_level ?? compareData.p.declared_level}
+                  winPct={compareData.c ? Math.round((cardWon(compareData.c) / Math.max(1, cardPlayed(compareData.c))) * 100) : 0}
+                  won={cardWon(compareData.c)}
+                  played={cardPlayed(compareData.c)}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Selecciona un rival del mismo torneo para ver la comparativa deportiva.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Eventos de ranking</CardTitle></CardHeader>
