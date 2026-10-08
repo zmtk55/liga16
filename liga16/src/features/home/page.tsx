@@ -24,6 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   divisionOptions,
+  matchStatusLabel,
+  tournamentStatusLabel,
   tierLabel,
   formatDateRange,
   formatLabel,
@@ -148,40 +150,57 @@ export default function Home() {
     };
   }, []);
 
-  // Parejas: top 2 de CADA categoría del circuito (datos completos por categoría).
+  // Parejas: top 2 de CADA categoría que tenga parejas en los datos.
+  // `TEAM_GROUP_ORDER` es el ORDEN editorial de publicación, no una lista
+  // blanca: antes lo era, y cualquier categoría con parejas que no estuviera
+  // escrita ahí (una 7ma, una nueva) se perdía sin aviso. Ahora se arma desde
+  // los datos y esa lista solo ordena; lo demás entra al final, por el orden
+  // canónico de `divisionOptions`.
   const teamGroups = useMemo(() => {
     if (!stats) return [];
-    return TEAM_GROUP_ORDER.map((key) => {
-      const [sex, division] = key.split("|") as [Sex, PadelDivision];
-      const inGroup = stats.teams.filter(
-        (t) => t.sex === sex && t.division === division,
+    const byKey = new Map<string, Team[]>();
+    for (const team of stats.teams) {
+      const key = `${team.sex}|${team.division}`;
+      const list = byKey.get(key);
+      if (list) list.push(team);
+      else byKey.set(key, [team]);
+    }
+    const rankOf = (key: string) => {
+      const editorial = TEAM_GROUP_ORDER.indexOf(key as `${Sex}|${PadelDivision}`);
+      if (editorial >= 0) return editorial;
+      const divisionRank = divisionOptions.findIndex(
+        (o) => o.value === key.split("|")[1],
       );
-      if (inGroup.length === 0) return null;
-      const sorted = [...inGroup].sort(
-        (a, b) =>
-          (a.position || Number.MAX_SAFE_INTEGER) -
-            (b.position || Number.MAX_SAFE_INTEGER) ||
-          b.points - a.points ||
-          b.won - a.won,
-      );
-      return {
-        key,
-        label:
-          inGroup[0]?.category_name ??
-          `Categoría ${division} · ${sexShort(sex)}`,
-        teams: sorted.slice(0, 2),
-      };
-    }).filter((g): g is NonNullable<typeof g> => g !== null);
+      return TEAM_GROUP_ORDER.length + (divisionRank < 0 ? divisionOptions.length : divisionRank);
+    };
+    return [...byKey.entries()]
+      .map(([key, teams]) => {
+        const [sex, division] = key.split("|") as [Sex, PadelDivision];
+        const sorted = [...teams].sort(
+          (a, b) =>
+            (a.position || Number.MAX_SAFE_INTEGER) -
+              (b.position || Number.MAX_SAFE_INTEGER) ||
+            b.points - a.points ||
+            b.won - a.won,
+        );
+        return {
+          key,
+          label: teams[0]?.category_name ?? `Categoría ${division} · ${sexShort(sex)}`,
+          teams: sorted.slice(0, 2),
+        };
+      })
+      .sort((a, b) => rankOf(a.key) - rankOf(b.key));
   }, [stats]);
   const [div, setDiv] = useState("");
-  const featuredTeam = teamGroups[0]?.teams[0] ?? null;
-
   // Filtra las parejas mostradas por división (pills responsive).
   const shownGroups = useMemo(
     () =>
       div ? teamGroups.filter((g) => g.key.split("|")[1] === div) : teamGroups,
     [teamGroups, div],
   );
+  // La pareja destacada sale del grupo FILTRADO. Antes tomaba `teamGroups[0]`
+  // y con un filtro activo señalaba una categoría que no era la elegida.
+  const featuredTeam = shownGroups[0]?.teams[0] ?? null;
 
   if (!stats) {
     return (
@@ -210,47 +229,45 @@ export default function Home() {
   const featuredIsOpen = featured?.status === "registration_open";
   // Sede REAL: ciudad del torneo destacado (única fuente, sin inventar)
   const sedeLabel = featured?.city || stats.tournaments[0]?.city || "Liga16";
-  // Etiqueta del estado en español, sin fechas inventadas
-  const statusLabel =
-    featured?.status === "in_progress"
-      ? "En juego"
-      : featured?.status === "registration_open"
-        ? "Inscripciones abiertas"
-        : featured?.status === "finished"
-          ? "Finalizado"
-          : "";
+  // El estado sale del mapa de `@/lib/format`, que ya traduce los siete estados
+  // del torneo. La ternaria local solo cubría tres y dejaba los demás en "".
+  const statusLabel = featured?.status
+    ? tournamentStatusLabel[featured.status]
+    : "";
 
   return (
     <div className="space-y-16 md:space-y-20">
       {/* HERO — una sola composición, sin dashboard */}
       <section className="relative -mx-4 -mt-8 min-h-[620px] overflow-hidden bg-surface-inverse text-white md:-mx-6 md:rounded-b-[2rem]">
+        {/* La foto ES el fondo del mensaje. El `grayscale` + tres capas de
+            velo la dejaban irreconocible; con un solo degradado de apoyo se
+            lee la cancha y el texto mantiene el contraste que necesita. */}
         <img
           src={featured?.cover_url || HERO_IMAGE}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-[62%_center] opacity-75 grayscale contrast-125"
+          className="absolute inset-0 h-full w-full object-cover object-[62%_center] opacity-60"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/15" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
-        <div className="absolute inset-0 bg-primary/20 mix-blend-color" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/20" />
+        {/* La marca "16" es adorno: solo aparece donde hay sitio para ella. En
+            móvil se cruzaba con el titular y con el enlace secundario. */}
         <span
           aria-hidden
-          className="pointer-events-none absolute -bottom-14 -right-8 select-none font-headline text-[13rem] leading-none text-white/[0.08] sm:text-[18rem] md:-right-4 md:text-[25rem]"
+          className="pointer-events-none absolute -bottom-10 -right-4 hidden select-none font-headline text-[24rem] leading-none text-white/[0.07] md:block"
         >
           16
         </span>
 
         <div className="relative mx-auto flex min-h-[620px] max-w-7xl flex-col justify-between px-4 pb-7 pt-8 md:px-8 md:pb-8 md:pt-10">
-          <div className="flex items-center justify-between">
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.24em] text-white/70 sm:text-xs">
-              <Flame className="h-3.5 w-3.5 text-primary" />
-              {liveCount > 0
-                ? `${liveCount} ${liveCount === 1 ? "partido en vivo" : "partidos en vivo"}`
-                : "Circuito de pádel"}
-            </p>
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">
-              {sedeLabel}
-            </p>
-          </div>
+          {/* La sede aparece UNA vez, y solo cuando no hay partido en vivo:
+              cuando lo hay, el eyebrow lo ocupa el estado, que es lo que la
+              gente viene a mirar. Antes se repetía tres veces (aquí, en el
+              póster y en la barra de cifras). */}
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.24em] text-white/70">
+            <Flame className="h-3.5 w-3.5 text-primary" />
+            {liveCount > 0
+              ? `${liveCount} ${liveCount === 1 ? "partido en vivo" : "partidos en vivo"}`
+              : `Circuito de pádel · ${sedeLabel}`}
+          </p>
 
           <div className="max-w-3xl pb-7 pt-20 sm:pb-10 sm:pt-28">
             <h1 className="font-headline text-[4.25rem] uppercase leading-[0.82] tracking-[-0.035em] sm:text-[7rem] md:text-[9rem]">
@@ -290,14 +307,15 @@ export default function Home() {
             </div>
           </div>
 
-          <dl className="grid grid-cols-3 border-y border-white/15 bg-black/15 backdrop-blur-sm">
+          {/* Cifras que cambian con la liga. "Sede" salía aquí con un fallback
+              inventado ("CDMX") que además se truncaba a una letra; la sede
+              vive ahora en el eyebrow. El estado en vivo NO se repite acá:
+              ya es el eyebrow de arriba. */}
+          <dl className="grid grid-cols-3 border-y border-white/15 bg-black/20 backdrop-blur-sm">
             {[
-              { label: "Parejas", value: stats.teams.length },
-              { label: "Torneos", value: stats.tournaments.length },
-              {
-                label: "Sede",
-                value: featured?.city ?? stats.tournaments[0]?.city ?? "CDMX",
-              },
+              { label: "Parejas", value: String(stats.teams.length) },
+              { label: "Torneos", value: String(stats.tournaments.length) },
+              { label: "Categorías", value: String(teamGroups.length) },
             ].map((item, index) => (
               <div
                 key={item.label}
@@ -305,7 +323,7 @@ export default function Home() {
                   index > 0 ? "border-l border-white/15" : ""
                 }`}
               >
-                <dd className="truncate font-headline text-xl uppercase sm:text-3xl">
+                <dd className="font-headline text-xl uppercase sm:text-3xl">
                   {item.value}
                 </dd>
                 <dt className="mt-1 text-xs font-bold uppercase tracking-[0.22em] text-white/60">
@@ -360,7 +378,7 @@ export default function Home() {
                 </div>
                 <span className="inline-flex items-center gap-2 border-b border-primary pb-1 text-sm font-bold uppercase tracking-wide">
                   {featuredIsOpen
-                    ? "Inscripciones abiertas"
+                    ? tournamentStatusLabel.registration_open
                     : "Ver convocatoria"}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </span>
@@ -377,139 +395,150 @@ export default function Home() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
               </div>
             ) : (
-              <div className="relative min-h-72 overflow-hidden bg-primary md:border-l md:border-white/10">
+              <div className="relative flex min-h-72 flex-col justify-between overflow-hidden bg-primary p-7 md:border-l md:border-white/10">
                 <span className="absolute -bottom-16 -right-3 font-headline text-[19rem] leading-none text-black/[0.13]">
                   16
                 </span>
-                <span className="absolute left-8 top-8 text-xs font-bold uppercase tracking-[0.3em] text-black/55">
-                  {sedeLabel}
-                </span>
-                <div className="absolute inset-y-0 left-[34%] w-px rotate-[18deg] bg-black/20" />
-                <div className="absolute inset-y-0 left-[54%] w-px rotate-[18deg] bg-black/20" />
-                <div className="absolute inset-y-0 left-[74%] w-px rotate-[18deg] bg-black/20" />
-                <p className="absolute bottom-7 left-7 right-7 font-headline text-3xl uppercase leading-none text-black/75 sm:text-4xl">
-                  {formatLabel[featured.format] ?? featured.format}
-                  <br />
-                  <span className="text-black/45">{statusLabel}</span>
+                <span aria-hidden className="absolute inset-y-0 left-[34%] w-px rotate-[18deg] bg-black/20" />
+                <span aria-hidden className="absolute inset-y-0 left-[54%] w-px rotate-[18deg] bg-black/20" />
+                <span aria-hidden className="absolute inset-y-0 left-[74%] w-px rotate-[18deg] bg-black/20" />
+
+                {/* El formato baja a etiqueta. "Americano" a 4xl era un titular
+                    que no le decía nada a quien no conoce el formato; la frase
+                    que sí lo explica es la del propio torneo. */}
+                <p className="relative flex flex-wrap items-baseline gap-x-3 text-xs font-bold uppercase tracking-[0.24em] text-black/55">
+                  <span>{formatLabel[featured.format] ?? featured.format}</span>
+                  {statusLabel && <span>· {statusLabel}</span>}
                 </p>
+                {featured.rules_summary && (
+                  <p className="relative mt-6 max-w-sm text-sm leading-relaxed text-black/70">
+                    {featured.rules_summary}
+                  </p>
+                )}
               </div>
             )}
           </Link>
         </section>
       )}
 
-      {/* Pills de división: filtra las parejas mostradas por categoría (responsive) */}
-      <div className="flex items-center justify-between gap-3">
-        <GroupFilterBar
-          divisions={divisionOptions.filter((o) => o.value !== "all")}
-          value={div}
-          onChange={setDiv}
+      {/* PAREJAS — una sola sección. La dupla destacada y el top por categoría
+          son la MISMA información; dos encabezados para lo mismo la hacían
+          parecer dos temas distintos. */}
+      <section className="space-y-5">
+        <SectionHeading
+          eyebrow="Parejas"
+          title="En dupla"
+          to="/equipos"
+          action="Ver todas"
         />
-      </div>
 
-      {/* PAREJAS — top por categoría, con foto cuando el equipo la sube */}
-      <section className="space-y-10">
         {featuredTeam && (
-          <div>
-            <SectionHeading
-              eyebrow="Pareja destacada"
-              title="En dupla"
-              to={`/equipos/${featuredTeam.slug}`}
-              action="Ver pareja"
+          <Link
+            to={`/equipos/${featuredTeam.slug}`}
+            className="group flex items-center gap-4 overflow-hidden rounded-xl bg-primary p-4 text-primary-foreground transition-colors hover:bg-primary/95 sm:gap-5 sm:p-5"
+          >
+            <TeamCrest
+              team={featuredTeam}
+              sizeClass="h-14 w-14 sm:h-16 sm:w-16"
+              textClass="text-sm"
             />
-            <Link
-              to={`/equipos/${featuredTeam.slug}`}
-              className="group flex items-center gap-4 overflow-hidden rounded-xl bg-primary p-4 text-primary-foreground transition-colors hover:bg-primary/95 sm:gap-5 sm:p-5"
-            >
-              <TeamCrest
-                team={featuredTeam}
-                sizeClass="h-14 w-14 sm:h-16 sm:w-16"
-                textClass="text-sm"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-primary-foreground/70">
-                  {featuredTeam.category_name ??
-                    `División ${featuredTeam.division}`}
-                </p>
-                <h3 className="mt-1 truncate font-headline text-2xl uppercase leading-tight sm:text-3xl">
-                  {featuredTeam.name}
-                </h3>
-                <p className="mt-1 text-2xs font-semibold text-primary-foreground/80">
-                  Pos. {featuredTeam.position > 0 ? featuredTeam.position : "—"}{" "}
-                  · {featuredTeam.points} pts · {featuredTeam.played} PJ ·{" "}
-                  {winRate(featuredTeam.played, featuredTeam.won)}% victorias
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-primary-foreground/70">
+                {featuredTeam.category_name ??
+                  `División ${featuredTeam.division}`}
+              </p>
+              <h3 className="mt-1 truncate font-headline text-2xl uppercase leading-tight sm:text-3xl">
+                {featuredTeam.name}
+              </h3>
+              <p className="mt-1 text-2xs font-semibold text-primary-foreground/80">
+                Pos. {featuredTeam.position > 0 ? featuredTeam.position : "—"}{" "}
+                · {featuredTeam.points} pts · {featuredTeam.played} PJ ·{" "}
+                {winRate(featuredTeam.played, featuredTeam.won)}% victorias
+              </p>
+            </div>
+            <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
+          </Link>
         )}
 
-        <div>
-          <SectionHeading
-            eyebrow="Parejas"
-            title="Top por categoría"
-            to="/equipos"
-            action="Ver todas"
+        {/* El filtro declara su alcance: filtra ESTA lista y nada más. Antes
+            flotaba entre secciones, sin dueño, y se leía como otra pieza. */}
+        <div className="flex items-center justify-between gap-3 pt-3">
+          <GroupFilterBar
+            divisions={divisionOptions.filter((o) => o.value !== "all")}
+            value={div}
+            onChange={setDiv}
           />
-          <div className="space-y-3">
-            {shownGroups.map((group) => (
-              <div
-                key={group.key}
-                className="overflow-hidden rounded-xl border bg-card"
-              >
-                <div className="flex items-center justify-between gap-3 border-b bg-muted/50 px-4 py-2.5">
-                  <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-foreground/80">
-                    {group.label}
-                  </p>
-                  <Link
-                    to="/ranking"
-                    className="inline-flex shrink-0 items-center text-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    Tabla <ChevronRight className="h-3 w-3" />
-                  </Link>
-                </div>
-                <div className="divide-y">
-                  {group.teams.map((team) => (
-                    <Link
-                      key={team.id}
-                      to={`/equipos/${team.slug}`}
-                      className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60"
-                    >
-                      <TeamCrest
-                        team={team}
-                        sizeClass="h-9 w-9"
-                        textClass="text-2xs"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold leading-tight">
-                          {team.name}
-                        </span>
-                        <span className="mt-0.5 block truncate text-caption text-muted-foreground">
-                          {team.category_name ?? `División ${team.division}`}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-right">
-                        <span className="block font-headline text-lg leading-none text-primary">
-                          {team.position > 0 ? `#${team.position}` : "—"}
-                        </span>
-                        <span className="mt-0.5 block text-2xs text-muted-foreground">
-                          {team.points} pts · {team.played} PJ
-                        </span>
-                      </span>
-                    </Link>
-                  ))}
-                </div>
+        </div>
+        <div className="space-y-3">
+          {shownGroups.map((group) => (
+            <div
+              key={group.key}
+              className="overflow-hidden rounded-xl border bg-card"
+            >
+              <div className="flex items-center justify-between gap-3 border-b bg-muted/50 px-4 py-2.5">
+                <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-foreground/80">
+                  {group.label}
+                </p>
+                <Link
+                  to="/ranking"
+                  className="inline-flex shrink-0 items-center text-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Tabla <ChevronRight className="h-3 w-3" />
+                </Link>
               </div>
-            ))}
-            {shownGroups.length === 0 && (
-              <p className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">
+              <div className="divide-y">
+                {group.teams.map((team) => (
+                  <Link
+                    key={team.id}
+                    to={`/equipos/${team.slug}`}
+                    className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60"
+                  >
+                    <TeamCrest
+                      team={team}
+                      sizeClass="h-9 w-9"
+                      textClass="text-2xs"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold leading-tight">
+                        {team.name}
+                      </span>
+                      <span className="mt-0.5 block truncate text-caption text-muted-foreground">
+                        {team.category_name ?? `División ${team.division}`}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block font-headline text-lg leading-none text-primary">
+                        {team.position > 0 ? `#${team.position}` : "—"}
+                      </span>
+                      <span className="mt-0.5 block text-2xs text-muted-foreground">
+                        {team.points} pts · {team.played} PJ
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+          {shownGroups.length === 0 && (
+            <div className="rounded-xl border bg-card p-8 text-center">
+              <p className="text-sm text-muted-foreground">
                 {div
                   ? "No hay parejas inscritas en esta división."
                   : "Las parejas inscritas aparecerán aquí, organizadas por categoría."}
               </p>
-            )}
-          </div>
+              {div && (
+                // El vacío ofrece la salida, no solo la ausencia.
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 rounded-none"
+                  onClick={() => setDiv("")}
+                >
+                  {divisionOptions[0].label}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -517,10 +546,10 @@ export default function Home() {
       {featuredMatch && (
         <section>
           <SectionHeading
-            eyebrow={
-              featuredMatch.status === "live" ? "En vivo" : "En la cancha"
+            eyebrow={matchStatusLabel[featuredMatch.status]}
+            title={
+              featuredMatch.status === "live" ? "Ahora en juego" : "En la cancha"
             }
-            title="Ahora en juego"
             to="/calendario"
             action="Ver agenda"
           />
@@ -532,28 +561,44 @@ export default function Home() {
                 </p>
                 {featuredMatch.status === "live" && (
                   <Badge className="animate-pulse rounded-none bg-primary text-xs uppercase tracking-widest">
-                    En vivo
+                    {matchStatusLabel.live}
                   </Badge>
                 )}
               </div>
-              <div className="mt-9 grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-8">
-                <p className="text-lg font-semibold leading-tight sm:text-2xl">
-                  {featuredMatch.side_a.pair_name}
-                </p>
-                <span className="font-headline text-xl text-primary sm:text-3xl">
-                  VS
-                </span>
-                <p className="text-right text-lg font-semibold leading-tight sm:text-2xl">
-                  {featuredMatch.side_b.pair_name}
-                </p>
+              {/* El score es el sujeto de la tarjeta, no una nota al pie al
+                  final de un bloque vacío: cada set es una cifra grande y
+                  rotulada. Sin sets dice "Por comenzar" en vez de inventar. */}
+              <div className="mt-7 border-t border-white/15 pt-6">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-8">
+                  <p className="text-lg font-semibold leading-tight sm:text-2xl">
+                    {featuredMatch.side_a.pair_name}
+                  </p>
+                  <span className="font-headline text-lg text-primary sm:text-2xl">
+                    VS
+                  </span>
+                  <p className="text-right text-lg font-semibold leading-tight sm:text-2xl">
+                    {featuredMatch.side_b.pair_name}
+                  </p>
+                </div>
+                {featuredMatch.sets.length > 0 ? (
+                  <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
+                    {featuredMatch.sets.map((set, index) => (
+                      <li key={index} className="text-center">
+                        <span className="block font-headline text-3xl tabular-nums leading-none sm:text-4xl">
+                          {set.a}–{set.b}
+                        </span>
+                        <span className="mt-1.5 block text-2xs font-bold uppercase tracking-[0.22em] text-white/45">
+                          Set {index + 1}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-6 font-mono text-sm uppercase tracking-[0.18em] text-white/45">
+                    Por comenzar
+                  </p>
+                )}
               </div>
-              <p className="mt-8 font-mono text-sm tabular-nums text-white/55">
-                {featuredMatch.sets.length > 0
-                  ? featuredMatch.sets
-                      .map((set) => `${set.a}–${set.b}`)
-                      .join("   /   ")
-                  : "Por comenzar"}
-              </p>
             </div>
 
             <div className="border-t border-white/10 lg:border-l lg:border-t-0">
