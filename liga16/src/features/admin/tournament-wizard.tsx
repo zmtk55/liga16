@@ -750,7 +750,7 @@ teams.forEach((t) => {
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                   i < step
-                    ? "bg-emerald-700 text-white"
+                    ? "bg-success text-success-foreground"
                     : i === step
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
@@ -1196,7 +1196,7 @@ teams.forEach((t) => {
                             <RotateCcw className="h-3 w-3 text-amber-600" />
                             <span>
                               Sorteo #{history.length - i} — {h.length} grupos, {h.reduce((a, g) => a + g.pairIds.length, 0)} equipos
-                              {i === 0 && <span className="ml-2 text-xs text-emerald-600">(más reciente)</span>}
+                              {i === 0 && <span className="ml-2 text-xs text-success">(más reciente)</span>}
                             </span>
                           </Button>
                         ))}

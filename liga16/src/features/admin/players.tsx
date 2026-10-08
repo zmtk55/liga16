@@ -524,6 +524,7 @@ export default function AdminPlayers() {
         onConfirm={() => deleting && handleDelete(deleting)}
         title={`¿Eliminar a ${deleting?.display_name ?? "este jugador"}?`}
         description="Se perderá su perfil y sus datos quedaron fuera de los rankings. Esta acción no se puede deshacer."
+        destructive
       />
 
       <PlayerFormDialog

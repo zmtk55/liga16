@@ -10,6 +10,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function ConfirmDialog({
   open,
@@ -19,6 +21,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Eliminar",
   cancelLabel = "Cancelar",
+  destructive = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -27,6 +30,8 @@ export function ConfirmDialog({
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Muestra el botón de confirmar en rojo (acciones destructivas: eliminar). */
+  destructive?: boolean;
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -38,6 +43,7 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
+            className={cn(destructive && buttonVariants({ variant: "destructive" }))}
             onClick={(e) => {
               e.preventDefault();
               onConfirm();

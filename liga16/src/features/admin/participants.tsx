@@ -426,6 +426,7 @@ export default function AdminParticipants() {
         onConfirm={() => deleting && handleDelete(deleting)}
         title={`¿Eliminar la pareja "${deleting?.name ?? ""}"?`}
         description="Se quita del torneo donde está inscrita. Sus perfiles de jugador no se borran."
+        destructive
       />
 
       <Dialog open={!!moving} onOpenChange={(o) => { if (!o) setMoving(null); }}>

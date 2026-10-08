@@ -399,6 +399,7 @@ export default function AdminTeams() {
         onConfirm={() => deleting && handleDelete(deleting)}
         title={`¿Eliminar el equipo "${deleting?.name ?? ""}"?`}
         description="Se quita de este torneo. Sus perfiles de jugador no se borran."
+        destructive
       />
 
       <EquipoDialog

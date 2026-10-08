@@ -215,6 +215,7 @@ export default function AdminSponsors() {
         onConfirm={() => deleting && handleDelete(deleting)}
         title={`¿Eliminar el patrocinador "${deleting?.name ?? ""}"?`}
         description="Desaparecerá de la landing page y no se puede deshacer."
+        destructive
       />
 
       <SponsorFormDialog

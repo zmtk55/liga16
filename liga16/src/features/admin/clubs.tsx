@@ -269,6 +269,7 @@ export default function AdminClubs() {
           onConfirm={() => deletingCourt && removeCourt(deletingCourt.id, deletingCourt.name)}
           title={`¿Quitar la cancha "${deletingCourt?.name ?? ""}"?`}
           description="Los partidos agendados en ella conservan el nombre, pero ya no aparece como disponible."
+          destructive
         />
         <CardContent className="space-y-3">
           <div className="flex gap-2">

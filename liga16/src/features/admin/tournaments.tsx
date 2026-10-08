@@ -256,6 +256,7 @@ export default function AdminTournaments() {
         onConfirm={() => deleting && handleDelete(deleting)}
         title={`¿Eliminar el torneo "${deleting?.name ?? ""}"?`}
         description="Se borran sus partidos, equipos y categorías. No se puede deshacer."
+        destructive
       />
 
       <ConfirmDialog

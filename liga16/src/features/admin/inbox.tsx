@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Inbox, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Inbox, RefreshCw, XCircle } from 'lucide-react';
 import { useAdminAlerts } from '@/hooks/use-admin-alerts';
 import type { AlertSeverity, AdminAlert } from '@/types';
 import { alertTypeMeta } from '@/lib/alerts';
@@ -42,7 +42,10 @@ function AlertRow({ alert }: { alert: AdminAlert }) {
   const Icon = meta.icon;
 
   return (
-    <Link to={alert.href} className="group">
+    <Link
+      to={alert.href}
+      className="block rounded-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <div className="flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/40">
         <div className="mt-0.5 shrink-0 rounded-md bg-muted/60 p-1.5">
           <Icon className="h-4 w-4 text-muted-foreground" />
@@ -61,6 +64,7 @@ function AlertRow({ alert }: { alert: AdminAlert }) {
             </Badge>
           )}
         </div>
+        <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 self-center text-muted-foreground/60" aria-hidden />
       </div>
     </Link>
   );

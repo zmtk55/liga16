@@ -202,6 +202,7 @@ export default function AdminNews() {
         onConfirm={() => deleting && handleDelete(deleting)}
         title={`¿Eliminar “${deleting?.title ?? ""}”?`}
         description="La noticia desaparecerá del sitio público. Esta acción no se puede deshacer."
+        destructive
       />
 
       <NewsFormDialog
