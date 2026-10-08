@@ -424,10 +424,18 @@ export const supabaseProvider: DataProvider = {
     return true;
   },
 
-  async setRegistrationStatus(registrationId: string, status: RegistrationStatus) {
+  async updateRegistrationPayment(
+    registrationId: string,
+    data: { status?: RegistrationStatus; payment_method?: PaymentMethod; amount_cents?: number | null; paid_at?: string | null },
+  ) {
+    const patch: Record<string, unknown> = {};
+    if (data.status !== undefined) patch.status = data.status;
+    if (data.payment_method !== undefined) patch.payment_method = data.payment_method;
+    if (data.amount_cents !== undefined) patch.amount_cents = data.amount_cents;
+    if (data.paid_at !== undefined) patch.paid_at = data.paid_at;
     const { error } = await client()
       .from('registrations')
-      .update({ status, paid_at: status === 'paid' ? new Date().toISOString() : null })
+      .update(patch)
       .eq('id', registrationId);
     if (error) throw error;
   },

@@ -77,10 +77,14 @@ export interface DataProvider {
   updatePair(id: UUID, data: { name?: string; category_id?: UUID | null; seed?: number | null; tournament_id?: UUID; crest_url?: string | null }): Promise<Pair>;
   deletePair(id: UUID): Promise<boolean>;
   /**
-   * Cambia el estado de una inscripción (p. ej. confirmar el pago). Pasar a
-   * `paid` sella `paid_at` con la hora actual; cualquier otro estado lo limpia.
+   * Edita el pago de una inscripción: estado, método, monto y fecha de pago.
+   * Solo el admin la invoca, desde la vista de participantes. `paid_at` lo
+   * gestiona quien llama (la UI lo sella al pasar a `paid`).
    */
-  setRegistrationStatus(registrationId: UUID, status: RegistrationStatus): Promise<void>;
+  updateRegistrationPayment(
+    registrationId: UUID,
+    data: { status?: RegistrationStatus; payment_method?: PaymentMethod; amount_cents?: number | null; paid_at?: string | null },
+  ): Promise<void>;
   listMatchesByTournament(tournamentId: string): Promise<Match[]>;
   createMatches(matches: Array<Omit<Match, 'id'>>): Promise<Match[]>;
   updateMatch(id: string, updates: Partial<Match>): Promise<Match | null>;

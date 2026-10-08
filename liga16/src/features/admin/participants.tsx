@@ -1,11 +1,12 @@
-// Admin → Participantes: todas las parejas de TODOS los torneos en una sola vista.
-// Filtra por torneo/categoría, muestra el estado de pago de las inscripciones
-// del flujo público, y permite confirmar el pago, borrar o mover una pareja.
+// Admin -> Participantes: todas las parejas de TODOS los torneos en una sola vista.
+// Categorias como se registran (5ta, 4ta, Suma 9...), jugadores visibles y
+// gestion de pagos desde aqui. Nada se renombra: lo que el torneo guardó es
+// lo que se muestra.
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { AllPair } from "@/lib/data/provider";
-import type { RegistrationStatus, Tournament, TournamentCategory } from "@/types";
+import type { PaymentMethod, PlayerProfile, RegistrationStatus, Tournament, TournamentCategory } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,32 +31,34 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CardShell, CardIdentity, CardStat, CardFooterStrip, PairAvatars } from "@/components/cards/card-kit";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
-import { BadgeCheck, FolderInput, Trash2, UsersRound } from "lucide-react";
+import { FolderInput, Trash2, UsersRound, UserPlus, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import PlayerSlot from "@/components/players/player-slot";
+import { ensurePlayer } from "@/lib/players";
 
 const AMBER = "text-amber-600 dark:text-amber-400";
 
-/** Estados en los que la inscripción espera que el admin confirme el pago. */
-const POR_COBRAR: RegistrationStatus[] = ["started", "payment_pending", "payment_review"];
-
-/** Cómo se lee el estado de pago en la card. Sin inscripción = alta desde el admin. */
-function pagoDe(status: RegistrationStatus | null): { value: string; tone?: string } {
-  switch (status) {
-    case null: return { value: "—" };
-    case "paid": return { value: "Pagado", tone: "text-success" };
-    case "payment_review": return { value: "Por revisar", tone: AMBER };
-    case "started":
-    case "payment_pending": return { value: "Pendiente", tone: AMBER };
-    case "refunded": return { value: "Reembolsado" };
-    case "cancelled": return { value: "Cancelada" };
-    case "no_show": return { value: "No asistió" };
-  }
+/** Estado de pago de un registro, para el badge de la fila. */
+function paymentBadge(pair: AllPair) {
+  const status = pair.registration_status;
+  if (!status) return <Badge variant="outline" className="text-xs">Sin registro</Badge>;
+  if (status === "paid") return <Badge variant="default" className="gap-1 text-xs"><CheckCircle2 className="h-3 w-3" /> Pagado</Badge>;
+  if (status === "payment_review") return <Badge variant="secondary" className="gap-1 text-xs"><Clock className="h-3 w-3" /> En revision</Badge>;
+  if (status === "payment_pending") return <Badge variant="outline" className="gap-1 text-xs text-amber-600 border-amber-300"><AlertTriangle className="h-3 w-3" /> Pago pendiente</Badge>;
+  if (status === "cancelled" || status === "refunded") return <Badge variant="destructive" className="text-xs">Cancelado</Badge>;
+  return <Badge variant="secondary" className="text-xs">{status}</Badge>;
 }
 
+/** Categoría tal como el torneo la guardó. Nunca se le cambia el nombre. */
+function categoryDisplay(pair: AllPair): string {
+  return pair.category_name?.trim() || "Sin categoria";
+}
 export default function AdminParticipants() {
   const [pairs, setPairs] = useState<AllPair[] | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
   // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
   const [params, setParams] = useSearchParams();
@@ -72,12 +75,25 @@ export default function AdminParticipants() {
   const [moving, setMoving] = useState<AllPair | null>(null);
   const [moveTarget, setMoveTarget] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  // Crear pareja desde esta misma vista (el hueco que faltaba).
+  const [openCreate, setOpenCreate] = useState(false);
+  const [draft, setDraft] = useState({ name: "", category_id: "", player1: "", player2: "" });
+  const [draftTournament, setDraftTournament] = useState("");
+  const [creating, setCreating] = useState(false);
+  // Gestionar pago de un registro (flujo público).
+  const [paying, setPaying] = useState<AllPair | null>(null);
+  const [payForm, setPayForm] = useState<{ method: PaymentMethod; status: RegistrationStatus; amount: string }>({
+    method: "cash",
+    status: "paid",
+    amount: "",
+  });
 
   async function load() {
     try {
-      const [allPairs, ts] = await Promise.all([db.listAllPairs(), db.listTournaments()]);
+      const [allPairs, ts, ps] = await Promise.all([db.listAllPairs(), db.listTournaments(), db.listPlayers()]);
       setPairs(allPairs);
       setTournaments(ts);
+      setPlayers(ps);
     } catch (e) {
       toast.error((e as Error).message ?? "Error cargando participantes");
       setPairs([]);
@@ -97,8 +113,6 @@ export default function AdminParticipants() {
     ).then((lists) => setCategories(lists.flat()));
   }, [pairs]);
 
-  const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
-  // Categorías filtrables: las del torneo elegido, o todas si es "Todos"
   const filterCats = useMemo(() => {
     if (fTournament === "all") return categories;
     return categories.filter((c) => c.tournament_id === fTournament);
@@ -119,34 +133,23 @@ export default function AdminParticipants() {
   const resumen = useMemo(() => {
     const all = pairs ?? [];
     const conTorneo = all.filter((p) => Boolean(p.tournament_id));
+    const conRegistro = all.filter((p) => p.registration_status);
     return {
       parejas: all.length,
       torneos: new Set(conTorneo.map((p) => p.tournament_id)).size,
       sinTorneo: all.length - conTorneo.length,
       sinCategoria: all.filter((p) => !p.category_id).length,
-      porCobrar: all.filter((p) => p.registration_status && POR_COBRAR.includes(p.registration_status)).length,
+      sinJugadores: all.filter((p) => !p.player1_id && !p.player2_id).length,
+      pagadas: conRegistro.filter((p) => p.registration_status === "paid").length,
+      pendientes: conRegistro.filter((p) => p.registration_status && p.registration_status !== "paid").length,
     };
   }, [pairs]);
-
-  async function handleConfirmPayment(p: AllPair) {
-    if (!p.registration_id) return;
-    setBusy(true);
-    try {
-      await db.setRegistrationStatus(p.registration_id, "paid");
-      toast.success(`Pago de "${p.name}" confirmado`);
-      load();
-    } catch (e) {
-      toast.error((e as Error).message ?? "Error al confirmar el pago");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function handleDelete(p: AllPair) {
     setBusy(true);
     try {
       await db.deletePair(p.id);
-      toast.success(`Pareja "${p.name}" eliminada`);
+      toast.success("Pareja \"" + p.name + "\" eliminada");
       load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al eliminar");
@@ -172,11 +175,80 @@ export default function AdminParticipants() {
       // La categoría del torneo destino no existe aquí → se deja null para
       // que el admin la reasigne desde la pestaña Equipos del torneo destino.
       await db.updatePair(moving.id, { tournament_id: moveTarget });
-      toast.success(`"${moving.name}" movida a otro torneo`);
+      toast.success("\"" + moving.name + "\" movida a otro torneo");
       setMoving(null);
       load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al mover");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCreate() {
+    const p1 = draft.player1.trim();
+    const p2 = draft.player2.trim();
+    if (!p1 || !p2) {
+      toast.error("Captura ambos jugadores");
+      return;
+    }
+    if (p1.toLowerCase() === p2.toLowerCase()) {
+      toast.error("El mismo jugador no puede estar 2 veces en el equipo");
+      return;
+    }
+    if (!draftTournament) {
+      toast.error("Elige un torneo");
+      return;
+    }
+    setCreating(true);
+    try {
+      const [prof1, prof2] = await Promise.all([ensurePlayer(p1).catch(() => null), ensurePlayer(p2).catch(() => null)]);
+      await db.createPair({
+        tournament_id: draftTournament,
+        category_id: draft.category_id || null,
+        name: draft.name.trim() || (p1 + " / " + p2),
+        player1_id: prof1?.id ?? null,
+        player2_id: prof2?.id ?? null,
+      });
+      toast.success("Equipo inscrito");
+      setOpenCreate(false);
+      setDraft({ name: "", category_id: "", player1: "", player2: "" });
+      setDraftTournament("");
+      load();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al inscribir");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function openPay(p: AllPair) {
+    setPaying(p);
+    setPayForm({
+      method: p.payment_method ?? "cash",
+      status: p.registration_status ?? "payment_pending",
+      amount: p.amount_cents ? String(p.amount_cents / 100) : "",
+    });
+  }
+
+  async function handleMarkPaid() {
+    if (!paying || !paying.registration_id) {
+      toast.error("Esta pareja no tiene registro de inscripción (se creó desde el admin).");
+      return;
+    }
+    setBusy(true);
+    try {
+      await db.updateRegistrationPayment(paying.registration_id, {
+        status: payForm.status,
+        payment_method: payForm.method,
+        amount_cents: payForm.amount ? Math.round(Number(payForm.amount) * 100) : null,
+        paid_at: payForm.status === "paid" ? new Date().toISOString() : null,
+      });
+      toast.success("Estado de pago actualizado");
+      setPaying(null);
+      load();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Error al guardar");
     } finally {
       setBusy(false);
     }
@@ -197,14 +269,19 @@ export default function AdminParticipants() {
             tone={resumen.sinTorneo > 0 ? AMBER : undefined}
           />
           <AdminStat
-            value={resumen.sinCategoria}
-            label="Sin categoría"
-            tone={resumen.sinCategoria > 0 ? AMBER : undefined}
+            value={resumen.sinJugadores}
+            label="Sin jugadores"
+            tone={resumen.sinJugadores > 0 ? AMBER : undefined}
           />
           <AdminStat
-            value={resumen.porCobrar}
-            label="Pagos por confirmar"
-            tone={resumen.porCobrar > 0 ? AMBER : undefined}
+            value={resumen.pagadas}
+            label="Pagadas"
+            tone={resumen.pagadas > 0 ? "text-success" : undefined}
+          />
+          <AdminStat
+            value={resumen.pendientes}
+            label="Por cobrar"
+            tone={resumen.pendientes > 0 ? AMBER : undefined}
           />
         </AdminStatStrip>
       </AdminPageHeader>
@@ -235,12 +312,13 @@ export default function AdminParticipants() {
             resultCount={filtered.length}
             resultLabel="parejas"
             onClear={() => { setQuery(""); setFTournament("all"); setFCategory("all"); }}
-          />
+          >
+            <Button size="sm" onClick={() => { setDraft({ name: "", category_id: "", player1: "", player2: "" }); setDraftTournament(""); setOpenCreate(true); }}>
+              <UserPlus className="h-4 w-4" /> Inscribir pareja
+            </Button>
+          </FilterBar>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          {/* Cards y no tabla: es el mismo CardKit del sitio público y el
-              mismo patrón que Equipos. Una tabla de "pareja / torneo /
-              categoría" no decía nada de un vistazo. */}
           {pairs === null && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -255,7 +333,7 @@ export default function AdminParticipants() {
                 <EmptyMedia variant="icon"><UsersRound className="h-5 w-5" /></EmptyMedia>
                 <EmptyTitle className="text-base">No hay participantes todavía</EmptyTitle>
                 <EmptyDescription>
-                  Las parejas se inscriben desde el asistente de torneos o desde Equipos.
+                  Las parejas se inscriben desde el asistente de torneos o desde aquí.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -276,14 +354,14 @@ export default function AdminParticipants() {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((p) => {
                 const [p1, p2] = p.name.split(" / ");
-                const pago = pagoDe(p.registration_status);
-                const porCobrar = p.registration_status !== null && POR_COBRAR.includes(p.registration_status);
+                const cat = categoryDisplay(p);
+                const canPay = Boolean(p.registration_id);
                 const actions: RowAction[] = [
-                  ...(porCobrar
+                  ...(canPay
                     ? [{
-                        label: "Confirmar pago",
-                        icon: <BadgeCheck className="h-4 w-4" />,
-                        onSelect: () => { if (!busy) handleConfirmPayment(p); },
+                        label: "Gestionar pago",
+                        icon: <CheckCircle2 className="h-4 w-4" />,
+                        onSelect: () => openPay(p),
                       }]
                     : []),
                   {
@@ -306,9 +384,7 @@ export default function AdminParticipants() {
                         <CardIdentity
                           lead={<PairAvatars names={[p1, p2]} size="sm" />}
                           titleLines={[p1, p2].filter(Boolean)}
-                          meta={p.category_id
-                            ? (p.category_name ?? catNameById.get(p.category_id) ?? "Sin categoría")
-                            : "Sin categoría"}
+                          meta={cat}
                           end={
                             <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
                           }
@@ -322,12 +398,18 @@ export default function AdminParticipants() {
                               label="En torneo"
                               tone={p.tournament_name ? "text-success" : undefined}
                             />
-                            <CardStat value={pago.value} label="Pago" tone={pago.tone} />
+                            <CardStat value={p1} label="Jugador 1" />
+                            <CardStat value={p2 ?? "—"} label="Jugador 2" />
                           </>
                         }
-                        chip={p.tournament_name
-                          ? <Badge variant="outline">{p.tournament_name}</Badge>
-                          : <Badge variant="secondary">Sin torneo</Badge>}
+                        chip={
+                          <span className="flex items-center gap-2">
+                            {paymentBadge(p)}
+                            {p.tournament_name
+                              ? <Badge variant="outline">{p.tournament_name}</Badge>
+                              : <Badge variant="secondary">Sin torneo</Badge>}
+                          </span>
+                        }
                       />
                     </CardShell>
                   </RowContextMenu>
@@ -351,7 +433,7 @@ export default function AdminParticipants() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><FolderInput className="h-5 w-5" /> Mover pareja</DialogTitle>
             <DialogDescription>
-              Mueve "{moving?.name}" a otro torneo. Al llegar se queda sin categoría asignada hasta que la reasignes.
+              Mueve "{moving?.name ?? ""}" a otro torneo. Al llegar se queda sin categoría asignada hasta que la reasignes.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-2">
@@ -376,6 +458,120 @@ export default function AdminParticipants() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={openCreate} onOpenChange={setOpenCreate}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Inscribir pareja</DialogTitle>
+            <DialogDescription>
+              Crea una pareja en un torneo. Si los jugadores ya existen, se ligan; si no, se registran.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <Select value={draftTournament} onValueChange={setDraftTournament}>
+              <SelectTrigger aria-label="Torneo">
+                <SelectValue placeholder="Torneo" />
+              </SelectTrigger>
+              <SelectContent>
+                {tournaments.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={draft.category_id}
+              onValueChange={(v) => setDraft((d) => ({ ...d, category_id: v }))}
+            >
+              <SelectTrigger aria-label="Categoría">
+                <SelectValue placeholder="Categoría (opcional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {filterCats
+                  .filter((c) => !draftTournament || c.tournament_id === draftTournament)
+                  .map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <PlayerSlot
+              label="Jugador 1"
+              value={draft.player1}
+              players={players}
+              onType={(v) => setDraft((d) => ({ ...d, player1: v }))}
+              onPick={(v) => setDraft((d) => ({ ...d, player1: v }))}
+            />
+            <PlayerSlot
+              label="Jugador 2"
+              value={draft.player2}
+              players={players}
+              onType={(v) => setDraft((d) => ({ ...d, player2: v }))}
+              onPick={(v) => setDraft((d) => ({ ...d, player2: v }))}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating ? "Inscribiendo…" : "Inscribir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!paying} onOpenChange={(o) => { if (!o) setPaying(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Gestionar pago</DialogTitle>
+            <DialogDescription>
+              {paying?.name} — {paying?.tournament_name ?? "Sin torneo"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <Select
+              value={payForm.status}
+              onValueChange={(v) => setPayForm((f) => ({ ...f, status: v as RegistrationStatus }))}
+            >
+              <SelectTrigger aria-label="Estado">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="payment_pending">Pendiente</SelectItem>
+                <SelectItem value="payment_review">En revisión</SelectItem>
+                <SelectItem value="paid">Pagado</SelectItem>
+                <SelectItem value="cancelled">Cancelado</SelectItem>
+                <SelectItem value="refunded">Reembolsado</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={payForm.method}
+              onValueChange={(v) => setPayForm((f) => ({ ...f, method: v as PaymentMethod }))}
+            >
+              <SelectTrigger aria-label="Método de pago">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">Efectivo</SelectItem>
+                <SelectItem value="transfer">Transferencia</SelectItem>
+                <SelectItem value="stripe">Stripe</SelectItem>
+                <SelectItem value="mercado_pago">Mercado Pago</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              type="number"
+              inputMode="decimal"
+              placeholder="Monto (en pesos, opcional)"
+              value={payForm.amount}
+              onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaying(null)}>Cancelar</Button>
+            <Button onClick={handleMarkPaid} disabled={busy}>
+              {busy ? "Guardando…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

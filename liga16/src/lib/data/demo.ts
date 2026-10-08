@@ -5,7 +5,7 @@ import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
   rankingEvents, rankings, sponsors, teams, tournaments,
 } from './seed';
-import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RankingEntry, RankingEvent, RegistrationStatus, RegistrationWithPayment, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
+import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RankingEntry, RankingEvent, RegistrationStatus, RegistrationWithPayment, PaymentMethod, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
 
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 
@@ -130,14 +130,19 @@ export const demoProvider: DataProvider = {
     });
   },
 
-  async setRegistrationStatus(registrationId: string, status: RegistrationStatus) {
+  async updateRegistrationPayment(
+    registrationId: string,
+    data: { status?: RegistrationStatus; payment_method?: PaymentMethod; amount_cents?: number | null; paid_at?: string | null },
+  ) {
     await delay();
     const idx = store.registrations.findIndex((r) => r.id === registrationId);
     if (idx === -1) throw new Error('Inscripción no encontrada');
     store.registrations[idx] = {
       ...store.registrations[idx],
-      status,
-      paid_at: status === 'paid' ? new Date().toISOString() : null,
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.payment_method !== undefined ? { payment_method: data.payment_method } : {}),
+      ...(data.amount_cents !== undefined ? { amount_cents: data.amount_cents } : {}),
+      ...(data.paid_at !== undefined ? { paid_at: data.paid_at } : {}),
     };
   },
 
