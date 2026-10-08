@@ -7,14 +7,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { MatchCard, PairAvatars, CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -24,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MatchCard, PairAvatars, CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
 import { sexLabel, sexOptions, winRate } from "@/lib/format";
 import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
@@ -545,8 +538,8 @@ export default function RankingsPage() {
                 ["Efectividad", (t: Team) => `${winRate(t.played, t.won)}%`],
                 ["División", (t: Team) => t.division],
                 ["Jugadores", (t: Team) => `${t.player1?.name ?? "—"} / ${t.player2?.name ?? "—"}`],
-              ].map(([label, fn]) => (
-                <div key={label as string} className="contents">
+              ] as [string, (t: Team) => string][]).map(([label, fn]) => (
+                <div key={label} className="contents">
                   <div className="py-1 text-xs text-muted-foreground">{label}</div>
                   {[0, 1].map((i) => (
                     <div key={i} className="py-1 text-sm font-semibold tabular-nums">
