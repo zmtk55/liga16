@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, MapPin, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, Info, HelpCircle, Swords, BarChart3 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, Info, HelpCircle, Swords, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatDate, initials, sexLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import ImageUpload from "@/components/ui/image-upload";
-import { MatchCard } from "@/components/cards/card-kit";
+import { MatchCard, PairAvatar } from "@/components/cards/card-kit";
 import { toast } from "sonner";
 import { analyzePlayerLocal, analyzePlayerWithJev, JEV_REMOTE_ENABLED, type JevAnalysis } from "@/lib/jev";
 import { recordWinRate, type PlayerRecord } from "@/lib/records";
@@ -139,7 +139,7 @@ function StatTile({
 }) {
   return (
     <div className="animate-fade-in min-w-0 rounded-xl border border-white/10 bg-white/[0.05] p-3 transition-colors hover:border-white/20 hover:bg-white/[0.08] md:p-4">
-      <p className="text-2xs font-bold uppercase tracking-[0.18em] text-white/45">
+      <p className="text-2xs font-bold uppercase tracking-[0.18em] text-white/65">
         {label}
       </p>
       <p
@@ -150,7 +150,7 @@ function StatTile({
         {icon}
         {value}
       </p>
-      <p className="mt-1.5 truncate text-xs text-white/45">{caption}</p>
+      <p className="mt-1.5 truncate text-xs text-white/65">{caption}</p>
     </div>
   );
 }
@@ -267,6 +267,7 @@ export default function PlayerDetailPage() {
   const [myMatches, setMyMatches] = useState<Match[]>([]);
   const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>([]);
   const [compareId, setCompareId] = useState<string>("");
+  const [pairInfo, setPairInfo] = useState<{ tournament: string | null; tournamentSlug: string | null; category: string | null } | null>(null);
   const [compareData, setCompareData] = useState<{ p: PlayerProfile; c: PlayerCard | null; r: RankingEntry | null; jev: JevAnalysis } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -276,8 +277,8 @@ export default function PlayerDetailPage() {
   useEffect(() => {
     if (!id) return;
     let active = true;
-    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRecord(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers(), db.listRecentMatches(), db.listTournaments()])
-      .then(([p, c, rec, e, rks, teams, pls, allMatches, tournaments]) => {
+    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRecord(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers(), db.listRecentMatches(), db.listTournaments(), db.listAllPairs()])
+      .then(([p, c, rec, e, rks, teams, pls, allMatches, tournaments, allPairs]) => {
         if (!active || !p) return;
         setPlayer(p); setCard(c); setRecord(rec); setEvents(e);
         const rk = rks.find((r) => r.player_id === p.id) ?? null;
@@ -288,6 +289,21 @@ export default function PlayerDetailPage() {
           teams.find((tm) => tm.player1?.player_id === p.id || tm.player2?.player_id === p.id) ??
           teams.find((tm) => [tm.player1?.name, tm.player2?.name].some((n) => n && norm(n) === norm(p.display_name))) ?? null;
         setTeam(t);
+        // Pareja actual = la inscripción más reciente del jugador; de ahí
+        // salen el torneo y la categoría que se muestran en el cover.
+        const myPairs = (allPairs ?? [])
+          .filter((ap) => ap.player1_id === p.id || ap.player2_id === p.id || norm(ap.name) === norm(p.display_name) || norm(ap.name).includes(norm(p.display_name)))
+          .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+        const latest = myPairs[0] ?? null;
+        setPairInfo(
+          latest
+            ? {
+                tournament: latest.tournament_name,
+                tournamentSlug: tournaments.find((tr) => tr.name === latest.tournament_name)?.slug ?? null,
+                category: latest.category_name,
+              }
+            : null,
+        );
 
         // Camino a semifinales: tabla de la MISMA división y rama, con el cupo
         // que definió el organizador. Los puntos por victoria se deducen del
@@ -456,10 +472,6 @@ export default function PlayerDetailPage() {
     <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
       <section className="relative overflow-hidden bg-surface-inverse text-white">
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
-        <div className="absolute right-6 top-6 select-none text-[140px] font-black leading-none text-white/5 md:text-[220px] md:right-12">
-          {ranking ? String(ranking.position).padStart(2, "0") : initials(player.display_name)}
-        </div>
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 50%, hsl(var(--primary)/0.25), transparent 60%)" }} />
 
         <div className="relative mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
           <Button asChild variant="ghost" size="sm" className="mb-4 text-white/70 hover:text-white hover:bg-white/10">
@@ -468,29 +480,52 @@ export default function PlayerDetailPage() {
 
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-center">
             <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div>
-                  <p className="text-sm tracking-widest text-white/60 uppercase">{player.city} · {player.state}</p>
-                  <h1 className="text-4xl font-black tracking-tight md:text-5xl">
-                    <span className="block text-lg font-normal tracking-wide text-white/70">{player.display_name.split(" ")[0]}</span>
-                    <span className="text-white">{player.display_name.split(" ").slice(1).join(" ") || player.display_name}</span>
-                  </h1>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{ranking?.position ?? "—"} Liga16</Badge>
-                    <Badge variant="outline" className="border-white/20 text-white">{sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}</Badge>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs backdrop-blur">
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-success" /> {jev.racha.label}
-                    </span>
-                  </div>
-                </div>
-                <div className="ml-auto hidden items-center gap-2 md:flex">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black font-black">16</div>
-                  <span className="text-xs leading-none text-white/60">Liga16<br /><span className="font-bold text-white">Circuito</span></span>
+              <div>
+                <p className="text-sm tracking-widest text-white/70 uppercase">{player.city} · {player.state}</p>
+                <h1 className="text-3xl font-black tracking-tight text-white md:text-5xl">
+                  {player.display_name}
+                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{ranking?.position ?? "—"} Liga16</Badge>
+                  <Badge variant="outline" className="border-white/20 text-white">{sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}</Badge>
+                  <Badge variant="outline" className="border-white/20 text-white">Nv {(player.official_level ?? player.declared_level).toFixed(1)}</Badge>
                 </div>
               </div>
 
-              {/* Tres datos, no cuatro: lo que un jugador mira de un vistazo */}
-              <div className="grid grid-cols-3 gap-2 md:gap-3">
+              {(() => {
+                const mate = team
+                  ? (team.player1?.player_id === player.id ? team.player2?.name : team.player1?.name) ?? currentPartner
+                  : currentPartner;
+                const [m1, m2] = (team?.name ?? "").split(" / ");
+                return (
+                  <div className="flex flex-col gap-3 rounded-xl border border-white/15 bg-white/10 p-3 sm:flex-row sm:items-center">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <PairAvatar p1={m1 || player.display_name} p2={m2} className="h-10 w-10 border-white/20 bg-white/10 text-sm [&>span]:bg-white/10 [&>span]:text-white" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/70">Pareja actual</p>
+                        <p className="truncate text-sm font-semibold text-white">
+                          {team?.name ?? (mate ? `con ${mate}` : "Sin equipo")}
+                        </p>
+                        <p className="truncate text-xs text-white/70">
+                          {[pairInfo?.tournament, pairInfo?.category ?? team?.division].filter(Boolean).join(" · ") || "Sin torneo activo"}
+                        </p>
+                      </div>
+                    </div>
+                    {pairInfo?.tournamentSlug ? (
+                      <Button asChild size="sm" variant="secondary" className="w-full shrink-0 sm:w-auto">
+                        <Link to={`/torneos/${pairInfo.tournamentSlug}`}>Ver torneo</Link>
+                      </Button>
+                    ) : (
+                      <Button asChild size="sm" variant="secondary" className="w-full shrink-0 sm:w-auto">
+                        <Link to="/torneos">Ver torneos</Link>
+                      </Button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Cuatro datos de un vistazo: la tira de abajo repetía tres de estos */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
                 <StatTile
                   label="Puntos Liga16"
                   value={<CountUp value={ranking?.points ?? 0} />}
@@ -514,13 +549,14 @@ export default function PlayerDetailPage() {
                 />
                 <StatTile label="Títulos" value={String(card?.titles ?? 0)} caption="en el circuito" icon={<Crown className="h-4 w-4 text-warning" />} />
                 <StatTile label="% victoria" value={`${winPct}%`} caption={`${won} de ${played} PJ`} />
+                <StatTile label="Nivel" value={(player.official_level ?? player.declared_level).toFixed(1)} caption={player.official_level != null ? "oficial" : "declarado"} />
               </div>
 
               {/* Racha: el dato que hace que querer jugar el siguiente partido */}
               {played > 0 && (
                 <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
                   <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/55">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/70">
                       Racha actual
                     </p>
                     <p className="text-sm font-semibold text-white">
@@ -544,24 +580,12 @@ export default function PlayerDetailPage() {
                       style={{ width: `${winPct}%` }}
                     />
                   </div>
-                  <p className="mt-2 text-xs text-white/45">
+                  <p className="mt-2 text-xs text-white/70">
                     {won} victorias de {played} partidos disputados
                     {partnerCount > 1 ? ` · ${partnerCount} parejas en su historial` : ""}
                   </p>
                 </div>
               )}
-
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">@{player.username}</span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
-                  <MapPin className="h-3 w-3" /> {player.country}
-                </span>
-                {player.bio && (
-                  <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
-                    {player.bio}
-                  </span>
-                )}
-              </div>
 
               {canEditPhoto && (
                 <div>
@@ -577,26 +601,9 @@ export default function PlayerDetailPage() {
               )}
             </div>
 
-            <div className="relative flex justify-center lg:justify-end">
+            <div className="relative flex flex-col items-center gap-3 lg:justify-end">
               <div className="relative">
                 <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-primary/20 via-transparent to-transparent blur-2xl" />
-                {canEditPhoto && (
-                  <div className="absolute -top-2 -left-2 z-10">
-                    <ImageUpload
-                      id="player-photo"
-                      value={player.photo_url}
-                      round
-                      label="Foto de perfil"
-                      onChange={(dataUrl) => {
-                        if (dataUrl === null) return;
-                        setPlayer({ ...player, photo_url: dataUrl });
-                        db.updatePlayer(player.id, { photo_url: dataUrl })
-                          .then(() => toast.success("Foto de perfil actualizada"))
-                          .catch((e: Error) => toast.error(e.message ?? "No se pudo guardar la foto"));
-                      }}
-                    />
-                  </div>
-                )}
                 {player.photo_url ? (
                   <img src={player.photo_url} alt={player.display_name} className="h-[340px] w-[300px] object-cover object-top rounded-2xl border border-white/10 shadow-2xl md:h-[420px] md:w-[340px]" />
                 ) : (
@@ -604,11 +611,22 @@ export default function PlayerDetailPage() {
                     <span className="text-6xl font-black text-white/90">{initials(player.display_name)}</span>
                   </div>
                 )}
-                <div className="absolute -bottom-3 -left-3 rounded-2xl bg-white px-3 py-2 text-black shadow-xl">
-                  <p className="text-xs font-bold">{team?.name ?? "Sin equipo"}</p>
-                  <p className="text-xs text-muted-foreground">{team?.division ?? "Libre"}</p>
-                </div>
               </div>
+              {canEditPhoto && (
+                <ImageUpload
+                  id="player-photo"
+                  value={player.photo_url}
+                  round
+                  label="Foto de perfil"
+                  onChange={(dataUrl) => {
+                    if (dataUrl === null) return;
+                    setPlayer({ ...player, photo_url: dataUrl });
+                    db.updatePlayer(player.id, { photo_url: dataUrl })
+                      .then(() => toast.success("Foto de perfil actualizada"))
+                      .catch((e: Error) => toast.error(e.message ?? "No se pudo guardar la foto"));
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -622,28 +640,6 @@ export default function PlayerDetailPage() {
           onSaved={(p) => setPlayer(p)}
         />
       )}
-
-      <section className="mx-auto max-w-7xl px-4 md:px-6">
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-            <div className="grid grid-cols-3 divide-x divide-border text-center md:grid-cols-6">
-              {[
-                { k: "PJ", v: played },
-                { k: "PG", v: won },
-                { k: "Win%", v: `${winPct}%` },
-                { k: "Nivel", v: (player.official_level ?? player.declared_level).toFixed(1) },
-                { k: "Puntos", v: ranking?.points.toLocaleString("es-MX") ?? "—" },
-                { k: "Títulos", v: card?.titles ?? 0 },
-              ].map((s) => (
-                <div key={s.k} className="p-4 transition-colors hover:bg-muted/50">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">{s.k}</p>
-                  <p className="mt-1 text-xl font-black tabular-nums">{s.v}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </section>
 
       {/* ====== Estadísticas: gráficas del historial derivado ====== */}
       <section className="mx-auto max-w-7xl px-4 md:px-6">
@@ -1018,30 +1014,8 @@ export default function PlayerDetailPage() {
           </Card>
 
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Shirt className="h-4 w-4" /> Liga y compañero actual</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Shirt className="h-4 w-4" /> Detalles</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-3 [&>*]:min-w-0 sm:grid-cols-2">
-                <div className="rounded-xl border p-3">
-                  <p className="text-xs text-muted-foreground">Equipo actual</p>
-                  <p className="font-bold flex items-center gap-2"><Users className="h-4 w-4" /> {team?.name ?? "Sin equipo"}</p>
-                  <p className="text-xs text-muted-foreground">{team?.city ?? player.city} · {team?.division ?? "Libre"}</p>
-                  <p className="mt-2 text-xs"><span className="text-muted-foreground">División:</span> {team?.division ?? "—"} · {team?.sex ?? ""}</p>
-                </div>
-                <div className="rounded-xl border p-3">
-                  <p className="text-xs text-muted-foreground">Compañero actual</p>
-                  <p className="font-bold">{currentPartner ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {partnerCount > 1
-                      ? `Ha jugado con ${partnerCount} parejas distintas`
-                      : `Nivel ${(player.official_level ?? player.declared_level).toFixed(1)}`}
-                  </p>
-                  <div className="mt-2 flex gap-1">
-                    <Badge variant="secondary">{positionLabel[player.preferred_position]}</Badge>
-                    <Badge variant="outline">{handLabel[player.dominant_hand]}</Badge>
-                  </div>
-                </div>
-              </div>
-
               <div className="rounded-xl bg-muted p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide">Detalles pádel</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
