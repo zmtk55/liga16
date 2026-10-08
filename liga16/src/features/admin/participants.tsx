@@ -28,15 +28,12 @@ import {
 import { toast } from "sonner";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { CardShell, CardIdentity, CardStat, CardFooterStrip, PairAvatars } from "@/components/cards/card-kit";
+import { PairAvatar } from "@/components/cards/card-kit";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
-import { FolderInput, Trash2, UsersRound, UserPlus, CheckCircle2, Clock, AlertTriangle, LayoutGrid, List } from "lucide-react";
+import { FolderInput, Trash2, UsersRound, UserPlus, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 
@@ -89,7 +86,7 @@ export default function AdminParticipants() {
     status: "paid",
     amount: "",
   });
-  const [view, setView] = useState<"cards" | "table">("cards");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -316,27 +313,16 @@ export default function AdminParticipants() {
             resultLabel="parejas"
             onClear={() => { setQuery(""); setFTournament("all"); setFCategory("all"); }}
           >
-            <ToggleGroup
-              type="single"
-              value={view}
-              onValueChange={(v) => v && setView(v as typeof view)}
-              variant="outline"
-              size="sm"
-              className="w-fit justify-start"
-            >
-              <ToggleGroupItem value="cards"><LayoutGrid className="h-4 w-4" /> Cards</ToggleGroupItem>
-              <ToggleGroupItem value="table"><List className="h-4 w-4" /> Tabla</ToggleGroupItem>
-            </ToggleGroup>
             <Button size="sm" onClick={() => { setDraft({ name: "", category_id: "", player1: "", player2: "" }); setDraftTournament(""); setOpenCreate(true); }}>
               <UserPlus className="h-4 w-4" /> Inscribir pareja
             </Button>
           </FilterBar>
         </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
+        <CardContent className="p-0">
           {pairs === null && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-28 rounded-xl" />
+                <Skeleton key={i} className="h-16 rounded-xl" />
               ))}
             </div>
           )}
@@ -364,115 +350,91 @@ export default function AdminParticipants() {
             </Empty>
           )}
 
-          {filtered.length > 0 && view === "cards" && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((p) => {
-                const [p1, p2] = p.name.split(" / ");
-                const cat = categoryDisplay(p);
-                const canPay = Boolean(p.registration_id);
-                const actions: RowAction[] = [
-                  ...(canPay
-                    ? [{
-                        label: "Gestionar pago",
-                        icon: <CheckCircle2 className="h-4 w-4" />,
-                        onSelect: () => openPay(p),
-                      }]
-                    : []),
-                  {
-                    label: "Mover a otro torneo",
-                    icon: <FolderInput className="h-4 w-4" />,
-                    onSelect: () => openMove(p),
-                  },
-                  {
-                    label: "Eliminar",
-                    icon: <Trash2 className="h-4 w-4" />,
-                    onSelect: () => setDeleting(p),
-                    destructive: true,
-                    separator: true,
-                  },
-                ];
-                return (
-                  <RowContextMenu key={p.id} actions={actions}>
-                    <CardShell accent>
-                      <CardContent className="p-4">
-                        <CardIdentity
-                          lead={<PairAvatars names={[p1, p2]} size="sm" />}
-                          titleLines={[p1, p2].filter(Boolean)}
-                          meta={cat}
-                          end={
-                            <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
-                          }
-                        />
-                      </CardContent>
-                      <CardFooterStrip
-                        stats={
-                          <>
-                            <CardStat
-                              value={p.tournament_name ? "Sí" : "No"}
-                              label="En torneo"
-                              tone={p.tournament_name ? "text-success" : undefined}
-                            />
-                            <CardStat value={p1} label="Jugador 1" />
-                            <CardStat value={p2 ?? "—"} label="Jugador 2" />
-                          </>
-                        }
-                        chip={
-                          <span className="flex items-center gap-2">
-                            {paymentBadge(p)}
-                            {p.tournament_name
-                              ? <Badge variant="outline">{p.tournament_name}</Badge>
-                              : <Badge variant="secondary">Sin torneo</Badge>}
-                          </span>
-                        }
-                      />
-                    </CardShell>
-                  </RowContextMenu>
-                );
-              })}
-            </div>
-          )}
-
-          {filtered.length > 0 && view === "table" && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pareja</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>Torneo</TableHead>
-                  <TableHead>Pago</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((p) => {
-                  const [p1, p2] = p.name.split(" / ");
-                  const actions: RowAction[] = [
-                    ...(p.registration_id
-                      ? [{ label: "Gestionar pago", icon: <CheckCircle2 className="h-4 w-4" />, onSelect: () => openPay(p) }]
-                      : []),
-                    { label: "Mover a otro torneo", icon: <FolderInput className="h-4 w-4" />, onSelect: () => openMove(p) },
-                    { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting(p), destructive: true, separator: true },
-                  ];
-                  return (
-                    <TableRow key={p.id} className="cursor-pointer" onClick={() => openMove(p)}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <PairAvatars names={[p1, p2]} size="sm" />
-                          <span className="font-medium">{p1}<span className="text-muted-foreground"> / </span>{p2}</span>
+          {filtered.length > 0 && (() => {
+            const sel = filtered.find((p) => p.id === selectedId) ?? null;
+            const selP1 = sel?.name.split(" / ")[0] ?? "";
+            const selP2 = sel?.name.split(" / ")[1] ?? "";
+            const prof1 = sel ? players.find((pl) => pl.id === sel.player1_id) : undefined;
+            const prof2 = sel ? players.find((pl) => pl.id === sel.player2_id) : undefined;
+            return (
+              <div className="grid divide-y lg:grid-cols-[minmax(260px,320px)_1fr] lg:divide-x lg:divide-y-0">
+                <div className="max-h-[70vh] overflow-y-auto p-2">
+                  {filtered.map((p) => {
+                    const [p1, p2] = p.name.split(" / ");
+                    const active = p.id === selectedId;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSelectedId(p.id)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${active ? "bg-muted" : "hover:bg-muted/50"}`}
+                      >
+                        <PairAvatar p1={p1} p2={p2} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{p1} / {p2 ?? "—"}</p>
+                          <p className="truncate text-xs text-muted-foreground">{categoryDisplay(p)} · {p.tournament_name ?? "Sin torneo"}</p>
                         </div>
-                      </TableCell>
-                      <TableCell>{categoryDisplay(p)}</TableCell>
-                      <TableCell>{p.tournament_name ?? "Sin torneo"}</TableCell>
-                      <TableCell>{paymentBadge(p)}</TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
+                        <span className="shrink-0">{paymentBadge(p)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="p-4">
+                  {!sel ? (
+                    <div className="flex h-full min-h-48 items-center justify-center text-sm text-muted-foreground">
+                      Selecciona una pareja para ver su detalle.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold">{selP1} / {selP2 || "—"}</h3>
+                          <p className="text-xs text-muted-foreground">{categoryDisplay(sel)} · {sel.tournament_name ?? "Sin torneo"}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {[
+                              { name: selP1, level: prof1 ? (prof1.official_level ?? prof1.declared_level) : null },
+                              { name: selP2, level: prof2 ? (prof2.official_level ?? prof2.declared_level) : null },
+                            ].filter((c) => c.name).map((c) => (
+                              <span key={c.name} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs">
+                                <PairAvatar p1={c.name} className="h-6 w-6 border text-[10px]" />
+                                <span className="font-medium">{c.name}</span>
+                                {c.level != null && <span className="text-muted-foreground">Nv {c.level}</span>}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <span className="shrink-0">{paymentBadge(sel)}</span>
+                      </div>
+
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+                        <div><dt className="text-xs text-muted-foreground">Torneo</dt><dd className="truncate">{sel.tournament_name ?? "—"}</dd></div>
+                        <div><dt className="text-xs text-muted-foreground">Categoría</dt><dd className="truncate">{categoryDisplay(sel)}</dd></div>
+                        <div><dt className="text-xs text-muted-foreground">Monto</dt><dd>{sel.amount_cents != null ? `$${(sel.amount_cents / 100).toLocaleString()}` : "—"}</dd></div>
+                        <div><dt className="text-xs text-muted-foreground">Método</dt><dd>{sel.payment_method ?? "—"}</dd></div>
+                        <div><dt className="text-xs text-muted-foreground">Jugador 1</dt><dd className="truncate">{prof1?.display_name ?? selP1}</dd></div>
+                        <div><dt className="text-xs text-muted-foreground">Jugador 2</dt><dd className="truncate">{prof2?.display_name ?? selP2 ?? "—"}</dd></div>
+                      </dl>
+
+                      <div className="flex flex-wrap gap-2 border-t pt-3">
+                        {sel.registration_id && (
+                          <Button size="sm" variant="outline" onClick={() => openPay(sel)}>
+                            <CheckCircle2 className="h-4 w-4" /> Gestionar pago
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => openMove(sel)}>
+                          <FolderInput className="h-4 w-4" /> Mover a otro torneo
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => setDeleting(sel)}>
+                          <Trash2 className="h-4 w-4" /> Eliminar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

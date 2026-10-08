@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -28,7 +27,6 @@ import {
 import { toast } from "sonner";
 import { AlertTriangle, Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
 import { checkLevelSum } from "@/lib/qualification";
-import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -36,7 +34,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import ImageUpload from "@/components/ui/image-upload";
 import { deleteStoredImage } from "@/lib/storage";
-import { CardShell, CardIdentity, CardStat, CardFooterStrip, PairAvatars } from "@/components/cards/card-kit";
+import { PairAvatar } from "@/components/cards/card-kit";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -72,6 +70,7 @@ export default function AdminTeams() {
     setParams(next, { replace: true });
   };
   const [cat, setCat] = useState("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     db.listTournaments().then((ts) => {
@@ -280,17 +279,17 @@ export default function AdminTeams() {
               onClear={() => { setQuery(""); setCat("all"); }}
             />
           </CardHeader>
-          <CardContent className="p-4">
+          <CardContent className="p-0">
             {pairs === null && (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-28 rounded-xl" />
+                  <Skeleton key={i} className="h-16 rounded-xl" />
                 ))}
               </div>
             )}
 
             {pairs !== null && pairs.length === 0 && (
-              <Empty className="border-0 py-10">
+              <Empty className="py-10">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <Users className="h-5 w-5" />
@@ -307,7 +306,7 @@ export default function AdminTeams() {
             )}
 
             {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-              <Empty className="border-0 py-10">
+              <Empty className="py-10">
                 <EmptyHeader>
                   <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
                   <EmptyDescription>
@@ -317,78 +316,78 @@ export default function AdminTeams() {
               </Empty>
             )}
 
-            {/* Cards y no tabla: es la misma pieza que usa el sitio público, con
-                los avatares de la pareja y la categoría a la vista. Una tabla
-                de "nombre / categoría" no decía nada de un vistazo.
+            {filtered.length > 0 && (() => {
+              const sel = filtered.find((p) => p.id === selectedId) ?? null;
+              const [sp1, sp2] = (sel?.name ?? " / ").split(" / ");
+              return (
+                <div className="grid divide-y lg:grid-cols-[minmax(260px,320px)_1fr] lg:divide-x lg:divide-y-0">
+                  <div className="max-h-[70vh] overflow-y-auto p-2">
+                    {filtered.map((p) => {
+                      const [p1, p2] = p.name.split(" / ");
+                      const active = p.id === selectedId;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedId(p.id)}
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${active ? "bg-muted" : "hover:bg-muted/50"}`}
+                        >
+                          {p.crest_url ? (
+                            <img src={p.crest_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+                          ) : (
+                            <PairAvatar p1={p1} p2={p2} />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{p1} / {p2 ?? "—"}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {p.category_id ? catNameById.get(p.category_id) ?? "Sin categoría" : "Sin categoría"}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                Aquí NO entra la `TeamCard` (la de /equipos) a propósito: esta
-                lista no son equipos del circuito sino parejas inscritas en UN
-                torneo, y su forma local solo trae id/nombre/categoría/escudo —
-                sin división, rama, stats ni slug, que es justo lo que la card
-                con foto muestra. Además la tarjeta de foto se abre con click
-                (flip) y rompería el click derecho de editar/eliminar. Mientras
-                esta vista sea de gestión, prima que editar rápido. */}
-            {filtered.length > 0 && (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((p) => {
-                  const [p1, p2] = p.name.split(" / ");
-                  const actions: RowAction[] = [
-                    {
-                      label: "Editar equipo",
-                      icon: <Pencil className="h-4 w-4" />,
-                      onSelect: () => { setEditing(p); setOpenCreate(true); },
-                    },
-                    {
-                      label: "Eliminar",
-                      icon: <Trash2 className="h-4 w-4" />,
-                      onSelect: () => setDeleting(p),
-                      destructive: true,
-                      separator: true,
-                    },
-                  ];
-                  return (
-                    <RowContextMenu key={p.id} actions={actions}>
-                      <CardShell accent>
-                        <CardContent className="p-4">
-                          <CardIdentity
-                            lead={<PairAvatars names={[p1, p2]} size="sm" />}
-                            titleLines={[p1, p2].filter(Boolean)}
-                            meta={
-                              p.category_id
-                                ? catNameById.get(p.category_id) ?? "Sin categoría"
-                                : "Sin categoría"
-                            }
-                            end={
-                              <RowActionsMenu
-                                actions={actions}
-                                label={`Acciones para ${p.name}`}
-                              />
-                            }
-                          />
-                        </CardContent>
-                        <CardFooterStrip
-                          stats={
-                            <>
-                              <CardStat
-                                value={p.crest_url ? "Sí" : "No"}
-                                label="Escudo"
-                                tone={p.crest_url ? "text-success" : undefined}
-                              />
-                              <CardStat value={p.category_id ? "Sí" : "No"} label="Inscrita" />
-                            </>
-                          }
-                          chip={
-                            <Badge variant="outline" className="gap-1">
-                              <Pencil className="h-3 w-3" /> Editar
-                            </Badge>
-                          }
-                        />
-                      </CardShell>
-                    </RowContextMenu>
-                  );
-                })}
-              </div>
-            )}
+                  <div className="p-4">
+                    {!sel ? (
+                      <div className="flex h-full min-h-48 items-center justify-center text-sm text-muted-foreground">
+                        Selecciona una pareja para ver su detalle.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          {sel.crest_url ? (
+                            <img src={sel.crest_url} alt="" className="h-14 w-14 rounded-full object-cover" />
+                          ) : (
+                            <PairAvatar p1={sp1} p2={sp2} className="h-14 w-14 text-lg" />
+                          )}
+                          <div>
+                            <h3 className="text-base font-semibold">{sp1} / {sp2 || "—"}</h3>
+                            <p className="text-xs text-muted-foreground">
+                              {sel.category_id ? catNameById.get(sel.category_id) ?? "Sin categoría" : "Sin categoría"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                          <div><dt className="text-xs text-muted-foreground">Categoría</dt><dd>{sel.category_id ? catNameById.get(sel.category_id) ?? "Sin categoría" : "Sin categoría"}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">Escudo</dt><dd>{sel.crest_url ? "Sí" : "No"}</dd></div>
+                        </dl>
+
+                        <div className="flex flex-wrap gap-2 border-t pt-3">
+                          <Button size="sm" variant="outline" onClick={() => { setEditing(sel); setOpenCreate(true); }}>
+                            <Pencil className="h-4 w-4" /> Editar equipo
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => setDeleting(sel)}>
+                            <Trash2 className="h-4 w-4" /> Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}

@@ -34,10 +34,14 @@ export function CardShell({
   children,
   className,
   accent = false,
+  banner,
+  bannerAlt,
 }: {
   children: ReactNode;
   className?: string;
   accent?: boolean;
+  banner?: string | null;
+  bannerAlt?: string;
 }) {
   return (
     <Card
@@ -47,6 +51,19 @@ export function CardShell({
       )}
     >
       {accent && <div aria-hidden className="h-1 bg-primary" />}
+      {banner && (
+        <div className="relative aspect-[16/7] w-full overflow-hidden bg-muted">
+          <img
+            src={banner}
+            alt={bannerAlt ?? ""}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/20 to-transparent" />
+        </div>
+      )}
       {children}
     </Card>
   );
@@ -141,7 +158,26 @@ export function CardFooterStrip({
   );
 }
 
-/** Avatares de pareja (2 jugadores solapados) sobre el primitivo Avatar de shadcn. */
+/** Avatar ÚNICO de pareja: una sola letra por jugador, nada solapado.
+    Para filas densa (listas maestro-detalle) donde dos círculos encimados
+    tapan las iniciales y se ven como "letras encimadas". */
+export function PairAvatar({
+  p1,
+  p2,
+  className,
+}: {
+  p1?: string | null;
+  p2?: string | null;
+  className?: string;
+}) {
+  const t = `${p1?.trim().charAt(0) ?? "?"}${p2?.trim().charAt(0) ?? ""}`.toUpperCase();
+  return (
+    <Avatar className={cn("h-8 w-8 shrink-0 border-2 border-background bg-primary/10 text-xs", className)}>
+      <AvatarFallback className="bg-primary/10 font-bold text-primary">{t}</AvatarFallback>
+    </Avatar>
+  );
+}
+/** Dos avatares solapados. Solo donde hay espacio (banners, detalle amplio). */
 export function PairAvatars({
   names,
   size = "md",
