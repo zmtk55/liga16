@@ -32,9 +32,11 @@ import { CardShell, CardIdentity, CardStat, CardFooterStrip, PairAvatars } from 
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
-import { FolderInput, Trash2, UsersRound, UserPlus, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { FolderInput, Trash2, UsersRound, UserPlus, CheckCircle2, Clock, AlertTriangle, LayoutGrid, List } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 
@@ -87,6 +89,7 @@ export default function AdminParticipants() {
     status: "paid",
     amount: "",
   });
+  const [view, setView] = useState<"cards" | "table">("cards");
 
   async function load() {
     try {
@@ -313,6 +316,17 @@ export default function AdminParticipants() {
             resultLabel="parejas"
             onClear={() => { setQuery(""); setFTournament("all"); setFCategory("all"); }}
           >
+            <ToggleGroup
+              type="single"
+              value={view}
+              onValueChange={(v) => v && setView(v as typeof view)}
+              variant="outline"
+              size="sm"
+              className="w-fit justify-start"
+            >
+              <ToggleGroupItem value="cards"><LayoutGrid className="h-4 w-4" /> Cards</ToggleGroupItem>
+              <ToggleGroupItem value="table"><List className="h-4 w-4" /> Tabla</ToggleGroupItem>
+            </ToggleGroup>
             <Button size="sm" onClick={() => { setDraft({ name: "", category_id: "", player1: "", player2: "" }); setDraftTournament(""); setOpenCreate(true); }}>
               <UserPlus className="h-4 w-4" /> Inscribir pareja
             </Button>
@@ -350,7 +364,7 @@ export default function AdminParticipants() {
             </Empty>
           )}
 
-          {filtered.length > 0 && (
+          {filtered.length > 0 && view === "cards" && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((p) => {
                 const [p1, p2] = p.name.split(" / ");
@@ -416,6 +430,48 @@ export default function AdminParticipants() {
                 );
               })}
             </div>
+          )}
+
+          {filtered.length > 0 && view === "table" && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pareja</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Torneo</TableHead>
+                  <TableHead>Pago</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((p) => {
+                  const [p1, p2] = p.name.split(" / ");
+                  const actions: RowAction[] = [
+                    ...(p.registration_id
+                      ? [{ label: "Gestionar pago", icon: <CheckCircle2 className="h-4 w-4" />, onSelect: () => openPay(p) }]
+                      : []),
+                    { label: "Mover a otro torneo", icon: <FolderInput className="h-4 w-4" />, onSelect: () => openMove(p) },
+                    { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting(p), destructive: true, separator: true },
+                  ];
+                  return (
+                    <TableRow key={p.id} className="cursor-pointer" onClick={() => openMove(p)}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <PairAvatars names={[p1, p2]} size="sm" />
+                          <span className="font-medium">{p1}<span className="text-muted-foreground"> / </span>{p2}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{categoryDisplay(p)}</TableCell>
+                      <TableCell>{p.tournament_name ?? "Sin torneo"}</TableCell>
+                      <TableCell>{paymentBadge(p)}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <RowActionsMenu actions={actions} label={`Acciones para ${p.name}`} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
