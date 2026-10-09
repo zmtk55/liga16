@@ -27,7 +27,6 @@ import {
   formatDateRange,
   formatLabel,
   formatMatchDateTime,
-  winRate,
 } from "@/lib/format";
 import {
   DIVISION_ORDER,
@@ -188,9 +187,6 @@ export default function Home() {
     () => (cat ? teamGroups.filter((g) => g.key === cat) : teamGroups),
     [teamGroups, cat],
   );
-  // La pareja destacada sale del grupo FILTRADO. Antes tomaba `teamGroups[0]`
-  // y con un filtro activo señalaba una categoría que no era la elegida.
-  const featuredTeam = shownGroups[0]?.teams[0] ?? null;
 
   if (!stats) {
     return (
@@ -411,9 +407,12 @@ export default function Home() {
         </section>
       )}
 
-      {/* PAREJAS — una sola sección. La dupla destacada y el top por categoría
-          son la MISMA información; dos encabezados para lo mismo la hacían
-          parecer dos temas distintos. */}
+      {/* PAREJAS — una sola sección.
+          Antes había dos: "Pareja destacada" con una tarjeta naranja y "Top por
+          categoría" con la lista. La tarjeta mostraba la pareja #1 del primer
+          grupo, que es exactamente la primera fila de la lista de abajo. Se fue:
+          el mismo dato dos veces, y con el filtro puesto la tarjeta además
+          señalaba una categoría que el filtro podía haber dejado fuera. */}
       <section className="space-y-5">
         <SectionHeading
           eyebrow="Parejas"
@@ -421,33 +420,6 @@ export default function Home() {
           to="/equipos"
           action="Ver todas"
         />
-
-        {featuredTeam && (
-          <Link
-            to={`/equipos/${featuredTeam.slug}`}
-            className="group flex items-center gap-4 overflow-hidden rounded-xl bg-primary p-4 text-primary-foreground transition-colors hover:bg-primary/95 sm:gap-5 sm:p-5"
-          >
-            <TeamCrest
-              team={featuredTeam}
-              sizeClass="h-14 w-14 sm:h-16 sm:w-16"
-              textClass="text-sm"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-primary-foreground/70">
-                {teamCategoryLabel(featuredTeam)}
-              </p>
-              <h3 className="mt-1 truncate font-headline text-2xl uppercase leading-tight sm:text-3xl">
-                {featuredTeam.name}
-              </h3>
-              <p className="mt-1 text-2xs font-semibold text-primary-foreground/80">
-                Pos. {featuredTeam.position > 0 ? featuredTeam.position : "—"}{" "}
-                · {featuredTeam.points} pts · {featuredTeam.played} PJ ·{" "}
-                {winRate(featuredTeam.played, featuredTeam.won)}% victorias
-              </p>
-            </div>
-            <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
-          </Link>
-        )}
 
         {/* El filtro declara su alcance: filtra ESTA lista y nada más. Antes
             flotaba entre secciones, sin dueño, y se leía como otra pieza. */}
