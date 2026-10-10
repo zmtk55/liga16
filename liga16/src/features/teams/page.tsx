@@ -169,7 +169,7 @@ export default function TeamsPage() {
             división en la que caen. Solo aparecen las que existen.{" "}
             <Link
               to="/torneos"
-              className="underline underline-offset-4 hover:text-foreground"
+              className="inline-flex min-h-6 items-center underline underline-offset-4 hover:text-foreground"
             >
               Ver los torneos
             </Link>

@@ -442,7 +442,11 @@ export default function Home() {
                 </p>
                 <Link
                   to="/ranking"
-                  className="inline-flex shrink-0 items-center text-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
+                  // El link se dimensionaba solo por su texto (14px de alto), por
+                  // debajo del mínimo de 24px de WCAG 2.2. El relleno vertical
+                  // amplía el área de toque; el margen negativo lo compensa para
+                  // que la fila no crezca.
+                  className="-my-1.5 inline-flex min-h-8 shrink-0 items-center px-1 text-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Tabla <ChevronRight className="h-3 w-3" />
                 </Link>

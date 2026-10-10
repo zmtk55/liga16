@@ -215,8 +215,16 @@ export default function CalendarPage() {
   
       >
         {profile && (
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Switch checked={onlyMine} onCheckedChange={setOnlyMine} aria-label="Ver solo mis partidos" />
+          <label className="flex min-h-8 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            {/* shadcn lo hace de 20px de alto (h-5), por debajo del mínimo de
+                24px de WCAG 2.2. Se agranda solo aquí; tocar el componente
+                global cambiaría cada switch de la app. */}
+            <Switch
+              checked={onlyMine}
+              onCheckedChange={setOnlyMine}
+              aria-label="Ver solo mis partidos"
+              className="h-6 w-10"
+            />
             Mis partidos
           </label>
         )}
