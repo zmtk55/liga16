@@ -1,10 +1,16 @@
 // Validación y formato de categorías de torneo (nombre libre + rama).
-import { sexLabel } from "@/lib/format";
+import { divisionOptions, SEX_BRANCHES, sexLabel } from "@/lib/format";
 import type { PadelDivision, Sex, Team } from "@/types";
 
 export interface CategoryValue {
   label: string; // nombre libre: "4ta Varonil", "Suma Nueve"…
   sex: Sex;
+  /**
+   * Id interno para que React no reutilice el nodo de otra fila al borrar una
+   * del medio (con `key={índice}` los inputs saltan de valor al editar). No se
+   * guarda: al crear el torneo solo se leen `label` y `sex`.
+   */
+  id?: string;
 }
 
 /** El orden de las divisiones: de la más fuerte a la más nueva. */
@@ -75,11 +81,46 @@ export function divisionFromCategory(
   return 'Novatos';
 }
 
+/**
+ * Qué le pasa a la categoría de este índice, o `null` si está bien.
+ *
+ * La regla vive acá una sola vez: el componente la pinta en la fila y
+ * `categoriasValidas` la aplica. Antes el componente tenía un `error` que
+ * solo se limpiaba y nunca se activaba, y el wizard bloqueaba el paso con un
+ * "añade al menos una categoría válida" que no decía cuál ni por qué.
+ */
+export function categoriaProblema(
+  cats: CategoryValue[],
+  index: number,
+): string | null {
+  const label = (cats[index]?.label ?? "").trim();
+  if (!label) return "Ponle un nombre";
+  const norm = label.toLowerCase();
+  const otra = cats.findIndex(
+    (c, i) => i !== index && c.label.trim().toLowerCase() === norm,
+  );
+  return otra >= 0 ? "Ya hay otra categoría con ese nombre" : null;
+}
+
 /** Valida: no vacías, no duplicadas (insensible a mayúsculas). */
 export function categoriasValidas(cats: CategoryValue[]): boolean {
-  return cats.length > 0 &&
-    cats.every((c) => c.label.trim()) &&
-    new Set(cats.map((c) => c.label.trim().toLowerCase())).size === cats.length;
+  return cats.length > 0 && cats.every((_, i) => categoriaProblema(cats, i) === null);
+}
+
+/**
+ * Nombres que se sugieren al teclear: las divisiones sueltas y cada división
+ * con su rama. Se derivan de `divisionOptions` y `SEX_BRANCHES`; estaban
+ * escritos a mano en dos listas dentro del componente, por eso ofrecía "5ta"
+ * pero no "4ta Varonil".
+ */
+export function categorySuggestions(): string[] {
+  const divisiones = divisionOptions
+    .filter((d) => d.value !== "all")
+    .map((d) => d.label);
+  const compuestas = divisiones.flatMap((d) =>
+    SEX_BRANCHES.map((r) => `${d} ${r.label}`),
+  );
+  return [...divisiones, ...compuestas];
 }
 
 /** Label legible para mostrar una categoría en cualquier lista. */
