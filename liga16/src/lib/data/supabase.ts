@@ -45,8 +45,13 @@ function slugifyName(name: string): string {
 export function sexFromCategory(sex: string | null | undefined, name: string | null | undefined): Sex | null {
   if (sex === 'M' || sex === 'F' || sex === 'X') return sex;
   const n = (name ?? '').toLowerCase();
-  if (n.includes('femenil')) return 'F';
-  if (n.includes('varonil')) return 'M';
+  // El vocabulario del circuito es Femenil/Varonil/Mixto, pero el nombre de la
+  // categoría es libre y hay filas viejas tecleadas "5ta Femenino" o "4ta
+  // Masculino". Esas no se reconocían y caían en silencio al respaldo de
+  // niveles, que inventa una división. Se aceptan como alias de LECTURA; lo que
+  // se muestra lo normaliza la migración `supabase/normalize-category-names.sql`.
+  if (n.includes('femenil') || n.includes('femenino')) return 'F';
+  if (n.includes('varonil') || n.includes('masculino')) return 'M';
   if (n.includes('mixto')) return 'X';
   return null;
 }

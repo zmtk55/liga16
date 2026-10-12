@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import {
   Activity,
   AlertCircle,
@@ -135,7 +135,6 @@ function ProfileSkeleton() {
 }
 
 function ProfileEditDialog({
-  player,
   form,
   update,
   onSave,
@@ -143,7 +142,6 @@ function ProfileEditDialog({
   open,
   onOpenChange,
 }: {
-  player: PlayerProfile;
   form: FormState;
   update: (field: keyof FormState, value: string) => void;
   onSave: () => void;
@@ -319,7 +317,6 @@ function TrendChart({ trend }: { trend: number[] }) {
 
 export default function MyProfile() {
   const { user, isConfigured, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [ranking, setRanking] = useState<RankingEntry | null>(null);
@@ -329,7 +326,6 @@ export default function MyProfile() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
@@ -338,7 +334,11 @@ export default function MyProfile() {
       .then(async (p) => {
         if (!active) return;
         setProfile(p);
-        if (p) setForm(toForm(p));
+        if (!p) {
+          setLoading(false);
+          return;
+        }
+        setForm(toForm(p));
 
         const [c, rks, teams, matches, tourns] = await Promise.all([
           db.getPlayerCard(p.id),
@@ -374,7 +374,7 @@ export default function MyProfile() {
       })
       .catch((e: Error) => {
         if (!active) return;
-        setError(e.message);
+        toast.error(e.message);
         setLoading(false);
       });
     return () => {
@@ -387,7 +387,6 @@ export default function MyProfile() {
 
   async function handleSave() {
     setSaving(true);
-    setError(null);
     const payload = {
       display_name: form.display_name.trim(),
       username: form.username.trim(),
@@ -410,7 +409,6 @@ export default function MyProfile() {
       toast.success(profile ? "Perfil actualizado" : "Perfil creado");
     } catch (err) {
       const message = err instanceof Error ? err.message : "No se pudo guardar";
-      setError(message);
       toast.error(message);
     } finally {
       setSaving(false);
@@ -639,7 +637,6 @@ export default function MyProfile() {
       </Card>
 
       <ProfileEditDialog
-        player={profile!}
         form={form}
         update={update}
         onSave={handleSave}

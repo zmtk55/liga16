@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { AlertTriangle, Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
 import { checkLevelSum } from "@/lib/qualification";
+import { ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -151,8 +152,9 @@ export default function AdminTeams() {
       ];
       for (const r of roster) {
         if (r.profile && r.profile.sex !== "X" && r.profile.sex !== pairCat.sex) {
-          const ramaEs = pairCat.sex === "M" ? "varonil" : "femenil";
-          toast.error(`"${r.name}" es ${r.profile.sex === "F" ? "jugadora femenil" : "jugador varonil"} y esta categoría es ${ramaEs}`);
+          // "Femenil"/"Varonil" son las ramas, no adjetivos: "jugadora femenina"
+          // metía una palabra que no existe en el vocabulario del circuito.
+          toast.error(`"${r.name}" juega en rama ${ramaLabel(r.profile.sex)} y esta categoría es ${ramaLabel(pairCat.sex)}`);
           return;
         }
       }

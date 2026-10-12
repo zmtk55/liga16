@@ -18,7 +18,7 @@ export interface Liga16CategoryConfig {
 export const LIGA16_CATEGORIES: Record<Liga16Category, Liga16CategoryConfig> = {
   "4TA": {
     id: "4TA",
-    name: "Cuarta femenil",
+    name: "4ta Femenil",
     maxPairs: 9,
     totalMatchesRoundRobin: 15, // 6 parejas visibles en Excel -> 6*5/2 = 15
     resultsSheet: "RESULTADOS 4TA F",
@@ -26,7 +26,7 @@ export const LIGA16_CATEGORIES: Record<Liga16Category, Liga16CategoryConfig> = {
   },
   "5TA": {
     id: "5TA",
-    name: "Quinta femenil",
+    name: "5ta Femenil",
     maxPairs: 9,
     totalMatchesRoundRobin: 15,
     resultsSheet: "RESULTADOS 5TA F",
@@ -34,7 +34,7 @@ export const LIGA16_CATEGORIES: Record<Liga16Category, Liga16CategoryConfig> = {
   },
   "6TA": {
     id: "6TA",
-    name: "Sexta femenil",
+    name: "6ta Femenil",
     maxPairs: 9,
     totalMatchesRoundRobin: 36, // 9 parejas -> 9*8/2 = 36
     resultsSheet: "RESULTADOS 6TA F",
@@ -47,7 +47,7 @@ export const LIGA16_CATEGORIES: Record<Liga16Category, Liga16CategoryConfig> = {
     totalMatchesRoundRobin: 36,
     resultsSheet: "RESULTADOS +9 V",
     teamsTable: "EQUIPOS6TAA12",
-    pairRule: "participante_1 es de CUARTA y participante_2 es de QUINTA (4+5=9)",
+    pairRule: "participante_1 es de 4ta y participante_2 es de 5ta (4+5=9)",
   },
 };
 

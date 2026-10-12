@@ -6,7 +6,6 @@ import {
   BarChart3,
   CalendarDays,
   ClipboardList,
-  Crown,
   Radio,
   ShieldCheck,
   Target,

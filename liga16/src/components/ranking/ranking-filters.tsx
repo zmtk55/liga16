@@ -64,7 +64,7 @@ export function RankingFilters({
         >
           {[{ value: "all", label: "Todas" }, ...divisionOptions.filter((d) => d.value !== "all")].map((d) => (
             <ToggleGroupItem key={d.value} value={d.value} className="shrink-0">
-              {d.label.replace(" División", "").replace("División ", "")}
+              {d.label}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>

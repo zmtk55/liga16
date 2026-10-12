@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import CategoryMatrix, { type CategoryValue } from "@/components/ui/category-matrix";
 import { DatePicker } from "@/components/ui/date-picker";
-import { categoriasValidas } from "@/lib/categories";
+import { categoriasValidas, ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 import { scheduleRounds, type Group } from "@/lib/groups";
@@ -235,7 +235,9 @@ export default function TournamentWizard() {
       for (const nombre of [t.player1.trim(), t.player2.trim()]) {
         const prof = players.find((pl) => pl.display_name.trim().toLowerCase() === nombre.toLowerCase());
         if (prof && prof.sex !== "X" && prof.sex !== t.sex) {
-          toast.warning(`"${nombre}" es ${prof.sex === "F" ? "jugadora femenil" : "jugador varonil"} y el equipo es ${t.sex === "M" ? "varonil" : "femenil"}`);
+          // "Femenil"/"Varonil" son las ramas, no adjetivos: "jugadora femenina"
+          // metía una palabra que no existe en el vocabulario del circuito.
+          toast.warning(`"${nombre}" juega en rama ${ramaLabel(prof.sex)} y el equipo es ${ramaLabel(t.sex)}`);
           return;
         }
       }
