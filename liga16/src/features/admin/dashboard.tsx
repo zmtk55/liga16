@@ -1,11 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
+  Activity,
+  ArrowUpRight,
+  BarChart3,
+  CalendarDays,
   ClipboardList,
+  Crown,
   Radio,
   ShieldCheck,
+  Target,
+  TrendingUp,
+  Trophy,
   Users,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { db } from "@/lib/data";
 import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -25,14 +47,159 @@ interface DashboardData {
   matches: Match[];
 }
 
-/**
- * Panel del organizador.
- *
- * Un panel no es un tablero de Entity CRUD: responde preguntas. Esta pantalla
- * está ordenada por lo que un organizador tiene que hacer hoy, cómo van sus
- * torneos y quién está calificando. Todo lo que se muestra sale de datos que ya
- * existen; nada se guarda para que esto exista.
- */
+const CHART_COLORS = ["#e11d48", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4"];
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-20 w-full" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-28" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Skeleton className="h-64" />
+        <Skeleton className="h-64" />
+      </div>
+      <Skeleton className="h-48 w-full" />
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  trend,
+  trendUp,
+  accent,
+}: {
+  label: string;
+  value: string | number;
+  icon: React.ElementType;
+  trend?: string;
+  trendUp?: boolean;
+  accent?: boolean;
+}) {
+  return (
+    <Card className="relative overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+            <p className={`text-2xl font-bold tabular-nums ${accent ? "text-primary" : ""}`}>{value}</p>
+            {trend && (
+              <p className={`flex items-center gap-1 text-xs ${trendUp ? "text-emerald-600" : "text-muted-foreground"}`}>
+                {trendUp && <TrendingUp className="h-3 w-3" />}
+                {trend}
+              </p>
+            )}
+          </div>
+          <div className={`rounded-lg p-2 ${accent ? "bg-primary/10" : "bg-muted"}`}>
+            <Icon className={`h-4 w-4 ${accent ? "text-primary" : "text-muted-foreground"}`} />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActivityChart({ matches }: { matches: Match[] }) {
+  const data = useMemo(() => {
+    const last7 = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().slice(0, 10);
+    });
+    return last7.map((date) => ({
+      day: new Date(date).toLocaleDateString("es-MX", { weekday: "short" }),
+      partidos: matches.filter((m) => m.scheduled_at?.startsWith(date)).length,
+    }));
+  }, [matches]);
+
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="colorPartidos" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#e11d48" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#e11d48" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        <XAxis dataKey="day" tick={{ fontSize: 11 }} className="text-muted-foreground" />
+        <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
+        <Tooltip
+          contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }}
+        />
+        <Area type="monotone" dataKey="partidos" stroke="#e11d48" strokeWidth={2} fill="url(#colorPartidos)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function DivisionPie({ teams }: { teams: Team[] }) {
+  const data = useMemo(() => {
+    const groups = groupByDivision(teams.filter((t) => t.played > 0));
+    return groups.map((g) => ({
+      name: g.label,
+      value: g.teams.length,
+    }));
+  }, [teams]);
+
+  if (data.length === 0) return null;
+
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <PieChart>
+        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} paddingAngle={2}>
+          {data.map((_, i) => (
+            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip
+          contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+function MatchesByStatus({ matches }: { matches: Match[] }) {
+  const data = useMemo(() => {
+    const counts = { live: 0, scheduled: 0, finished: 0 };
+    matches.forEach((m) => {
+      if (m.status === "live") counts.live++;
+      else if (m.status === "scheduled") counts.scheduled++;
+      else if (m.status === "finished") counts.finished++;
+    });
+    return [
+      { name: "En vivo", value: counts.live, fill: "#e11d48" },
+      { name: "Programados", value: counts.scheduled, fill: "#f59e0b" },
+      { name: "Finalizados", value: counts.finished, fill: "#10b981" },
+    ];
+  }, [matches]);
+
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <BarChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        <XAxis dataKey="name" tick={{ fontSize: 11 }} className="text-muted-foreground" />
+        <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
+        <Tooltip
+          contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }}
+        />
+        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+          {data.map((entry, i) => (
+            <Cell key={i} fill={entry.fill} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +243,14 @@ export default function AdminDashboard() {
     () => (data?.tournaments ?? []).filter((t) => t.status === "registration_open"),
     [data],
   );
-  /** Solo lo que hay que hacer. Si no hay nada, se dice que no hay nada. */
+  const totalPlayers = data?.players.length ?? 0;
+  const totalTeams = data?.teams.length ?? 0;
+  const totalTournaments = data?.tournaments.length ?? 0;
+  const finishedMatches = useMemo(
+    () => (data?.matches ?? []).filter((m) => m.status === "finished").length,
+    [data],
+  );
+
   const tasks = [
     ...(pendingPlayers.length
       ? [{
@@ -124,13 +298,6 @@ export default function AdminDashboard() {
       : []),
   ];
 
-  /**
-   * Quién lidera cada división.
-   *
-   * No es un top 3 global: la posición y los puntos de una pareja solo existen
-   * dentro de su división, así que el 1 de 3ra no se compara con el 1 de 1ra.
-   * Cada división trae a quien la encabeza.
-   */
   const lideres = useMemo(() => {
     const teams = data?.teams ?? [];
     if (teams.length === 0) return [];
@@ -152,29 +319,13 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!data) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-20 w-full" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28" />
-          ))}
-        </div>
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
+  if (!data) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6">
-      {/* Cabecera como el resto del admin, no hero de landing: el bloque oscuro con
-          el numeral fantasma "16" pesaba más que las tareas del día. Las tres cifras
-          que traía el hero viven ahora en la franja de AdminStatStrip, que es la
-          convención del admin (cada sección orienta con cifras antes de la tabla). */}
       <AdminPageHeader
-        title="Panel"
-        description="Lo que tienes que hacer hoy y cómo van tus torneos."
+        title="Panel de control"
+        description="Resumen general del circuito: actividad, torneos y tareas pendientes."
       >
         <AdminStatStrip>
           <AdminStat
@@ -191,10 +342,16 @@ export default function AdminDashboard() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      {/* 1. Hoy. Lo único que un organizador abre el admin para hacer. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Jugadores" value={totalPlayers} icon={Users} accent />
+        <StatCard label="Equipos" value={totalTeams} icon={Target} />
+        <StatCard label="Torneos" value={totalTournaments} icon={Trophy} />
+        <StatCard label="Partidos jugados" value={finishedMatches} icon={BarChart3} />
+      </div>
+
       <section aria-labelledby="hoy" className="space-y-3">
         <h2 id="hoy" className="text-sm font-semibold">
-          Hoy
+          Tareas de hoy
         </h2>
         {tasks.length === 0 ? (
           <Card className="border-dashed">
@@ -238,11 +395,42 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      {/* 2. Torneos: los que están vivos, con su estado y por dónde entrar. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Activity className="h-4 w-4 text-primary" />
+              Actividad semanal
+            </h3>
+            <ActivityChart matches={data.matches} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Partidos por estado
+            </h3>
+            <MatchesByStatus matches={data.matches} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Target className="h-4 w-4 text-primary" />
+              Equipos por división
+            </h3>
+            <DivisionPie teams={data.teams} />
+          </CardContent>
+        </Card>
+      </div>
+
       <section aria-labelledby="torneos" className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="torneos" className="text-sm font-semibold">
-            Torneos
+            Torneos en curso
           </h2>
           <Button asChild variant="ghost" size="sm">
             <Link to="/admin/torneos">Ver todos</Link>
@@ -283,15 +471,7 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      {/* `grid-cols-1` no es decorativo: sin él la columna implícita es `auto`, que
-          se dimensiona a max-content y no baja del ancho que pide su contenido más
-          ancho. Los “Líderes por división” piden ~405px (pareja truncada + badge de
-          estado) en una columna de 358px, la columna se salía de la pantalla y con
-          ella `/admin` entero a 390. `repeat(1, minmax(0,1fr))` deja que la columna
-          mida lo que mida el contenedor y `min-w-0`/`truncate` de las filas hagan
-          su trabajo. Mismo motivo en los otros dos grids de la página. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {/* Clasificación: quién está arriba, en su propia división. */}
         <section aria-labelledby="clasificacion" className="space-y-3">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="clasificacion" className="text-sm font-semibold">
@@ -327,7 +507,6 @@ export default function AdminDashboard() {
           )}
         </section>
 
-        {/* Actividad: lo último que pasó. */}
         <section aria-labelledby="actividad" className="space-y-3">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="actividad" className="text-sm font-semibold">
@@ -362,6 +541,44 @@ export default function AdminDashboard() {
           </Card>
         </section>
 
+        <section aria-labelledby="inscripciones" className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="inscripciones" className="text-sm font-semibold">
+              Inscripciones abiertas
+            </h2>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/admin/torneos">Ver torneos</Link>
+            </Button>
+          </div>
+          {openSignups.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-5 text-sm text-muted-foreground">
+                No hay torneos con inscripciones abiertas.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {openSignups.map((t) => (
+                <Card key={t.id}>
+                  <CardContent className="flex items-center justify-between gap-3 p-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        <CalendarDays className="mr-1 inline h-3 w-3" />
+                        Cierra {new Date(t.registration_deadline).toLocaleDateString("es-MX")}
+                      </p>
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="shrink-0">
+                      <Link to={`/admin/torneos/${t.slug}`}>
+                        Ver <ArrowUpRight className="ml-1 h-3 w-3" />
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

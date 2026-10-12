@@ -1,16 +1,9 @@
 // Validación y formato de categorías de torneo (nombre libre + rama).
-import { divisionOptions, SEX_BRANCHES, sexLabel } from "@/lib/format";
 import type { PadelDivision, Sex, Team } from "@/types";
 
 export interface CategoryValue {
   label: string; // nombre libre: "4ta Varonil", "Suma Nueve"…
   sex: Sex;
-  /**
-   * Id interno para que React no reutilice el nodo de otra fila al borrar una
-   * del medio (con `key={índice}` los inputs saltan de valor al editar). No se
-   * guarda: al crear el torneo solo se leen `label` y `sex`.
-   */
-  id?: string;
 }
 
 /** El orden de las divisiones: de la más fuerte a la más nueva. */
@@ -21,8 +14,9 @@ export const DIVISION_ORDER: PadelDivision[] = ["1ra", "2da", "3ra", "4ta", "5ta
  *
  * Existió `divisionLabel()` con un mapa que volvía "5ta" → "Quinta categoría",
  * alimentado por la idea de que la abreviatura hay que descifrarla. No: en el
- * circuito se dice "5ta" y la tarjeta mostraba "Quinta categoría" al lado de la
- * categoría real del torneo. Dos respuestas para el mismo dato.
+ * circuito se dice "5ta", y la tarjeta mostraba "Quinta categoría" al lado de
+ * la categoría real del torneo. Dos respuestas para el mismo dato, y la
+ * equivocada al lado de la buena.
  *
  * La división se muestra tal cual viene (`team.division`), y la categoría que
  * el torneo le puso al inscribirse manda sobre ella. Ver teamCategoryLabel.
@@ -81,71 +75,36 @@ export function divisionFromCategory(
   return 'Novatos';
 }
 
-/**
- * Qué le pasa a la categoría de este índice, o `null` si está bien.
- *
- * La regla vive acá una sola vez: el componente la pinta en la fila y
- * `categoriasValidas` la aplica. Antes el componente tenía un `error` que
- * solo se limpiaba y nunca se activaba, y el wizard bloqueaba el paso con un
- * "añade al menos una categoría válida" que no decía cuál ni por qué.
- */
-export function categoriaProblema(
-  cats: CategoryValue[],
-  index: number,
-): string | null {
-  const label = (cats[index]?.label ?? "").trim();
-  if (!label) return "Ponle un nombre";
-  const norm = label.toLowerCase();
-  const otra = cats.findIndex(
-    (c, i) => i !== index && c.label.trim().toLowerCase() === norm,
-  );
-  return otra >= 0 ? "Ya hay otra categoría con ese nombre" : null;
-}
-
 /** Valida: no vacías, no duplicadas (insensible a mayúsculas). */
 export function categoriasValidas(cats: CategoryValue[]): boolean {
-  return cats.length > 0 && cats.every((_, i) => categoriaProblema(cats, i) === null);
+  return cats.length > 0 &&
+    cats.every((c) => c.label.trim()) &&
+    new Set(cats.map((c) => c.label.trim().toLowerCase())).size === cats.length;
 }
 
-/**
- * Nombres que se sugieren al teclear: las divisiones sueltas y cada división
- * con su rama. Se derivan de `divisionOptions` y `SEX_BRANCHES`; estaban
- * escritos a mano en dos listas dentro del componente, por eso ofrecía "5ta"
- * pero no "4ta Varonil".
- */
-export function categorySuggestions(): string[] {
-  const divisiones = divisionOptions
-    .filter((d) => d.value !== "all")
-    .map((d) => d.label);
-  const compuestas = divisiones.flatMap((d) =>
-    SEX_BRANCHES.map((r) => `${d} ${r.label}`),
-  );
-  return [...divisiones, ...compuestas];
+/** Cómo se llama la rama en español. */
+export function ramaLabel(sex: Sex): string {
+  return sex === "M" ? "Varonil" : sex === "F" ? "Femenil" : "Mixto";
 }
 
 /** Label legible para mostrar una categoría en cualquier lista. */
 export function categoriaLabel(c: { label: string; sex: Sex }): string {
-  return `${c.label.trim()} · ${sexLabel(c.sex)}`;
+  return `${c.label.trim()} · ${ramaLabel(c.sex)}`;
 }
 
 /**
  * La categoría REAL de una pareja: el nombre que le dio el torneo al inscribirse
- * ("Suma 9", "4ta Varonil", "Novatos Mixto"). `Team.division` es un bucket
+ * ("Suma 9", "4ta Masculino", "Novatos Mixto"). `Team.division` es un bucket
  * derivado de ese nombre y sirve para ORDENAR y rankear; esto es lo que la gente
- * reconoce, y no siempre coincide: `divisionFromCategory` manda "Suma 9" a 6ta,
- * así que una pareja de Suma 9 no es "6ta" aunque compitan ahí.
- *
- * Cuando no hay nombre, cae a la división tal cual —"5ta"— y no a "División 5ta":
- * el prefijo no agrega nada y hacía que el mismo dato apareciera de tres formas.
- * Las dos se distinguen igual al filtrar porque la clave lleva su propio prefijo
- * (ver teamCategoryKey).
+ * reconoce, y no siempre coincide: `divisionFromCategoryName` manda "Suma 9" a
+ * 6ta, así que una pareja de Suma 9 no es "6ta" aunque compitan ahí.
  *
  * Por eso los filtros no pueden ofrecer una lista fija de divisiones: la
  * categoría es texto libre y una lista fija no puede ofrecer "Suma 9" aunque
  * exista de verdad en el circuito.
  */
 export function teamCategoryLabel(t: Team): string {
-  return t.category_name?.trim() || t.division;
+  return t.category_name?.trim() || `División ${t.division}`;
 }
 
 /**
@@ -185,7 +144,7 @@ export function groupByDivision(teams: Team[]): DivisionGroup[] {
       return {
         division,
         sex,
-        label: `${division} · ${sexLabel(sex)}`,
+        label: `${division} · ${ramaLabel(sex)}`,
         // Mismo criterio que la tabla de posiciones: posición, luego puntos.
         teams: list.sort((a, b) => a.position - b.position || b.points - a.points),
       };
