@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Shirt, TrendingUp, TrendingDown, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Shirt, TrendingUp, TrendingDown, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3, ImagePlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
@@ -15,7 +15,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDate, initials, SEX_BRANCHES, sexLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import ImageUpload from "@/components/ui/image-upload";
 import { MatchCard, PairAvatar } from "@/components/cards/card-kit";
 import { toast } from "sonner";
 import { analyzePlayerLocal, analyzePlayerWithJev, JEV_REMOTE_ENABLED, type JevAnalysis } from "@/lib/jev";
@@ -324,7 +323,7 @@ export default function PlayerDetailPage() {
       alive = false;
     };
   }, [player, card, ranking, jevKey]);
-  const winPct = card ? Math.round((cardWon(card) / Math.max(1, cardPlayed(card))) * 100) : 0;
+  const winPct = played > 0 ? Math.round((won / played) * 100) : 0;
 
   if (loading) {
     return (
@@ -368,13 +367,24 @@ export default function PlayerDetailPage() {
 
   // El historial derivado manda para la tendencia: player_cards nunca se actualiza.
   const trendData = (record?.trend?.length ? record.trend : card?.trend ?? []).map((v, i) => ({ i, v }));
-  const won = cardWon(card);
-  const played = cardPlayed(card);
+  // El historial derivado manda (player_cards nunca se actualiza):
+  // si hay récord con partidos, la racha, el % y los PJ salen del mismo sitio.
+  const won = record && record.played > 0 ? record.won : cardWon(card);
+  const played = record && record.played > 0 ? record.played : cardPlayed(card);
   const partner = cardPartner(card);
   // El historial derivado manda: la pareja actual es la de su última etapa.
   const currentPartner = record?.partners[0]?.partnerName ?? partner;
   // Categoría real: la del último torneo (pair) o la división del equipo.
   const category = pairInfo?.category ?? team?.division ?? null;
+  const titles = card?.titles ?? 0;
+  const metaLine = [
+    [player.city, player.state].filter(Boolean).join(", "),
+    `Nivel ${(player.official_level ?? player.declared_level).toFixed(1)}${player.official_level != null ? " oficial" : " declarado"}`,
+    sexLabel(player.sex),
+    positionLabel[player.preferred_position],
+    handLabel[player.dominant_hand],
+    titles > 0 ? `${titles} título${titles === 1 ? "" : "s"}` : null,
+  ].filter(Boolean).join(" · ");
 
   // Racha = victorias consecutivas al final de la forma, no de toda la temporada.
   const streak = (() => {
@@ -420,9 +430,7 @@ export default function PlayerDetailPage() {
                       {category}
                     </span>
                   )}
-                  <p className="text-sm text-white/70">
-                    {player.city}{player.state ? `, ${player.state}` : ""} · Nivel {(player.official_level ?? player.declared_level).toFixed(1)}{player.official_level != null ? " oficial" : " declarado"} · {sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}{(card?.titles ?? 0) > 0 ? ` · ${card?.titles} título${(card?.titles ?? 0) === 1 ? "" : "s"}` : ""}
-                  </p>
+                  <p className="text-sm text-white/70">{metaLine}</p>
                 </div>
               </div>
 
@@ -494,7 +502,7 @@ export default function PlayerDetailPage() {
               </dl>
             </div>
 
-            <div className="relative mx-auto w-full max-w-[260px] shrink-0 lg:mx-0 lg:w-[240px]">
+            <div className="mx-auto w-full max-w-[260px] shrink-0 lg:mx-0 lg:w-[240px]">
               {player.photo_url ? (
                 <img src={player.photo_url} alt={player.display_name} className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover object-top" />
               ) : (
@@ -503,20 +511,33 @@ export default function PlayerDetailPage() {
                 </div>
               )}
               {canEditPhoto && (
-                <ImageUpload
-                  id="player-photo"
-                  value={player.photo_url}
-                  round
-                  overlay
-                  label="Cambiar foto"
-                  onChange={(dataUrl) => {
-                    if (dataUrl === null) return;
-                    setPlayer({ ...player, photo_url: dataUrl });
-                    db.updatePlayer(player.id, { photo_url: dataUrl })
-                      .then(() => toast.success("Foto de perfil actualizada"))
-                      .catch((e: Error) => toast.error(e.message ?? "No se pudo guardar la foto"));
-                  }}
-                />
+                <div className="mt-3">
+                  <input
+                    id="player-photo"
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const dataUrl = String(reader.result);
+                        setPlayer({ ...player, photo_url: dataUrl });
+                        db.updatePlayer(player.id, { photo_url: dataUrl })
+                          .then(() => toast.success("Foto de perfil actualizada"))
+                          .catch((err: Error) => toast.error(err.message ?? "No se pudo guardar la foto"));
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button asChild size="sm" variant="outline" className="w-full border-white/20 bg-transparent font-semibold text-white hover:bg-white/10 hover:text-white">
+                    <label htmlFor="player-photo" className="cursor-pointer">
+                      <ImagePlus className="h-4 w-4" /> Cambiar foto
+                    </label>
+                  </Button>
+                </div>
               )}
             </div>
           </div>

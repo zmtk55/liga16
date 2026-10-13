@@ -1,151 +1,73 @@
-// Gráficas del dashboard del jugador: récord (donut), juegos y forma reciente.
-// Datos derivados del historial (PlayerRecord), nunca de player_cards.
-// Colores como hsl(var(--token)) para que el SVG siga el tema en vivo.
-import { Bar, BarChart, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { ReactNode } from "react";
+// Estadísticas del jugador: forma reciente y sets, sin gráficas decorativas.
+// El % de efectividad ya vive en el hero; aquí va lo que el hero no dice:
+// la secuencia de resultados (V/D) y la diferencia de sets.
+import { cn } from "@/lib/utils";
 import type { PlayerRecord } from "@/lib/records";
 
-const C = {
-  ok: "hsl(var(--success))",
-  bad: "hsl(var(--destructive)/0.6)",
-  main: "hsl(var(--primary))",
-  mute: "hsl(var(--muted-foreground)/0.35)",
-  fg: "hsl(var(--foreground))",
-  muted: "hsl(var(--muted-foreground))",
-};
-
-function ChartTip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: Array<{ payload: { label: string; hint?: string } }>;
-}) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
-  return (
-    <div className="rounded-lg border bg-card px-2.5 py-1.5 text-xs shadow-lg">
-      <p className="font-semibold">{p.label}</p>
-      {p.hint && <p className="text-muted-foreground">{p.hint}</p>}
-    </div>
-  );
-}
-
-function ChartBox({ title, extra, children }: { title: string; extra?: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <div className="mb-2 flex items-baseline justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
-        {extra && <span className="text-xs font-black tabular-nums">{extra}</span>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
 export function PlayerStatsCharts({ record }: { record: PlayerRecord }) {
-  const pct = record.played ? Math.round((record.won / record.played) * 100) : 0;
-
-  const ring = [
-    { key: "Victorias", value: record.won, fill: C.ok },
-    { key: "Derrotas", value: record.lost, fill: C.mute },
-  ].filter((d) => d.value > 0);
-
-  const juegos = [
-    { label: "A favor", v: record.setsFor, fill: C.main },
-    { label: "En contra", v: record.setsAgainst, fill: C.mute },
-  ];
-
-  const formN = record.form.slice(-12);
-  const form = formN.map((g, i) => ({
-    label: `Partido ${record.form.length - formN.length + i + 1}`,
-    hint: g === "G" ? "Ganó" : "Perdió",
-    v: 1,
-    fill: g === "G" ? C.ok : C.bad,
-  }));
+  const form = record.form.slice(-10);
+  const offset = record.form.length - form.length;
+  const total = record.setsFor + record.setsAgainst;
+  const pctFor = total > 0 ? (record.setsFor / total) * 100 : 50;
+  const diff = record.setsFor - record.setsAgainst;
 
   return (
-    <div className="grid gap-6 md:grid-cols-3">
-      <ChartBox title="Récord" extra={`${record.won}–${record.lost}`}>
-        <div className="relative mx-auto h-[170px] max-w-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={ring}
-                dataKey="value"
-                nameKey="key"
-                innerRadius="64%"
-                outerRadius="92%"
-                paddingAngle={3}
-                stroke="none"
-                startAngle={90}
-                endAngle={-270}
+    <div className="grid gap-6 md:grid-cols-2">
+      <div className="min-w-0">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Forma reciente</p>
+          <span className="text-xs text-muted-foreground">últimos {form.length}</span>
+        </div>
+        <ol className="flex flex-wrap gap-1.5" aria-label={`Últimos ${form.length} partidos`}>
+          {form.map((g, i) => {
+            const n = offset + i + 1;
+            const won = g === "G";
+            const last = i === form.length - 1;
+            return (
+              <li
+                key={n}
+                title={`${won ? "Victoria" : "Derrota"} · partido ${n}${last ? " (más reciente)" : ""}`}
+                aria-label={`${won ? "Victoria" : "Derrota"} en el partido ${n}`}
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-lg text-xs font-extrabold",
+                  won ? "bg-success text-success-foreground" : "bg-destructive/10 text-destructive",
+                  last && "ring-2 ring-primary ring-offset-2 ring-offset-card",
+                )}
               >
-                {ring.map((d) => (
-                  <Cell key={d.key} fill={d.fill} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-display text-3xl font-black tabular-nums">{pct}%</span>
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">efectividad</span>
-          </div>
-        </div>
-        <div className="mt-1 flex justify-center gap-4 text-xs">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: C.ok }} /> {record.won} PG
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: C.mute }} /> {record.lost} PP
+                {won ? "V" : "D"}
+              </li>
+            );
+          })}
+        </ol>
+        <p className="mt-2 text-xs text-muted-foreground">El de la derecha es el más reciente.</p>
+      </div>
+
+      <div className="min-w-0">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Sets</p>
+          <span className={cn("text-xs font-extrabold tabular-nums", diff >= 0 ? "text-success" : "text-destructive")}>
+            {diff > 0 ? `+${diff}` : `${diff}`}
           </span>
         </div>
-      </ChartBox>
-
-      <ChartBox title="Juegos" extra={`${record.setsFor}–${record.setsAgainst}`}>
-        <div className="h-[170px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={juegos} layout="vertical" margin={{ top: 4, right: 40, bottom: 0, left: 0 }}>
-              <XAxis type="number" hide />
-              <YAxis
-                type="category"
-                dataKey="label"
-                width={74}
-                tick={{ fontSize: 12, fill: C.muted }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<ChartTip />} cursor={{ fill: "hsl(var(--muted)/0.5)" }} />
-              <Bar dataKey="v" barSize={18} radius={[0, 9, 9, 0]}>
-                {juegos.map((d) => (
-                  <Cell key={d.label} fill={d.fill} />
-                ))}
-                <LabelList dataKey="v" position="right" style={{ fontSize: 12, fontWeight: 700, fill: C.fg }} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div
+          className="flex h-3 gap-1 overflow-hidden rounded-full"
+          role="img"
+          aria-label={`${record.setsFor} sets a favor, ${record.setsAgainst} en contra`}
+        >
+          <div className="bg-success" style={{ width: `${pctFor}%` }} />
+          <div className="flex-1 bg-muted-foreground/25" />
         </div>
-      </ChartBox>
-
-      <ChartBox title="Forma" extra={form.length ? `últimos ${form.length}` : undefined}>
-        <div className="h-[170px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={form} margin={{ top: 4, right: 6, bottom: 0, left: -18 }} barCategoryGap="20%">
-              <XAxis dataKey="label" hide />
-              <YAxis hide domain={[0, 1]} />
-              <Tooltip content={<ChartTip />} cursor={{ fill: "hsl(var(--muted)/0.5)" }} />
-              <Bar dataKey="v" barSize={16} radius={[5, 5, 0, 0]}>
-                {form.map((d, i) => (
-                  <Cell key={i} fill={d.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="mt-2 flex items-baseline justify-between text-sm">
+          <p>
+            <span className="font-extrabold tabular-nums">{record.setsFor}</span>{" "}
+            <span className="text-muted-foreground">a favor</span>
+          </p>
+          <p>
+            <span className="font-extrabold tabular-nums">{record.setsAgainst}</span>{" "}
+            <span className="text-muted-foreground">en contra</span>
+          </p>
         </div>
-        <p className="mt-1 text-center text-xs uppercase tracking-widest text-muted-foreground">
-          más antiguo ← → más reciente
-        </p>
-      </ChartBox>
+      </div>
     </div>
   );
 }

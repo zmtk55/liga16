@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { Link, NavLink, Outlet } from "react-router";
+import { RouteFallback } from "@/app/layout";
 import {
   Activity,
   BarChart3,
@@ -255,7 +257,9 @@ export default function AdminLayout() {
                     del sidebar, además, daba el buscador a 216px de ancho útil
                     dentro de una columna de 248px. */}
                 <SectionControl className="mb-4 sm:max-w-md" />
-                <Outlet />
+                <Suspense fallback={<RouteFallback />}>
+                  <Outlet />
+                </Suspense>
               </>
             )}
           </main>
