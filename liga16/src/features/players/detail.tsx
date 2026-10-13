@@ -323,7 +323,6 @@ export default function PlayerDetailPage() {
       alive = false;
     };
   }, [player, card, ranking, jevKey]);
-  const winPct = played > 0 ? Math.round((won / played) * 100) : 0;
 
   if (loading) {
     return (
@@ -371,6 +370,7 @@ export default function PlayerDetailPage() {
   // si hay récord con partidos, la racha, el % y los PJ salen del mismo sitio.
   const won = record && record.played > 0 ? record.won : cardWon(card);
   const played = record && record.played > 0 ? record.played : cardPlayed(card);
+  const winPct = played > 0 ? Math.round((won / played) * 100) : 0;
   const partner = cardPartner(card);
   // El historial derivado manda: la pareja actual es la de su última etapa.
   const currentPartner = record?.partners[0]?.partnerName ?? partner;
