@@ -373,6 +373,8 @@ export default function PlayerDetailPage() {
   const partner = cardPartner(card);
   // El historial derivado manda: la pareja actual es la de su última etapa.
   const currentPartner = record?.partners[0]?.partnerName ?? partner;
+  // Categoría real: la del último torneo (pair) o la división del equipo.
+  const category = pairInfo?.category ?? team?.division ?? null;
 
   // Racha = victorias consecutivas al final de la forma, no de toda la temporada.
   const streak = (() => {
@@ -412,9 +414,16 @@ export default function PlayerDetailPage() {
                 <h1 className="mt-2 text-4xl font-black tracking-tight text-white md:text-5xl">
                   {player.display_name}
                 </h1>
-                <p className="mt-2 text-sm text-white/70">
-                  {player.city}{player.state ? `, ${player.state}` : ""} · Nivel {(player.official_level ?? player.declared_level).toFixed(1)}{player.official_level != null ? " oficial" : " declarado"} · {sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}{(card?.titles ?? 0) > 0 ? ` · ${card?.titles} título${(card?.titles ?? 0) === 1 ? "" : "s"}` : ""}
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                  {category && (
+                    <span className="rounded-md bg-white px-2 py-0.5 text-xs font-extrabold tracking-wide text-black">
+                      {category}
+                    </span>
+                  )}
+                  <p className="text-sm text-white/70">
+                    {player.city}{player.state ? `, ${player.state}` : ""} · Nivel {(player.official_level ?? player.declared_level).toFixed(1)}{player.official_level != null ? " oficial" : " declarado"} · {sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}{(card?.titles ?? 0) > 0 ? ` · ${card?.titles} título${(card?.titles ?? 0) === 1 ? "" : "s"}` : ""}
+                  </p>
+                </div>
               </div>
 
               {(() => {
@@ -492,11 +501,6 @@ export default function PlayerDetailPage() {
                 <div className="flex aspect-[3/4] w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5">
                   <span className="text-6xl font-black text-white/70">{initials(player.display_name)}</span>
                 </div>
-              )}
-              {ranking?.position != null && (
-                <p aria-label={`Posición ${ranking.position} en Liga16`} className="absolute -bottom-4 -left-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary font-headline text-3xl text-primary-foreground shadow-lg">
-                  {ranking.position}
-                </p>
               )}
               {canEditPhoto && (
                 <ImageUpload
