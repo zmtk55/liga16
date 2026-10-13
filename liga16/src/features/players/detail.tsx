@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Shirt, TrendingUp, TrendingDown, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
@@ -81,16 +81,16 @@ function CompareCard({ name, level, winPct, won, played, highlight }: {
     return (
       <div className="space-y-1">
         <div className="flex items-center justify-between text-xs">
-          <span className={cn("font-bold tabular-nums", aWins ? "text-success" : "text-white/70")}>{a}</span>
-          <span className="text-white/40">{label}</span>
-          <span className={cn("font-bold tabular-nums", !aWins ? "text-destructive" : "text-white/70")}>{b}</span>
+          <span className={cn("font-bold tabular-nums", aWins ? "text-success" : "text-muted-foreground")}>{a}</span>
+          <span className="text-muted-foreground">{label}</span>
+          <span className={cn("font-bold tabular-nums", !aWins ? "text-destructive" : "text-muted-foreground")}>{b}</span>
         </div>
         <div className="flex gap-1">
-          <span className="flex-1 overflow-hidden rounded-full bg-white/10">
-            <span className={cn("block h-1.5 rounded-full", aWins ? "bg-success" : "bg-white/40")} style={{ width: `${pctA}%` }} />
+          <span className="flex-1 overflow-hidden rounded-full bg-muted">
+            <span className={cn("block h-1.5 rounded-full", aWins ? "bg-success" : "bg-muted-foreground/50")} style={{ width: `${pctA}%` }} />
           </span>
-          <span className="flex-1 overflow-hidden rounded-full bg-white/10">
-            <span className={cn("block h-1.5 rounded-full", !aWins ? "bg-destructive" : "bg-white/40")} style={{ width: `${pctB}%` }} />
+          <span className="flex-1 overflow-hidden rounded-full bg-muted">
+            <span className={cn("block h-1.5 rounded-full", !aWins ? "bg-destructive" : "bg-muted-foreground/50")} style={{ width: `${pctB}%` }} />
           </span>
         </div>
       </div>
@@ -98,13 +98,13 @@ function CompareCard({ name, level, winPct, won, played, highlight }: {
   };
   const rival = { level: 4.0, jev: 50, winPct: 60, won: 5, played: 8 };
   return (
-    <div className={cn("rounded-2xl border p-4 md:p-5", highlight ? "border-primary/40 bg-primary/[0.06]" : "border-white/10 bg-white/[0.04]")}>
+    <div className={cn("rounded-2xl border p-4 md:p-5", highlight ? "border-primary/40 bg-primary/[0.06]" : "border-border bg-muted/40")}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-headline text-lg font-bold text-white truncate">{name}</p>
-          <p className="text-xs text-white/50">{played} partidos · {won} ganados</p>
+          <p className="font-headline text-lg font-bold text-foreground truncate">{name}</p>
+          <p className="text-xs text-muted-foreground">{played} partidos · {won} ganados</p>
         </div>
-        <Badge className={cn("shrink-0", highlight ? "bg-primary/20 text-primary" : "bg-white/10 text-white/70")}>N {levelStr}</Badge>
+        <Badge variant={highlight ? "default" : "secondary"} className="shrink-0">N {levelStr}</Badge>
       </div>
       <div className="mt-4 space-y-3">
         {tier("Nivel", level, rival.level, 8)}
@@ -116,61 +116,6 @@ function CompareCard({ name, level, winPct, won, played, highlight }: {
 }
 
 
-
-/**
- * Cuenta hasta el valor final. Las animaciones CSS no cubren JS, así que si la
- * persona pidió menos movimiento saltamos directo al número.
- */
-function useCountUp(target: number, ms = 650) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let frame = 0;
-    // Las animaciones CSS no cubren JS, así que si la persona pidió menos
-    // movimiento saltamos directo al número final. Todo el setState vive en un
-    // callback de frame, nunca en el cuerpo del efecto.
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const instant = reduceMotion || !Number.isFinite(target) || target === 0;
-    if (instant) {
-      frame = requestAnimationFrame(() => setValue(target));
-      return () => cancelAnimationFrame(frame);
-    }
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / ms);
-      // ease-out quart: arranca rápido y frena suave
-      setValue(target * (1 - Math.pow(1 - t, 4)));
-      if (t < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [target, ms]);
-  return value;
-}
-
-/** Números grandes que suben al cargar. */
-function CountUp({
-  value,
-  suffix = "",
-  decimals = 0,
-  className,
-}: {
-  value: number;
-  suffix?: string;
-  decimals?: number;
-  className?: string;
-}) {
-  const shown = useCountUp(value);
-  return (
-    <span className={className}>
-      {shown.toLocaleString("es-MX", {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      })}
-      {suffix}
-    </span>
-  );
-}
 
 /**
  * Sets ganados por partido, de lo más antiguo a lo más reciente.
@@ -440,32 +385,36 @@ export default function PlayerDetailPage() {
 
   return (
     <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
-      <section className="relative overflow-hidden bg-surface-inverse text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.15),transparent_60%)]" />
+      <section className="bg-surface-inverse text-white">
+        <div className="mx-auto max-w-7xl px-4 pt-6 pb-8 md:px-6 md:pt-8 md:pb-10">
+          <div className="flex items-center justify-between gap-3">
+            <Button asChild variant="ghost" size="sm" className="-ml-2 text-white/70 hover:bg-white/10 hover:text-white">
+              <Link to="/jugadores"><ArrowLeft className="h-4 w-4" /> Todos los jugadores</Link>
+            </Button>
+            {canEditPhoto && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 border-white/20 bg-transparent font-semibold text-white hover:bg-white/10 hover:text-white"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-4 w-4" /> Editar perfil
+              </Button>
+            )}
+          </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12">
-          <Button asChild variant="ghost" size="sm" className="mb-6 -ml-2 text-white/60 hover:text-white hover:bg-white/10">
-            <Link to="/jugadores"><ArrowLeft className="h-4 w-4" /> Todos los jugadores</Link>
-          </Button>
-
-          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
-            <div className="space-y-5">
+          <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
+            <div className="min-w-0 space-y-5">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
-                  {player.city}{player.state ? `, ${player.state}` : ""}
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
+                  {ranking?.position ? `Posición #${ranking.position} · Liga16` : "Liga16"}
                 </p>
-                <h1 className="mt-1 text-4xl font-black tracking-tight text-white md:text-5xl lg:text-6xl">
+                <h1 className="mt-2 text-4xl font-black tracking-tight text-white md:text-5xl">
                   {player.display_name}
                 </h1>
-                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
-                  <span className="font-bold text-white">Nv {(player.official_level ?? player.declared_level).toFixed(1)}</span>
-                  <span className="text-white/30" aria-hidden>·</span>
-                  <span className="text-white/60">{sexLabel(player.sex)}</span>
-                  <span className="text-white/30" aria-hidden>·</span>
-                  <span className="text-white/60">{positionLabel[player.preferred_position]}</span>
-                  <span className="text-white/30" aria-hidden>·</span>
-                  <span className="text-white/60">{handLabel[player.dominant_hand]}</span>
-                </div>
+                <p className="mt-2 text-sm text-white/70">
+                  {player.city}{player.state ? `, ${player.state}` : ""} · Nivel {(player.official_level ?? player.declared_level).toFixed(1)}{player.official_level != null ? " oficial" : " declarado"} · {sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}{(card?.titles ?? 0) > 0 ? ` · ${card?.titles} título${(card?.titles ?? 0) === 1 ? "" : "s"}` : ""}
+                </p>
               </div>
 
               {(() => {
@@ -474,11 +423,11 @@ export default function PlayerDetailPage() {
                   : currentPartner;
                 const [m1, m2] = (team?.name ?? "").split(" / ");
                 return (
-                  <div className="flex flex-col gap-3 rounded-xl border border-white/[0.08] bg-white/[0.06] p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
                       <PairAvatar p1={m1 || player.display_name} p2={m2} className="h-10 w-10 border-white/20 bg-white/10 text-sm [&>span]:bg-white/10 [&>span]:text-white" />
                       <div className="min-w-0">
-                        <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/40">Pareja actual</p>
+                        <p className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Pareja actual</p>
                         <p className="truncate text-sm font-semibold text-white">
                           {team?.name ?? (mate ? `con ${mate}` : "Sin equipo")}
                         </p>
@@ -500,81 +449,54 @@ export default function PlayerDetailPage() {
                 );
               })()}
 
-              <div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div className="col-span-2 rounded-xl border border-primary/30 bg-primary/15 p-4 sm:col-span-1">
-                    <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">Puntos Liga16</p>
-                    <div className="mt-1 flex items-baseline gap-2">
-                      <p className="text-3xl font-black tabular-nums text-white md:text-4xl">
-                        <CountUp value={ranking?.points ?? 0} />
-                      </p>
-                      {ranking && ranking.delta !== 0 && (
-                        <span className={`flex items-center gap-0.5 text-xs font-bold tabular-nums ${ranking.delta > 0 ? "text-emerald-400" : "text-red-400"}`}>
-                          {ranking.delta > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-                          {ranking.delta > 0 ? "+" : ""}{ranking.delta}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-white/50">
-                      {ranking ? (ranking.delta === 0 ? "sin cambio esta jornada" : "esta jornada") : "sin clasificar"} · Posición {ranking?.position ? `#${ranking.position}` : "—"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.05] p-4">
-                    <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">% Victorias</p>
-                    <p className="mt-1 text-3xl font-black tabular-nums text-white md:text-4xl">{winPct}%</p>
-                    <p className="mt-1 text-xs text-white/50">{won} de {played} partidos</p>
-                  </div>
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.05] p-4">
-                    <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">Títulos</p>
-                    <p className="mt-1 flex items-center gap-1.5 text-3xl font-black tabular-nums text-white md:text-4xl">
-                      <Crown className="h-5 w-5 text-amber-400" />
-                      {card?.titles ?? 0}
-                    </p>
-                    <p className="mt-1 text-xs text-white/50">en el circuito</p>
-                  </div>
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.05] p-4">
-                    <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">Racha</p>
-                    <p className={`mt-1 text-3xl font-black tabular-nums md:text-4xl ${streak > 0 ? "text-emerald-400" : "text-white"}`}>
-                      {streak > 0 ? `${streak}G` : "—"}
-                    </p>
-                    <p className="mt-1 text-xs text-white/50">{streak > 0 ? "victorias seguidas" : "sin racha activa"}</p>
-                  </div>
-                </div>
-
-                {played > 0 && (
-                  <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.04] p-3.5">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">Efectividad</p>
-                      <p className="text-xs font-semibold text-white/60">{won}V – {played - won}D global</p>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={winPct} aria-valuemin={0} aria-valuemax={100} aria-label="Porcentaje de victorias">
-                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-[width] duration-700 ease-out" style={{ width: `${winPct}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {canEditPhoto && (
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-white/10 py-4 sm:grid-cols-4">
                 <div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-white/20 bg-white/[0.06] font-semibold text-white hover:bg-white/[0.12] hover:text-white"
-                    onClick={() => setEditOpen(true)}
-                  >
-                    <Pencil className="h-4 w-4" /> Editar perfil
-                  </Button>
+                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Puntos</dt>
+                  <dd className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-extrabold tabular-nums text-white md:text-3xl">
+                      {(ranking?.points ?? 0).toLocaleString("es-MX")}
+                    </span>
+                    {ranking && ranking.delta !== 0 && (
+                      <span className={cn("flex items-center gap-0.5 text-xs font-bold tabular-nums", ranking.delta > 0 ? "text-emerald-400" : "text-red-400")}>
+                        {ranking.delta > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                        {ranking.delta > 0 ? "+" : ""}{ranking.delta}
+                      </span>
+                    )}
+                  </dd>
+                  <dd className="mt-0.5 text-xs text-white/60">{ranking ? "esta jornada" : "sin clasificar"}</dd>
                 </div>
-              )}
+                <div>
+                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Efectividad</dt>
+                  <dd className="mt-1 text-2xl font-extrabold tabular-nums text-white md:text-3xl">{winPct}%</dd>
+                  <dd className="mt-0.5 text-xs text-white/60">{won} ganados de {played}</dd>
+                </div>
+                <div>
+                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Racha</dt>
+                  <dd className={cn("mt-1 text-2xl font-extrabold tabular-nums md:text-3xl", streak > 0 ? "text-emerald-400" : "text-white")}>
+                    {streak > 0 ? `${streak}G` : "—"}
+                  </dd>
+                  <dd className="mt-0.5 text-xs text-white/60">{streak > 0 ? "victorias seguidas" : "sin racha activa"}</dd>
+                </div>
+                <div>
+                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Partidos</dt>
+                  <dd className="mt-1 text-2xl font-extrabold tabular-nums text-white md:text-3xl">{played}</dd>
+                  <dd className="mt-0.5 text-xs text-white/60">en el circuito</dd>
+                </div>
+              </dl>
             </div>
 
-            <div className="relative mx-auto w-full max-w-[300px] lg:max-w-none">
+            <div className="relative mx-auto w-full max-w-[260px] shrink-0 lg:mx-0 lg:w-[240px]">
               {player.photo_url ? (
-                <img src={player.photo_url} alt={player.display_name} className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover object-top shadow-2xl" />
+                <img src={player.photo_url} alt={player.display_name} className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover object-top" />
               ) : (
-                <div className="flex aspect-[3/4] w-full items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] shadow-2xl">
-                  <span className="text-7xl font-black text-white/80">{initials(player.display_name)}</span>
+                <div className="flex aspect-[3/4] w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                  <span className="text-6xl font-black text-white/70">{initials(player.display_name)}</span>
                 </div>
+              )}
+              {ranking?.position != null && (
+                <p aria-label={`Posición ${ranking.position} en Liga16`} className="absolute -bottom-4 -left-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary font-headline text-3xl text-primary-foreground shadow-lg">
+                  {ranking.position}
+                </p>
               )}
               {canEditPhoto && (
                 <ImageUpload
@@ -595,6 +517,7 @@ export default function PlayerDetailPage() {
             </div>
           </div>
         </div>
+        <div aria-hidden className="h-1 bg-primary" />
       </section>
 
       {editOpen && (
