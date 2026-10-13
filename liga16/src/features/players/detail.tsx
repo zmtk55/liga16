@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Minus, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Crown, Shirt, TrendingUp, TrendingDown, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
@@ -115,37 +115,7 @@ function CompareCard({ name, level, winPct, won, played, highlight }: {
   );
 }
 
-/** Tile de estadística: número grande, rótulo chico arriba, contexto abajo. *//** Tile de estadística: número grande, rótulo chico arriba, contexto abajo. */
-function StatTile({
-  label,
-  value,
-  caption,
-  accent = false,
-  icon,
-}: {
-  label: string;
-  value: React.ReactNode;
-  caption: string;
-  accent?: boolean;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div className="animate-fade-in min-w-0 rounded-xl border border-white/10 bg-white/[0.05] p-3 transition-colors hover:border-white/20 hover:bg-white/[0.08] md:p-4">
-      <p className="text-2xs font-bold uppercase tracking-[0.18em] text-white/65">
-        {label}
-      </p>
-      <p
-        className={`mt-1.5 flex items-center gap-1.5 font-headline text-2xl leading-none tabular-nums md:text-3xl ${
-          accent ? "text-primary" : "text-white"
-        }`}
-      >
-        {icon}
-        {value}
-      </p>
-      <p className="mt-1.5 truncate text-xs text-white/65">{caption}</p>
-    </div>
-  );
-}
+
 
 /**
  * Cuenta hasta el valor final. Las animaciones CSS no cubren JS, así que si la
@@ -458,7 +428,7 @@ export default function PlayerDetailPage() {
   const partner = cardPartner(card);
   // El historial derivado manda: la pareja actual es la de su última etapa.
   const currentPartner = record?.partners[0]?.partnerName ?? partner;
-  const partnerCount = record?.partners.length ?? 0;
+
   // Racha = victorias consecutivas al final de la forma, no de toda la temporada.
   const streak = (() => {
     const form = record?.form ?? [];
@@ -471,24 +441,30 @@ export default function PlayerDetailPage() {
   return (
     <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
       <section className="relative overflow-hidden bg-surface-inverse text-white">
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.15),transparent_60%)]" />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
-          <Button asChild variant="ghost" size="sm" className="mb-4 text-white/70 hover:text-white hover:bg-white/10">
-            <Link to="/jugadores"><ArrowLeft className="h-4 w-4" /> Jugadores</Link>
+        <div className="relative mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12">
+          <Button asChild variant="ghost" size="sm" className="mb-6 -ml-2 text-white/60 hover:text-white hover:bg-white/10">
+            <Link to="/jugadores"><ArrowLeft className="h-4 w-4" /> Todos los jugadores</Link>
           </Button>
 
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-center">
-            <div className="space-y-4">
+          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+            <div className="space-y-5">
               <div>
-                <p className="text-sm tracking-widest text-white/70 uppercase">{player.city} · {player.state}</p>
-                <h1 className="text-3xl font-black tracking-tight text-white md:text-5xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
+                  {player.city}{player.state ? `, ${player.state}` : ""}
+                </p>
+                <h1 className="mt-1 text-4xl font-black tracking-tight text-white md:text-5xl lg:text-6xl">
                   {player.display_name}
                 </h1>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{ranking?.position ?? "—"} Liga16</Badge>
-                  <Badge variant="outline" className="border-white/20 text-white">{sexLabel(player.sex)} · {positionLabel[player.preferred_position]} · {handLabel[player.dominant_hand]}</Badge>
-                  <Badge variant="outline" className="border-white/20 text-white">Nv {(player.official_level ?? player.declared_level).toFixed(1)}</Badge>
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+                  <span className="font-bold text-white">Nv {(player.official_level ?? player.declared_level).toFixed(1)}</span>
+                  <span className="text-white/30" aria-hidden>·</span>
+                  <span className="text-white/60">{sexLabel(player.sex)}</span>
+                  <span className="text-white/30" aria-hidden>·</span>
+                  <span className="text-white/60">{positionLabel[player.preferred_position]}</span>
+                  <span className="text-white/30" aria-hidden>·</span>
+                  <span className="text-white/60">{handLabel[player.dominant_hand]}</span>
                 </div>
               </div>
 
@@ -498,25 +474,25 @@ export default function PlayerDetailPage() {
                   : currentPartner;
                 const [m1, m2] = (team?.name ?? "").split(" / ");
                 return (
-                  <div className="flex flex-col gap-3 rounded-xl border border-white/15 bg-white/10 p-3 sm:flex-row sm:items-center">
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="flex flex-col gap-3 rounded-xl border border-white/[0.08] bg-white/[0.06] p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
                       <PairAvatar p1={m1 || player.display_name} p2={m2} className="h-10 w-10 border-white/20 bg-white/10 text-sm [&>span]:bg-white/10 [&>span]:text-white" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/70">Pareja actual</p>
+                      <div className="min-w-0">
+                        <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/40">Pareja actual</p>
                         <p className="truncate text-sm font-semibold text-white">
                           {team?.name ?? (mate ? `con ${mate}` : "Sin equipo")}
                         </p>
-                        <p className="truncate text-xs text-white/70">
+                        <p className="truncate text-xs text-white/50">
                           {[pairInfo?.tournament, pairInfo?.category ?? team?.division].filter(Boolean).join(" · ") || "Sin torneo activo"}
                         </p>
                       </div>
                     </div>
                     {pairInfo?.tournamentSlug ? (
-                      <Button asChild size="sm" variant="secondary" className="w-full shrink-0 sm:w-auto">
+                      <Button asChild size="sm" variant="secondary" className="shrink-0">
                         <Link to={`/torneos/${pairInfo.tournamentSlug}`}>Ver torneo</Link>
                       </Button>
                     ) : (
-                      <Button asChild size="sm" variant="secondary" className="w-full shrink-0 sm:w-auto">
+                      <Button asChild size="sm" variant="secondary" className="shrink-0">
                         <Link to="/torneos">Ver torneos</Link>
                       </Button>
                     )}
@@ -524,75 +500,66 @@ export default function PlayerDetailPage() {
                 );
               })()}
 
-              {/* Cuatro datos de un vistazo: la tira de abajo repetía tres de estos */}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
-                <StatTile
-                  label="Puntos Liga16"
-                  value={<CountUp value={ranking?.points ?? 0} />}
-                  accent
-                  icon={
-                    ranking && ranking.delta !== 0 ? (
-                      ranking.delta > 0
-                        ? <TrendingUp className="h-4 w-4 text-success" />
-                        : <TrendingDown className="h-4 w-4 text-destructive" />
-                    ) : (
-                      <Minus className="h-4 w-4 text-white/40" />
-                    )
-                  }
-                  caption={
-                    ranking
-                      ? ranking.delta === 0
-                        ? "sin cambio"
-                        : `${ranking.delta > 0 ? "+" : ""}${ranking.delta} esta jornada`
-                      : "sin clasificar"
-                  }
-                />
-                <StatTile label="Títulos" value={String(card?.titles ?? 0)} caption="en el circuito" icon={<Crown className="h-4 w-4 text-warning" />} />
-                <StatTile label="% victorias" value={`${winPct}%`} caption={`${won} de ${played} PJ`} />
-                <StatTile label="Nivel" value={(player.official_level ?? player.declared_level).toFixed(1)} caption={player.official_level != null ? "oficial" : "declarado"} />
-              </div>
-
-              {/* Racha: el dato que hace que querer jugar el siguiente partido */}
-              {played > 0 && (
-                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
-                  <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/70">
-                      Racha actual
-                    </p>
-                    <p className="text-sm font-semibold text-white">
-                      {streak > 0 ? (
-                        <span className="text-primary">{streak} victoria{streak === 1 ? "" : "s"} seguida{streak === 1 ? "" : "s"}</span>
-                      ) : (
-                        <span className="text-white/60">sin racha activa</span>
+              <div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="col-span-2 rounded-xl border border-primary/30 bg-primary/15 p-4 sm:col-span-1">
+                    <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">Puntos Liga16</p>
+                    <div className="mt-1 flex items-baseline gap-2">
+                      <p className="text-3xl font-black tabular-nums text-white md:text-4xl">
+                        <CountUp value={ranking?.points ?? 0} />
+                      </p>
+                      {ranking && ranking.delta !== 0 && (
+                        <span className={`flex items-center gap-0.5 text-xs font-bold tabular-nums ${ranking.delta > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {ranking.delta > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                          {ranking.delta > 0 ? "+" : ""}{ranking.delta}
+                        </span>
                       )}
+                    </div>
+                    <p className="mt-1 text-xs text-white/50">
+                      {ranking ? (ranking.delta === 0 ? "sin cambio esta jornada" : "esta jornada") : "sin clasificar"} · Posición {ranking?.position ? `#${ranking.position}` : "—"}
                     </p>
                   </div>
-                  <div
-                    className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"
-                    role="progressbar"
-                    aria-valuenow={winPct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label="Porcentaje de victorias"
-                  >
-                    <div
-                      className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out"
-                      style={{ width: `${winPct}%` }}
-                    />
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.05] p-4">
+                    <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">% Victorias</p>
+                    <p className="mt-1 text-3xl font-black tabular-nums text-white md:text-4xl">{winPct}%</p>
+                    <p className="mt-1 text-xs text-white/50">{won} de {played} partidos</p>
                   </div>
-                  <p className="mt-2 text-xs text-white/70">
-                    {won} victorias de {played} partidos disputados
-                    {partnerCount > 1 ? ` · ${partnerCount} parejas en su historial` : ""}
-                  </p>
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.05] p-4">
+                    <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">Títulos</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-3xl font-black tabular-nums text-white md:text-4xl">
+                      <Crown className="h-5 w-5 text-amber-400" />
+                      {card?.titles ?? 0}
+                    </p>
+                    <p className="mt-1 text-xs text-white/50">en el circuito</p>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.05] p-4">
+                    <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">Racha</p>
+                    <p className={`mt-1 text-3xl font-black tabular-nums md:text-4xl ${streak > 0 ? "text-emerald-400" : "text-white"}`}>
+                      {streak > 0 ? `${streak}G` : "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-white/50">{streak > 0 ? "victorias seguidas" : "sin racha activa"}</p>
+                  </div>
                 </div>
-              )}
+
+                {played > 0 && (
+                  <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.04] p-3.5">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/50">Efectividad</p>
+                      <p className="text-xs font-semibold text-white/60">{won}V – {played - won}D global</p>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={winPct} aria-valuemin={0} aria-valuemax={100} aria-label="Porcentaje de victorias">
+                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-[width] duration-700 ease-out" style={{ width: `${winPct}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {canEditPhoto && (
                 <div>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-white/20 bg-white/10 font-semibold text-white hover:bg-white/20 hover:text-white"
+                    className="border-white/20 bg-white/[0.06] font-semibold text-white hover:bg-white/[0.12] hover:text-white"
                     onClick={() => setEditOpen(true)}
                   >
                     <Pencil className="h-4 w-4" /> Editar perfil
@@ -601,32 +568,31 @@ export default function PlayerDetailPage() {
               )}
             </div>
 
-<div className="relative">
-                <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-primary/20 via-transparent to-transparent blur-2xl" />
-                {player.photo_url ? (
-                  <img src={player.photo_url} alt={player.display_name} className="h-[340px] w-[300px] object-cover object-top rounded-2xl border border-white/10 shadow-2xl md:h-[420px] md:w-[340px]" />
-                ) : (
-                  <div className="flex h-[340px] w-[300px] items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 shadow-2xl md:h-[420px] md:w-[340px]">
-                    <span className="text-6xl font-black text-white/90">{initials(player.display_name)}</span>
-                  </div>
-                )}
-                {canEditPhoto && (
-                  <ImageUpload
-                    id="player-photo"
-                    value={player.photo_url}
-                    round
-                    overlay
-                    label="Foto de perfil"
-                    onChange={(dataUrl) => {
-                      if (dataUrl === null) return;
-                      setPlayer({ ...player, photo_url: dataUrl });
-                      db.updatePlayer(player.id, { photo_url: dataUrl })
-                        .then(() => toast.success("Foto de perfil actualizada"))
-                        .catch((e: Error) => toast.error(e.message ?? "No se pudo guardar la foto"));
-                    }}
-                  />
-                )}
-              </div>
+            <div className="relative mx-auto w-full max-w-[300px] lg:max-w-none">
+              {player.photo_url ? (
+                <img src={player.photo_url} alt={player.display_name} className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover object-top shadow-2xl" />
+              ) : (
+                <div className="flex aspect-[3/4] w-full items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] shadow-2xl">
+                  <span className="text-7xl font-black text-white/80">{initials(player.display_name)}</span>
+                </div>
+              )}
+              {canEditPhoto && (
+                <ImageUpload
+                  id="player-photo"
+                  value={player.photo_url}
+                  round
+                  overlay
+                  label="Cambiar foto"
+                  onChange={(dataUrl) => {
+                    if (dataUrl === null) return;
+                    setPlayer({ ...player, photo_url: dataUrl });
+                    db.updatePlayer(player.id, { photo_url: dataUrl })
+                      .then(() => toast.success("Foto de perfil actualizada"))
+                      .catch((e: Error) => toast.error(e.message ?? "No se pudo guardar la foto"));
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
       </section>
