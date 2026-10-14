@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays, CheckCircle2, XCircle, Users } from "lucide-react";
 import { MatchCard } from "@/components/cards/card-kit";
 import { initials, sexLabel, winRate } from "@/lib/format";
 import { teamCategoryLabel } from "@/lib/categories";
@@ -200,11 +200,11 @@ export default function TeamDetailPage() {
               {[team.player1, team.player2].map((p, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 shadow-xl backdrop-blur transition-transform hover:-translate-y-0.5"
+                  className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:border-white/20 hover:bg-white/10"
                 >
                   {p?.player_id ? (
                     <Link to={`/jugadores/${p.player_id}`} className="shrink-0" aria-label={`Ver dashboard de ${p.name}`}>
-                      <Avatar className="h-14 w-14 border-2 border-white/20 transition-transform hover:scale-105">
+                      <Avatar className="h-14 w-14 border-2 border-white/20">
                         <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${p.name}`} />
                         <AvatarFallback className="bg-primary text-primary-foreground">{initials(p.name)}</AvatarFallback>
                       </Avatar>
@@ -320,7 +320,7 @@ export default function TeamDetailPage() {
 
       {/* ====== NUEVA: Comparador destacado ====== */}
       <section className="mx-auto max-w-7xl px-4 md:px-6">
-        <Card className="border-primary/30 bg-primary/5">
+        <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Comparar con otro equipo</CardTitle>
             <Select value={compareName} onValueChange={setCompareName}>
@@ -417,12 +417,6 @@ function CompareBlock({
   nameB: string;
   rows: { k: string; a: number; b: number; suffix?: string }[];
 }) {
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setOn(true), 30);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 text-xs font-semibold">
@@ -454,18 +448,17 @@ function CompareBlock({
             </div>
             <div className="mt-1 flex h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                className={`h-full transition-[width] duration-700 ease-out ${leadA ? "bg-primary" : "bg-primary/40"}`}
-                style={{ width: on ? `${pa}%` : "0%" }}
+                className={`h-full ${leadA ? "bg-primary" : "bg-primary/40"}`}
+                style={{ width: `${pa}%` }}
               />
               <div
-                className={`h-full transition-[width] duration-700 ease-out ${leadA ? "bg-muted-foreground/40" : "bg-muted-foreground"}`}
-                style={{ width: on ? `${100 - pa}%` : "0%" }}
+                className={`h-full ${leadA ? "bg-muted-foreground/40" : "bg-muted-foreground"}`}
+                style={{ width: `${100 - pa}%` }}
               />
             </div>
           </div>
         );
       })}
-      <style>{`@media (prefers-reduced-motion: reduce) { [class*="transition-[width]"] { transition: none !important; } }`}</style>
     </div>
   );
 }
