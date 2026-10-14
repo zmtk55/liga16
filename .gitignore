@@ -14,3 +14,6 @@ liga16/dist/
 
 # Canvas de diseño Superdesign
 .superdesign/tmp/
+
+# ShipStudio metadata
+.shipstudio/
