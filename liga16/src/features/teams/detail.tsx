@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays, CheckCircle2, XCircle } from "lucide-react";
 import { MatchCard } from "@/components/cards/card-kit";
 import { initials, sexLabel, winRate } from "@/lib/format";
 import { teamCategoryLabel } from "@/lib/categories";
@@ -254,6 +254,107 @@ export default function TeamDetailPage() {
         </Card>
       </section>
 
+      {/* ====== NUEVA: Próximos rivales + Últimos resultados ====== */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* Próximos rivales */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4 text-primary" /> Próximos rivales</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {pendientes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sin partidos pendientes.</p>
+              ) : (
+                pendientes.slice(0, 3).map((m) => {
+                  const isA = m.side_a.pair_name === team?.name;
+                  const rival = (isA ? m.side_b.pair_name : m.side_a.pair_name) ?? "?";
+                  const scheduled = m.scheduled_at ? new Date(m.scheduled_at) : null;
+                  const now = new Date();
+                  const daysUntil = scheduled ? Math.floor((scheduled.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                  let dateLabel = "Próximamente";
+                  if (daysUntil === 0) dateLabel = "Hoy";
+                  else if (daysUntil === 1) dateLabel = "Mañana";
+                  else if (daysUntil && daysUntil > 1) dateLabel = `En ${daysUntil} días`;
+                  return (
+                    <div key={m.id} className="flex items-center justify-between rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-sm">{rival}</p>
+                        <p className="text-xs text-muted-foreground">{dateLabel} · {m.round}</p>
+                      </div>
+                      <Badge variant="outline" className="shrink-0 ml-2">{scheduled?.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</Badge>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Últimos resultados */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> Últimos resultados</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {form.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sin resultados todavía.</p>
+              ) : (
+                form.slice(0, 3).map((f) => {
+                  return (
+                    <div key={f.match.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-sm">{f.rival}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(f.match.scheduled_at ?? '').toLocaleDateString('es-MX')}</p>
+                      </div>
+                      <div className={`shrink-0 ml-2 flex items-center justify-center w-6 h-6 rounded-full ${f.won ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                        {f.won ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* ====== NUEVA: Comparador destacado ====== */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6">
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Comparar con otro equipo</CardTitle>
+            <Select value={compareName} onValueChange={setCompareName}>
+              <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
+              <SelectContent>
+                {allTeams.map((t) => (
+                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardHeader>
+          <CardContent>
+            {compareTeam ? (
+              <CompareBlock
+                nameA={team.name}
+                nameB={compareTeam.name}
+                rows={[
+                  { k: "Win%", a: winRatePct, b: winRate(compareTeam.played, compareTeam.won), suffix: "%" },
+                  { k: "PJ", a: team.played, b: compareTeam.played },
+                  { k: "Sets G", a: setStats.sf, b: compareTeam.sets_for },
+                  { k: "Puntos", a: team.points, b: compareTeam.points },
+                ]}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {allTeams.length === 0
+                  ? "No hay otros equipos en tu categoría todavía."
+                  : "Elige un equipo de tu categoría para comparar."}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
       {/* ====== Cuerpo ====== */}
       <section className="mx-auto max-w-7xl space-y-6 px-4 md:px-6">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -295,40 +396,6 @@ export default function TeamDetailPage() {
                   <div className="mb-1 flex items-center justify-between text-xs"><span className="text-muted-foreground">Sets ganados / totales</span><span className="font-bold tabular-nums">{winRate(setStats.sf + setStats.sa, setStats.sf)}%</span></div>
                   <Progress value={winRate(setStats.sf + setStats.sa, setStats.sf)} className="h-2 transition-all duration-700 ease-out" />
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Comparar con otro equipo</CardTitle>
-                <Select value={compareName} onValueChange={setCompareName}>
-                  <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
-                  <SelectContent>
-                    {allTeams.map((t) => (
-                      <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardHeader>
-              <CardContent>
-                {compareTeam ? (
-                  <CompareBlock
-                    nameA={team.name}
-                    nameB={compareTeam.name}
-                    rows={[
-                      { k: "Win%", a: winRatePct, b: winRate(compareTeam.played, compareTeam.won), suffix: "%" },
-                      { k: "PJ", a: team.played, b: compareTeam.played },
-                      { k: "Sets G", a: setStats.sf, b: compareTeam.sets_for },
-                      { k: "Puntos", a: team.points, b: compareTeam.points },
-                    ]}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {allTeams.length === 0
-                      ? "No hay otros equipos en tu categoría todavía."
-                      : "Elige un equipo de tu categoría para comparar."}
-                  </p>
-                )}
               </CardContent>
             </Card>
           </div>
