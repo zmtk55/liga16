@@ -82,7 +82,7 @@ export default function AdminPlayers() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<PlayerProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
+  // El buscador vive en el FilterBar de la página y escribe ?q= (estándar admin).
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const setQuery = (v: string) => {
@@ -309,6 +309,9 @@ export default function AdminPlayers() {
             </div>
           </div>
           <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar jugador…"
             selects={[
               {
                 key: "tid",

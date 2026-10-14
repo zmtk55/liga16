@@ -62,7 +62,7 @@ export default function AdminTeams() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<{ id: string; name: string; category_id: string | null; crest_url: string | null } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
+  // El buscador vive en el FilterBar de la página y escribe ?q= (estándar admin).
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const setQuery = (v: string) => {
@@ -271,6 +271,9 @@ export default function AdminTeams() {
         <Card>
           <CardHeader className="gap-3">
             <FilterBar
+              search={query}
+              onSearch={setQuery}
+              searchPlaceholder="Buscar pareja…"
               selects={[
                 {
                   key: "cat",

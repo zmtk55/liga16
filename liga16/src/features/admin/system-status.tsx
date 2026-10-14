@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AdminPageHeader } from "@/components/admin/page-header";
 
 type Check = { label: string; ok: boolean; detail: string; warn?: boolean };
 
@@ -103,18 +104,16 @@ export default function SystemStatus() {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Estado del sistema</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Por qué ves (o no ves) lo que ves. No cambia nada, solo diagnostica.
-          </p>
-        </div>
-        <Button onClick={() => void run()} disabled={running} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4" />
-          {running ? "Comprobando…" : "Volver a comprobar"}
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Estado del sistema"
+        description="Por qué ves (o no ves) lo que ves. No cambia nada, solo diagnostica."
+        action={
+          <Button onClick={() => void run()} disabled={running} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4" />
+            {running ? "Comprobando…" : "Volver a comprobar"}
+          </Button>
+        }
+      />
 
       {user && (
         <Card>

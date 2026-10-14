@@ -33,7 +33,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { SectionControl } from "@/components/shadcn-space/blocks/navbar-01/section-control";
 
 /** Todos los items comparten forma; `end` y `badge` son opcionales. */
 type NavItem = {
@@ -240,23 +239,12 @@ export default function AdminLayout() {
                     </p>
                   </div>
                 )}
-                {/* El control de sección (ADR-0009) va sobre el contenido, no en
-                    la barra. El admin no es una navbar: es sidebar + contenido, y
-                    la barra de arriba la ocupa la marca y la bandeja. Meter el
-                    buscador ahí lo dejaba en 110px dentro de una columna de 248px
-                    —y el buscador del Ranking, en 67px en móvil—, porque competía
-                    con el logo y con el botón de salir. Arriba del contenido tiene
-                    todo el ancho, y la regla se sigue cumpliendo igual: un solo
-                    control por sección, siempre en el mismo sitio. Para las
-                    secciones "browse" no se dibuja nada.
-
-                    Esto sustituye al parche del commit 186a4e0 (fila propia en el
-                    sidebar solo para tipo "search"): aquel duplicaba el control
-                    con una segunda llamada a SectionControl, que es justamente el
-                    patrón de dos llamadas que este layout ya no tiene. La fila
-                    del sidebar, además, daba el buscador a 216px de ancho útil
-                    dentro de una columna de 248px. */}
-                <SectionControl className="mb-4 sm:max-w-md" />
+                {/* Estándar admin (ADR-0009, enmienda 2026-10-13): cada sección
+                    lista lleva su toolbar en la página —FilterBar con buscador
+                    primero, encima del contenido que filtra—. El buscador del
+                    shell vivía lejos de la tabla y su popover de división no lo
+                    leía ninguna página del admin; quitarlo deja un solo control
+                    por sección, junto a lo que filtra. */}
                 <Suspense fallback={<RouteFallback />}>
                   <Outlet />
                 </Suspense>

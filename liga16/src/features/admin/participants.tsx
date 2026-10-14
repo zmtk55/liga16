@@ -59,7 +59,7 @@ export default function AdminParticipants() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
-  // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
+  // El buscador vive en el FilterBar de la página y escribe ?q= (estándar admin).
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const setQuery = (v: string) => {
@@ -289,6 +289,9 @@ export default function AdminParticipants() {
       <Card>
         <CardHeader className="gap-3">
           <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar pareja o torneo…"
             selects={[
               {
                 key: "tournament",

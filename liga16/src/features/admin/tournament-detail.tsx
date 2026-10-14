@@ -41,7 +41,6 @@ import {
   CalendarClock,
   RotateCcw,
   UserPlus,
-  Search,
   Trophy,
   Check,
 } from "lucide-react";
@@ -1168,22 +1167,15 @@ return (
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-sm">
-                  Inscritas ({filteredPairs.length} de {pairs?.length ?? 0})
-                </CardTitle>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={pairQuery}
-                    onChange={(e) => setPairQuery(e.target.value)}
-                    placeholder="Buscar equipo o categoría…"
-                    className="h-9 w-56 pl-8"
-                    aria-label="Buscar equipos"
-                  />
-                </div>
-              </div>
+            <CardHeader className="gap-3">
+              <FilterBar
+                search={pairQuery}
+                onSearch={setPairQuery}
+                searchPlaceholder="Buscar equipo o categoría…"
+                resultCount={filteredPairs.length}
+                resultLabel="parejas"
+                onClear={() => setPairQuery("")}
+              />
             </CardHeader>
             <CardContent className="p-0">
               {!pairs ? (

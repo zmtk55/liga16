@@ -140,6 +140,9 @@ export default function AdminTournaments() {
       <Card>
         <CardHeader className="gap-3">
           <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar torneo…"
             selects={[
               {
                 key: "status",

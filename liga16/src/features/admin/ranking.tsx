@@ -30,7 +30,7 @@ import { groupByDivision } from "@/lib/categories";
  */
 export default function AdminRanking() {
   const [teams, setTeams] = useState<Team[] | null>(null);
-  // El buscador vive en el shell (SectionControl, ADR-0009) y escribe ?q=.
+  // El buscador vive en el FilterBar de la página y escribe ?q= (estándar admin).
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const setQuery = (v: string) => {
@@ -144,6 +144,9 @@ export default function AdminRanking() {
             </ToggleGroup>
           </div>
           <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar pareja…"
             resultCount={filtered.length}
             resultLabel="parejas"
             onClear={() => {

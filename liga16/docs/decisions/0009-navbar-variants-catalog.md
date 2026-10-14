@@ -103,3 +103,15 @@ El sitio necesita varios layouts de encabezado (tema dark/light, iconos, búsque
 - `src/lib/format.ts` (`divisionOptions`, `sexOptions`)
 - `src/components/ranking/ranking-filters.tsx` (precedente pills)
 - `src/features/admin/layout.tsx` (precedente Sheet + Badge mobile)
+
+## Enmienda 2026-10-13 — el toolbar del admin vive en la página
+
+El buscador del shell (`SectionControl` en el layout del admin) se retira del
+panel: quedaba lejos de la tabla que filtraba y su popover de división no lo
+leía ninguna página del admin (escribía `?division=`, que solo lee el ranking
+público). Cada sección lista del admin lleva ahora su toolbar en la página —
+`FilterBar` con el buscador primero, encima del contenido que filtra, con
+`resultCount` y `Limpiar` — y el `?q=` de la URL se sigue escribiendo igual,
+así que los enlaces filtrados compartidos no se rompen. La regla no cambia:
+un solo control por sección, siempre en el mismo sitio. `SectionControl`
+sigue vivo para el sitio público.

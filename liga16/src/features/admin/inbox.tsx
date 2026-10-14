@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { CheckCircle2, ChevronRight, Inbox, RefreshCw, XCircle } from 'lucide-react';
 import { useAdminAlerts } from '@/hooks/use-admin-alerts';
 import type { AlertSeverity, AdminAlert } from '@/types';
 import { alertTypeMeta } from '@/lib/alerts';
 import { AdminPageHeader } from '@/components/admin/page-header';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -76,8 +78,16 @@ function severityLabelKey(s: AlertSeverity) {
 
 export default function AdminInbox() {
   const { alerts, loading, error, refresh } = useAdminAlerts();
-  const grouped = (key: AlertSeverity) => alerts.filter((a) => a.severity === key);
-  const total = alerts.length;
+  const [query, setQuery] = useState("");
+  const [fSeverity, setFSeverity] = useState("all");
+  const visible = alerts.filter((a) => {
+    const q = query.trim().toLowerCase();
+    if (q && !a.title.toLowerCase().includes(q) && !(a.description ?? "").toLowerCase().includes(q)) return false;
+    if (fSeverity !== "all" && a.severity !== fSeverity) return false;
+    return true;
+  });
+  const grouped = (key: AlertSeverity) => visible.filter((a) => a.severity === key);
+  const total = visible.length;
 
   return (
     <div className="space-y-6">
@@ -98,6 +108,26 @@ export default function AdminInbox() {
         }
       />
 
+      <FilterBar
+        search={query}
+        onSearch={setQuery}
+        searchPlaceholder="Buscar alerta…"
+        selects={[
+          {
+            key: "severity",
+            ariaLabel: "Filtrar por severidad",
+            allLabel: "Todas",
+            value: fSeverity,
+            onChange: setFSeverity,
+            options: (["critical", "warning", "info"] as AlertSeverity[]).map((s) => ({ value: s, label: severityLabelKey(s) })),
+            className: "sm:w-44",
+          },
+        ]}
+        resultCount={total}
+        resultLabel="alertas"
+        onClear={() => { setQuery(""); setFSeverity("all"); }}
+      />
+
       {error && (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
           <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
@@ -112,6 +142,7 @@ export default function AdminInbox() {
           ))}
         </div>
       ) : total === 0 ? (
+        alerts.length === 0 ? (
         <Empty className="border-0 py-16">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -124,6 +155,19 @@ export default function AdminInbox() {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+        ) : (
+          <Empty className="border-0 py-16">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Inbox className="h-8 w-8 text-muted-foreground/50" />
+              </EmptyMedia>
+              <EmptyTitle>Sin coincidencias</EmptyTitle>
+              <EmptyDescription>
+                Ninguna alerta coincide con la búsqueda.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )
       ) : (
         severityOrder.map((sev) => {
           const items = grouped(sev);

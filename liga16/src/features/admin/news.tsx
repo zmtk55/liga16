@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { NewsItem } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,11 +38,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
+import { FilterBar } from "@/components/ui/filter-bar";
 
 const TAG_OPTIONS = ["General", "Resultados", "Torneos", "Ligas", "Jugadores", "Clubs"];
 
 export default function AdminNews() {
   const [list, setList] = useState<NewsItem[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [fTag, setFTag] = useState("all");
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<NewsItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -104,6 +107,13 @@ export default function AdminNews() {
     };
   }, [list]);
 
+  const filtered = (list ?? []).filter((n) => {
+    const q = query.trim().toLowerCase();
+    if (q && !n.title.toLowerCase().includes(q)) return false;
+    if (fTag !== "all" && n.tag !== fTag) return false;
+    return true;
+  });
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -127,6 +137,27 @@ export default function AdminNews() {
         </AdminStatStrip>
       </AdminPageHeader>
       <Card>
+        <CardHeader className="gap-3">
+          <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar noticia…"
+            selects={[
+              {
+                key: "tag",
+                ariaLabel: "Filtrar por tag",
+                allLabel: "Todos los tags",
+                value: fTag,
+                onChange: setFTag,
+                options: TAG_OPTIONS.map((t) => ({ value: t, label: t })),
+                className: "sm:w-44",
+              },
+            ]}
+            resultCount={filtered.length}
+            resultLabel="noticias"
+            onClear={() => { setQuery(""); setFTag("all"); }}
+          />
+        </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
@@ -152,7 +183,15 @@ export default function AdminNews() {
                   }
                 />
               )}
-              {list?.map((n) => {
+              {list !== null && list.length > 0 && filtered.length === 0 && (
+                <AdminTableEmpty
+                  colSpan={4}
+                  icon={<Newspaper className="h-5 w-5" />}
+                  title="Sin coincidencias"
+                  description="Ninguna noticia coincide con la búsqueda."
+                />
+              )}
+              {filtered.map((n) => {
                 const actions: RowAction[] = [
                   {
                     label: "Editar",
