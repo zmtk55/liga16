@@ -3,9 +3,9 @@
 // Requiere aplicar supabase/schema.sql en el proyecto (ver README.md).
 import { supabase } from '@/lib/supabase';
 import { divisionFromCategory } from "@/lib/categories";
+import { deriveTeamStandings } from "@/lib/standings";
 import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
-import { DIVISION_ORDER } from '@/lib/categories';
 import type { TournamentFilters } from '@/types';
 import type { Team, PadelDivision, Sex, Match, Court, Sponsor, Pair, PlayerProfile, PlayerStatus, MyProfileInput, RegistrationStatus, PaymentMethod } from '@/types';
 
@@ -72,15 +72,6 @@ interface PairRow {
   tournaments: { id: string; name: string; city: string | null } | null;
 }
 
-interface PairAcc {
-  played: number;
-  won: number;
-  lost: number;
-  sets_for: number;
-  sets_against: number;
-  points: number;
-}
-
 /**
  * Construye los "equipos" públicos desde `pairs` (equipos POR TORNEO).
  * Une perfiles reales (player_profiles) para niveles y links al dashboard,
@@ -132,49 +123,18 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
     }
   }
 
-  // Récord por pareja desde partidos terminados (por pair_id, con fallback por nombre)
-  const finished = ((matchesRes.data ?? []) as Array<Record<string, unknown>>).filter(
-    (m) => m.status === 'finished' && m.winner,
-  );
-  const accFor = new Map<string, PairAcc>();
-  const getAcc = (row: PairRow): PairAcc => {
-    let acc = accFor.get(row.id);
-    if (acc) return acc;
-    acc = { played: 0, won: 0, lost: 0, sets_for: 0, sets_against: 0, points: 0 };
-    accFor.set(row.id, acc);
-    const myName = row.name.trim().toLowerCase();
-    for (const m of finished) {
-      const aId = (m.side_a_pair_id as string | null) ?? null;
-      const bId = (m.side_b_pair_id as string | null) ?? null;
-      const aName = String(m.side_a_name ?? '').trim().toLowerCase();
-      const bName = String(m.side_b_name ?? '').trim().toLowerCase();
-      const isA = aId === row.id || (!aId && aName === myName);
-      const isB = bId === row.id || (!bId && bName === myName);
-      if (!isA && !isB) continue;
-      acc.played++;
-      const won = isA ? m.winner === 'a' : m.winner === 'b';
-      if (won) acc.won++;
-      else acc.lost++;
-      const sets = (m.sets as Array<{ a?: number; b?: number }> | null) ?? [];
-      for (const s of sets) {
-        const my = isA ? (s.a ?? 0) : (s.b ?? 0);
-        const their = isA ? (s.b ?? 0) : (s.a ?? 0);
-        // Ignora filas vacías 0-0; el super tie-break se guarda con juegos reales (ej. 10-8)
-        if (my === 0 && their === 0) continue;
-        if (my > their) acc.sets_for++;
-        else if (their > my) acc.sets_against++;
-      }
-    }
-    acc.points = acc.won * 3;
-    return acc;
-  };
+  // El récord y la posición NO se calculan aquí: los pone deriveTeamStandings
+  // al final, con las reglas de la liga (sets válidos, super tie-break, % de
+  // puntos). Antes se acumulaban en getAcc con una comparación cruda
+  // `mio > suyo` por set, que contaba como ganado un 6-5 — un set que en pádel
+  // no está ganado.
+  const matches = ((matchesRes.data ?? []) as Array<Record<string, unknown>>).map(matchFromRow);
 
   // Construir equipos; la misma pareja puede estar en varios torneos: se deduplica por slug
   const teams = new Map<string, Team>();
   for (const row of rows) {
     const slug = slugifyName(row.name);
     if (teams.has(slug)) continue;
-    const acc = getAcc(row);
     const catName = row.tournament_categories?.name ?? null;
     const p1 = row.player1_id ? playersById.get(row.player1_id) : undefined;
     const p2 = row.player2_id ? playersById.get(row.player2_id) : undefined;
@@ -207,60 +167,21 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       photo1_url: p1?.photo_url ?? null,
       photo2_url: p2?.photo_url ?? null,
       position: 0,
-      points: acc.points,
-      played: acc.played,
-      won: acc.won,
-      lost: acc.lost,
-      sets_for: acc.sets_for,
-      sets_against: acc.sets_against,
+      // Los seis campos siguientes los sobrescribe deriveTeamStandings; se
+      // dejan en 0 para que el objeto sea un Team válido mientras tanto.
+      points: 0,
+      played: 0,
+      won: 0,
+      lost: 0,
+      sets_for: 0,
+      sets_against: 0,
       titles: 0,
     });
   }
 
-  // Posición dentro de cada división+rama: puntos, desempate por diferencia de sets
-  const list = [...teams.values()];
-  const groups = new Map<string, Team[]>();
-  for (const t of list) {
-    const k = `${t.division}|${t.sex}`;
-    const g = groups.get(k) ?? [];
-    g.push(t);
-    groups.set(k, g);
-  }
-  for (const g of groups.values()) {
-    g.sort(
-      (a, b) =>
-        b.points - a.points ||
-        b.sets_for - b.sets_against - (a.sets_for - a.sets_against) ||
-        b.won - a.won,
-    );
-    // Posiciones estilo tabla de liga: los empates (mismos puntos, dif. de
-    // sets y victorias) COMPARTEN posición y la siguiente salta (1, 1, 3…).
-    // Sin partidos jugados no hay posición: no se ha ganado nada todavía.
-    let lastPos = 0;
-    let prev: Team | null = null;
-    g.forEach((t) => {
-      if (t.played === 0) {
-        t.position = 0;
-        return;
-      }
-      const tied =
-        prev !== null &&
-        prev.points === t.points &&
-        prev.sets_for - prev.sets_against === t.sets_for - t.sets_against &&
-        prev.won === t.won;
-      t.position = tied ? lastPos : ++lastPos;
-      prev = t;
-    });
-  }
-  // Las parejas sin partidos (position 0) van al final de su grupo.
-  const rankOf = (t: Team) => (t.position === 0 ? Number.MAX_SAFE_INTEGER : t.position);
-  list.sort(
-    (a, b) =>
-      DIVISION_ORDER.indexOf(a.division) - DIVISION_ORDER.indexOf(b.division) ||
-      a.sex.localeCompare(b.sex) ||
-      rankOf(a) - rankOf(b),
-  );
-  return list;
+  // Posición y puntos los calcula lib/standings.ts (mismo sitio que usa el
+  // provider de demo, para que los dos ranking sean la misma regla).
+  return deriveTeamStandings([...teams.values()], matches);
 }
 
 function teamFromRow(row: Record<string, unknown>): Team {

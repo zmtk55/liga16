@@ -308,7 +308,14 @@ export interface Team {
   photo1_url?: string | null;
   photo2_url?: string | null;
   position: number;          // Posición en la división
-  points: number;            // Puntos de liga
+  points: number;            // Puntos de liga (3 por victoria)
+  /**
+   * % de puntos (Liga16): puntos ganados / puntos jugados, en 0-100.
+   * Es lo que ORDENA la posición. `points` sigue siendo 3 por victoria y se
+   * sigue mostrando en fichas y comparadores, pero no decide el orden.
+   * null = la pareja no ha jugado ningún partido.
+   */
+  rendimiento_pct?: number | null;
   played: number;
   won: number;
   lost: number;

@@ -1,6 +1,7 @@
 // Implementación demo del DataProvider — datos semilla en memoria mutable.
 import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
+import { deriveTeamStandings } from '@/lib/standings';
 import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
   rankingEvents, rankings, sponsors, teams, tournaments,
@@ -357,9 +358,17 @@ export const demoProvider: DataProvider = {
   },
 
   // Equipos
+  // El récord y la posición se DERIVAN de store.matches en cada llamada: antes
+  // se devolvía `store.teams` tal cual, con puntos y posiciones escritos a mano
+  // en el seed, así que capturar un resultado no movía el ranking. Es la misma
+  // función que usa el provider de Supabase, para que demo y producción
+  // ordenen igual.
   async listTeams() {
     await delay();
-    return [...store.teams];
+    return deriveTeamStandings(
+      store.teams.map((t) => ({ ...t })),
+      store.matches,
+    );
   },
 
   async getTeam(slug: string) {

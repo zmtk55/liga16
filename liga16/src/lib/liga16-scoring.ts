@@ -85,6 +85,8 @@ export interface Liga16PairStats {
   PUNTOS_A_FAVOR: number; // Suma de puntos propios en todos los sets
   PUNTOS_TOTALES: number; // Suma de (puntos propios + puntos rival) en todos los sets
   RENDIMIENTO_PTS: number | null; // PUNTOS_A_FAVOR / PUNTOS_TOTALES (col K)
+  SETS_FAVOR: number; // Sets ganados (incluye el super tie-break)
+  SETS_CONTRA: number; // Sets perdidos
   JERARQUIA: number; // Posición en ranking (col L) - 0 si sin partidos
 }
 
@@ -188,6 +190,8 @@ export function computePairStatsLiga16(
   let PG = 0;
   let puntosAFavor = 0;
   let puntosTotales = 0;
+  let setsFavor = 0;
+  let setsContra = 0;
 
   for (const match of matches) {
     // Solo partidos terminados con ganador
@@ -223,6 +227,9 @@ export function computePairStatsLiga16(
 
     if (setsPropios > setsRival) PG++;
 
+    setsFavor += setsPropios;
+    setsContra += setsRival;
+
     // Sumar puntos: set1, set2, tiebreak
     // Puntos a favor = juegos propios en cada set
     // Puntos totales = juegos propios + juegos rival en cada set
@@ -253,6 +260,8 @@ export function computePairStatsLiga16(
     PUNTOS_A_FAVOR: puntosAFavor,
     PUNTOS_TOTALES: puntosTotales,
     RENDIMIENTO_PTS,
+    SETS_FAVOR: setsFavor,
+    SETS_CONTRA: setsContra,
     JERARQUIA: 0, // Se calcula en el paso 4
   };
 }

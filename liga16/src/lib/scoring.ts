@@ -110,13 +110,22 @@ export function formatMatchScore(sets: SetScore[], config?: TournamentScoring): 
   return sets.map((s) => formatSet(s, config)).join(" · ");
 }
 
-/** Valida que los sets sean coherentes (sin sets posteriores si ya hay ganador). */
+/** Puntos a los que se juega el super tie-break de la Liga16 (a 10, dif. 2). */
+export const SUPER_TIEBREAK_POINTS = 10;
+
+/**
+ * Valida que los sets sean coherentes (sin sets posteriores si ya hay ganador).
+ */
 export function validateScoring(sets: SetScore[], config: TournamentScoring): string | null {
   const cfg = normalizeScoring(config);
   let aWon = 0;
   let bWon = 0;
   for (let i = 0; i < sets.length; i++) {
     const set = sets[i];
+    // Una fila 0-0 no es un set: es el hueco que deja el diálogo de captura
+    // cuando agregas un set y lo dejas en blanco. Contarla hacía que un
+    // partido ya ganado en 2 sets fallara con "hay sets de más" al guardar.
+    if (set.a === 0 && set.b === 0 && !set.tiebreak_a && !set.tiebreak_b) continue;
     if (set.a < 0 || set.b < 0) return `El set ${i + 1} tiene juegos negativos`;
     if ((set.tiebreak_a ?? 0) < 0 || (set.tiebreak_b ?? 0) < 0) {
       return `El set ${i + 1} tiene puntos de tie-break negativos`;
@@ -126,7 +135,7 @@ export function validateScoring(sets: SetScore[], config: TournamentScoring): st
     const hasTb = set.tiebreak_a != null || set.tiebreak_b != null;
     if (hasTb && set.a !== set.b) {
       const max = Math.max(set.a, set.b);
-      const isSuper = max >= 10; // super tie-break guardado como set
+      const isSuper = max >= SUPER_TIEBREAK_POINTS; // super tie-break guardado como set
       const isDecidedTbSet = max === cfg.games_per_set + 1 && Math.abs(set.a - set.b) === 1; // 7-6
       if (!isSuper && !isDecidedTbSet) {
         return `El set ${i + 1} tiene tie-break pero el marcador no está 6-6`;
@@ -134,6 +143,22 @@ export function validateScoring(sets: SetScore[], config: TournamentScoring): st
     }
     if (aWon >= cfg.sets_to_win || bWon >= cfg.sets_to_win) {
       return `Hay sets de más después de que el partido ya terminó`;
+    }
+    // El set que DESEMPATA no es un set más: es el super tie-break, a 10 puntos
+    // con diferencia 2. Antes no se miraba y pasaban cualquier cosa —un 6-3, un
+    // 7-5, incluso un 9-7— porque `determineSetWinner` los resolvía con la regla
+    // de set normal (10 >= 6 y 10 >= 8+2) sin preguntar si ese set debería
+    // existir. Si aparece un tercer set es porque los dos primeros quedaron
+    // empatados; entonces el desempate va a 10.
+    if (i === cfg.sets_to_win && aWon === cfg.sets_to_win - 1 && bWon === cfg.sets_to_win - 1) {
+      const hi = Math.max(set.a, set.b);
+      const lo = Math.min(set.a, set.b);
+      if (hi < SUPER_TIEBREAK_POINTS) {
+        return `El set ${i + 1} es el desempate: va a ${SUPER_TIEBREAK_POINTS} puntos, no a ${hi}`;
+      }
+      if (hi - lo < 2) {
+        return `El desempate (set ${i + 1}) se gana por 2 puntos: ${set.a}-${set.b} no alcanza`;
+      }
     }
     const winner = determineSetWinner(set, cfg);
     if (winner === "a") aWon++;

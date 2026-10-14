@@ -225,9 +225,9 @@ describe("Liga16 Scoring Algorithm", () => {
   describe("computeJerarquiaLiga16 (Paso 4) - Ranking estilo Excel RANK", () => {
     it("ordena descendente por RENDIMIENTO_PTS y asigna ranks estilo Excel", () => {
       const stats: Liga16PairStats[] = [
-        { pairId: "a", pairNumber: 1, pairName: "A", PJ: 1, PG: 1, RENDIMIENTO_PG: 1, PUNTOS_A_FAVOR: 23, PUNTOS_TOTALES: 43, RENDIMIENTO_PTS: 0.5348, JERARQUIA: 0 },
-        { pairId: "b", pairNumber: 2, pairName: "B", PJ: 1, PG: 0, RENDIMIENTO_PG: 0, PUNTOS_A_FAVOR: 20, PUNTOS_TOTALES: 43, RENDIMIENTO_PTS: 0.4651, JERARQUIA: 0 },
-        { pairId: "c", pairNumber: 3, pairName: "C", PJ: 0, PG: 0, RENDIMIENTO_PG: null, PUNTOS_A_FAVOR: 0, PUNTOS_TOTALES: 0, RENDIMIENTO_PTS: null, JERARQUIA: 0 },
+        { pairId: "a", pairNumber: 1, pairName: "A", PJ: 1, PG: 1, RENDIMIENTO_PG: 1, PUNTOS_A_FAVOR: 23, PUNTOS_TOTALES: 43, RENDIMIENTO_PTS: 0.5348, SETS_FAVOR: 2, SETS_CONTRA: 1, JERARQUIA: 0 },
+        { pairId: "b", pairNumber: 2, pairName: "B", PJ: 1, PG: 0, RENDIMIENTO_PG: 0, PUNTOS_A_FAVOR: 20, PUNTOS_TOTALES: 43, RENDIMIENTO_PTS: 0.4651, SETS_FAVOR: 1, SETS_CONTRA: 2, JERARQUIA: 0 },
+        { pairId: "c", pairNumber: 3, pairName: "C", PJ: 0, PG: 0, RENDIMIENTO_PG: null, PUNTOS_A_FAVOR: 0, PUNTOS_TOTALES: 0, RENDIMIENTO_PTS: null, SETS_FAVOR: 0, SETS_CONTRA: 0, JERARQUIA: 0 },
       ];
 
       const ranked = computeJerarquiaLiga16(stats);
@@ -247,9 +247,9 @@ describe("Liga16 Scoring Algorithm", () => {
 
     it("maneja empates: mismo rank, salta el siguiente (1, 1, 3)", () => {
       const stats: Liga16PairStats[] = [
-        { pairId: "a", pairNumber: 1, pairName: "A", PJ: 1, PG: 1, RENDIMIENTO_PG: 1, PUNTOS_A_FAVOR: 10, PUNTOS_TOTALES: 20, RENDIMIENTO_PTS: 0.5, JERARQUIA: 0 },
-        { pairId: "b", pairNumber: 2, pairName: "B", PJ: 1, PG: 1, RENDIMIENTO_PG: 1, PUNTOS_A_FAVOR: 10, PUNTOS_TOTALES: 20, RENDIMIENTO_PTS: 0.5, JERARQUIA: 0 },
-        { pairId: "c", pairNumber: 3, pairName: "C", PJ: 1, PG: 0, RENDIMIENTO_PG: 0, PUNTOS_A_FAVOR: 5, PUNTOS_TOTALES: 20, RENDIMIENTO_PTS: 0.25, JERARQUIA: 0 },
+        { pairId: "a", pairNumber: 1, pairName: "A", PJ: 1, PG: 1, RENDIMIENTO_PG: 1, PUNTOS_A_FAVOR: 10, PUNTOS_TOTALES: 20, RENDIMIENTO_PTS: 0.5, SETS_FAVOR: 2, SETS_CONTRA: 0, JERARQUIA: 0 },
+        { pairId: "b", pairNumber: 2, pairName: "B", PJ: 1, PG: 1, RENDIMIENTO_PG: 1, PUNTOS_A_FAVOR: 10, PUNTOS_TOTALES: 20, RENDIMIENTO_PTS: 0.5, SETS_FAVOR: 2, SETS_CONTRA: 0, JERARQUIA: 0 },
+        { pairId: "c", pairNumber: 3, pairName: "C", PJ: 1, PG: 0, RENDIMIENTO_PG: 0, PUNTOS_A_FAVOR: 5, PUNTOS_TOTALES: 20, RENDIMIENTO_PTS: 0.25, SETS_FAVOR: 0, SETS_CONTRA: 2, JERARQUIA: 0 },
       ];
 
       const ranked = computeJerarquiaLiga16(stats);

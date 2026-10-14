@@ -187,8 +187,16 @@ export function groupByDivision(teams: Team[]): DivisionGroup[] {
         division,
         sex,
         label: `${division} · ${ramaLabel(sex)}`,
-        // Mismo criterio que la tabla de posiciones: posición, luego puntos.
-        teams: list.sort((a, b) => a.position - b.position || b.points - a.points),
+        // Mismo criterio que la tabla de posiciones: posición, luego % de puntos.
+        // Las parejas sin partidos (position 0) van AL FINAL del grupo, no al
+        // principio: sin posición no compiten por ella y un "—" arriba del todo
+        // hace leer la tabla como si fueran las líderes.
+        teams: list.sort(
+          (a, b) =>
+            (a.position === 0 ? Number.MAX_SAFE_INTEGER : a.position) -
+              (b.position === 0 ? Number.MAX_SAFE_INTEGER : b.position) ||
+            (b.rendimiento_pct ?? -1) - (a.rendimiento_pct ?? -1),
+        ),
       };
     })
     .sort(
