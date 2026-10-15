@@ -952,20 +952,7 @@ teams.forEach((t) => {
                       Si está en «Sí», el tie-break acaba cuando alguien va ganando por 2; si no, sigue hasta el punto exacto.
                     </p>
                   </div>
-                  <div className="grid gap-1 sm:col-span-2">
-                    <Label htmlFor="sc-ranking_method" className="text-xs text-muted-foreground">Método ranking</Label>
-                    <Select value={tournament.ranking_method} onValueChange={(v) => setTournament((t) => ({ ...t, ranking_method: v as "match_points" | "points_percentage" }))}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="match_points">Puntos por partido — 3 al que gana, 0 al que pierde</SelectItem>
-                        <SelectItem value="points_percentage">% Puntos — porcentaje de puntos ganados</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs leading-snug text-muted-foreground/80">
-                      Define el orden de la tabla: por resultado (3-0-0) o por porcentaje de puntos ganados.
-                    </p>
                   </div>
-                </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   Si no cambias nada, los valores de arriba ya quedan bien puestos: Liga16 4TA/5TA/6TA/SUMA9
                   ordena por <strong>% Puntos</strong> y usa tie-break a <strong>10 pts</strong> (super TB);
