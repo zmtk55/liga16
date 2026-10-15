@@ -10,8 +10,6 @@ import type {
   Pair,
   PlayerCard,
   PlayerProfile,
-  RankingEntry,
-  RankingEvent,
   Registration,
   RegistrationStatus,
   Sponsor,
@@ -96,10 +94,17 @@ export interface DataProvider {
   // Ligas
   listLeagues(): Promise<League[]>;
   getLeague(slug: string): Promise<League | null>;
-  // Rankings
-  listRankings(scope?: { sex?: string }): Promise<RankingEntry[]>;
-  updateRanking(playerId: string, updates: Partial<RankingEntry>): Promise<RankingEntry | null>;
-  getPlayerRankingEvents(playerId: string): Promise<RankingEvent[]>;
+  // Ranking
+  //
+  // NO hay ranking POR JUGADOR. El ranking de la liga es de Parejas y se deriva
+  // de los partidos (`lib/groups.ts`, `Team.position`); el desempeño individual
+  // sale del récord del jugador (`getPlayerRecord`). Existía además un
+  // `ranking_view` en Supabase con `played`/`won` de `player_cards` —tabla que
+  // solo se inserta al crear el perfil y nunca se actualiza— y `points` de
+  // `ranking_events`, que solo escribía un método sin una sola llamada en la UI.
+  // En producción devolvía ceros y posiciones alfabéticas; en demo, seed inventado.
+  // Por eso la sección de jugadores showed "0 PJ" y un "#3" que no significaba nada.
+
   // Jugadores
   listPlayers(query?: string): Promise<PlayerProfile[]>;
   getPlayer(id: string): Promise<PlayerProfile | null>;

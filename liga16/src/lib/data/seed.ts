@@ -1,7 +1,7 @@
 // Datos semilla realistas de Liga16 (modo demo).
 import type {
   Club, League, Match, NewsItem, Pair, PlayerCard, PlayerProfile,
-  RankingEntry, RankingEvent, Sponsor, Team, Tournament, TournamentCategory,
+  Sponsor, Team, Tournament, TournamentCategory,
 } from '@/types';
 
 export const clubs: Club[] = [
@@ -57,27 +57,13 @@ export const players: PlayerProfile[] = [
   { id: 'p-20', user_id: 'u-20', display_name: 'Nadia Pineda', username: 'nadiapineda', photo_url: null, city: 'Ciudad de México', state: 'CDMX', country: 'México', birth_date: null, sex: 'F', declared_level: 3.3, official_level: 3.3, dominant_hand: 'right', preferred_position: 'reves', bio: null, is_public: true, role: 'player' },
 ];
 
-export const rankings: RankingEntry[] = [
-  { position: 1, player_id: 'p-3', player_name: 'Sofía Camacho', city: 'Ciudad de México', sex: 'F', level: 5.2, points: 4120, delta: 1, played: 34, won: 27 },
-  { position: 2, player_id: 'p-6', player_name: 'Emilio Garza', city: 'Ciudad de México', sex: 'M', level: 5.4, points: 3985, delta: -1, played: 31, won: 24 },
-  { position: 3, player_id: 'p-9', player_name: 'Fernando Lira', city: 'Ciudad de México', sex: 'M', level: 5.1, points: 3740, delta: 2, played: 29, won: 22 },
-  { position: 4, player_id: 'p-1', player_name: 'Diego Fuentes', city: 'Ciudad de México', sex: 'M', level: 4.6, points: 3410, delta: 0, played: 33, won: 22 },
-  { position: 5, player_id: 'p-10', player_name: 'Paola Suárez', city: 'Ciudad de México', sex: 'F', level: 4.7, points: 3260, delta: 3, played: 26, won: 19 },
-  { position: 6, player_id: 'p-2', player_name: 'Martín Rojas', city: 'Ciudad de México', sex: 'M', level: 4.5, points: 3120, delta: -2, played: 30, won: 19 },
-  { position: 7, player_id: 'p-5', player_name: 'Lucía Herrera', city: 'Ciudad de México', sex: 'F', level: 4.2, points: 2890, delta: 1, played: 24, won: 15 },
-  { position: 8, player_id: 'p-4', player_name: 'Andrés Valle', city: 'Ciudad de México', sex: 'M', level: 4.1, points: 2735, delta: -1, played: 27, won: 14 },
-  { position: 9, player_id: 'p-12', player_name: 'Daniela Cervantes', city: 'Ciudad de México', sex: 'F', level: 4.0, points: 2510, delta: 4, played: 20, won: 13 },
-  { position: 10, player_id: 'p-8', player_name: 'Javier Quintana', city: 'Ciudad de México', sex: 'M', level: 4.0, points: 2400, delta: 0, played: 22, won: 12 },
-  { position: 11, player_id: 'p-11', player_name: 'Ricardo Anaya', city: 'Ciudad de México', sex: 'M', level: 3.4, points: 1980, delta: -3, played: 21, won: 9 },
-  { position: 12, player_id: 'p-7', player_name: 'Valeria Montes', city: 'Ciudad de México', sex: 'F', level: 3.6, points: 1875, delta: 2, played: 18, won: 9 },
-];
-
-export const rankingEvents: RankingEvent[] = [
-  { id: 're-1', player_id: 'p-1', tournament_id: 't-5', points: 250, reason: 'Campeón 4ta Varonil — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
-  { id: 're-2', player_id: 'p-2', tournament_id: 't-5', points: 250, reason: 'Campeón 4ta Varonil — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
-  { id: 're-3', player_id: 'p-9', tournament_id: 't-5', points: 150, reason: 'Finalista 4ta Varonil — Copa Independencia 2026', created_at: '2026-09-13T20:00:00Z' },
-];
-
+/**
+ * La ficha de presentación. NO lleva estadísticas: `played`/`won`/`trend`/
+ * `recent_results` son 0/`[]` a propósito, porque en producción los deja así el
+ * trigger de creación y nadie los vuelve a escribir. El desempeño real sale del
+ * récord derivado (`buildPlayerRecords`). Ver la nota de ranking en
+ * `provider.ts`: estos campos se veían como si fueran datos y no lo eran.
+ */
 export const playerCards: Record<string, PlayerCard> = Object.fromEntries(
   players.map((p, i) => [
     p.id,
@@ -85,11 +71,11 @@ export const playerCards: Record<string, PlayerCard> = Object.fromEntries(
       player_id: p.id,
       slug: p.username,
       titles: [3, 2, 5, 1, 1, 4, 0, 0, 2, 2, 0, 1][i] ?? 0,
-      played: rankings[i]?.played ?? 12,
-      won: rankings[i]?.won ?? 6,
+      played: 0,
+      won: 0,
       partner: i % 2 === 0 ? players[(i + 1) % players.length].display_name : null,
-      recent_results: ['G 6-4 6-3', 'P 4-6 6-7', 'G 6-2 6-1'],
-      trend: [3, 1, 2, 0, -1, 1, 2].map((v) => v + (i % 3)),
+      recent_results: [],
+      trend: [],
     },
   ]),
 );

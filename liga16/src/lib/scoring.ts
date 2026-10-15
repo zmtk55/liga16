@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 // Liga16 — utilidades de puntuación para pádel
-import type { SetScore, TournamentScoring, Team } from "@/types";
+import type { SetScore, TournamentScoring } from "@/types";
 
 export const DEFAULT_SCORING: TournamentScoring = {
   sets_to_win: 2,

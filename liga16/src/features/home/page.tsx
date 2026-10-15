@@ -12,7 +12,6 @@ import { db } from "@/lib/data";
 import type {
   Match,
   NewsItem,
-  RankingEntry,
   Sponsor,
   Team,
   Tournament,
@@ -43,7 +42,6 @@ type HomeData = {
   matches: Match[];
   news: NewsItem[];
   sponsors: Sponsor[];
-  rankings: RankingEntry[];
 };
 
 function initialsOf(name: string) {
@@ -131,10 +129,9 @@ export default function Home() {
       db.listRecentMatches(),
       db.listNews(),
       db.listSponsors(),
-      db.listRankings(),
-    ]).then(([tournaments, teams, matches, news, sponsors, rankings]) => {
+    ]).then(([tournaments, teams, matches, news, sponsors]) => {
       if (active)
-        setStats({ tournaments, teams, matches, news, sponsors, rankings });
+        setStats({ tournaments, teams, matches, news, sponsors });
     });
     return () => {
       active = false;

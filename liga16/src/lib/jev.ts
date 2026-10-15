@@ -1,8 +1,14 @@
-// JEV — TypeSafe System One judgments para pádel
-// Usa @typesafe-ai/sdk cuando TYPESAFE_API_KEY está configurado, si no fallback local determinístico.
+// JEV: lectura de desempeño de un jugador a partir de SUS PARTIDOS.
+// Todo es determinístico y local. Existía además una ruta remota por TypeSafe
+// (VITE_TYPESAFE_API_KEY) que quedó inservible: la variable no está en
+// .env.example, su resultado pisaba el análisis real con los datos de
+// player_cards (siempre 0) y no recibía el récord derivado, así que el
+// dashboard llegaba a decir "Aún no hay partidos" junto a un hero con
+// "Partidos 40".
 // Primitivas: Score (forma), Choice (estilo), Noul (racha)
 
-import type { PlayerCard, PlayerProfile, RankingEntry } from "@/types";
+import type { PlayerCard, PlayerProfile } from "@/types";
+import type { PlayerRecord } from "@/lib/records";
 
 export type FormaLevel = 1 | 2 | 3 | 4 | 5;
 export type Estilo = "ofensivo" | "defensivo" | "equilibrado" | "transición";
@@ -104,6 +110,28 @@ export function rivalAdjusted({
 }
 
 /**
+ * El récord del jugador (`PlayerRecord`) en el formato que espera el análisis.
+ *
+ * Vive aquí y no en el componente para que el titular y el comparador no puedan
+ * divergir: si cada uno arma su propio objeto, uno se queda sin `opponents` y el
+ * dashboard se contradice a sí mismo.
+ */
+export function derivedFromRecord(rec: PlayerRecord | null) {
+  return rec
+    ? {
+        played: rec.played,
+        won: rec.won,
+        form: rec.form,
+        setsPorPartida: rec.trend,
+        opponents: rec.recentMatches.map((m) => ({
+          won: m.won,
+          opponentLevel: m.opponentLevel,
+        })),
+      }
+    : null;
+}
+
+/**
  * Fallback local (determinístico, calibrado con stats reales) — no requiere API key.
  *
  * `derived` tiene prioridad sobre `card`: la ficha muestra el récord derivado y
@@ -112,7 +140,6 @@ export function rivalAdjusted({
 export function analyzePlayerLocal(
   player: PlayerProfile,
   card: PlayerCard | null,
-  ranking: RankingEntry | null,
   derived?: DerivedInput | null
 ): JevAnalysis {
   const played = derived?.played ?? (card as unknown as PlayerCard | null)?.played ?? 0;
@@ -122,9 +149,11 @@ export function analyzePlayerLocal(
   const sinDatos = played === 0;
   const recentWins = (derived?.form ?? card?.recent_results?.map((r) => ({ r })) ?? [])
     .filter((x) => (typeof x === "string" ? x : x.r).startsWith("G")).length;
-  const trend = card?.trend ?? [];
+  // El Historical derivado manda igual que en played/won/form: `player_cards.trend`
+  // es `default '[]'` y no lo escribe nadie, así que leerlo solo devolvía
+  // pendiente = 0 y "ritmo" era siempre "estable" y "estilo" nunca cambiaba.
+  const trend = derived?.setsPorPartida ?? card?.trend ?? [];
   const trendSlope = trend.length > 1 ? trend[trend.length - 1] - trend[0] : 0;
-  const delta = ranking?.delta ?? 0;
 
   // Score forma 1-5
   let formaScore: FormaLevel = 3;
@@ -164,7 +193,7 @@ export function analyzePlayerLocal(
   // Noul racha
   const probYes = sinDatos
     ? 0.5
-    : Math.min(0.92, Math.max(0.08, 0.35 + winRate * 0.5 + (recentWins / 3) * 0.2 + (delta > 0 ? 0.1 : delta < 0 ? -0.1 : 0)));
+    : Math.min(0.92, Math.max(0.08, 0.35 + winRate * 0.5 + (recentWins / 3) * 0.2));
   const rachaLabel: JevRacha["label"] = sinDatos
     ? "sin datos"
     : probYes > 0.65 ? "sube" : probYes < 0.35 ? "le cuesta" : "parejo";
@@ -201,9 +230,6 @@ export function analyzePlayerLocal(
     momentum,
   } as JevAnalysis;
 }
-
-/** Si hay API key, JEV corre de verdad; si no, el fallback local. */
-export const JEV_REMOTE_ENABLED = Boolean(import.meta.env.VITE_TYPESAFE_API_KEY as string | undefined);
 
 export interface JevConsistencia {
   score: number;
@@ -356,78 +382,6 @@ export function analyzePairLocal(record: PairRecordInput): PairPerformance {
   };
 }
 
-// Wrapper que intenta usar TypeSafe SDK si hay API key, si no usa local
-export async function analyzePlayerWithJev(
-  player: PlayerProfile,
-  card: PlayerCard | null,
-  ranking: RankingEntry | null
-): Promise<JevAnalysis> {
-  const key = import.meta.env.VITE_TYPESAFE_API_KEY as string | undefined;
-  if (!key) return analyzePlayerLocal(player, card, ranking);
-
-  try {
-    const { TypeSafeClient, score, choice, noul } = await import("@typesafe-ai/sdk");
-    const client = new TypeSafeClient({ apiKey: key });
-    const state = {
-      player: {
-        nombre: player.display_name,
-        nivel: player.official_level ?? player.declared_level,
-        mano: player.dominant_hand,
-        posicion: player.preferred_position,
-        ciudad: player.city,
-        titulos: card?.titles ?? 0,
-        record: card ? { played: (card as unknown as { played: number }).played ?? 0, won: (card as unknown as { won: number }).won ?? 0 } : { played: 0, won: 0 },
-        recientes: card?.recent_results.join(" | ") ?? "sin datos",
-        tendencia: (card?.trend ?? []).join(","),
-        ranking: ranking ? `#${ranking.position} ${ranking.points}pts Δ${ranking.delta}` : "sin ranking",
-        bio: player.bio ?? "",
-      },
-    };
-    const res = await (client.systemOne as unknown as (req: unknown) => Promise<{ answers: unknown }>)({
-      state,
-      questions: {
-        forma: score("Evalúa forma competitiva reciente del jugador de pádel", { 1: "Bajón", 2: "Irregular", 3: "Estable", 4: "En forma", 5: "Pico" } as unknown as Parameters<typeof score>[1]),
-        estilo: choice("Estilo de juego predominante en pádel", {
-          ofensivo: "Atacante, define en red, volea agresiva",
-          defensivo: "Contención, globo y bandeja, espera error rival",
-          equilibrado: "Versátil, adapta según pareja y rival",
-          transición: "Transición rápida defensa-ataque",
-        }),
-        racha: noul("¿Está actualmente en racha positiva?"),
-      },
-    });
-    // Map SDK response to our type, fallback to local if shape differs
-    const a = res.answers as Record<string, unknown> & {
-      forma?: { score?: number; confidence?: number; distribution?: Record<number, number> };
-      estilo?: { choice?: string; confidence?: number; probabilities?: Record<string, number> };
-      racha?: { probYes?: number; probability?: number };
-    };
-    if (a?.forma?.score && a?.estilo?.choice) {
-      return {
-        forma: {
-          score: a.forma.score as FormaLevel,
-          confidence: a.forma.confidence ?? 0.7,
-          label: String(a.forma.score),
-          distribution: a.forma.distribution ?? { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2 },
-        },
-        estilo: {
-          choice: a.estilo.choice as Estilo,
-          confidence: a.estilo.confidence ?? 0.65,
-          probabilities: a.estilo.probabilities ?? { ofensivo: 0.25, defensivo: 0.25, equilibrado: 0.25, transición: 0.25 },
-        },
-        racha: {
-          probYes: a.racha?.probYes ?? a.racha?.probability ?? 0.5,
-          label: (a.racha?.probYes ?? 0.5) > 0.65 ? "sube" : (a.racha?.probYes ?? 0.5) < 0.35 ? "le cuesta" : "parejo",
-        },
-        consistencia: consistenciaFromSets([]),
-        ritmo: "estable",
-      };
-    }
-    return analyzePlayerLocal(player, card, ranking);
-  } catch {
-    return analyzePlayerLocal(player, card, ranking);
-  }
-}
 
 export function comparePlayers(a: JevAnalysis, b: JevAnalysis) {
   const formaDiff = a.forma.score - b.forma.score;

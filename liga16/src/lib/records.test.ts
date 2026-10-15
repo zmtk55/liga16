@@ -262,7 +262,7 @@ describe("analyzePlayerLocal (señales JEV)", () => {
   } as unknown as PlayerProfile;
 
   it("la distribución de forma suma 1 (bug: se dividía sin guardar)", () => {
-    const jev = analyzePlayerLocal(player, null, null, {
+    const jev = analyzePlayerLocal(player, null, {
       played: 8,
       won: 7,
       form: ["G", "G", "G"],
@@ -272,20 +272,20 @@ describe("analyzePlayerLocal (señales JEV)", () => {
   });
 
   it("sin partidos no afirma que el jugador está mal", () => {
-    const jev = analyzePlayerLocal(player, null, null, { played: 0, won: 0, form: [] });
+    const jev = analyzePlayerLocal(player, null, { played: 0, won: 0, form: [] });
     expect(jev.forma.label).toBe("Aún no hay partidos");
     expect(jev.forma.confidence).toBe(0);
     expect(jev.consistencia.label).toBe("Sin datos");
   });
 
   it("la consistencia usa la dispersión de sets, no solo el porcentaje", () => {
-    const parejo = analyzePlayerLocal(player, null, null, {
+    const parejo = analyzePlayerLocal(player, null, {
       played: 4,
       won: 2,
       form: ["G", "P"],
       setsPorPartida: [6, 6, 3, 7],
     });
-    const irregular = analyzePlayerLocal(player, null, null, {
+    const irregular = analyzePlayerLocal(player, null, {
       played: 4,
       won: 2,
       form: ["G", "P"],
@@ -298,8 +298,8 @@ describe("analyzePlayerLocal (señales JEV)", () => {
   it("usa el récord derivado cuando viene, no la card vieja", () => {
     // Card vieja dice 2/2 (100%), el récord real dice 1/10 (10%).
     const cardVieja = { won: 2, played: 2, recent_results: ["G", "G"], trend: [6, 6] } as unknown as PlayerCard;
-    const conCard = analyzePlayerLocal(player, cardVieja, null);
-    const conDerivado = analyzePlayerLocal(player, cardVieja, null, {
+    const conCard = analyzePlayerLocal(player, cardVieja);
+    const conDerivado = analyzePlayerLocal(player, cardVieja, {
       played: 10,
       won: 1,
       form: ["P", "P"],
@@ -332,7 +332,7 @@ describe("analyzePairLocal (desempeño derivado de resultados)", () => {
   it("no usa palabras que un jugador no entiende", () => {
     const ficha = { preferred_position: "drive", dominant_hand: "right", official_level: 5 } as unknown as PlayerProfile;
     const perf = analyzePairLocal({ played: 10, won: 1, form: ["P"] });
-    const jev = analyzePlayerLocal(ficha, null, null, { played: 10, won: 1, form: ["P"] });
+    const jev = analyzePlayerLocal(ficha, null, { played: 10, won: 1, form: ["P"] });
     const todo = [perf.formaLabel, perf.racha.label, jev.forma.label, jev.consistencia.label, jev.racha.label].join(" ");
     for (const palabra of ["Deja vu", "déjà", "engranado", "bache", "Noul"]) {
       expect(todo).not.toContain(palabra);

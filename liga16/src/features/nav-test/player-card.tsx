@@ -16,7 +16,7 @@ export interface PlayerCardProps {
   onOpen?: (player: PlayerProfile) => void;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+ 
 export function divisionFromLevel(level: number) {
   if (level >= 6) return "1ra";
   if (level >= 5.5) return "2da";

@@ -4,9 +4,9 @@ import { buildPlayerRecords } from '@/lib/records';
 import { deriveTeamStandings } from '@/lib/standings';
 import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
-  rankingEvents, rankings, sponsors, teams, tournaments,
+  sponsors, teams, tournaments,
 } from './seed';
-import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RankingEntry, RankingEvent, RegistrationStatus, RegistrationWithPayment, PaymentMethod, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
+import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RegistrationStatus, RegistrationWithPayment, PaymentMethod, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
 
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 
@@ -23,7 +23,6 @@ const DEMO_ME_ID = 'p-3';
 // Almacén mutable para demo
 const store = {
   players: [...players] as PlayerProfile[],
-  rankings: [...rankings] as RankingEntry[],
   teams: [...teams] as Team[],
   tournaments: [...tournaments] as Tournament[],
   categories: [...categories] as TournamentCategory[],
@@ -32,7 +31,6 @@ const store = {
   news: [...news] as NewsItem[],
   clubs: [...clubs] as Club[],
   leagues: [...leagues] as League[],
-  rankingEvents: [...rankingEvents] as RankingEvent[],
   sponsors: [...sponsors] as import('@/types').Sponsor[],
   /** Registros de inscripción (flujo público). En demo vivían en un objeto
    * separado que nunca se leía, así que las parejas del público nunca
@@ -224,26 +222,7 @@ export const demoProvider: DataProvider = {
     return store.leagues.find((l: League) => l.slug === slug) ?? null;
   },
 
-  // Rankings
-  async listRankings(scope?: { sex?: string }) {
-    await delay();
-    let list = [...store.rankings];
-    if (scope?.sex && scope.sex !== 'all') list = list.filter((r) => r.sex === scope.sex);
-    return list.sort((a, b) => a.position - b.position).map((r, i) => ({ ...r, position: i + 1 }));
-  },
-
-  async updateRanking(playerId: string, updates: Partial<RankingEntry>) {
-    await delay();
-    const idx = store.rankings.findIndex((r) => r.player_id === playerId);
-    if (idx === -1) return null;
-    store.rankings[idx] = { ...store.rankings[idx], ...updates } as RankingEntry;
-    return store.rankings[idx];
-  },
-
-  async getPlayerRankingEvents(playerId: string) {
-    await delay();
-    return store.rankingEvents.filter((e) => e.player_id === playerId);
-  },
+  // Ranking: no existe por jugador. Ver la nota en `provider.ts`.
 
   // Jugadores
   async listPlayers(query?: string) {

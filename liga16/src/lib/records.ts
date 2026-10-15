@@ -80,14 +80,25 @@ function makeRecord(playerId: string): PlayerRecord {
 export function buildPlayerRecords(
   matches: Match[],
   pairs: Pair[],
-  players: Pick<PlayerProfile, "id" | "display_name">[] = [],
+  players: Array<
+    Pick<PlayerProfile, "id" | "display_name"> & {
+      official_level?: number | null;
+      declared_level?: number | null;
+    }
+  > = [],
 ): Map<string, PlayerRecord> {
   const pairById = new Map(pairs.map((p) => [p.id, p]));
   const nameById = new Map(players.map((p) => [p.id, p.display_name]));
+  // Nivel para ponderar al rival. `PlayerProfile` nunca tuvo un campo `level`:
+  // el real es `official_level` con respaldo en `declared_level`. Leyendo `level`
+  // este mapa salía SIEMPRE vacío y por eso `RecentMatch.opponentLevel` era
+  // siempre null — el bloque "Contra quién juega" no tenía nada que mostrar.
+  // Quien llama trae el perfil completo o al menos estos dos campos.
   const levelById = new Map(
-    players
-      .filter((p): p is typeof p & { level?: number | null } => "level" in p)
-      .map((p) => [p.id, p.level ?? null]),
+    players.map((p) => {
+      const prof = p as Partial<PlayerProfile>;
+      return [p.id, prof.official_level ?? prof.declared_level ?? null] as const;
+    }),
   );
   const pairByName = new Map(
     pairs.map((p) => [p.name.trim().toLowerCase(), p] as const),

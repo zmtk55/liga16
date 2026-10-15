@@ -327,26 +327,20 @@ create table if not exists public.ranking_events (
 create index if not exists idx_ranking_events_player on public.ranking_events(player_id);
 create index if not exists idx_ranking_events_tournament on public.ranking_events(tournament_id);
 
--- Vista consolidada de ranking
-create or replace view public.ranking_view
-with (security_invoker = true) as
-select
-  pp.id as player_id,
-  pp.display_name as player_name,
-  pp.city,
-  pp.state,
-  pp.sex,
-  coalesce(pp.official_level, pp.declared_level) as level,
-  coalesce(sum(re.points), 0) as points,
-  pc.played,
-  pc.won,
-  row_number() over (order by coalesce(sum(re.points), 0) desc, pp.display_name) as position
-from public.player_profiles pp
-left join public.ranking_events re on re.player_id = pp.id
-left join public.player_cards pc on pc.player_id = pp.id
-where pp.is_public = true
-group by pp.id, pp.display_name, pp.city, pp.state, pp.sex, pc.played, pc.won
-order by points desc, pp.display_name;
+-- `ranking_view` SE ELIMINÓ.
+--
+-- Era un ranking POR JUGADOR, y en esta liga el ranking es de Parejas: sale de
+-- los partidos capturados y vive en el cliente (`lib/groups.ts`, `Team.position`).
+-- El desempeño individual sale del récord derivado (`buildPlayerRecords`).
+--
+-- Por qué no servía: `played`/`won` venían de `player_cards`, que solo se inserta
+-- al crear el perfil y no se vuelve a escribir, así que eran 0 para todos; y
+-- `points` venía de `ranking_events`, que solo escribía un método sin ninguna
+-- llamada en la UI, así que `position` era el orden alfabético. En producción la
+-- sección de jugadores mostraba "0 PJ" y un "#3" que no significaba nada.
+--
+-- Si algún día hace falta: el ranking de parejas ya se calcula; no hay que
+-- duplicarlo en una vista.
 
 -- Noticias
 create table if not exists public.news (

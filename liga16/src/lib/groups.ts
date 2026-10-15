@@ -233,6 +233,9 @@ export function computeStandings(
   pairIds: UUID[],
   matches: Match[],
   pairNameById: Record<string, string>,
+  // El scoring ya no cambia el cálculo (único criterio: % de puntos). Se deja
+  // el parámetro por firma para no tocar los llamadores, pero no se lee.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _scoring?: TournamentScoring,
 ): StandingRow[] {
   const rows = new Map<UUID, StandingRow>();

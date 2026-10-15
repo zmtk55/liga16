@@ -256,27 +256,6 @@ export interface Standing {
   points: number;
 }
 
-export interface RankingEntry {
-  position: number;
-  player_id: UUID;
-  player_name: string;
-  city: string;
-  sex?: Sex;
-  level: number;
-  points: number;
-  delta: number;
-  played: number;
-  won: number;
-}
-
-export interface RankingEvent {
-  id: UUID;
-  player_id: UUID;
-  tournament_id: UUID | null;
-  points: number;
-  reason: string;
-  created_at: string;
-}
 
 export interface PlayerCard {
   player_id: UUID;

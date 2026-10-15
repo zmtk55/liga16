@@ -146,9 +146,9 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
               {matches === null ? (
                 <Skeleton className="h-28 w-full" />
               ) : jugados.length === 0 ? (
-                <p className="rounded-xl border border-dashed p-5 text-center text-xs text-muted-foreground">
-                  Aún no juegan partidos.
-                </p>
+                 <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                   Aún no juegan partidos.
+                 </p>
               ) : current ? (
                 <MatchCard
                   key={current.id}
@@ -174,20 +174,20 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
                   {jugados.map((m, i) => {
                     const w = m.side_a.pair_name === team.name ? m.winner === "a" : m.winner === "b";
                     return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        aria-label={`Ver partido ${i + 1}`}
-                        onClick={() => {
-                          buzz("tap");
-                          setIdx(i);
-                        }}
-                        className={cn(
-                          "h-2 rounded-full transition-all duration-200",
-                          i === idx ? "w-5" : "w-2 opacity-70",
-                          w ? "bg-success" : "bg-destructive/60",
-                        )}
-                      />
+                       <button
+                         key={m.id}
+                         type="button"
+                         aria-label={`Ver partido ${i + 1}`}
+                         onClick={() => {
+                           buzz("tap");
+                           setIdx(i);
+                         }}
+                         className={cn(
+                           "h-1.5 rounded-full transition-all duration-200",
+                           i === idx ? "w-4" : "w-1.5 opacity-70",
+                           w ? "bg-success" : "bg-destructive/60",
+                         )}
+                       />
                     );
                   })}
                 </div>
@@ -200,16 +200,16 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
                 <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Por jugar ({porJugar.length})
                 </h4>
-                <div className="mt-2 flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2">
-                  <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-bold">
-                      vs {(porJugar[0].side_a.pair_name === team.name ? porJugar[0].side_b : porJugar[0].side_a).pair_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {porJugar[0].scheduled_at ? formatMatchDateTime(porJugar[0].scheduled_at) : "Por agendar"}
-                    </p>
-                  </div>
+                     <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted/50 px-2.5 py-1.5">
+                       <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                       <div className="min-w-0 flex-1">
+                         <p className="truncate text-xs font-bold">
+                           vs {(porJugar[0].side_a.pair_name === team.name ? porJugar[0].side_b : porJugar[0].side_a).pair_name}
+                         </p>
+                         <p className="text-2xs text-muted-foreground">
+                           {porJugar[0].scheduled_at ? formatMatchDateTime(porJugar[0].scheduled_at) : "Sin horario"}
+                         </p>
+                       </div>
                   {porJugar.length > 1 && (
                     <Badge variant="outline" className="shrink-0">
                       +{porJugar.length - 1} más

@@ -26,7 +26,8 @@ import {
 } from "recharts";
 import { db } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Match, PlayerCard, PlayerProfile, PlayerStatus, RankingEntry, Team, Tournament } from "@/types";
+import type { PlayerCard, PlayerProfile, PlayerStatus, Tournament } from "@/types";
+import type { PlayerRecord } from "@/lib/records";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -319,9 +320,7 @@ export default function MyProfile() {
   const { user, isConfigured, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [card, setCard] = useState<PlayerCard | null>(null);
-  const [ranking, setRanking] = useState<RankingEntry | null>(null);
-  const [team, setTeam] = useState<Team | null>(null);
-  const [myMatches, setMyMatches] = useState<Match[]>([]);
+  const [record, setRecord] = useState<PlayerRecord | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [loading, setLoading] = useState(true);
@@ -340,35 +339,19 @@ export default function MyProfile() {
         }
         setForm(toForm(p));
 
-        const [c, rks, teams, matches, tourns] = await Promise.all([
+        // El historial individual y el % salen del récord derivado. No hace falta ni
+        // `listTeams` ni `listRecentMatches`: el récord ya sabe qué partidos son
+        // de este jugador, quién era el rival y si los ganó.
+        const [c, rec, tourns] = await Promise.all([
           db.getPlayerCard(p.id),
-          db.listRankings(),
-          db.listTeams(),
-          db.listRecentMatches(),
+          db.getPlayerRecord(p.id),
           db.listTournaments(),
         ]);
         if (!active) return;
 
         setCard(c);
-        setRanking(rks.find((r) => r.player_id === p.id) ?? null);
+        setRecord(rec);
         setTournaments(tourns);
-
-        const t = teams.find(
-          (tm) => tm.player1?.player_id === p.id || tm.player2?.player_id === p.id,
-        ) ?? null;
-        setTeam(t);
-
-        const norm = (s: string) => s.trim().toLowerCase();
-        const nameIn = (side: { pair_name: string } | null) =>
-          (side?.pair_name ?? "").split("/").some((n) => n && norm(n) === norm(p.display_name));
-        const mine = matches
-          .filter((m) =>
-            m.side_a.pair_id && teams.some((tm) => tm.id === m.side_a.pair_id && (tm.player1?.player_id === p.id || tm.player2?.player_id === p.id)) ||
-            m.side_b.pair_id && teams.some((tm) => tm.id === m.side_b.pair_id && (tm.player1?.player_id === p.id || tm.player2?.player_id === p.id)) ||
-            (!m.side_a.pair_id || !m.side_b.pair_id) && (nameIn(m.side_a) || nameIn(m.side_b)),
-          )
-          .sort((a, b) => String(b.scheduled_at).localeCompare(String(a.scheduled_at)));
-        setMyMatches(mine);
 
         setLoading(false);
       })
@@ -415,13 +398,18 @@ export default function MyProfile() {
     }
   }
 
-  const winPct = card && card.played > 0 ? Math.round((card.won / card.played) * 100) : 0;
+  // Todo el desempeño sale del récord derivado. Antes venía de `player_cards`,
+  // que en producción queda con 0 y `recent_results` vacío: el % daba 0, la racha
+  // daba 0 y la gráfica de tendencia salía plana para todos. Y "Tus últimos
+  // partidos" sacaba el V/D de la tabla `teams`, que quedó obsoleta, así que
+  // salía SIEMPRE "Derrota" aunque el jugador hubiera ganado.
+  const winPct = record && record.played > 0 ? Math.round((record.won / record.played) * 100) : 0;
   const streak = useMemo(() => {
-    if (!card?.recent_results?.length) return 0;
+    const form = record?.form ?? [];
     let n = 0;
-    for (let i = card.recent_results.length - 1; i >= 0 && card.recent_results[i] === "G"; i--) n++;
+    for (let i = form.length - 1; i >= 0 && form[i] === "G"; i--) n++;
     return n;
-  }, [card]);
+  }, [record]);
 
   if (authLoading || loading) return <ProfileSkeleton />;
 
@@ -485,9 +473,9 @@ export default function MyProfile() {
                   @{profile?.username} · {profile?.city}, {profile?.state}
                 </p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {ranking && (
+                  {record && record.played > 0 && (
                     <Badge variant="default" className="bg-primary">
-                      #{ranking.position} Liga16
+                      {record.won}–{record.played - record.won} · Liga16
                     </Badge>
                   )}
                   <Badge variant="outline">
@@ -512,16 +500,16 @@ export default function MyProfile() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          label="Puntos"
-          value={ranking?.points ?? 0}
-          caption={ranking ? `${ranking.played} partidos jugados` : "Sin clasificar"}
+          label="Partidos"
+          value={record?.played ?? 0}
+          caption={record && record.played > 0 ? `${record.won} ganados` : "aún no juega"}
           icon={Trophy}
           accent
         />
         <StatTile
           label="% Victoria"
           value={`${winPct}%`}
-          caption={`${card?.won ?? 0} de ${card?.played ?? 0} PJ`}
+          caption={`${record?.won ?? 0} de ${record?.played ?? 0} PJ`}
           icon={Target}
         />
         <StatTile
@@ -538,17 +526,17 @@ export default function MyProfile() {
         />
       </div>
 
-      {card && card.trend.length > 0 && (
+      {record && record.trend.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <BarChart3 className="h-4 w-4 text-primary" />
-              Sets ganados por partido
+              Juegos ganados por partido
             </CardTitle>
             <CardDescription>Tu tendencia en los últimos 10 partidos</CardDescription>
           </CardHeader>
           <CardContent>
-            <TrendChart trend={card.trend} />
+            <TrendChart trend={record.trend} />
           </CardContent>
         </Card>
       )}
@@ -580,40 +568,37 @@ export default function MyProfile() {
         </Card>
       )}
 
-      {myMatches.length > 0 && (
+      {record && record.recentMatches.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Activity className="h-4 w-4 text-primary" />
               Tus últimos partidos
             </CardTitle>
-            <CardDescription>Resultados recientes en el circuito</CardDescription>
+            <CardDescription>
+              Con rival y marcador desde tu punto de vista, no del de la pareja
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {myMatches.slice(0, 5).map((m) => {
-              const won = m.winner && (
-                (m.winner === "a" && m.side_a.pair_id && team && m.side_a.pair_id === team.id) ||
-                (m.winner === "b" && m.side_b.pair_id && team && m.side_b.pair_id === team.id)
-              );
-              return (
-                <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {m.side_a.pair_name} vs {m.side_b.pair_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {m.tournament_name} · {m.round} · {formatDate(m.scheduled_at ?? "")}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={won ? "default" : "secondary"}
-                    className={cn("shrink-0", won && "bg-emerald-600")}
-                  >
-                    {m.status === "finished" ? (won ? "Victoria" : "Derrota") : "Programado"}
-                  </Badge>
+            {record.recentMatches.map((m) => (
+              <div key={m.matchId} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">vs {m.opponentName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {m.opponentLevel !== null ? `rival ${m.opponentLevel.toFixed(1)} · ` : ""}
+                    {formatDate(m.playedAt ?? "")}
+                  </p>
                 </div>
-              );
-            })}
+                <span
+                  className={cn(
+                    "shrink-0 font-mono text-sm font-semibold tabular-nums",
+                    m.won ? "text-success" : "text-destructive",
+                  )}
+                >
+                  {m.won ? "V" : "D"} {m.score}
+                </span>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

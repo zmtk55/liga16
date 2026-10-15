@@ -1,9 +1,9 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, CalendarDays, Users, Zap, Activity, Target, Shirt, TrendingUp, TrendingDown, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3, ImagePlus } from "lucide-react";
+import { ArrowLeft, Users, Zap, Activity, Target, Shirt, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3, ImagePlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
-import type { Match, PlayerCard, PlayerProfile, RankingEntry, Team } from "@/types";
+import type { Match, PlayerCard, PlayerProfile, Team } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { formatDate, initials, SEX_BRANCHES, sexLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MatchCard, PairAvatar } from "@/components/cards/card-kit";
 import { toast } from "sonner";
-import { analyzePlayerLocal, analyzePlayerWithJev, JEV_REMOTE_ENABLED, type JevAnalysis } from "@/lib/jev";
+import { analyzePlayerLocal, derivedFromRecord, type JevAnalysis } from "@/lib/jev";
 import { recordWinRate, type PlayerRecord } from "@/lib/records";
 import { qualificationFor, type QualificationView } from "@/lib/qualification";
 
@@ -167,14 +167,12 @@ export default function PlayerDetailPage() {
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [record, setRecord] = useState<PlayerRecord | null>(null);
   const [qualification, setQualification] = useState<QualificationView | null>(null);
-  const [events, setEvents] = useState<import("@/types").RankingEvent[]>([]);
-  const [ranking, setRanking] = useState<RankingEntry | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
   const [myMatches, setMyMatches] = useState<Match[]>([]);
   const [compareId, setCompareId] = useState<string>("");
   const [rivals, setRivals] = useState<PlayerProfile[]>([]);
   const [pairInfo, setPairInfo] = useState<{ tournament: string | null; tournamentSlug: string | null; category: string | null } | null>(null);
-  const [compareData, setCompareData] = useState<{ p: PlayerProfile; c: PlayerCard | null; r: RankingEntry | null; jev: JevAnalysis } | null>(null);
+  const [compareData, setCompareData] = useState<{ p: PlayerProfile; c: PlayerCard | null; jev: JevAnalysis } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const { user, isConfigured } = useAuth();
@@ -183,12 +181,10 @@ export default function PlayerDetailPage() {
   useEffect(() => {
     if (!id) return;
     let active = true;
-    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRecord(id), db.getPlayerRankingEvents(id), db.listRankings(), db.listTeams(), db.listPlayers(), db.listRecentMatches(), db.listTournaments(), db.listAllPairs()])
-      .then(([p, c, rec, e, rks, teams, pls, allMatches, tournaments, allPairs]) => {
+    Promise.all([db.getPlayer(id), db.getPlayerCard(id), db.getPlayerRecord(id), db.listTeams(), db.listPlayers(), db.listRecentMatches(), db.listTournaments(), db.listAllPairs()])
+      .then(([p, c, rec, teams, pls, allMatches, tournaments, allPairs]) => {
         if (!active || !p) return;
-        setPlayer(p); setCard(c); setRecord(rec); setEvents(e);
-        const rk = rks.find((r) => r.player_id === p.id) ?? null;
-        setRanking(rk);
+        setPlayer(p); setCard(c); setRecord(rec);
         // Equipo por ID real o, si el pair viejo no lo liga, por nombre en el roster
         const norm = (s: string) => s.trim().toLowerCase();
         const t =
@@ -240,13 +236,23 @@ export default function PlayerDetailPage() {
         } else {
           setQualification(null);
         }
-        // Partidos reales del jugador (por pair_id o por nombre en el marcador)
+        // Partidos reales del jugador, cruzados contra `allPairs` (las filas crudas de
+        // `pairs`), NO contra `teams`. `buildTeamsFromPairs` colapsa las parejas
+        // por nombre entre torneos: la misma pareja inscrita en dos torneos es UN
+        // `Team` con UN id, el del más reciente, y los partidos del otro torneo se
+        // quedaban sin pareja que los reconociera. Alguien con dos etapas perdía
+        // media historia sin que nada lo indicara.
+        const myPairIds = new Set(
+          (allPairs ?? [])
+            .filter((ap) => ap.player1_id === p.id || ap.player2_id === p.id)
+            .map((ap) => ap.id),
+        );
         const nameIn = (side: { pair_name: string } | null) =>
           (side?.pair_name ?? "").split("/").some((n) => n && norm(n) === norm(p.display_name));
         const mine = allMatches
           .filter((m) =>
-            m.side_a.pair_id && teams.some((tm) => tm.id === m.side_a.pair_id && (tm.player1?.player_id === p.id || tm.player2?.player_id === p.id)) ||
-            m.side_b.pair_id && teams.some((tm) => tm.id === m.side_b.pair_id && (tm.player1?.player_id === p.id || tm.player2?.player_id === p.id)) ||
+            (m.side_a.pair_id && myPairIds.has(m.side_a.pair_id)) ||
+            (m.side_b.pair_id && myPairIds.has(m.side_b.pair_id)) ||
             (!m.side_a.pair_id || !m.side_b.pair_id) && (nameIn(m.side_a) || nameIn(m.side_b)),
           )
           .sort((a, b) => String(b.scheduled_at).localeCompare(String(a.scheduled_at)));
@@ -272,57 +278,21 @@ export default function PlayerDetailPage() {
       setCompareData(null);
       return;
     }
-    Promise.all([db.getPlayer(compareId), db.getPlayerCard(compareId), db.listRankings()]).then(([p, c, rks]) => {
-      if (!p) return;
-      const rk = rks.find((r) => r.player_id === p.id) ?? null;
-      const jev = analyzePlayerLocal(p, c, rk);
-      setCompareData({ p, c, r: rk, jev });
-    }).catch(() => { /* id inválido: se queda sin comparador */ });
+    // El rival se compara con SU récord derivado, igual que el titular: comparar
+    // contra `player_cards` era comparar contra ceros.
+    Promise.all([db.getPlayer(compareId), db.getPlayerCard(compareId), db.getPlayerRecord(compareId)])
+      .then(([p, c, rec]) => {
+        if (!p) return;
+        const jev = analyzePlayerLocal(p, c, derivedFromRecord(rec));
+        setCompareData({ p, c, jev });
+      })
+      .catch(() => { /* id inválido: se queda sin comparador */ });
   }, [compareId]);
 
-  // JEV: el análisis local es puro y se calcula al renderizar; si hay API key,
-  // el resultado remoto lo reemplaza cuando llega. La clave evita que un
-  // resultado viejo sobreviva a un cambio de jugador.
-  const localJev = useMemo(
-    () =>
-      player
-        ? analyzePlayerLocal(
-            player,
-            card,
-            ranking,
-            record
-              ? {
-                  played: record.played,
-                  won: record.won,
-                  form: record.form,
-                  setsPorPartida: record.trend,
-                  opponents: record.recentMatches.map((m) => ({
-                    won: m.won,
-                    opponentLevel: m.opponentLevel,
-                  })),
-                }
-              : null,
-          )
-        : null,
-    [player, card, ranking, record],
+  const jev = useMemo(
+    () => (player ? analyzePlayerLocal(player, card, derivedFromRecord(record)) : null),
+    [player, card, record],
   );
-  const jevKey = `${player?.id ?? ""}|${card ? 1 : 0}|${ranking?.points ?? 0}|${record?.played ?? 0}`;
-  const [remoteJev, setRemoteJev] = useState<{ key: string; value: JevAnalysis } | null>(null);
-  const jev = remoteJev?.key === jevKey ? remoteJev.value : localJev;
-
-  useEffect(() => {
-    if (!JEV_REMOTE_ENABLED || !player) return;
-    let alive = true;
-    void analyzePlayerWithJev(player, card, ranking)
-      .then((remote) => {
-        if (alive && remote) setRemoteJev({ key: jevKey, value: remote });
-      })
-      // Si la IA falla, se queda el local: la tarjeta nunca queda vacía.
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, [player, card, ranking, jevKey]);
 
   if (loading) {
     return (
@@ -419,7 +389,9 @@ export default function PlayerDetailPage() {
             <div className="min-w-0 space-y-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
-                  {ranking?.position ? `Posición #${ranking.position} · Liga16` : "Liga16"}
+                  {record && record.played > 0
+                  ? `${record.won} victorias de ${record.played} · Liga16`
+                  : "Liga16"}
                 </p>
                 <h1 className="mt-2 text-4xl font-black tracking-tight text-white md:text-5xl">
                   {player.display_name}
@@ -468,19 +440,11 @@ export default function PlayerDetailPage() {
 
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-white/10 py-4 sm:grid-cols-4">
                 <div>
-                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Puntos</dt>
-                  <dd className="mt-1 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-extrabold tabular-nums text-white md:text-3xl">
-                      {(ranking?.points ?? 0).toLocaleString("es-MX")}
-                    </span>
-                    {ranking && ranking.delta !== 0 && (
-                      <span className={cn("flex items-center gap-0.5 text-xs font-bold tabular-nums", ranking.delta > 0 ? "text-emerald-400" : "text-red-400")}>
-                        {ranking.delta > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-                        {ranking.delta > 0 ? "+" : ""}{ranking.delta}
-                      </span>
-                    )}
+                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Juegos a favor</dt>
+                  <dd className="mt-1 text-2xl font-extrabold tabular-nums text-white md:text-3xl">
+                    {record?.setsFor ?? 0}
                   </dd>
-                  <dd className="mt-0.5 text-xs text-white/60">{ranking ? "esta jornada" : "sin clasificar"}</dd>
+                  <dd className="mt-0.5 text-xs text-white/60">de {record ? record.setsFor + record.setsAgainst : 0} jugados</dd>
                 </div>
                 <div>
                   <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Efectividad</dt>
@@ -998,18 +962,6 @@ export default function PlayerDetailPage() {
           </CardContent>
         </Card>
       )}
-
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Eventos de ranking</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {events.length === 0 ? <p className="text-muted-foreground">Sin eventos.</p> : events.map((ev) => (
-              <div key={ev.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 transition-colors hover:bg-muted/50">
-                <div className="space-y-0.5"><p className="font-medium">{ev.reason}</p><p className="text-xs text-muted-foreground">{formatDate(ev.created_at)}</p></div>
-                <Badge variant="secondary" className="tabular-nums">+{ev.points} pts</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </section>
     </div>
   );

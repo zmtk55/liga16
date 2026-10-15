@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import { buildDirectoryStats, type DirStats } from "@/lib/data/record-stats";
-import type { PlayerProfile, RankingEntry } from "@/types";
+import type { PlayerProfile } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardShell, CardIdentity, CardFooterStrip, CardStat } from "@/components/cards/card-kit";
 
@@ -44,9 +44,9 @@ import {
 type View = "grid" | "compact" | "table";
 
 const sortOptions = [
-  { value: "puntos", label: "Más puntos" },
-  { value: "nivel", label: "Mayor nivel" },
   { value: "victorias", label: "Más victorias" },
+  { value: "partidos", label: "Más partidos" },
+  { value: "nivel", label: "Mayor nivel" },
   { value: "nombre", label: "Nombre (A–Z)" },
 ];
 
@@ -60,7 +60,6 @@ export default function PlayersPage() {
   // página leería de otro.
   const [searchParams, setSearchParams] = useSearchParams();
   const [players, setPlayers] = useState<PlayerProfile[] | null>(null);
-  const [rankings, setRankings] = useState<RankingEntry[] | null>(null);
   const [stats, setStats] = useState<Record<string, DirStats> | null>(null);
   const [divisions, setDivisions] = useState<Record<string, string>>({});
   const query = searchParams.get("q") ?? "";
@@ -75,28 +74,24 @@ export default function PlayersPage() {
   const [view, setView] = useState<View>("grid");
   const [sex, setSex] = useState("all");
   const [cat, setCat] = useState("all");
-  const [sortBy, setSortBy] = useState("puntos");
-  const [onlyRanked, setOnlyRanked] = useState(false);
+  const [sortBy, setSortBy] = useState("victorias");
+  const [onlyPlayed, setOnlyPlayed] = useState(false);
 
   useEffect(() => {
     let active = true;
-    Promise.all([db.listPlayers(), db.listRankings(), db.listPlayerDivisions()]).then(([list, rks, divs]) => {
+    Promise.all([db.listPlayers(), db.listPlayerDivisions()]).then(([list, divs]) => {
       if (!active) return;
       setPlayers(list);
-      setRankings(rks);
       setDivisions(divs); // categorías REALES: división de la pareja de cada jugador
-      // Récord derivado de los partidos: player_cards está sin poblar.
+      // Récord derivado de los partidos reales. Es la ÚNICA fuente de
+      // desempeño del jugador: `player_cards` está sin poblar y el ranking por
+      // jugador se elimino (ver la nota en `lib/data/provider.ts`).
       buildDirectoryStats(list)
         .then((st) => { if (active) setStats(st); })
         .catch(() => undefined);
     });
     return () => { active = false; };
   }, []);
-
-  const rankById = useMemo(() => {
-    if (!rankings) return new Map<string, RankingEntry>();
-    return new Map(rankings.map((r) => [r.player_id, r]));
-  }, [rankings]);
 
   /**
    * El filtro de categoría se arma con los datos: las categorías que los
@@ -119,44 +114,47 @@ export default function PlayersPage() {
   const filtered = useMemo(() => {
     if (!players) return [];
     const q = query.trim().toLowerCase();
+    // El récord derivado manda en TODO: antes esta misma página leía `played`/`won`
+    // de `player_cards` en la vista tabla y del récord en la vista tarjetas, así
+    // que mostraba "0 PJ" y "12-8" para el mismo jugador según dónde miraras.
+    const st = (p: PlayerProfile) => stats?.[p.id];
     let list = players.filter((p) => {
       if (q && !p.display_name.toLowerCase().includes(q) && !p.username.toLowerCase().includes(q)) return false;
       if (sex !== "all" && p.sex !== sex) return false;
       if (cat !== "all" && (divisions[p.id] ?? "").toLowerCase() !== cat) return false;
-      if (onlyRanked && !rankById.has(p.id)) return false;
+      if (onlyPlayed && !((st(p)?.played ?? 0) > 0)) return false;
       return true;
     });
     list = [...list].sort((a, b) => {
-      const ra = rankById.get(a.id);
-      const rb = rankById.get(b.id);
       switch (sortBy) {
         case "nivel":
           return levelOf(b) - levelOf(a);
-        case "victorias":
-          return (rb?.won ?? -1) - (ra?.won ?? -1);
+        case "partidos":
+          return (st(b)?.played ?? 0) - (st(a)?.played ?? 0);
         case "nombre":
           return a.display_name.localeCompare(b.display_name, "es");
         default:
-          return (rb?.points ?? -1) - (ra?.points ?? -1);
+          return (st(b)?.won ?? 0) - (st(a)?.won ?? 0);
       }
     });
     return list;
-  }, [players, query, sex, cat, sortBy, onlyRanked, rankById, divisions]);
+  }, [players, query, sex, cat, sortBy, onlyPlayed, stats, divisions]);
 
   const hasFilters =
-    query.trim() !== "" || sex !== "all" || cat !== "all" || sortBy !== "puntos" || onlyRanked;
+    query.trim() !== "" || sex !== "all" || cat !== "all" || sortBy !== "victorias" || onlyPlayed;
 
   function clearFilters() {
     setQuery("");
     setSex("all");
     setCat("all");
-    setSortBy("puntos");
-    setOnlyRanked(false);
+    setSortBy("victorias");
+    setOnlyPlayed(false);
   }
 
+  /** % de victorias sobre el récord derivado. 0 si nunca ha jugado. */
   const winPctOf = (p: PlayerProfile): number => {
-    const rk = rankById.get(p.id);
-    return winRate(rk?.played ?? 0, rk?.won ?? 0);
+    const s = stats?.[p.id];
+    return winRate(s?.played ?? 0, s?.won ?? 0);
   };
 
   return (
@@ -168,7 +166,7 @@ export default function PlayersPage() {
         ghost="16"
         stats={[
           { k: "Jugadores", v: players?.length ?? "…", icon: <Users className="h-4 w-4" /> },
-          { k: "Rankeados", v: rankings?.length ?? "…", icon: <Medal className="h-4 w-4" /> },
+          { k: "Con partidos", v: stats ? Object.values(stats).filter((s) => s.played > 0).length : "…", icon: <Medal className="h-4 w-4" /> },
           { k: "En vista", v: players ? filtered.length : "…", icon: <Target className="h-4 w-4" /> },
         ]}
       />
@@ -230,8 +228,8 @@ export default function PlayersPage() {
             </Select>
 
             <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
-              <Switch checked={onlyRanked} onCheckedChange={setOnlyRanked} aria-label="Solo rankeados" />
-              Solo rankeados
+              <Switch checked={onlyPlayed} onCheckedChange={setOnlyPlayed} aria-label="Solo con partidos" />
+              Solo con partidos
             </label>
 
             {hasFilters && (
@@ -259,7 +257,6 @@ export default function PlayersPage() {
         /* ── VISTA TARJETAS ── */
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => {
-            const rk = rankById.get(p.id);
             const st = stats?.[p.id];
             return (
               <Link key={p.id} to={`/jugadores/${p.id}`} className="group block focus:outline-none">
@@ -274,10 +271,10 @@ export default function PlayersPage() {
                           .join(" · ") || undefined
                       }
                       end={
-                        rk && rk.position <= 3 ? (
-                          <Badge className="shrink-0">#{rk.position}</Badge>
-                        ) : rk ? (
-                          <Badge variant="secondary" className="shrink-0">#{rk.position}</Badge>
+                        st && st.played > 0 ? (
+                          <Badge variant="secondary" className="shrink-0 tabular-nums">
+                            {winPctOf(p)}%
+                          </Badge>
                         ) : undefined
                       }
                     />
@@ -286,7 +283,7 @@ export default function PlayersPage() {
                     stats={
                       <>
                         <CardStat value={levelOf(p).toFixed(1)} label="Nivel" />
-                        <CardStat value={rk ? rk.points.toLocaleString("es-MX") : "—"} label="Puntos" />
+                        <CardStat value={st ? st.played : "—"} label="Partidos" />
                         <CardStat value={st && st.played > 0 ? `${st.won}–${st.played - st.won}` : "—"} label="Récord" />
                       </>
                     }
@@ -300,7 +297,7 @@ export default function PlayersPage() {
         /* ── VISTA COMPACTA ── */
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {filtered.map((p) => {
-            const rk = rankById.get(p.id);
+            const st = stats?.[p.id];
             return (
               <Link
                 key={p.id}
@@ -311,12 +308,11 @@ export default function PlayersPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold leading-tight">{p.display_name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {rk ? `${rk.points.toLocaleString("es-MX")} pts · ${winPctOf(p)}%` : `${levelOf(p).toFixed(1)} lvl`}
+                    {st && st.played > 0
+                      ? `${st.won}–${st.played - st.won} · ${winPctOf(p)}%`
+                      : `${levelOf(p).toFixed(1)} lvl`}
                   </p>
                 </div>
-                {rk && rk.position <= 3 && (
-                  <span className="shrink-0 text-sm tabular-nums font-bold text-primary-strong">#{rk.position}</span>
-                )}
               </Link>
             );
           })}
@@ -334,19 +330,18 @@ export default function PlayersPage() {
                   <TableHead className="hidden sm:table-cell">Género</TableHead>
                   <TableHead className="hidden sm:table-cell">Cat.</TableHead>
                   <TableHead className="text-right">Nivel</TableHead>
-                  <TableHead className="text-right">Puntos</TableHead>
                   <TableHead className="hidden text-right md:table-cell">PJ</TableHead>
                   <TableHead className="hidden text-right md:table-cell">PG</TableHead>
                   <TableHead className="text-right">Efect.</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((p) => {
-                  const rk = rankById.get(p.id);
+                {filtered.map((p, i) => {
+                  const st = stats?.[p.id];
                   return (
                     <TableRow key={p.id} className="cursor-pointer">
-                      <TableCell className="font-medium">
-                        {rk ? rk.position : "—"}
+                      <TableCell className="font-medium tabular-nums text-muted-foreground">
+                        {i + 1}
                       </TableCell>
                       <TableCell>
                         <Link to={`/jugadores/${p.id}`} className="flex items-center gap-2.5">
@@ -365,11 +360,8 @@ export default function PlayersPage() {
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{divisions[p.id] ?? "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{levelOf(p).toFixed(1)}</TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {rk ? rk.points.toLocaleString("es-MX") : "—"}
-                      </TableCell>
-                      <TableCell className="hidden text-right tabular-nums md:table-cell">{rk?.played ?? 0}</TableCell>
-                      <TableCell className="hidden text-right tabular-nums md:table-cell">{rk?.won ?? 0}</TableCell>
+                      <TableCell className="hidden text-right tabular-nums md:table-cell">{st?.played ?? 0}</TableCell>
+                      <TableCell className="hidden text-right tabular-nums md:table-cell">{st?.won ?? 0}</TableCell>
                       <TableCell className="text-right tabular-nums">{winPctOf(p)}%</TableCell>
                     </TableRow>
                   );

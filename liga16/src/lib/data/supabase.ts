@@ -437,42 +437,6 @@ export const supabaseProvider: DataProvider = {
     return data as never;
   },
 
-  // Rankings
-  async listRankings(scope?: { sex?: string }) {
-    let q = client().from('ranking_view').select('*').order('points', { ascending: false });
-    if (scope?.sex && scope.sex !== 'all') q = q.eq('sex', scope.sex);
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data ?? []).map((r: Record<string, unknown>, i: number) => ({
-      ...r,
-      position: i + 1,
-      delta: 0,
-      level: typeof r.level === 'number' ? r.level : parseFloat(String(r.level ?? 0)),
-      points: typeof r.points === 'number' ? r.points : parseFloat(String(r.points ?? 0)),
-      played: typeof r.played === 'number' ? r.played : (r.played ?? 0),
-      won: typeof r.won === 'number' ? r.won : (r.won ?? 0),
-    })) as never;
-  },
-
-  async updateRanking(playerId: string, updates: Partial<import('@/types').RankingEntry>) {
-    // ranking_view es una vista; crear un ranking_event para ajustar puntos
-    if (updates.points !== undefined || updates.delta !== undefined) {
-      const points = updates.points ?? 0;
-      const { error } = await client()
-        .from('ranking_events').insert({ player_id: playerId, points, reason: 'Actualización manual admin' })
-        .select().single();
-      if (error) throw error;
-    }
-    return { ...updates, player_id: playerId } as never;
-  },
-
-  async getPlayerRankingEvents(playerId: string) {
-    const { data, error } = await client()
-      .from('ranking_events').select('*').eq('player_id', playerId).order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as never;
-  },
-
   // Jugadores
   async listPlayers(query?: string) {
     let q = client().from('player_profiles').select('*').eq('is_public', true);
@@ -631,7 +595,7 @@ export const supabaseProvider: DataProvider = {
       client()
         .from('matches')
         .select('id, status, winner, scheduled_at, side_a_pair_id, side_b_pair_id, side_a_name, side_b_name, sets'),
-      client().from('player_profiles').select('id, display_name'),
+      client().from('player_profiles').select('id, display_name, official_level, declared_level'),
     ]);
     if (pairsRes.error) throw pairsRes.error;
     if (matchesRes.error) throw matchesRes.error;
@@ -659,6 +623,8 @@ export const supabaseProvider: DataProvider = {
     const names = ((namesRes.data ?? []) as Array<Record<string, unknown>>).map((p) => ({
       id: p.id as string,
       display_name: (p.display_name as string) ?? '',
+      official_level: (p.official_level as number | null) ?? null,
+      declared_level: (p.declared_level as number | null) ?? null,
     }));
 
     return buildPlayerRecords(matches, pairs, names).get(playerId) ?? null;

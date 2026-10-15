@@ -299,26 +299,29 @@ export function MatchCard({
       )}
     >
       <CardContent className="flex gap-3 p-3.5">
-        {/* Riel izquierdo: CUÁNDO, el ancla visual más grande */}
-        <div
-          className={cn(
-            "flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2",
-            isLive ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border/80 bg-muted/40",
-          )}
-        >
-          {matchTime ? (
-            <>
-              <span className="font-headline text-xl leading-none tabular-nums">{matchTime}</span>
-              <span className="mt-1 text-2xs font-semibold uppercase text-muted-foreground">
-                {formatMatchDay(match.scheduled_at!)} {formatMatchMonth(match.scheduled_at!)}
-              </span>
-            </>
-          ) : (
-            <>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="mt-1 text-2xs font-semibold uppercase text-muted-foreground">Por agendar</span>
-            </>
-          )}
+         {/* Riel izquierdo: CUÁNDO, el ancla visual más grande */}
+         <div
+           className={cn(
+             "flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2",
+             isLive ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border/80 bg-muted/40",
+           )}
+         >
+           {matchTime ? (
+             <>
+               <span className="font-headline text-base leading-none tabular-nums">{matchTime}</span>
+               <span className="mt-0.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                 {formatMatchDay(match.scheduled_at!)}
+               </span>
+               <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+                 {formatMatchMonth(match.scheduled_at!)}
+               </span>
+             </>
+           ) : (
+             <>
+               <Calendar className="h-4 w-4 text-muted-foreground" />
+               <span className="mt-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Sin hora</span>
+             </>
+           )}
           {isLive && (
             <span className="mt-1 flex items-center gap-1 text-2xs font-bold uppercase text-destructive">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" /> En vivo
@@ -326,11 +329,11 @@ export function MatchCard({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="mb-1.5 truncate text-caption uppercase text-muted-foreground">
-            {[match.round, match.category_name].filter(Boolean).join(" · ") || match.tournament_name || "Liga16"}
-          </p>
-          <div className="space-y-1">
+         <div className="min-w-0 flex-1">
+           <p className="mb-1 truncate text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+             {[match.round, match.category_name].filter(Boolean).join(" · ") || match.tournament_name || "Liga16"}
+           </p>
+           <div className="space-y-1">
             {sideRow("a")}
             <div aria-hidden className="ml-4 h-px bg-border/70" />
             {sideRow("b")}
