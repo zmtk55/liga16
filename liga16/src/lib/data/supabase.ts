@@ -611,7 +611,7 @@ export const supabaseProvider: DataProvider = {
     for (const row of data as unknown as { player1_id: string; player2_id: string; tournament_categories?: { name?: string } | null }[]) {
       const name = row.tournament_categories?.name?.trim();
       if (!name) continue;
-      for (const pid of [row.player1_id, player2_id(row)]) {
+      for (const pid of [row.player1_id, row.player2_id]) {
         if (pid && !map[pid]) map[pid] = name; // la pareja más reciente gana
       }
     }

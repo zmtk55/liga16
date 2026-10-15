@@ -28,7 +28,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { sexOptions, winRate } from "@/lib/format";
+import { sexLabel, winRate } from "@/lib/format";
+import { categoryFacetOfValues } from "@/lib/categories";
+import { FilterNav } from "@/components/ui/filter-nav";
 import {
   LayoutGrid,
   Rows3,
@@ -40,14 +42,6 @@ import {
 } from "lucide-react";
 
 type View = "grid" | "compact" | "table";
-
-const catOptions = [
-  { value: "all", label: "Todas las categorías" },
-  ...["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Novatos"].map((c) => ({
-    value: c,
-    label: c,
-  })),
-];
 
 const sortOptions = [
   { value: "puntos", label: "Más puntos" },
@@ -104,13 +98,31 @@ export default function PlayersPage() {
     return new Map(rankings.map((r) => [r.player_id, r]));
   }, [rankings]);
 
+  /**
+   * El filtro de categoría se arma con los datos: las categorías que los
+   * torneos registraron de verdad para estos jugadores. Antes era una lista
+   * escrita a mano —1ra…Novatos— que ofrecía divisiones que nadie tiene y no
+   * ofrecía "Suma 9" ni "Mixtos", que son las que sí hay.
+   */
+  const catFacets = useMemo(
+    () => categoryFacetOfValues((players ?? []).map((p) => divisions[p.id])),
+    [players, divisions],
+  );
+  const sexFacets = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const p of players ?? []) n.set(p.sex, (n.get(p.sex) ?? 0) + 1);
+    return [...n.entries()]
+      .map(([key, count]) => ({ key, label: sexLabel(key), n: count }))
+      .sort((a, b) => b.n - a.n);
+  }, [players]);
+
   const filtered = useMemo(() => {
     if (!players) return [];
     const q = query.trim().toLowerCase();
     let list = players.filter((p) => {
       if (q && !p.display_name.toLowerCase().includes(q) && !p.username.toLowerCase().includes(q)) return false;
       if (sex !== "all" && p.sex !== sex) return false;
-      if (cat !== "all" && divisions[p.id] !== cat) return false;
+      if (cat !== "all" && (divisions[p.id] ?? "").toLowerCase() !== cat) return false;
       if (onlyRanked && !rankById.has(p.id)) return false;
       return true;
     });
@@ -187,50 +199,47 @@ export default function PlayersPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={sex} onValueChange={setSex}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Género" />
-            </SelectTrigger>
-            <SelectContent>
-              {sexOptions.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+          <FilterNav
+            label="Categoría"
+            value={cat}
+            onChange={setCat}
+            options={catFacets.length > 1 ? catFacets : []}
+            allLabel="Todas"
+            showCount
+            className="max-w-2xl"
+          />
+          <FilterNav
+            label="Género"
+            value={sex}
+            onChange={setSex}
+            options={sexFacets.length > 1 ? sexFacets : []}
+            showCount
+          />
 
-          <Select value={cat} onValueChange={setCat}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              {catOptions.map((c) => (
-                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Ordenar por" />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
+              <Switch checked={onlyRanked} onCheckedChange={setOnlyRanked} aria-label="Solo rankeados" />
+              Solo rankeados
+            </label>
 
-          <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
-            <Switch checked={onlyRanked} onCheckedChange={setOnlyRanked} aria-label="Solo rankeados" />
-            Solo rankeados
-          </label>
-
-          {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
-              <X className="h-3.5 w-3.5" /> Limpiar
-            </Button>
-          )}
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+                <X className="h-3.5 w-3.5" /> Limpiar
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -351,7 +360,7 @@ export default function PlayersPage() {
                       <TableCell className="hidden md:table-cell">{p.city || "—"}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline">
-                          {sexOptions.find((s) => s.value === p.sex)?.label ?? p.sex}
+                          {sexLabel(p.sex)}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{divisions[p.id] ?? "—"}</TableCell>

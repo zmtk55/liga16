@@ -5,7 +5,14 @@ import { tournamentProgress } from "./tournament-progress";
 import { analyzePairLocal, analyzePlayerLocal, consistenciaFromSets, momentumFrom, rivalAdjusted } from "./jev";
 import { qualificationFor, type StandingLike } from "./qualification";
 import { drawGroupsByCategory, parseRound, roundRobinRounds, type DrawablePair } from "./groups";
-import { groupByDivision, teamCategoryKey, teamCategoryLabel, divisionFromCategory } from "./categories";
+import {
+  groupByDivision,
+  teamCategoryKey,
+  teamCategoryLabel,
+  divisionFromCategory,
+  categoryFacet,
+  categoryFacetOfValues,
+} from "./categories";
 import { SECTION_NAVBAR, SECTION_NAVBAR_ADMIN, navbarTypeFor, sectionRootFor } from "@/components/shadcn-space/blocks/navbar-01/section-navbar";
 import { SITE_NAV, navFor, primaryNav } from "./site-nav";
 import type { Match, Pair, PlayerCard, PlayerProfile, Team } from "@/types";
@@ -883,5 +890,45 @@ describe("la división sale de la base, no de adivinar el nombre", () => {
     // división donde no se está mintiendo sobre la fuerza de nadie.
     expect(divisionFromCategory("Algo Raro")).toBe("Novatos");
     expect(divisionFromCategory(null)).toBe("Novatos");
+  });
+});
+
+/**
+ * Los filtros de categoría salen de aquí, no de `divisionOptions`.
+ *
+ * El bug: la barra ofrecía divisiones escritas a mano (1ra…Novatos) que el
+ * circuito no tiene, y no ofrecía "Suma 9" ni "Mixtos", que sí. Al filtrar por
+ * `t.division` además se mezclaban "Suma 9" con "6ta" de verdad.
+ */
+describe("las categorías del filtro salen de los datos", () => {
+  const t = (id: string, cat: string | null) =>
+    ({ id, slug: id, name: id, division: "6ta", category_name: cat }) as unknown as Team;
+
+  it("cuenta y ordena por tamaño, luego alfabético", () => {
+    const facetas = categoryFacet([
+      t("a", "Suma 9"),
+      t("b", "6ta"),
+      t("c", "Suma 9"),
+      t("d", "Mixtos"),
+    ]);
+    expect(facetas.map((f) => f.label)).toEqual(["Suma 9", "6ta", "Mixtos"]);
+    expect(facetas[0].n).toBe(2);
+  });
+
+  it("la clave es en minúsculas: es la que viaja por la URL", () => {
+    expect(categoryFacet([t("a", "Suma 9")])[0].key).toBe("suma 9");
+  });
+
+  it("sin categoría propia cae en su división, en un grupo aparte", () => {
+    // La clave lleva el prefijo para que "sin categoría" y "6ta" no se mezclen
+    // al filtrar.
+    expect(categoryFacet([t("a", null)])[0].key).toBe("division:6ta");
+  });
+
+  it("los jugadores usan la misma cuenta sobre un record id → categoría", () => {
+    expect(categoryFacetOfValues(["Suma 9", "suma 9", null, "  "]).map((f) => f.label)).toEqual([
+      "Suma 9",
+    ]);
+    expect(categoryFacetOfValues(["Suma 9", "suma 9"])[0].n).toBe(2);
   });
 });

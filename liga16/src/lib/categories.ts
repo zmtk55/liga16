@@ -197,7 +197,10 @@ export function categoryFacetOfValues(values: (string | null | undefined)[]): Ca
  * exista de verdad en el circuito.
  */
 export function teamCategoryLabel(t: Team): string {
-  return t.category_name?.trim() || `División ${t.division}`;
+  // Sin prefijo: en el circuito se dice "3ra". "División 3ra" al lado de la
+  // categoría real ("Suma 9") hacía que el mismo dato saliera de dos formas y
+  // además con la palabra "División" pegada, que no pone nadie.
+  return t.category_name?.trim() || t.division;
 }
 
 /**
