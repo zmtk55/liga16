@@ -797,10 +797,30 @@ export default function AdminTournamentDetail() {
     if (!editingPair || !pairForm.name.trim()) return;
     setSaving(true);
     try {
+      const oldName = editingPair.name;
       await db.updatePair(editingPair.id, {
         name: pairForm.name.trim(),
         category_id: pairForm.category_id || null,
       });
+      // El calendario ya guardó side_a/side_b con el nombre anterior: se
+      // actualizan aquí para que Resultados y el rol del equipo muestren el
+      // equipo renombrado sin tener que regenerar partidos.
+      if (oldName !== pairForm.name.trim() && tournament) {
+        const matches = await db.listMatchesByTournament(tournament.id).catch(() => []);
+        for (const m of matches) {
+          let touched = false;
+          const side_a = m.side_a?.pair_id === editingPair.id || m.side_a?.pair_name === oldName
+            ? { ...m.side_a, pair_name: pairForm.name.trim() }
+            : m.side_a;
+          const side_b = m.side_b?.pair_id === editingPair.id || m.side_b?.pair_name === oldName
+            ? { ...m.side_b, pair_name: pairForm.name.trim() }
+            : m.side_b;
+          touched = side_a !== m.side_a || side_b !== m.side_b;
+          if (touched) {
+            try { await db.updateMatch(m.id, { side_a, side_b }); } catch { /* non-fatal */ }
+          }
+        }
+      }
       toast.success("Equipo actualizado");
       setEditingPair(null);
       await reload();
