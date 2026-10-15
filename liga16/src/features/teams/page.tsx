@@ -7,17 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TeamCard } from "@/components/cards/team-card";
 import { PageHero } from "@/components/page-hero";
+import { FilterNav } from "@/components/ui/filter-nav";
+import { sexLabel } from "@/lib/format";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { sexOptions } from "@/lib/format";
-import {
+  categoryFacet,
   teamCategoryKey,
-  teamCategoryLabel,
 } from "@/lib/categories";
 import { ArrowRight, X } from "lucide-react";
 
@@ -70,32 +64,28 @@ export default function TeamsPage() {
     });
   }, [teams, q, categoria, sex]);
 
-  /**
+/**
    * Las categorías salen de los equipos CARGADOS, no de una lista fija.
    *
    * El filtro era `divisionOptions` —1ra…Novatos, escritos a mano— y por eso
    * "Suma 9" no aparecía aunque la pareja compitiese ahí: `division` es un
-   bucket derivado y el nombre real se perdía. Peor: la lista ofrecía
-   divisiones que en el circuito no existen. Si no hay 2da, no hay por qué
-   ofrecer 2da.
+   * bucket derivado y el nombre real se perdía. Peor: la lista ofrecía
+   * divisiones que en el circuito no existen. Si no hay 2da, no hay por qué
+   * ofrecer 2da.
    *
    * Con esto el filtro ofrece exactamente lo que hay, y "Suma 9" aparece solo y
-   * separada porque existe de verdad. Tampoco hay orden inventado: se ordenan
-   * por tamaño (la categoría con más parejas primero) y luego por nombre, sin
-   * una tabla de "¿qué división es más fuerte?" que ya existe duplicada en
-   * varios sitios y es justo lo que hay que dejar de repetir.
+   * separada porque existe de verdad. La barra vive en `lib/categories.ts`
+   * porque `/ranking`, `/admin/ranking` y `/jugadores` necesitan lo mismo.
    */
-  const categorias = useMemo(() => {
-    const map = new Map<string, { key: string; label: string; n: number }>();
-    for (const t of teams ?? []) {
-      const key = teamCategoryKey(t);
-      const prev = map.get(key);
-      if (prev) prev.n++;
-      else map.set(key, { key, label: teamCategoryLabel(t), n: 1 });
-    }
-    return [...map.values()].sort(
-      (a, b) => b.n - a.n || a.label.localeCompare(b.label, "es"),
-    );
+  const categorias = useMemo(() => categoryFacet(teams ?? []), [teams]);
+
+  /** Ramas con parejas de verdad, no el catálogo entero de la BD. */
+  const ramas = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const t of teams ?? []) n.set(t.sex, (n.get(t.sex) ?? 0) + 1);
+    return [...n.entries()]
+      .map(([key, count]) => ({ key, label: sexLabel(key), n: count }))
+      .sort((a, b) => b.n - a.n);
   }, [teams]);
 
   const stats = useMemo(
@@ -121,34 +111,24 @@ export default function TeamsPage() {
           la sección —la categoría en la que compiten y la rama—, que no aplica a
           las demás. */}
       <div className="relative z-10 -mt-4 flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {categorias.length > 1 && (
-            <Select value={categoria} onValueChange={(v) => setParam("categoria", v)}>
-              <SelectTrigger className="w-[220px]" aria-label="Filtrar por categoría">
-                <SelectValue placeholder="Categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las categorías</SelectItem>
-                {categorias.map((c) => (
-                  <SelectItem key={c.key} value={c.key}>
-                    {c.label} · {c.n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Select value={sex} onValueChange={setSex}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Género" />
-            </SelectTrigger>
-            <SelectContent>
-              {sexOptions.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+          <FilterNav
+            label="Categoría"
+            value={categoria}
+            onChange={(v) => setParam("categoria", v)}
+            options={categorias.length > 1 ? categorias : []}
+            allLabel="Todas"
+            showCount
+            className="max-w-2xl"
+          />
+          <FilterNav
+            label="Rama"
+            value={sex}
+            onChange={setSex}
+            options={ramas.length > 1 ? ramas : []}
+            allLabel="Todas"
+            showCount
+          />
           {(categoria !== "all" || sex !== "all") && (
             <Button
               variant="ghost"

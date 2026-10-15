@@ -178,14 +178,34 @@ export default function AdminTeams() {
       ]);
       const name = form.name.trim() || autoName(form);
       const originalCrest = editing?.crest_url ?? null;
-      if (editing) {
-        await db.updatePair(editing.id, { name, category_id: form.category_id || null, crest_url: form.crest_url });
-        // La foto reemplazada o quitada ya no se usa: borra el objeto de storage
-        if (originalCrest && form.crest_url !== originalCrest) {
-          void deleteStoredImage(originalCrest, "team-crests");
-        }
-        toast.success(`Equipo "${name}" actualizado`);
-      } else {
+       if (editing) {
+         const oldName = editing.name;
+         await db.updatePair(editing.id, { name, category_id: form.category_id || null, crest_url: form.crest_url });
+         // El calendario ya guardó side_a/side_b con pair_name anterior: se
+         // actualizan aquí para que Resultados y el perfil del equipo sigan
+         // mostrando el equipo renombrado.
+         if (oldName !== name) {
+           const matches = await db.listMatchesByTournament(tid).catch(() => []);
+           for (const m of matches) {
+             let touched = false;
+             const side_a = m.side_a?.pair_id === editing.id || m.side_a?.pair_name === oldName
+               ? { ...m.side_a, pair_name: name }
+               : m.side_a;
+             const side_b = m.side_b?.pair_id === editing.id || m.side_b?.pair_name === oldName
+               ? { ...m.side_b, pair_name: name }
+               : m.side_b;
+             touched = side_a !== m.side_a || side_b !== m.side_b;
+             if (touched) {
+               try { await db.updateMatch(m.id, { side_a, side_b }); } catch { /* non-fatal */ }
+             }
+           }
+       }
+         // La foto reemplazada o quitada ya no se usa: borra el objeto de storage
+         if (originalCrest && form.crest_url !== originalCrest) {
+           void deleteStoredImage(originalCrest, "team-crests");
+         }
+         toast.success(`Equipo "${name}" actualizado`);
+       } else {
         await db.createPair({ tournament_id: tid, category_id: form.category_id || null, name, player1_id: prof1?.id ?? null, player2_id: prof2?.id ?? null, crest_url: form.crest_url });
         toast.success(`Equipo "${name}" inscrito en el torneo`);
       }

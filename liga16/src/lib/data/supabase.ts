@@ -591,7 +591,16 @@ export const supabaseProvider: DataProvider = {
     return data as never;
   },
 
-  /** Categoría REAL por jugador: división de la pareja con la que compite (1 query para todo el directorio). */
+  /**
+   * Categoría REAL por jugador: la que le puso el torneo a la pareja con la que
+   * compite (1 query para todo el directorio).
+   *
+   * Devuelve el NOMBRE tal cual ("Suma 9", "Mixtos", "4ta Varonil"), no la
+   * división derivada. Con la derivada el filtro era una lista fija de
+   * divisiones que no correspondía con nada de lo que el jugador tenía
+   * apuntado, y "Suma 9" no se podía filtrar porque nadie lo llamaba 6ta en la
+   * base. Quien necesite el bucket usa `divisionFromCategory` sobre este valor.
+   */
   async listPlayerDivisions(): Promise<Record<string, string>> {
     const { data, error } = await client()
       .from('pairs')
@@ -600,10 +609,10 @@ export const supabaseProvider: DataProvider = {
     const map: Record<string, string> = {};
     if (error) return map;
     for (const row of data as unknown as { player1_id: string; player2_id: string; tournament_categories?: { name?: string } | null }[]) {
-      if (!row.tournament_categories?.name) continue;
-      const div = divisionFromCategory(row.tournament_categories.name);
-      for (const pid of [row.player1_id, row.player2_id]) {
-        if (pid && !map[pid]) map[pid] = div; // la pareja más reciente gana
+      const name = row.tournament_categories?.name?.trim();
+      if (!name) continue;
+      for (const pid of [row.player1_id, player2_id(row)]) {
+        if (pid && !map[pid]) map[pid] = name; // la pareja más reciente gana
       }
     }
     return map;

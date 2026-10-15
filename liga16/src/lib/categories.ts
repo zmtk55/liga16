@@ -135,6 +135,57 @@ export function categoriaLabel(c: { label: string; sex: Sex }): string {
 }
 
 /**
+ * Las categorías que REALMENTE hay, contadas.
+ *
+ * Los filtros se arman con esto y no con una lista fija de divisiones. La fija
+ * mentía en las dos direcciones: ofrecía divisiones que el circuito no tiene
+ * (2da, 5ta…) y le faltaban las que sí, porque la categoría es texto libre —
+ * "Suma 9", "Mixtos", "Novatos Mixto"—, y ninguna lista escrita a mano puede
+ * adivinarlas.
+ *
+ * Orden: la categoría con más parejas primero, luego alfabético. Sin una tabla
+ * inventada de "¿qué división es más fuerte?" —que ya está duplicada en varios
+ * sitios—.
+ */
+export interface CategoryFacet {
+  key: string;
+  label: string;
+  n: number;
+}
+
+export function categoryFacet(teams: Team[]): CategoryFacet[] {
+  const map = new Map<string, CategoryFacet>();
+  for (const t of teams) {
+    const key = teamCategoryKey(t);
+    const prev = map.get(key);
+    if (prev) prev.n++;
+    else map.set(key, { key, label: teamCategoryLabel(t), n: 1 });
+  }
+  return [...map.values()].sort(
+    (a, b) => b.n - a.n || a.label.localeCompare(b.label, "es"),
+  );
+}
+
+/**
+ * Las mismas facetas pero a partir de un `Record<id, categoría>` en vez de
+ * parejas — es como `/jugadores` recibe sus categorías.
+ */
+export function categoryFacetOfValues(values: (string | null | undefined)[]): CategoryFacet[] {
+  const map = new Map<string, CategoryFacet>();
+  for (const v of values) {
+    const label = v?.trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    const prev = map.get(key);
+    if (prev) prev.n++;
+    else map.set(key, { key, label, n: 1 });
+  }
+  return [...map.values()].sort(
+    (a, b) => b.n - a.n || a.label.localeCompare(b.label, "es"),
+  );
+}
+
+/**
  * La categoría REAL de una pareja: el nombre que le dio el torneo al inscribirse
  * ("Suma 9", "4ta Masculino", "Novatos Mixto"). `Team.division` es un bucket
  * derivado de ese nombre y sirve para ORDENAR y rankear; esto es lo que la gente

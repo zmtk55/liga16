@@ -15,12 +15,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { FilterNav } from "@/components/ui/filter-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { PairAvatars } from "@/components/cards/card-kit";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { divisionOptions, sexOptions, winRate } from "@/lib/format";
-import { groupByDivision } from "@/lib/categories";
+import { sexLabel, winRate } from "@/lib/format";
+import {
+  categoryFacet,
+  groupByDivision,
+  teamCategoryKey,
+} from "@/lib/categories";
 
 /**
  * Ranking de PAREJAS, derivado.
@@ -45,7 +50,7 @@ export default function AdminRanking() {
     else next.set("q", v);
     setParams(next, { replace: true });
   };
-  const [division, setDivision] = useState("all");
+  const [categoria, setCategoria] = useState("all");
   const [sex, setSex] = useState("all");
 
   useEffect(() => {
@@ -62,7 +67,7 @@ export default function AdminRanking() {
     const q = query.trim().toLowerCase();
     return (teams ?? []).filter(
       (t) =>
-        (division === "all" || t.division === division) &&
+        (categoria === "all" || teamCategoryKey(t) === categoria) &&
         (sex === "all" || t.sex === sex) &&
         (!q ||
           t.name.toLowerCase().includes(q) ||
@@ -70,7 +75,21 @@ export default function AdminRanking() {
             .filter(Boolean)
             .some((n) => (n as string).toLowerCase().includes(q))),
     );
-  }, [teams, query, division, sex]);
+  }, [teams, query, categoria, sex]);
+
+  /**
+   * El filtro sale de los datos: las categorías que los torneos registraron de
+   * verdad. Era `divisionOptions` —1ra…Novatos escrito a mano—, así que ofrecía
+   * divisiones que no existen y le faltaban "Suma 9" y "Mixtos", que sí.
+   */
+  const categorias = useMemo(() => categoryFacet(teams ?? []), [teams]);
+  const ramas = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const t of teams ?? []) n.set(t.sex, (n.get(t.sex) ?? 0) + 1);
+    return [...n.entries()]
+      .map(([key, count]) => ({ key, label: sexLabel(key), n: count }))
+      .sort((a, b) => b.n - a.n);
+  }, [teams]);
 
   // Un grupo por división + rama, cada uno con su posición ya resuelta.
   const groups = useMemo(() => groupByDivision(filtered), [filtered]);
@@ -116,42 +135,42 @@ export default function AdminRanking() {
       </div>
 
       <Card>
-        {/* Los tres filtros (buscador, división, rama) en UNA fila: el FilterBar
-            ya colapsa lo que sobra detrás de "Filtros" y los deja en chips
-            removibles. Antes eran tres bloques apilados —pills de división, pills
-            de rama y buscador— y para leer la tabla había que.scrollarse
-            por encima de todo eso. */}
+        {/* Buscador + las dos barras de filtro debajo. El FilterBar envuelve a las
+            barras como `children`, así que el buscador sigue arriba y los
+            filtros se leen de un vistazo. */}
         <CardHeader>
           <FilterBar
             search={query}
             onSearch={setQuery}
             searchPlaceholder="Buscar pareja o jugador…"
-            selects={[
-              {
-                key: "division",
-                ariaLabel: "Filtrar por división",
-                allLabel: "Todas las divisiones",
-                value: division,
-                onChange: setDivision,
-                options: divisionOptions.filter((d) => d.value !== "all"),
-              },
-              {
-                key: "sex",
-                ariaLabel: "Filtrar por rama",
-                allLabel: "Todas las ramas",
-                value: sex,
-                onChange: setSex,
-                options: sexOptions.filter((s) => s.value !== "all"),
-              },
-            ]}
             resultCount={filtered.length}
             resultLabel="parejas"
             onClear={() => {
               setQuery("");
-              setDivision("all");
+              setCategoria("all");
               setSex("all");
             }}
-          />
+          >
+            {/* Los filtros van como barra y no como desplegables: las opciones
+                se leen enteras sin abrirlas, y son las que hay de verdad. */}
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-3 pt-1">
+              <FilterNav
+                label="Categoría"
+                value={categoria}
+                onChange={setCategoria}
+                options={categorias.length > 1 ? categorias : []}
+                showCount
+                className="max-w-2xl"
+              />
+              <FilterNav
+                label="Rama"
+                value={sex}
+                onChange={setSex}
+                options={ramas.length > 1 ? ramas : []}
+                showCount
+              />
+            </div>
+          </FilterBar>
         </CardHeader>
         <CardContent className="p-0">
           {teams === null && (

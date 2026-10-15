@@ -17,12 +17,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MatchCard, PairAvatars, CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
-import { sexLabel, sexOptions, winRate } from "@/lib/format";
+import { sexLabel, winRate } from "@/lib/format";
 import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/page-hero";
-import { DIVISION_ORDER } from "@/lib/categories";
+import { FilterNav } from "@/components/ui/filter-nav";
+import {
+  DIVISION_ORDER,
+  categoryFacet,
+  teamCategoryKey,
+} from "@/lib/categories";
 import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock, LayoutGrid, BarChart3, List, GitCompare } from "lucide-react";
 
 /**
@@ -222,11 +227,11 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
 
 export default function RankingsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
-  // Las pills de división del header (variante "filter", ADR-0009) escriben
-  // aquí: el filtro vive en la URL, así que se comparte y sobrevive al ir y
-  // venir. Antes vivía en useState y se perdía al cambiar de sección.
+  // Los filtros viven en la URL, así que se comparten y sobreviven al ir y
+  // venir. Antes el de división lo escribía el header con una lista fija; ahora
+  // la barra de la página los arma con los datos reales.
   const [params, setParams] = useSearchParams();
-  const division = params.get("division") ?? "all";
+  const categoria = params.get("categoria") ?? "all";
   const sex = params.get("sex") ?? "all";
   const query = params.get("q") ?? "";
   const setParam = (key: string, value: string) => {
@@ -254,7 +259,7 @@ export default function RankingsPage() {
   const filtered = useMemo(() => {
     if (!teams) return [] as Team[];
     let list = [...teams];
-    if (division !== "all") list = list.filter((t) => t.division === division);
+    if (categoria !== "all") list = list.filter((t) => teamCategoryKey(t) === categoria);
     if (sex !== "all") list = list.filter((t) => t.sex === sex);
     const q = query.trim().toLowerCase();
     if (q) {
@@ -274,7 +279,19 @@ export default function RankingsPage() {
         return b.points - a.points;
       })
       .map((t) => ({ ...t }));
-  }, [teams, division, sex, query]);
+  }, [teams, categoria, sex, query]);
+
+  /** Categorías y ramas que existen de verdad, no el catálogo de la BD. */
+  const categorias = useMemo(() => categoryFacet(teams ?? []), [teams]);
+  const ramas = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const t of teams ?? []) n.set(t.sex, (n.get(t.sex) ?? 0) + 1);
+    return [...n.entries()]
+      .map(([key, count]) => ({ key, label: sexLabel(key), n: count }))
+      .sort((a, b) => b.n - a.n);
+  }, [teams]);
+  const catActiva =
+    categorias.find((c) => c.key === categoria)?.label ?? categoria;
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -285,32 +302,31 @@ export default function RankingsPage() {
         ghost="16"
         stats={[
           { k: "Parejas", v: teams?.length ?? "…", icon: <Users className="h-4 w-4" /> },
-          { k: "División", v: division === "all" ? "Todas" : division, icon: <Trophy className="h-4 w-4" /> },
+          { k: "Categoría", v: categoria === "all" ? "Todas" : catActiva, icon: <Trophy className="h-4 w-4" /> },
           { k: "Género", v: sex === "all" ? "Todas" : sexLabel(sex), icon: <Target className="h-4 w-4" /> },
         ]}
       />
 
-      {/* El buscador y las pills de división viven en el header (variante
-          "filter", ADR-0009): una sola búsqueda y un solo filtro por sección.
-          Aquí queda solo la rama, que el header no lleva. */}
-      <div className="relative z-10 -mt-4">
-        <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Rama
-        </span>
-        <ToggleGroup
-          type="single"
+      {/* El buscador vive en el header (ADR-0009). Los filtros van aquí porque
+          se arman con los equipos cargados: las categorías que existen de
+          verdad —"Suma 9", "Mixtos"— y solo esas. */}
+      <div className="relative z-10 -mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
+        <FilterNav
+          label="Categoría"
+          value={categoria}
+          onChange={(v) => setParam("categoria", v)}
+          options={categorias.length > 1 ? categorias : []}
+          showCount
+          className="max-w-2xl"
+        />
+        <FilterNav
+          label="Rama"
           value={sex}
-          onValueChange={(v) => v && setSex(v)}
-          variant="outline"
-          size="sm"
-          className="w-fit justify-start"
-        >
-          <ToggleGroupItem value="all">Todas</ToggleGroupItem>
-          {sexOptions.filter((s) => s.value !== "all").map((s) => (
-            <ToggleGroupItem key={s.value} value={s.value}>{s.label}</ToggleGroupItem>
-          ))}
-          </ToggleGroup>
-        </div>
+          onChange={setSex}
+          options={ramas.length > 1 ? ramas : []}
+          showCount
+        />
+      </div>
 
       {/* Selector de vista: tabla · cards · gráfico, y comparar 2 parejas */}
       <div className="flex flex-wrap items-center gap-2">
