@@ -16,16 +16,22 @@ export default function ClubsPage() {
 
   useEffect(() => {
     let active = true;
-    db.listClubs().then((data) => {
-      if (active) setClubs(data);
+    db.listClubs()
+      .then((data) => {
+        if (active) setClubs(data);
+      })
+      .catch(() => {
+        // Sin esto, `clubs` se quedaba en `null` y la página colgaba en el
+        // esqueleto "Cargando sede…" para siempre, sin error ni reintento.
+        if (active) setClubs([]);
+      });
       db.listCourts()
-        .then((cs) => {
-          if (active) setCourts(cs);
-        })
-        .catch(() => {
-          if (active) setCourts([]);
-        });
-    });
+      .then((cs) => {
+        if (active) setCourts(cs);
+      })
+      .catch(() => {
+        if (active) setCourts([]);
+      });
     return () => {
       active = false;
     };

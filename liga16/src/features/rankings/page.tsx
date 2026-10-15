@@ -49,7 +49,10 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
           .filter((m) => m.side_a.pair_name === team.name || m.side_b.pair_name === team.name)
           .sort((a, b) => String(a.scheduled_at ?? "").localeCompare(String(b.scheduled_at ?? ""))),
       );
-    });
+    })
+      .catch(() => {
+        if (active) setMatches([]);
+      });
     return () => {
       active = false;
     };
@@ -70,22 +73,24 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
               <div aria-hidden className="absolute inset-x-0 top-0 h-1 bg-primary" />
               <span
                 aria-hidden
-                className="pointer-events-none absolute -right-2 -top-7 select-none font-headline text-7xl leading-none text-white/[0.07]"
+                className="pointer-events-none absolute -right-2 -top-7 select-none font-headline text-6xl leading-none text-white/[0.07]"
               >
                 {String(team.position || 0).padStart(2, "0")}
               </span>
               <DialogHeader className="space-y-1.5">
-                <DialogTitle className="text-xl font-bold leading-tight">
+                <DialogTitle className="text-lg font-bold leading-tight">
                   {team.name}
                 </DialogTitle>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge className="bg-white text-black hover:bg-white/90">{team.division}</Badge>
-                  <Badge variant="outline" className="border-white/25 text-white/90">
+                  <Badge variant="outline" className="border-white/25 bg-white/10 text-white/90">
+                    {team.division}
+                  </Badge>
+                  <Badge variant="outline" className="border-white/25 bg-white/10 text-white/90">
                     {sexLabel(team.sex)}
                   </Badge>
                   {team.position > 0 && (
-                    <span className="text-xs uppercase tracking-widest text-white/50">
-                      #{team.position} de la categoría
+                    <span className="text-2xs uppercase tracking-widest text-white/50">
+                      #{team.position}
                     </span>
                   )}
                 </div>
@@ -108,9 +113,9 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
             {/* ── Un partido a la vez: sin scroll, con flechas ── */}
             <div className="px-5 py-4">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  {jugados.length > 0 ? `Resultados · ${idx + 1} de ${jugados.length}` : "Resultados"}
-                </h4>
+<h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                   Partidos · {idx + 1} de {jugados.length}
+                 </h4>
                 {jugados.length > 1 && (
                   <div className="flex items-center gap-1">
                     <Button
@@ -194,22 +199,22 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
               )}
             </div>
 
-            {/* ── Próximo partido, sin lista larga ── */}
+{/* ── Próximo partido, sin lista larga ── */}
             {porJugar.length > 0 && (
               <div className="border-t px-5 py-3">
                 <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Por jugar ({porJugar.length})
+                  Próximo ({porJugar.length})
                 </h4>
-                     <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted/50 px-2.5 py-1.5">
-                       <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                       <div className="min-w-0 flex-1">
-                         <p className="truncate text-xs font-bold">
-                           vs {(porJugar[0].side_a.pair_name === team.name ? porJugar[0].side_b : porJugar[0].side_a).pair_name}
-                         </p>
-                         <p className="text-2xs text-muted-foreground">
-                           {porJugar[0].scheduled_at ? formatMatchDateTime(porJugar[0].scheduled_at) : "Sin horario"}
-                         </p>
-                       </div>
+                <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted/50 px-2.5 py-1.5">
+                  <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold">
+                      vs {(porJugar[0].side_a.pair_name === team.name ? porJugar[0].side_b : porJugar[0].side_a).pair_name}
+                    </p>
+                    <p className="text-2xs text-muted-foreground">
+                      {porJugar[0].scheduled_at ? formatMatchDateTime(porJugar[0].scheduled_at) : "Sin horario"}
+                    </p>
+                  </div>
                   {porJugar.length > 1 && (
                     <Badge variant="outline" className="shrink-0">
                       +{porJugar.length - 1} más
@@ -248,9 +253,15 @@ export default function RankingsPage() {
 
   useEffect(() => {
     let active = true;
-    db.listTeams().then((data) => {
-      if (active) setTeams(data);
-    });
+    // Sin `catch`, cualquier fallo de red o de RLS dejaba la página en
+    // esqueletos para siempre, sin error ni reintento.
+    db.listTeams()
+      .then((data) => {
+        if (active) setTeams(data);
+      })
+      .catch(() => {
+        if (active) setTeams([]);
+      });
     return () => {
       active = false;
     };
@@ -275,7 +286,13 @@ export default function RankingsPage() {
         const da = DIVISION_ORDER.indexOf(a.division);
         const db_ = DIVISION_ORDER.indexOf(b.division);
         if (da !== db_) return da - db_;
-        if (a.position !== b.position) return a.position - b.position;
+        // Quien no ha jugado va AL FINAL de su división. `position` es 0 para
+        // las parejas sin partidos, y 0 < 1 las ponía ARRIBA de las líderes: la
+        // tabla empezaba por filas con «—» y 0 puntos mientras el gráfico y las
+        // cards de abajo las trataban como no clasificadas.
+        const pa = a.position === 0 ? Number.MAX_SAFE_INTEGER : a.position;
+        const pb = b.position === 0 ? Number.MAX_SAFE_INTEGER : b.position;
+        if (pa !== pb) return pa - pb;
         return b.points - a.points;
       })
       .map((t) => ({ ...t }));

@@ -1,19 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Team } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TeamCard } from "@/components/cards/team-card";
+import { TeamCrest } from "@/components/cards/card-image";
 import { PageHero } from "@/components/page-hero";
 import { FilterNav } from "@/components/ui/filter-nav";
-import { sexLabel } from "@/lib/format";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { sexLabel, winRate } from "@/lib/format";
 import {
   categoryFacet,
   teamCategoryKey,
+  teamCategoryLabel,
 } from "@/lib/categories";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, LayoutGrid, Rows3, Table2, X } from "lucide-react";
+
+type View = "grid" | "compact" | "table";
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -34,12 +48,36 @@ export default function TeamsPage() {
     setParams(next, { replace: true });
   };
   const setSex = (v: string) => setParam("sex", v);
+  const navigate = useNavigate();
+  const [view, setView] = useState<View>("grid");
+
+  /**
+   * Limpia varios filtros de una vez.
+   *
+   * `setParam` lee `params` del render en curso, así que llamarla dos veces seguidas
+   * escribía dos veces sobre el mismo objeto viejo: la segunda pisaba a la primera
+   * y "Limpiar" solo apagaba el último filtro. Hacían falta dos clics para quitar
+   * dos filtros.
+   */
+  function clearParams(...keys: string[]) {
+    const next = new URLSearchParams(params);
+    for (const k of keys) next.delete(k);
+    setParams(next, { replace: true });
+  }
 
   useEffect(() => {
     let active = true;
-    db.listTeams().then((data) => {
-      if (active) setTeams(data);
-    });
+    // El `catch` importa: sin él, si la petición falla el estado se queda en
+    // `null` para siempre y la página se queda en esqueletos grises, sin error
+    // y sin reintentar. Con lista vacía el usuario ve "no hay equipos" y sabe
+    // que algo falló, en vez de una pantalla que nunca carga.
+    db.listTeams()
+      .then((data) => {
+        if (active) setTeams(data);
+      })
+      .catch(() => {
+        if (active) setTeams([]);
+      });
     return () => {
       active = false;
     };
@@ -134,14 +172,31 @@ export default function TeamsPage() {
               variant="ghost"
               size="sm"
               className="text-muted-foreground"
-              onClick={() => {
-                setParam("categoria", "all");
-                setParam("sex", "all");
-              }}
+              onClick={() => clearParams("categoria", "sex")}
             >
               <X className="h-3.5 w-3.5" /> Limpiar
             </Button>
           )}
+          {/* Selector de vista, como en /jugadores y /ranking. Antes esta lista
+              solo tenía tarjetas: quien llegaba a comparar treinta parejas con
+              la tabla de su Excel no tenía dónde comparar. */}
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={(v) => { if (v) setView(v as View); }}
+            variant="outline"
+            className="rounded-lg border"
+          >
+            <ToggleGroupItem value="grid" aria-label="Vista tarjetas" className="px-2.5">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="compact" aria-label="Vista compacta" className="px-2.5">
+              <Rows3 className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Vista tabla" className="px-2.5">
+              <Table2 className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
         {categorias.length > 1 && (
           <p className="text-xs text-muted-foreground">
@@ -170,7 +225,7 @@ export default function TeamsPage() {
             género.
           </CardContent>
         </Card>
-      ) : (
+      ) : view === "grid" ? (
         /* Mismas reglas de retícula que la galería de jugadores: la card es de
            ancho fijo (max-w-xs), así que en columnas anchas se centra en su hueco
            en vez de estirar el diseño. El enlace al detalle va dentro de la card
@@ -181,6 +236,70 @@ export default function TeamsPage() {
             <TeamCard key={team.slug} team={team} />
           ))}
         </div>
+      ) : view === "compact" ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          {filtered.map((team) => (
+            <Link
+              key={team.slug}
+              to={`/equipos/${team.slug}`}
+              className="group flex items-center gap-2.5 rounded-xl border bg-card p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+            >
+              <TeamCrest name={team.name} crestUrl={team.crest_url} className="h-9 w-9 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold leading-tight">{team.name}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {team.won}–{team.played - team.won} · {winRate(team.played, team.won)}%
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Pareja</TableHead>
+                  <TableHead className="hidden sm:table-cell">Categoría</TableHead>
+                  <TableHead className="hidden md:table-cell">Rama</TableHead>
+                  <TableHead className="text-right">Pos</TableHead>
+                  <TableHead className="hidden text-right sm:table-cell">PJ</TableHead>
+                  <TableHead className="hidden text-right sm:table-cell">PG</TableHead>
+                  <TableHead className="text-right">Efect.</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((t, i) => (
+                  <TableRow key={t.slug} className="cursor-pointer" onClick={() => navigate(`/equipos/${t.slug}`)}>
+                    <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell>
+                      <Link
+                        to={`/equipos/${t.slug}`}
+                        className="flex items-center gap-2.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <TeamCrest name={t.name} crestUrl={t.crest_url} className="h-8 w-8" />
+                        <span className="font-medium">{t.name}</span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">{teamCategoryLabel(t)}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge variant="outline">{sexLabel(t.sex)}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {t.position > 0 ? t.position : "—"}
+                    </TableCell>
+                    <TableCell className="hidden text-right tabular-nums sm:table-cell">{t.played}</TableCell>
+                    <TableCell className="hidden text-right tabular-nums sm:table-cell">{t.won}</TableCell>
+                    <TableCell className="text-right tabular-nums">{winRate(t.played, t.won)}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {/* CTA final estilo landing */}

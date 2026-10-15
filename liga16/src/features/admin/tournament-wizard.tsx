@@ -95,6 +95,34 @@ function addDays(date: string, days: number) {
   return d.toISOString().split("T")[0];
 }
 
+/**
+ * Sube el escudo del equipo y devuelve su URL.
+ *
+ * El logo se elegía con un `<input type="file">` que lo dejaba como data URL en
+ * memoria. Al crear las parejas ese valor no se pasaba a `createPair`, así que el
+ * escudo se veía en la lista del asistente y desaparecía al cerrarlo.
+ *
+ * Si no hay Supabase (modo demo) devuelve el data URL tal cual: que se vea en la
+ * sesión es mejor que perderlo, y no hay bucket al que subirlo.
+ */
+async function uploadCrest(dataUrl: string, slug: string): Promise<string | null> {
+  if (!supabase) return dataUrl;
+  if (!dataUrl.startsWith("data:")) return dataUrl; // ya es una URL
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const safe = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "equipo";
+    const objPath = `${safe}/${Date.now()}.png`;
+    const { error } = await supabase.storage
+      .from("team-crests")
+      .upload(objPath, blob, { contentType: blob.type || "image/png", upsert: true });
+    if (error) throw error;
+    return supabase.storage.from("team-crests").getPublicUrl(objPath).data.publicUrl;
+  } catch {
+    // Sin bucket o sin permisos, mejor un data URL que ningún escudo.
+    return dataUrl;
+  }
+}
+
 function SortablePairCard({
   id,
   name,
@@ -479,14 +507,19 @@ export default function TournamentWizard() {
             ensurePlayer(t.player1, t.division).catch(() => null),
             ensurePlayer(t.player2, t.division).catch(() => null),
           ]);
-          try {
-            await db.createPair({
-              tournament_id: String(tournamentId),
-              category_id: catIds.get(t.division.toLowerCase()) ?? null,
-              name,
+try {
+              const crest = t.logo ? await uploadCrest(t.logo, name) : null;
+              await db.createPair({
+                tournament_id: String(tournamentId),
+                category_id: catIds.get(t.division.toLowerCase()) ?? null,
+                name,
               player1_id: prof1?.id ?? null,
               player2_id: prof2?.id ?? null,
-            });
+               // El escudo se sube en el paso 4 y se ve en la lista de equipos
+               // inscritos, pero se perdía aquí: `createPair` sí acepta el
+               // campo y el logo desaparecía al cerrar el asistente.
+               crest_url: crest,
+             });
           } catch (e) {
             failures.push(`${name}: ${(e as Error).message ?? "no se pudo registrar"}`);
           }

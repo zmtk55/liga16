@@ -25,9 +25,15 @@ export default function NewsPage() {
 
   useEffect(() => {
     let active = true;
-    db.listNews().then((data) => {
-      if (active) setNews(data);
-    });
+    // Sin `catch` la página se quedaba en esqueletos para siempre si la
+    // petición fallaba; con lista vacía al menos ves "no hay noticias".
+    db.listNews()
+      .then((data) => {
+        if (active) setNews(data);
+      })
+      .catch(() => {
+        if (active) setNews([]);
+      });
     return () => {
       active = false;
     };
@@ -52,6 +58,12 @@ export default function NewsPage() {
             <Skeleton key={i} className="h-40 w-full" />
           ))}
         </div>
+      ) : news.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Todavía no hay noticias publicadas.
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {news.map((n) => (

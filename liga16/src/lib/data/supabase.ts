@@ -777,6 +777,10 @@ export const supabaseProvider: DataProvider = {
     if (updates.side_b !== undefined) { row.side_b_pair_id = updates.side_b.pair_id; row.side_b_name = updates.side_b.pair_name; }
     if (updates.scheduled_at !== undefined) row.scheduled_at = updates.scheduled_at;
     if (updates.court_name !== undefined) row.court_name = updates.court_name;
+    // Faltaba: el campo Ronda se editaba en el diálogo de resultados, se mandaba
+    // en el update y se perdía en silencio. El toast decía "guardado" y la caja
+    // volvía al valor viejo al reabrir.
+    if (updates.round !== undefined) row.round = updates.round;
     const { data: result, error } = await client()
       .from('matches').update(row).eq('id', id).select().single();
     if (error) throw error;

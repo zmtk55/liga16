@@ -435,10 +435,18 @@ function BracketPanel({
       )}
       {conParejas.map(([categoryId, catPairs]) => {
         const ids = new Set(catPairs.map((p) => p.id));
-        // Un partido pertenece a la categoría solo si AMBOS lados son de ella.
-        const catMatches = matches.filter(
-          (m) => ids.has(m.side_a.pair_id ?? "") && ids.has(m.side_b.pair_id ?? ""),
-        );
+        // Un partido pertenece a la categoría solo si AMBOS lados son de ella. Por id
+        // cuando existe, y por nombre cuando no: el asistente crea los partidos
+        // sin `pair_id` (solo el texto del lado), así que filtrando solo por id
+        // cualquier torneo hecho con el asistente salía con "0 partidos" y sin
+        // ganadores resolverse nunca, mientras la pestaña de posiciones —que sí
+        // cae a nombres— mostraba los mismos partidos bien.
+        const pairNameKey = (s: { pair_name: string } | null) =>
+          (s?.pair_name ?? "").trim().toLowerCase();
+        const namesInCat = new Set(catPairs.map((p) => p.name.trim().toLowerCase()));
+        const inCat = (s: { pair_id: string | null; pair_name: string } | null) =>
+          !!s && (ids.has(s.pair_id ?? "") || namesInCat.has(pairNameKey(s)));
+        const catMatches = matches.filter((m) => inCat(m.side_a) && inCat(m.side_b));
         const name = nameByCatId.get(categoryId) ?? (categoryId ? "" : SIN_CATEGORIA);
         return (
           <div key={categoryId || "__sin_categoria__"} className="space-y-4">
@@ -963,7 +971,12 @@ export default function AdminTournamentDetail() {
       const q = matchQuery.trim().toLowerCase();
       if (q && !m.side_a.pair_name.toLowerCase().includes(q) && !m.side_b.pair_name.toLowerCase().includes(q)) return false;
       if (matchRound !== "all" && m.round !== matchRound) return false;
-      if (matchDay !== "all" && !(m.scheduled_at ?? "").startsWith(matchDay)) return false;
+      // El día se compara con `localDayKey`, no con el prefijo UTC del string:
+      // `scheduled_at` es un instante UTC y el filtro lista días locales. Con
+      // `startsWith` todos los partidos de la tarde-noche (18:00 en adelante) se
+      // escondían del día que de verdad son, y el contador de arriba no cuadraba
+      // con la lista.
+      if (matchDay !== "all" && localDayKey(m.scheduled_at ?? "") !== matchDay) return false;
       if (matchCourt !== "all" && m.court_name !== matchCourt) return false;
       // La categoría se lee del partido, no del texto de la ronda: es el dato,
       // no una convención de nombres.
@@ -1893,8 +1906,14 @@ return (
 
       {/* Captura de resultado por partido — encadenada a la jornada */}
       {editingMatchId && (
-        <MatchResultDialog
-          match={matches.find((m) => m.id === editingMatchId)!}
+<MatchResultDialog
+             // Sin `key`, el diálogo se reutilizaba al encadenar al siguiente
+             // partido: el encabezado cambiaba al partido 2 pero las cajas de
+             // sets, la cancha y la hora seguían con los del partido 1, y al
+             // guardar se escribía el resultado del partido anterior encima del
+             // nuevo. La `key` lo remonta y el estado se rearma desde cero.
+             key={editingMatchId}
+             match={matches.find((m) => m.id === editingMatchId)!}
           nextMatchId={
             matches
               .filter((m) => localDayKey(m.scheduled_at ?? "") === jornadaDay && m.status !== "finished")
@@ -1939,6 +1958,10 @@ function MatchResultDialog({
   onOpenChange: (open: boolean) => void;
   onAdvance: (nextMatchId: string | null) => void;
 }) {
+  // El estado nace de `match`, así que el componente DEBE remontarse cuando
+  // cambia el partido: el diálogo se encadena al siguiente con `onAdvance` sin
+  // cerrarse. Sin la `key` que se le pone arriba, los sets del partido anterior
+  // se guardaban encima del nuevo.
   const [sets, setSets] = useState<Array<{ a: string; b: string }>>(() =>
     match.sets.length > 0 ? match.sets.map((s) => ({ a: String(s.a), b: String(s.b) })) : [{ a: "", b: "" }],
   );

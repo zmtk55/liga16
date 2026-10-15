@@ -41,7 +41,16 @@ export default function TeamDetailPage() {
           ),
         );
       })
-      .finally(() => {});
+      // Sin `catch` la página se quedaba en esqueletos para siempre si la
+      // petición fallaba. Se marca "ya no está cargando" con lista vacía para
+      // que el usuario vea el estado real en vez de una pantalla colgada.
+      .catch(() => {
+        if (active) {
+          setTeam(null);
+          setAllTeams([]);
+          setMatches([]);
+        }
+      });
     return () => {
       active = false;
     };
@@ -62,7 +71,23 @@ export default function TeamDetailPage() {
   const rol = useMemo(() => {
     return [...matches].sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
   }, [matches]);
-  const pendientes = rol.filter((m) => m.status === "scheduled" || m.status === "live");
+  /**
+ * Partidos por jugarse, por FECHA y no solo por estado.
+ *
+ * `status === "scheduled"` no significa "futuro": un partido olvidado sigue en
+ * ese estado para siempre y salía arriba de "Próximos rivales" con fecha de hace
+ * semanas y el rótulo "Próximamente" (porque el cálculo de días daba negativo y
+ * no caía en ninguna rama). "Por jugar" también lo contaba.
+ */
+  const pendientes = useMemo(() => {
+    const now = new Date().getTime();
+    return rol.filter((m) => {
+      if (m.status !== "scheduled" && m.status !== "live") return false;
+      const at = new Date(m.scheduled_at ?? "").getTime();
+      // Sin fecha no se puede decir que sea futuro: se cuenta, pero no se fecha.
+      return !Number.isFinite(at) || at >= now;
+    });
+  }, [rol]);
 
   // Stats de sets reales desde los partidos capturados
   const setStats = useMemo(() => {
@@ -269,20 +294,27 @@ export default function TeamDetailPage() {
                 pendientes.slice(0, 3).map((m) => {
                   const isA = m.side_a.pair_name === team?.name;
                   const rival = (isA ? m.side_b.pair_name : m.side_a.pair_name) ?? "?";
+                  // Una fecha inválida se muestra como "Sin fecha", no como un `Invalid Date`
+                  // impreso en la página (era `new Date("")`).
                   const scheduled = m.scheduled_at ? new Date(m.scheduled_at) : null;
+                  const scheduledOk = scheduled != null && !Number.isNaN(scheduled.getTime());
                   const now = new Date();
-                  const daysUntil = scheduled ? Math.floor((scheduled.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
-                  let dateLabel = "Próximamente";
-                  if (daysUntil === 0) dateLabel = "Hoy";
+                  const daysUntil = scheduledOk ? Math.floor((scheduled!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                  let dateLabel = "Sin fecha";
+                  if (daysUntil === null) dateLabel = "Sin fecha";
+                  else if (daysUntil < 0) dateLabel = "A definir";
+                  else if (daysUntil === 0) dateLabel = "Hoy";
                   else if (daysUntil === 1) dateLabel = "Mañana";
-                  else if (daysUntil && daysUntil > 1) dateLabel = `En ${daysUntil} días`;
+                  else dateLabel = `En ${daysUntil} días`;
                   return (
                     <div key={m.id} className="flex items-center justify-between rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors">
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold text-sm">{rival}</p>
                         <p className="text-xs text-muted-foreground">{dateLabel} · {m.round}</p>
                       </div>
-                      <Badge variant="outline" className="shrink-0 ml-2">{scheduled?.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</Badge>
+                      {scheduledOk && (
+                        <Badge variant="outline" className="shrink-0 ml-2">{scheduled!.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</Badge>
+                      )}
                     </div>
                   );
                 })
@@ -300,11 +332,15 @@ export default function TeamDetailPage() {
                 <p className="text-sm text-muted-foreground">Sin resultados todavía.</p>
               ) : (
                 form.slice(0, 3).map((f) => {
+                  // Sin fecha, `new Date("")` imprimía literalmente "Invalid Date".
+                  const d = f.match.scheduled_at ? new Date(f.match.scheduled_at) : null;
+                  const when =
+                    d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("es-MX") : "Sin fecha";
                   return (
                     <div key={f.match.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold text-sm">{f.rival}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(f.match.scheduled_at ?? '').toLocaleDateString('es-MX')}</p>
+                        <p className="text-xs text-muted-foreground">{when}</p>
                       </div>
                       <div className={`shrink-0 ml-2 flex items-center justify-center w-6 h-6 rounded-full ${f.won ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
                         {f.won ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}

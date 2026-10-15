@@ -75,7 +75,15 @@ export default function CalendarPage() {
           .filter(Boolean),
       )].sort();
       setDay(days.includes(today) ? today : (days[0] ?? today));
-    });
+    })
+      // Sin `catch` la agenda se quedaba en esqueletos para siempre si la
+      // petición fallaba.
+      .catch(() => {
+        if (active) {
+          setMatches([]);
+          setDay(todayKey());
+        }
+      });
     db.getMyProfile().then((p) => { if (active) setProfile(p); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
@@ -137,7 +145,14 @@ export default function CalendarPage() {
     [filtered, day],
   );
   const liveCount = agenda.filter(isLiveNow).length;
-  const nextMatch = agenda.find((m) => !isPast(m) || isLiveNow(m));
+  // `agenda` incluye los finalizados, así que "Por jugar" los excluye: el
+  // contador decía 3 mientras dos de los tres listados ya estaban "Finalizado".
+  const porJugar = agenda.filter((m) => !isPast(m) && m.status !== "finished" && !isLiveNow(m));
+  // Un partido sin `scheduled_at` (la columna admite null) tiene `isPast()`
+  // en `false`, así que se colaba como "próximo" y el rótulo imprimía
+  // "Invalid Date a las Invalid Date".
+  const nextMatch =
+    porJugar.find((m) => localDayKey(m.scheduled_at ?? "") !== "") ?? null;
 
   if (matches === null) {
     return (
@@ -161,7 +176,7 @@ export default function CalendarPage() {
         ghost="16"
         stats={[
           { k: "En juego", v: liveCount, icon: <Radio className="h-4 w-4" /> },
-          { k: "Por jugar", v: agenda.filter((m) => !isPast(m)).length, icon: <Calendar className="h-4 w-4" /> },
+          { k: "Por jugar", v: porJugar.length, icon: <Calendar className="h-4 w-4" /> },
           { k: "Días con juego", v: days.length, icon: <MapPin className="h-4 w-4" /> },
         ]}
       />
@@ -204,7 +219,7 @@ export default function CalendarPage() {
             className: "w-48",
           },
         ]}
-        resultCount={filtered.length}
+        resultCount={dayMatches.length}
         resultLabel="partidos"
         onClear={() => {
           setQuery("");

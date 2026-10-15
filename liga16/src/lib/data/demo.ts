@@ -2,11 +2,13 @@
 import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
 import { deriveTeamStandings } from '@/lib/standings';
+import { divisionFromCategory } from '@/lib/categories';
+import { sexFromCategory } from './supabase';
 import {
   categories, clubs, leagues, matches, news, pairs, playerCards, players,
   sponsors, teams, tournaments,
 } from './seed';
-import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RegistrationStatus, RegistrationWithPayment, PaymentMethod, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
+import type { Club, League, Match, NewsItem, Pair, PlayerProfile, PlayerStatus, RegistrationStatus, RegistrationWithPayment, PaymentMethod, Sex, Sponsor, Team, Tournament, TournamentCategory, TournamentFilters } from '@/types';
 
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 
@@ -38,6 +40,75 @@ const store = {
   registrations: [] as RegistrationWithPayment[],
 };
 
+  /**
+ * Equipos derivados de `pairs`, como en Supabase.
+ *
+ * La tabla global `teams` quedó obsoleta y en demo `listTeams()` seguía leyendo
+ * ella: dabas de alta una pareja en Equipos o Participantes y el ranking y el
+ * panel seguían mostrando el seed, y capturar resultados no movía nada.
+ */
+function buildTeamsFromPairsDemo(): Team[] {
+  const playerById = new Map(store.players.map((p) => [p.id, p]));
+  const catById = new Map(store.categories.map((c) => [c.id, c]));
+  const tourById = new Map(store.tournaments.map((t) => [t.id, t]));
+
+  const bySlug = new Map<string, Team>();
+  // `store.pairs` viene en orden de inserción; el seed pone primero las viejas,
+  // así que una pareja repetida conserva su fila más antigua, como en Supabase.
+  for (const pair of store.pairs) {
+    const slug = slugify(pair.name);
+    if (bySlug.has(slug)) continue;
+    const cat = pair.category_id ? catById.get(pair.category_id) : undefined;
+    const catName = cat?.name ?? null;
+    const p1 = pair.player1_id ? playerById.get(pair.player1_id) : undefined;
+    const p2 = pair.player2_id ? playerById.get(pair.player2_id) : undefined;
+const sexes = [p1?.sex, p2?.sex].filter(Boolean) as string[];
+    const sex =
+      sexFromCategory(cat?.sex, catName) ??
+      (sexes.length ? (sexes.every((s) => s === sexes[0]) ? (sexes[0] as Sex) : 'X') : 'X');
+    const levelOf = (p: PlayerProfile | undefined) =>
+      p ? (p.official_level ?? p.declared_level) : null;
+    const levels = [levelOf(p1), levelOf(p2)].filter((l): l is number => typeof l === 'number');
+    // `crest_url` y la columna `category` (padel_division) existen en la BD pero
+    // no en los tipos de `Pair`/`TournamentCategory`, que quedaron atrasados.
+    const crest = (pair as Pair & { crest_url?: string | null }).crest_url ?? null;
+    const savedDivision =
+      (cat as (TournamentCategory & { category?: string | null }) | undefined)?.category ?? null;
+    bySlug.set(slug, {
+      id: pair.id,
+      slug,
+      name: pair.name,
+      crest_url: crest,
+      city: tourById.get(pair.tournament_id ?? '')?.city || p1?.city || p2?.city || '',
+      club_id: null,
+      division: divisionFromCategory(catName, savedDivision, levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : null),
+      category_name: catName,
+      sex,
+      player1: p1 ? { player_id: p1.id, name: p1.display_name, level: levelOf(p1)! } : null,
+      player2: p2 ? { player_id: p2.id, name: p2.display_name, level: levelOf(p2)! } : null,
+      photo1_url: p1?.photo_url ?? null,
+      photo2_url: p2?.photo_url ?? null,
+      position: 0,
+      points: 0,
+      played: 0,
+      won: 0,
+      lost: 0,
+      sets_for: 0,
+      sets_against: 0,
+      rendimiento_pct: null,
+    } as Team);
+  }
+  return [...bySlug.values()];
+}
+
+function slugify(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 export const demoProvider: DataProvider = {
   // Torneos
   async listTournaments(filters?: Omit<TournamentFilters, 'city'>) {
@@ -52,9 +123,16 @@ export const demoProvider: DataProvider = {
     return list.sort((a, b) => a.start_date.localeCompare(b.start_date));
   },
 
-  async getTournament(slug: string) {
+
+async getTournament(slug: string) {
     await delay();
-    return store.tournaments.find((t) => t.slug === slug) ?? null;
+    // Acepta slug o id, como el provider de Supabase: el wizard navega por id al
+    // terminar, y en demo eso se traducía en una pantalla que no cargaba nunca.
+    return (
+      store.tournaments.find((t) => t.slug === slug) ??
+      store.tournaments.find((t) => t.id === slug) ??
+      null
+    );
   },
 
   async createTournament(data: Omit<Tournament, 'id' | 'slug'>) {
@@ -344,10 +422,11 @@ export const demoProvider: DataProvider = {
   // ordenen igual.
   async listTeams() {
     await delay();
-    return deriveTeamStandings(
-      store.teams.map((t) => ({ ...t })),
-      store.matches,
-    );
+    // Igual que en Supabase: los equipos se derivan de `pairs`, no de la tabla
+    // global `teams` (que quedó obsoleta). Con `store.teams` el ranking y el
+    // panel seguían mostrando el seed aunque dieras de alta parejas nuevas, y
+    // capturar resultados no movía nada.
+    return deriveTeamStandings(buildTeamsFromPairsDemo(), store.matches);
   },
 
   async getTeam(slug: string) {

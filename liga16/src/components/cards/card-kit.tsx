@@ -256,7 +256,7 @@ export function MatchCard({
             <p
               key={i}
               className={cn(
-                "truncate text-[13px] leading-snug",
+                "truncate text-xs leading-snug",
                 i === 0 && "font-semibold",
                 hasScore ? (won ? "text-foreground" : "text-muted-foreground") : "text-foreground",
               )}
@@ -274,7 +274,7 @@ export function MatchCard({
               <span
                 key={i}
                 className={cn(
-                  "flex h-6 w-7 items-center justify-center rounded-md font-mono text-xs font-bold tabular-nums",
+                  "flex h-5 w-6 items-center justify-center rounded-md font-mono text-xs font-bold tabular-nums",
                   tookSet ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
                 )}
               >
@@ -298,7 +298,7 @@ export function MatchCard({
         className,
       )}
     >
-      <CardContent className="flex gap-3 p-3.5">
+      <CardContent className="flex gap-2.5 p-3">
          {/* Riel izquierdo: CUÁNDO, el ancla visual más grande */}
          <div
            className={cn(

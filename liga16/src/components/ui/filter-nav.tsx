@@ -33,7 +33,12 @@ export function FilterNav({
   showCount?: boolean;
   className?: string;
 }) {
-  if (options.length === 0) return null;
+  // La barra se oculta si no hay nada que elegir, SALVO que haya un filtro
+  // activo. Antes, con una sola categoría en el circuito la barra desaparecía
+  // entera y un enlace guardado con `?categoria=suma-9` dejaba la página en
+  // "no hay equipos" sin ningún control para quitarlo: un filtro del que no se
+  // puede salir.
+  if (options.length === 0 && value === "all") return null;
 
   const items: FacetOption[] = [{ key: "all", label: allLabel }, ...options];
 

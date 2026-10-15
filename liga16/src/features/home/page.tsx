@@ -131,8 +131,21 @@ export default function Home() {
       db.listSponsors(),
     ]).then(([tournaments, teams, matches, news, sponsors]) => {
       if (active)
-        setStats({ tournaments, teams, matches, news, sponsors });
-    });
+setStats({ tournaments, teams, matches, news, sponsors });
+      })
+      // Sin `catch` la home se quedaba en esqueletos para siempre si una de las
+      // cinco peticiones fallaba (o si una sola —por ejemplo noticias— daba
+      // error por RLS): el `Promise.all` se rechazaba y no se seteaba nada.
+      .catch(() => {
+        if (active)
+          setStats({
+            tournaments: [],
+            teams: [],
+            matches: [],
+            news: [],
+            sponsors: [],
+          });
+      });
     return () => {
       active = false;
     };
@@ -197,19 +210,39 @@ export default function Home() {
     );
   }
 
-  const openTournaments = stats.tournaments.filter(
-    (t) => t.status === "registration_open" || t.status === "in_progress",
-  );
-  const featured = openTournaments[0] ?? stats.tournaments[0];
+  /**
+ * "Próximo torneo" tiene que ser el más PRÓXIMO, no el primero de la lista.
+ *
+ * `listTournaments` ordena ascendente por `start_date`, así que `[0]` era el
+ * torneo más viejo: en la home salió de titular un torneo abierto whose
+ * registration deadline ya había pasado, con el botón "Ver inscripción" y el
+ * cartel "Próximo torneo". Y el fallback `stats.tournaments[0]` cuando no había
+ * ninguno abierto era directamente un torneo `finished`.
+ *
+ * Un torneo cuenta como "próximo" si todavía no termina. Primero el que está
+ * abierto, y dentro de él el más cercano en el calendario.
+ */
+  const today = new Date().toISOString().slice(0, 10);
+  const notFinishedYet = stats.tournaments.filter((t) => (t.end_date ?? t.start_date) >= today);
+  const openTournaments = notFinishedYet
+    .filter((t) => t.status === "registration_open" || t.status === "in_progress")
+    .sort((a, b) => a.start_date.localeCompare(b.start_date));
+  const featured = openTournaments[0] ?? notFinishedYet[0] ?? null;
+
   const liveCount = stats.matches.filter((m) => m.status === "live").length;
+  // Un partido "scheduled" con fecha pasada esta olvidado: no cuenta.
+  const isUpcoming = (m: (typeof stats.matches)[number]) =>
+    m.status === "live" || (m.status === "scheduled" && (m.scheduled_at ?? "").slice(0, 10) >= today);
   const featuredMatch =
     stats.matches.find((m) => m.status === "live") ??
-    stats.matches.find((m) => m.status === "scheduled") ??
-    stats.matches[0];
+    stats.matches.find(isUpcoming) ??
+    null;
   const activityMatches = stats.matches
     .filter((m) => m.id !== featuredMatch?.id)
     .slice(0, 2);
-  const featuredIsOpen = featured?.status === "registration_open";
+  const featuredIsOpen =
+    featured?.status === "registration_open" &&
+    (featured.registration_deadline ?? featured.end_date) >= today;
   // Sede REAL: ciudad del torneo destacado (única fuente, sin inventar)
   const sedeLabel = featured?.city || stats.tournaments[0]?.city || "Liga16";
   // El estado sale del mapa de `@/lib/format`, que ya traduce los siete estados

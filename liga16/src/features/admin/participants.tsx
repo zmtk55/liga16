@@ -104,14 +104,20 @@ export default function AdminParticipants() {
     load();
   }, []);
 
-  // Categorías de los torneos que están representados en la lista
+  /**
+   * Categorías de TODOS los torneos, no solo de los que ya tienen parejas.
+   *
+   * Antes se armaba la lista con los `tournament_id` que aparecían en las
+   * parejas, así que un torneo recién creado —sin ninguna pareja inscrita— no
+   * tenía categorías: el desplegable del alta salía vacío, sin aviso, y la
+   * pareja se guardaba sin categoría para siempre ("Sin categoría" en la lista).
+   */
   useEffect(() => {
-    if (!pairs) return;
-    const tids = [...new Set(pairs.map((p) => p.tournament_id).filter(Boolean))] as string[];
+    if (!tournaments) return;
     Promise.all(
-      tids.map((id) => db.getTournamentCategories(id).catch(() => [] as TournamentCategory[])),
+      tournaments.map((t) => db.getTournamentCategories(t.id).catch(() => [] as TournamentCategory[])),
     ).then((lists) => setCategories(lists.flat()));
-  }, [pairs]);
+  }, [tournaments]);
 
   const filterCats = useMemo(() => {
     if (fTournament === "all") return categories;
@@ -199,6 +205,16 @@ export default function AdminParticipants() {
     if (!draftTournament) {
       toast.error("Elige un torneo");
       return;
+    }
+    // La categoría tiene que ser DEL torneo elegido. El desplegable ya se
+    // filtraba, pero `draft.category_id` sobrevive al cambio de torneo: se podía
+    // elegir "4ta" en el torneo A, cambiar al B y guardar la categoría de A en B.
+    if (draft.category_id) {
+      const cat = categories.find((c) => c.id === draft.category_id);
+      if (cat && cat.tournament_id !== draftTournament) {
+        toast.error("La categoría elegida es de otro torneo");
+        return;
+      }
     }
     setCreating(true);
     try {
@@ -490,7 +506,15 @@ export default function AdminParticipants() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
-            <Select value={draftTournament} onValueChange={setDraftTournament}>
+            {/* Cambiar de torneo limpia la categoría: si no, se quedaba la del torneo
+                anterior y el alta fallaba o guardaba una categoría ajena. */}
+            <Select
+              value={draftTournament}
+              onValueChange={(v) => {
+                setDraftTournament(v);
+                setDraft((d) => ({ ...d, category_id: "" }));
+              }}
+            >
               <SelectTrigger aria-label="Torneo">
                 <SelectValue placeholder="Torneo" />
               </SelectTrigger>
@@ -508,11 +532,16 @@ export default function AdminParticipants() {
                 <SelectValue placeholder="Categoría (opcional)" />
               </SelectTrigger>
               <SelectContent>
-                {filterCats
-                  .filter((c) => !draftTournament || c.tournament_id === draftTournament)
-                  .map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
+                {/* Se usan TODAS las categorías del torneo elegido, no
+                    `filterCats`: ese ya viene recortado por el filtro de la
+                    LISTA, así que si filtrabas la lista por el torneo A y en el
+                    alta elegías el B, el desplegable salía vacío. */}
+                {(!draftTournament
+                  ? categories
+                  : categories.filter((c) => c.tournament_id === draftTournament)
+                ).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <PlayerSlot
