@@ -219,9 +219,15 @@ export interface StandingRow {
 }
 
 /**
- * Tabla de posiciones unificada configurable por TournamentScoring.
- * - ranking_method = 'match_points' (default): 3 pts/win, desempate por sets/games
- * - ranking_method = 'points_percentage' (Liga16): % puntos (pts_favor/pts_total), RANK estilo Excel
+ * Tabla de posiciones de la Liga16.
+ *
+ * Sólo hay un criterio: el % de puntos (pts_favor / pts_total) con RANK
+ *1, 1, 3) estilo Excel, el de la 4ta edición. Antes esta función aceptaba
+ * `ranking_method: 'match_points'` (3 puntos por victoria) y venía siendo el
+ * default, de modo que el detalle de torneo ordenaba por victorias mientras el
+ * ranking global ordenaba por porcentaje: dos reglas para lo mismo.
+ * `ranking_method` sigue en el tipo porque es una columna de la BD, pero ya no
+ * cambia el cálculo.
  */
 export function computeStandings(
   pairIds: UUID[],
@@ -229,8 +235,6 @@ export function computeStandings(
   pairNameById: Record<string, string>,
   scoring?: TournamentScoring,
 ): StandingRow[] {
-  const rankingMethod = scoring?.ranking_method ?? 'match_points';
-
   const rows = new Map<UUID, StandingRow>();
   pairIds.forEach((id) =>
     rows.set(id, { pairId: id, played: 0, won: 0, lost: 0, setsFor: 0, setsAgainst: 0, gamesFor: 0, gamesAgainst: 0, points: 0, form: [], pointsFor: 0, pointsTotal: 0, pointsPercentage: 0, jerarquia: 0 }),
@@ -288,52 +292,36 @@ export function computeStandings(
       rowA.form.push("P");
     }
 
-    if (rankingMethod === 'match_points') {
-      rowA.points += aWon ? 3 : 0;
-      rowB.points += aWon ? 0 : 3;
-    } else {
-      // points_percentage (Liga16): sumar solo los juegos DE ESTE match
-      rowA.pointsFor = (rowA.pointsFor ?? 0) + matchGamesForA;
-      rowA.pointsTotal = (rowA.pointsTotal ?? 0) + matchGamesForA + matchGamesForB;
-      rowB.pointsFor = (rowB.pointsFor ?? 0) + matchGamesForB;
-      rowB.pointsTotal = (rowB.pointsTotal ?? 0) + matchGamesForA + matchGamesForB;
-    }
+    // % de puntos (Liga16): sumar sólo los juegos DE ESTE match.
+    rowA.pointsFor = (rowA.pointsFor ?? 0) + matchGamesForA;
+    rowA.pointsTotal = (rowA.pointsTotal ?? 0) + matchGamesForA + matchGamesForB;
+    rowB.pointsFor = (rowB.pointsFor ?? 0) + matchGamesForB;
+    rowB.pointsTotal = (rowB.pointsTotal ?? 0) + matchGamesForA + matchGamesForB;
   }
 
   rows.forEach((r) => {
     r.form = r.form.slice(-5);
-    if (rankingMethod === 'points_percentage') {
-      r.pointsPercentage = r.pointsTotal && r.pointsTotal > 0 ? r.pointsFor! / r.pointsTotal! : null;
-      // points se usa para sort descendente
-      r.points = r.pointsPercentage ? Math.round(r.pointsPercentage * 10000) : 0;
-    }
+    r.pointsPercentage = r.pointsTotal && r.pointsTotal > 0 ? r.pointsFor! / r.pointsTotal! : null;
+    // `points` se rellena con el porcentaje (basis points) para que las
+    // columnas que leen `StandingRow.points` —comparadores, gráficas— no
+    // tengan que saber de dónde salió el número.
+    r.points = r.pointsPercentage ? Math.round(r.pointsPercentage * 10000) : 0;
   });
 
   let result = [...rows.values()];
 
-  if (rankingMethod === 'points_percentage') {
-    // Liga16: ordenar por % puntos descendente, RANK estilo Excel (1,1,3...)
-    const withPct = result.filter((r) => r.pointsPercentage !== null && r.pointsPercentage !== undefined);
-    const withoutPct = result.filter((r) => r.pointsPercentage === null || r.pointsPercentage === undefined);
-    withPct.sort((x, y) => (y.pointsPercentage ?? 0) - (x.pointsPercentage ?? 0));
-    for (const r of withPct) {
-      const higher = withPct.filter((o) => (o.pointsPercentage ?? 0) > (r.pointsPercentage ?? 0)).length;
-      r.jerarquia = 1 + higher;
-    }
-    for (const r of withoutPct) {
-      r.jerarquia = 0;
-    }
-    result = [...withPct.sort((a, b) => a.jerarquia! - b.jerarquia!), ...withoutPct];
-  } else {
-    // match_points: ordenar por puntos, diff sets, sets ganados
-    result.sort(
-      (x, y) =>
-        y.points - x.points ||
-        y.setsFor - y.setsAgainst - (x.setsFor - x.setsAgainst) ||
-        y.setsFor - x.setsFor ||
-        (pairNameById[x.pairId] ?? "").localeCompare(pairNameById[y.pairId] ?? ""),
-    );
+  // Ordenar por % puntos descendente, RANK estilo Excel (1,1,3...)
+  const withPct = result.filter((r) => r.pointsPercentage !== null && r.pointsPercentage !== undefined);
+  const withoutPct = result.filter((r) => r.pointsPercentage === null || r.pointsPercentage === undefined);
+  withPct.sort((x, y) => (y.pointsPercentage ?? 0) - (x.pointsPercentage ?? 0));
+  for (const r of withPct) {
+    const higher = withPct.filter((o) => (o.pointsPercentage ?? 0) > (r.pointsPercentage ?? 0)).length;
+    r.jerarquia = 1 + higher;
   }
+  for (const r of withoutPct) {
+    r.jerarquia = 0;
+  }
+  result = [...withPct.sort((a, b) => a.jerarquia! - b.jerarquia!), ...withoutPct];
 
   return result;
 }

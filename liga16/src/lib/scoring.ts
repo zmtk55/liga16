@@ -167,42 +167,6 @@ export function validateScoring(sets: SetScore[], config: TournamentScoring): st
   return null;
 }
 
-/** Ordena equipos según las reglas de desempate configuradas. */
-export function sortTeamsByTieBreakers(
-  teams: Team[],
-  config?: TournamentScoring
-): Team[] {
-  const cfg = normalizeScoring(config);
-  const rules = cfg.tie_breaker_rules ?? DEFAULT_SCORING.tie_breaker_rules!;
-
-  return [...teams].sort((x, y) => {
-    for (const rule of rules) {
-      const diff = compareTeamsByRule(x, y, rule);
-      if (diff !== 0) return -diff; // mayor va primero
-    }
-    return x.name.localeCompare(y.name);
-  });
-}
-
-function compareTeamsByRule(a: Team, b: Team, rule: ReturnType<typeof normalizeScoring>["tie_breaker_rules"][number]): number {
-  switch (rule) {
-    case "points":
-      return a.points - b.points;
-    case "sets_won":
-      return a.sets_for - b.sets_for;
-    case "sets_diff":
-      return a.sets_for - a.sets_against - (b.sets_for - b.sets_against);
-    case "games_won":
-      return a.sets_for - b.sets_for; // aproximación, juegos no están en Team
-    case "games_diff":
-      return a.sets_for - a.sets_against - (b.sets_for - b.sets_against);
-    case "tiebreak_won":
-    case "head_to_head":
-    default:
-      return 0;
-  }
-}
-
 /** Construye un objeto SetScore a partir de juegos y opcional tie-break. */
 export function buildSet(
   aGames: number,

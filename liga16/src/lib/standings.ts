@@ -48,8 +48,12 @@ export function deriveTeamStandings(teams: Team[], matches: Match[]): Team[] {
       t.lost = s.PJ - s.PG;
       t.sets_for = s.SETS_FAVOR;
       t.sets_against = s.SETS_CONTRA;
-      t.points = s.PG * 3;
+      // `points` ES el porcentaje del Excel. Antes valía `ganadas × 3`, un criterio
+      // que no está en la especificación y que ya no ordenaba nada, pero que se
+      // seguía mostrando en fichas, home y comparadores. Que las 15 pantallas
+      // que leen `points` muestren el número correcto evita tocarlas una por una.
       t.rendimiento_pct = s.RENDIMIENTO_PTS == null ? null : Math.round(s.RENDIMIENTO_PTS * 1000) / 10;
+      t.points = t.rendimiento_pct ?? 0;
       t.position = s.JERARQUIA;
     }
   }
