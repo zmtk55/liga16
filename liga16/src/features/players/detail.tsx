@@ -172,7 +172,12 @@ export default function PlayerDetailPage() {
   const [compareId, setCompareId] = useState<string>("");
   const [rivals, setRivals] = useState<PlayerProfile[]>([]);
   const [pairInfo, setPairInfo] = useState<{ tournament: string | null; tournamentSlug: string | null; category: string | null } | null>(null);
-  const [compareData, setCompareData] = useState<{ p: PlayerProfile; c: PlayerCard | null; jev: JevAnalysis } | null>(null);
+  const [compareData, setCompareData] = useState<{
+    p: PlayerProfile;
+    jev: JevAnalysis;
+    played: number;
+    won: number;
+  } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const { user, isConfigured } = useAuth();
@@ -257,15 +262,35 @@ export default function PlayerDetailPage() {
           )
           .sort((a, b) => String(b.scheduled_at).localeCompare(String(a.scheduled_at)));
         setMyMatches(mine);
-        // Rivales = jugadores del MISMO torneo (no todos). Para comparar
-        // deportivamente hace falta que jueguen en el mismo circuito.
+        // Rivales = los demás jugadores de SU CATEGORÍA.
+        //
+        // Antes filtraba las parejas del mismo torneo en las que ESTÁ el jugador,
+        // así que el único resultado posible era su propio compañero: el
+        // comparador preguntaba "¿con quién juego?" cuando la pregunta es
+        // "¿con quién me mido?". Y lo que importa para compararse es la
+        // categoría —ahí es donde la posición y el % significan algo—, no el
+        // torneo, que cambia cada semana.
+        const myCategory = latest?.category_name ?? null;
+        const rivalPairs = myCategory
+          ? (allPairs ?? []).filter((ap) => ap.category_name === myCategory)
+          : [];
+        // Sin categoría (inscripción sin categoría, o la base no la trae) se cae
+        // al mismo torneo: peor que nada, pero es lo más cerca que hay.
         const myTournamentId = tournaments.find((tr) => tr.name === latest?.tournament_name)?.id ?? null;
-        const rivals = (allPairs ?? []).filter(
-          (ap) => ap.tournament_id === myTournamentId && (ap.player1_id === p.id || ap.player2_id === p.id),
+        const sameTournament =
+          myTournamentId === null
+            ? []
+            : (allPairs ?? []).filter((ap) => ap.tournament_id === myTournamentId);
+        const pool = rivalPairs.length > 1 ? rivalPairs : sameTournament;
+
+        const rivalIds = new Set(
+          pool.flatMap((ap) => [ap.player1_id, ap.player2_id].filter(Boolean) as string[]),
         );
-        const rivalIds = new Set(rivals.flatMap((ap) => [ap.player1_id, ap.player2_id].filter(Boolean) as string[]));
         rivalIds.delete(p.id);
-        setRivals(pls.filter((x) => x.id !== p.id && rivalIds.has(x.id)));
+        const byId = new Map(pls.map((x) => [x.id, x]));
+        setRivals(
+          [...rivalIds].map((rid) => byId.get(rid)).filter((x): x is PlayerProfile => Boolean(x)),
+        );
       })
       .catch(() => { /* id inexistente: la UI ya muestra "Jugador no encontrado" */ })
       .finally(() => { if (active) setLoading(false); });
@@ -280,11 +305,15 @@ export default function PlayerDetailPage() {
     }
     // El rival se compara con SU récord derivado, igual que el titular: comparar
     // contra `player_cards` era comparar contra ceros.
-    Promise.all([db.getPlayer(compareId), db.getPlayerCard(compareId), db.getPlayerRecord(compareId)])
-      .then(([p, c, rec]) => {
+    Promise.all([db.getPlayer(compareId), db.getPlayerRecord(compareId)])
+      .then(([p, rec]) => {
         if (!p) return;
-        const jev = analyzePlayerLocal(p, c, derivedFromRecord(rec));
-        setCompareData({ p, c, jev });
+        setCompareData({
+          p,
+          jev: analyzePlayerLocal(p, null, derivedFromRecord(rec)),
+          played: rec?.played ?? 0,
+          won: rec?.won ?? 0,
+        });
       })
       .catch(() => { /* id inválido: se queda sin comparador */ });
   }, [compareId]);
@@ -914,19 +943,21 @@ export default function PlayerDetailPage() {
           </Card>
         </div>
 
-{isAdmin && (
+{canView && (
         <Card className="border-dashed">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>
-            <p className="text-xs text-muted-foreground">Solo rivales del mismo torneo. Elige a quién encarar.</p>
+            <p className="text-xs text-muted-foreground">
+              Los demás de tu categoría, que es donde la comparación sí significa algo.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="max-w-sm">
               <Select value={compareId} onValueChange={setCompareId}>
-                <SelectTrigger><SelectValue placeholder="Selecciona rival del mismo torneo" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Elige a quién medirte" /></SelectTrigger>
                 <SelectContent>
                   {rivals.length === 0 ? (
-                    <SelectItem value="__none__" disabled>Sin rivales en este torneo</SelectItem>
+                    <SelectItem value="__none__" disabled>Nadie más en tu categoría todavía</SelectItem>
                   ) : (
                     rivals.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
@@ -951,13 +982,19 @@ export default function PlayerDetailPage() {
                 <CompareCard
                   name={compareData.p.display_name}
                   level={compareData.p.official_level ?? compareData.p.declared_level}
-                  winPct={compareData.c ? Math.round((cardWon(compareData.c) / Math.max(1, cardPlayed(compareData.c))) * 100) : 0}
-                  won={cardWon(compareData.c)}
-                  played={cardPlayed(compareData.c)}
+                  winPct={
+                    compareData.played > 0
+                      ? Math.round((compareData.won / compareData.played) * 100)
+                      : 0
+                  }
+                  won={compareData.won}
+                  played={compareData.played}
                 />
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Selecciona un rival del mismo torneo para ver la comparativa deportiva.</p>
+              <p className="text-sm text-muted-foreground">
+                Elige un rival para ver lado a lado nivel, juegos ganados y efectividad.
+              </p>
             )}
           </CardContent>
         </Card>
