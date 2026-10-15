@@ -233,7 +233,7 @@ export function computeStandings(
   pairIds: UUID[],
   matches: Match[],
   pairNameById: Record<string, string>,
-  scoring?: TournamentScoring,
+  _scoring?: TournamentScoring,
 ): StandingRow[] {
   const rows = new Map<UUID, StandingRow>();
   pairIds.forEach((id) =>
