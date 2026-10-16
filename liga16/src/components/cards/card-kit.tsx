@@ -96,7 +96,7 @@ export function CardIdentity({
               <p key={i} className="min-h-[1.25rem] truncate text-sm font-bold tracking-tight">
                 {line}
                 {i < titleLines.length - 1 && (
-                  <span className="ml-1.5 text-caption text-muted-foreground">/</span>
+                  <span className="ms-1.5 text-caption text-muted-foreground">/</span>
                 )}
               </p>
             ))}
@@ -153,7 +153,7 @@ export function CardFooterStrip({
       <div className="flex min-w-0 flex-1 items-stretch justify-around gap-1 divide-x divide-border/60">
         {stats}
       </div>
-      {chip && <div className="ml-1 shrink-0">{chip}</div>}
+      {chip && <div className="ms-1 shrink-0">{chip}</div>}
     </div>
   );
 }
@@ -329,15 +329,15 @@ export function MatchCard({
           )}
         </div>
 
-         <div className="min-w-0 flex-1">
-           <p className="mb-1 truncate text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-             {[match.round, match.category_name].filter(Boolean).join(" · ") || match.tournament_name || "Liga16"}
-           </p>
-           <div className="space-y-1">
-            {sideRow("a")}
-            <div aria-hidden className="ml-4 h-px bg-border/70" />
-            {sideRow("b")}
-          </div>
+<div className="min-w-0 flex-1">
+            <p className="mb-1 truncate text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {[match.round, match.category_name].filter(Boolean).join(" · ") || match.tournament_name || "Liga16"}
+            </p>
+            <div className="space-y-1">
+             {sideRow("a")}
+             <div aria-hidden className="ms-4 h-px bg-border/70" />
+             {sideRow("b")}
+           </div>
           <div className="mt-2">
             <span
               className={cn(

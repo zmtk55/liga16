@@ -13,12 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatDate, initials, SEX_BRANCHES, sexLabel } from "@/lib/format";
+import { initials, SEX_BRANCHES, sexLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MatchCard, PairAvatar } from "@/components/cards/card-kit";
 import { toast } from "sonner";
 import { analyzePlayerLocal, derivedFromRecord, type JevAnalysis } from "@/lib/jev";
-import { recordWinRate, type PlayerRecord } from "@/lib/records";
+import { type PlayerRecord } from "@/lib/records";
 import { qualificationFor, type QualificationView } from "@/lib/qualification";
 
 const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
@@ -64,13 +64,26 @@ function AnimatedBar({ value, max = 100, color = "primary", className = "" }: { 
 }
 
 /** Tarjeta de comparativa: jugador vs rival con métricas visuales. */
-function CompareCard({ name, level, winPct, won, played, highlight }: {
+function CompareCard({
+  name,
+  level,
+  winPct,
+  won,
+  played,
+  highlight,
+  rivalLevel,
+  rivalWinPct,
+  rivalWon,
+}: {
   name: string;
   level: number;
   winPct: number;
   won: number;
   played: number;
   highlight?: boolean;
+  rivalLevel: number;
+  rivalWinPct: number;
+  rivalWon: number;
 }) {
   const levelStr = level.toFixed(1);
   const tier = (label: string, a: number, b: number, max: number) => {
@@ -95,7 +108,6 @@ function CompareCard({ name, level, winPct, won, played, highlight }: {
       </div>
     );
   };
-  const rival = { level: 4.0, jev: 50, winPct: 60, won: 5, played: 8 };
   return (
     <div className={cn("rounded-2xl border p-4 md:p-5", highlight ? "border-primary/40 bg-primary/[0.06]" : "border-border bg-muted/40")}>
       <div className="flex items-center justify-between gap-3">
@@ -106,60 +118,15 @@ function CompareCard({ name, level, winPct, won, played, highlight }: {
         <Badge variant={highlight ? "default" : "secondary"} className="shrink-0">N {levelStr}</Badge>
       </div>
       <div className="mt-4 space-y-3">
-        {tier("Nivel", level, rival.level, 8)}
-        {tier("Win %", winPct, rival.winPct, 100)}
-        {tier("Victorias", won, rival.won, 20)}
+        {tier("Nivel", level, rivalLevel, 8)}
+        {tier("Win %", winPct, rivalWinPct, 100)}
+        {tier("Victorias", won, rivalWon, 20)}
       </div>
     </div>
   );
 }
 
 
-
-/**
- * Sets ganados por partido, de lo más antiguo a lo más reciente.
- * El color es el resultado, así que la barra también dice si ganó.
- */
-function TrendBars({
-  values,
-  form,
-}: {
-  values: number[];
-  form: Array<"G" | "P">;
-}) {
-  if (values.length === 0) return null;
-  const max = Math.max(...values, 1);
-  const offset = values.length - form.length;
-  return (
-    <div
-      className="flex h-20 items-end gap-1"
-      role="img"
-      aria-label={`Sets ganados en los últimos ${values.length} partidos`}
-    >
-      {values.map((v, i) => {
-        const won = form[offset + i] !== "P";
-        return (
-          <div key={i} className="group relative flex h-full flex-1 items-end">
-            <div
-              className={`w-full rounded-t-[3px] origin-bottom transition-transform duration-700 ease-out motion-reduce:transition-none ${
-                won ? "bg-primary" : "bg-muted-foreground/30"
-              } group-hover:opacity-80`}
-              style={{
-                height: `${Math.max((v / max) * 100, 6)}%`,
-                // escalonado: cada barra entra un poco después que la anterior
-                transitionDelay: `${i * 45}ms`,
-                animation: "fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
-              }}
-            />
-            <span className="pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-1.5 py-0.5 text-xs tabular-nums text-background group-hover:block">
-              {v}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -399,7 +366,7 @@ export default function PlayerDetailPage() {
       <section className="bg-surface-inverse text-white">
         <div className="mx-auto max-w-7xl px-4 pt-6 pb-8 md:px-6 md:pt-8 md:pb-10">
           <div className="flex items-center justify-between gap-3">
-            <Button asChild variant="ghost" size="sm" className="-ml-2 text-white/70 hover:bg-white/10 hover:text-white">
+            <Button asChild variant="ghost" size="sm" className="-ms-2 text-white/70 hover:bg-white/10 hover:text-white">
               <Link to="/jugadores"><ArrowLeft className="h-4 w-4" /> Todos los jugadores</Link>
             </Button>
             {canEditPhoto && (
@@ -808,118 +775,6 @@ export default function PlayerDetailPage() {
           )}
 
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4" /> Récord personal
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Todo lo que ha jugado, sin importar con quién. Si cambia de pareja, esto no se reinicia.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!record ? (
-                <p className="py-4 text-sm text-muted-foreground">
-                  Todavía no hay partidos terminados para construir su récord.
-                </p>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {[
-                      { label: "Partidos", value: record.played },
-                      { label: "Ganados", value: record.won },
-                      { label: "Efectividad", value: `${recordWinRate(record)}%` },
-                      { label: "Sets a favor", value: record.setsFor },
-                    ].map((s) => (
-                      <div key={s.label} className="rounded-lg bg-muted/60 p-3">
-                        <p className="font-headline text-2xl tabular-nums">{s.value}</p>
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                          {s.label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {record.trend.length > 1 && (
-                    <div>
-                      <div className="mb-1 flex items-baseline justify-between gap-3">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Sets ganados por partido
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          últimos {record.trend.length}
-                        </p>
-                      </div>
-                      <TrendBars values={record.trend} form={record.form} />
-                    </div>
-                  )}
-
-                  {record.recentMatches.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">
-                        Últimos partidos
-                      </p>
-                      <div className="overflow-hidden rounded-lg border">
-                        {record.recentMatches.map((m) => (
-                          <div
-                            key={m.matchId}
-                            className="flex items-center justify-between gap-3 border-b px-3 py-2.5 last:border-b-0"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">
-                                vs {m.opponentName}
-                              </p>
-                              {m.opponentLevel !== null && (
-                                <p className="text-xs text-muted-foreground">
-                                  rival {m.opponentLevel.toFixed(1)}
-                                </p>
-                              )}
-                            </div>
-                            <span
-                              className={`shrink-0 font-mono text-sm font-semibold tabular-nums ${
-                                m.won ? "text-success" : "text-destructive"
-                              }`}
-                            >
-                              {m.won ? "V" : "D"} {m.score}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {record.partners.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">
-                        Historial de parejas
-                      </p>
-                      <ul className="divide-y rounded-lg border">
-                        {record.partners.map((spell) => (
-                          <li key={spell.pairId} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">
-                                {spell.partnerName === "—" ? spell.pairName : `con ${spell.partnerName}`}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {spell.pairName}
-                                {spell.lastPlayedAt
-                                  ? ` · último ${formatDate(spell.lastPlayedAt)}`
-                                  : ""}
-                              </p>
-                            </div>
-                            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                              {spell.won}/{spell.played}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Shirt className="h-4 w-4" /> Detalles</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-xl bg-muted p-3">
@@ -978,6 +833,13 @@ export default function PlayerDetailPage() {
                   won={won}
                   played={played}
                   highlight
+                  rivalLevel={compareData.p.official_level ?? compareData.p.declared_level}
+                  rivalWinPct={
+                    compareData.played > 0
+                      ? Math.round((compareData.won / compareData.played) * 100)
+                      : 0
+                  }
+                  rivalWon={compareData.won}
                 />
                 <CompareCard
                   name={compareData.p.display_name}
@@ -989,6 +851,9 @@ export default function PlayerDetailPage() {
                   }
                   won={compareData.won}
                   played={compareData.played}
+                  rivalLevel={player.official_level ?? player.declared_level}
+                  rivalWinPct={winPct}
+                  rivalWon={won}
                 />
               </div>
             ) : (

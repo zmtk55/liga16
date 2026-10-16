@@ -158,6 +158,24 @@ export const pairs: Pair[] = [
   { id: 'pair-6', tournament_id: 't-3', category_id: 'cat-8', name: 'Herrera / Montes', player1_id: 'p-5', player2_id: 'p-7', seed: 2 },
   { id: 'pair-7', tournament_id: 't-1', category_id: 'cat-1', name: 'Fuentes / Rojas', player1_id: 'p-1', player2_id: 'p-2', seed: null },
   { id: 'pair-8', tournament_id: 't-1', category_id: 'cat-1', name: 'Lira / Valle', player1_id: 'p-9', player2_id: 'p-4', seed: null },
+  // Las parejas que jugan los partidos del seed pero que faltaban aquí: sin
+  // inscripción, `computeStandings` descartaba el partido entero (el rival no
+  // resolvía) y la tabla de posiciones mostraba menos PJ de los que realmente
+  // jugó el equipo —el bracket y el conteo de "jugados" usaban `pair_id` y
+  // quedaban en 0. Ahora cada lado de cada partido apunta a una pareja real.
+  { id: 'pair-9', tournament_id: 't-3', category_id: 'cat-7', name: 'Garza / Quintana', player1_id: 'p-6', player2_id: 'p-8', seed: 5 },
+  { id: 'pair-10', tournament_id: 't-3', category_id: 'cat-7', name: 'Ordóñez / Peña', player1_id: 'p-15', player2_id: 'p-16', seed: 6 },
+  { id: 'pair-11', tournament_id: 't-3', category_id: 'cat-8', name: 'Rocha / Vidal', player1_id: 'p-13', player2_id: 'p-14', seed: 3 },
+  { id: 'pair-12', tournament_id: 't-3', category_id: 'cat-8', name: 'Bautista / Lozano', player1_id: 'p-17', player2_id: 'p-18', seed: 4 },
+  { id: 'pair-13', tournament_id: 't-1', category_id: 'cat-3', name: 'Herrera / Montes', player1_id: 'p-5', player2_id: 'p-7', seed: null },
+  { id: 'pair-14', tournament_id: 't-1', category_id: 'cat-3', name: 'Bautista / Lozano', player1_id: 'p-17', player2_id: 'p-18', seed: null },
+  { id: 'pair-15', tournament_id: 't-2', category_id: 'cat-6', name: 'Anaya / Cervantes', player1_id: 'p-11', player2_id: 'p-12', seed: null },
+  { id: 'pair-16', tournament_id: 't-2', category_id: 'cat-6', name: 'Lara / Pineda', player1_id: 'p-19', player2_id: 'p-20', seed: null },
+  // Parejas sin jugador en el directorio: siguen siendo "inscritas" (su
+  // partido cuenta para el rival sí registrado) pero no aparecen en el
+  // directorio de jugadores. Son las únicas que pueden quedar así.
+  { id: 'pair-17', tournament_id: 't-1', category_id: 'cat-2', name: 'Montoya / Palau', player1_id: '' as UUID, player2_id: '' as UUID, seed: null },
+  { id: 'pair-18', tournament_id: 't-1', category_id: 'cat-2', name: 'Rivas / Ong', player1_id: '' as UUID, player2_id: '' as UUID, seed: null },
 ];
 
 // Los partidos usan SIEMPRE nombres de parejas de `teams` (o `pair_id` de
@@ -170,44 +188,44 @@ export const matches: Match[] = [
   // 1ra · Masculino
   { id: 'm-1', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Varonil',
     round: 'Ronda 3', court_name: 'Cancha 1', scheduled_at: '2026-09-26T18:00:00Z', status: 'finished',
-    side_a: { pair_id: null, pair_name: 'Fuentes / Rojas' },
-    side_b: { pair_id: null, pair_name: 'Lira / Valle' },
+    side_a: { pair_id: 'pair-1', pair_name: 'Fuentes / Rojas' },
+    side_b: { pair_id: 'pair-2', pair_name: 'Lira / Valle' },
     sets: [{ a: 6, b: 4 }, { a: 6, b: 3 }], winner: 'a' },
   // Desempate: 1-1 y el tercero va a 10 con diferencia 2. Antes se guardaba
   // como 7-6, que es un set normal y no un super tie-break.
   { id: 'm-2', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Varonil',
     round: 'Ronda 4', court_name: 'Cancha 1', scheduled_at: '2026-09-26T19:30:00Z', status: 'finished',
-    side_a: { pair_id: null, pair_name: 'Lira / Valle' },
-    side_b: { pair_id: null, pair_name: 'Fuentes / Rojas' },
+    side_a: { pair_id: 'pair-2', pair_name: 'Lira / Valle' },
+    side_b: { pair_id: 'pair-1', pair_name: 'Fuentes / Rojas' },
     sets: [{ a: 4, b: 6 }, { a: 6, b: 2 }, { a: 10, b: 8 }], winner: 'a' },
   { id: 'm-3', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Varonil',
     round: 'Ronda 5', court_name: 'Cancha 1', scheduled_at: '2026-09-26T21:00:00Z', status: 'scheduled',
-    side_a: { pair_id: null, pair_name: 'Fuentes / Rojas' },
-    side_b: { pair_id: null, pair_name: 'Lira / Valle' },
+    side_a: { pair_id: 'pair-1', pair_name: 'Fuentes / Rojas' },
+    side_b: { pair_id: 'pair-2', pair_name: 'Lira / Valle' },
     sets: [], winner: null },
 
   // 2da · Femenino
   { id: 'm-4', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Femenil',
     round: 'Ronda 3', court_name: 'Cancha 2', scheduled_at: '2026-09-26T18:00:00Z', status: 'finished',
-    side_a: { pair_id: null, pair_name: 'Camacho / Suárez' },
-    side_b: { pair_id: null, pair_name: 'Rocha / Vidal' },
+    side_a: { pair_id: 'pair-5', pair_name: 'Camacho / Suárez' },
+    side_b: { pair_id: 'pair-11', pair_name: 'Rocha / Vidal' },
     sets: [{ a: 6, b: 2 }, { a: 6, b: 4 }], winner: 'a' },
   { id: 'm-5', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Femenil',
     round: 'Ronda 4', court_name: 'Cancha 3', scheduled_at: '2026-09-26T19:30:00Z', status: 'scheduled',
-    side_a: { pair_id: null, pair_name: 'Rocha / Vidal' },
-    side_b: { pair_id: null, pair_name: 'Camacho / Suárez' },
+    side_a: { pair_id: 'pair-11', pair_name: 'Rocha / Vidal' },
+    side_b: { pair_id: 'pair-5', pair_name: 'Camacho / Suárez' },
     sets: [], winner: null },
 
   // 2da · Masculino
   { id: 'm-6', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Varonil',
     round: 'Ronda 4', court_name: 'Cancha 4', scheduled_at: '2026-09-26T19:30:00Z', status: 'finished',
-    side_a: { pair_id: null, pair_name: 'Garza / Quintana' },
-    side_b: { pair_id: null, pair_name: 'Ordóñez / Peña' },
+    side_a: { pair_id: 'pair-9', pair_name: 'Garza / Quintana' },
+    side_b: { pair_id: 'pair-10', pair_name: 'Ordóñez / Peña' },
     sets: [{ a: 4, b: 6 }, { a: 6, b: 3 }], winner: 'a' },
   { id: 'm-7', tournament_id: 't-3', tournament_name: 'Reforma Relámpago 2026', category_name: 'Novatos Varonil',
     round: 'Ronda 5', court_name: 'Cancha 4', scheduled_at: '2026-09-26T21:00:00Z', status: 'scheduled',
-    side_a: { pair_id: null, pair_name: 'Ordóñez / Peña' },
-    side_b: { pair_id: null, pair_name: 'Garza / Quintana' },
+    side_a: { pair_id: 'pair-10', pair_name: 'Ordóñez / Peña' },
+    side_b: { pair_id: 'pair-9', pair_name: 'Garza / Quintana' },
     sets: [], winner: null },
 
   // 3ra · Femenino

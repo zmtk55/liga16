@@ -234,10 +234,10 @@ export default function AdminTournaments() {
                     <CardShell banner={t.cover_url} bannerAlt={`Cubierta del torneo ${t.name}`} className="relative">
                       {t.cover_url && (
                         <>
-                          <h3 className="absolute left-4 top-4 z-10 line-clamp-1 text-base font-bold text-white drop-shadow-sm">
+                          <h3 className="absolute inset-inline-start-4 top-4 z-10 line-clamp-1 text-base font-bold text-white drop-shadow-sm">
                             {t.name}
                           </h3>
-                          <div className="absolute right-4 top-4 z-10">
+                          <div className="absolute inset-inline-end-4 top-4 z-10">
                             <TournamentStatusBadge status={t.status} />
                           </div>
                         </>

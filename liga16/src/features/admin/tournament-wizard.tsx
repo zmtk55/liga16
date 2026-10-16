@@ -24,7 +24,13 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripVertical, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -161,17 +167,29 @@ function SortablePairCard({
         </Button>
       </div>
       {groups.length > 1 && (
-        <Select value={currentGroup} onValueChange={onReassign}>
-          <SelectTrigger className="h-6 border-none bg-transparent px-1 text-xs text-muted-foreground shadow-none" aria-label={`Mover ${name} a otro grupo`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 max-w-40 w-full justify-between truncate px-1 text-xs text-muted-foreground hover:text-foreground"
+              aria-label={`Mover ${name} a otro grupo`}
+            >
+              <span className="truncate">{currentGroup}</span>
+              <ChevronDown className="ms-1 h-3 w-3 shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
             {groups.map((g) => (
-              <SelectItem key={g} value={g}>{g}{g === currentGroup ? " (actual)" : ""}</SelectItem>
+              <DropdownMenuItem key={g} onClick={() => onReassign(g)}>
+                {g}
+                {g === currentGroup ? " (actual)" : ""}
+              </DropdownMenuItem>
             ))}
-            <SelectItem value="__pool__">Sin grupo</SelectItem>
-          </SelectContent>
-        </Select>
+            <DropdownMenuItem onClick={() => onReassign("__pool__")}>Sin grupo</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
@@ -830,17 +848,17 @@ teams.forEach((t) => {
                 <Label id="lbl-canchas-disponibles">Canchas disponibles ({courts.length})</Label>
                 <div className="flex flex-wrap gap-2" role="group" aria-labelledby="lbl-canchas-disponibles">
 {courts.map((c) => (
-                      <Badge key={c.id} variant="secondary" className="gap-1 py-1.5 pl-3 pr-1.5">
+                      <Badge key={c.id} variant="secondary" className="gap-1 py-1.5 ps-3 pe-1.5">
                         {c.name}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-4 w-4"
+                          className="h-6 w-6"
                           onClick={() => removeCourt(c.id)}
                           aria-label={`Quitar ${c.name}`}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3.5 w-3.5" />
                         </Button>
                       </Badge>
                     ))}
@@ -855,7 +873,7 @@ teams.forEach((t) => {
                     className="max-w-xs"
                   />
                   <Button type="button" variant="outline" onClick={addCourt} disabled={saving || !newCourt.trim()}>
-                    <Plus className="h-4 w-4 mr-1" /> Añadir
+                    <Plus className="h-4 w-4 ms-1" /> Añadir
                   </Button>
                 </div>
               </div>
@@ -985,7 +1003,7 @@ teams.forEach((t) => {
                       Si está en «Sí», el tie-break acaba cuando alguien va ganando por 2; si no, sigue hasta el punto exacto.
                     </p>
                   </div>
-                  </div>
+                </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   Si no cambias nada, los valores de arriba ya quedan bien puestos: Liga16 4TA/5TA/6TA/SUMA9
                   ordena por <strong>% Puntos</strong> y usa tie-break a <strong>10 pts</strong> (super TB);
@@ -1107,7 +1125,7 @@ teams.forEach((t) => {
                       onClick={commitDraft}
                       disabled={!draft.player1.trim() || !draft.player2.trim() || !draft.division}
                     >
-                      <Plus className="h-4 w-4 mr-1" /> Agregar a la lista
+                      <Plus className="h-4 w-4 ms-1" /> Agregar a la lista
                     </Button>
                   </div>
                 </div>
@@ -1195,13 +1213,10 @@ teams.forEach((t) => {
                     {hasDraft && (
                       <div className="flex flex-wrap gap-2">
                         <Button onClick={applyDraft} className="bg-primary hover:bg-primary/90">
-                          <Check className="h-4 w-4 mr-1" /> Aplicar sorteo
+                          <Check className="h-4 w-4 me-1" /> Aplicar sorteo
                         </Button>
                         <Button variant="destructive" onClick={discardDraft}>
-                          <X className="h-4 w-4 mr-1" /> Descartar borrador
-                        </Button>
-                        <Button variant="outline" onClick={handleDraw}>
-                          <RotateCcw className="h-4 w-4 mr-1" /> Generar otro borrador
+                          <X className="h-4 w-4 me-1" /> Descartar borrador
                         </Button>
                       </div>
                     )}
@@ -1218,7 +1233,7 @@ teams.forEach((t) => {
                             <RotateCcw className="h-3 w-3 text-amber-600" />
                             <span>
                               Sorteo #{history.length - i} — {h.length} grupos, {h.reduce((a, g) => a + g.pairIds.length, 0)} equipos
-                              {i === 0 && <span className="ml-2 text-xs text-success">(más reciente)</span>}
+                              {i === 0 && <span className="ms-2 text-xs text-success">(más reciente)</span>}
                             </span>
                           </Button>
                         ))}
@@ -1241,14 +1256,14 @@ teams.forEach((t) => {
                   disabled={teams.length < 2 || hasDraft}
                   title={teams.length < 2 ? "Necesitas al menos 2 equipos" : hasDraft ? "Aplica o descarta el borrador actual primero" : undefined}
                 >
-                  <Dice5 className="h-4 w-4 mr-1" /> {hasDraft ? "Generar otro borrador" : "Sortear al azar"}
+                  <Dice5 className="h-4 w-4 ms-1" /> {hasDraft ? "Generar otro borrador" : "Sortear al azar"}
                 </Button>
                 <Button type="button" variant="outline" onClick={addGroupManual} disabled={teams.length === 0}>
-                  <Plus className="h-4 w-4 mr-1" /> Crear grupo vacío
+                  <Plus className="h-4 w-4 ms-1" /> Crear grupo vacío
                 </Button>
                 {groups.length > 0 && (
                   <Button type="button" variant="outline" size="sm" onClick={() => { if (groups.length > 0) { setHistory((prev) => [groups, ...prev.slice(0, 9)]); setGroups([]); } }}>
-                    <RotateCcw className="h-3.5 w-3.5 mr-1" /> Vaciar grupos
+                    <RotateCcw className="h-3.5 w-3.5 ms-1" /> Vaciar grupos
                   </Button>
                 )}
                 {teams.length < 2 && (
@@ -1348,7 +1363,7 @@ teams.forEach((t) => {
           <ChevronLeft className="h-4 w-4" /> Anterior
         </Button>
         {step < STEPS.length - 1 ? (
-          <div className="text-right">
+          <div className="text-end">
             <Button onClick={next} disabled={!canAdvance}>
               Siguiente <ChevronRight className="h-4 w-4" />
             </Button>
@@ -1466,7 +1481,7 @@ function CoverUpload({
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           )}
-          <div className="absolute right-2 top-2 flex gap-1.5">
+          <div className="absolute inset-inline-end-2 top-2 flex gap-1.5">
             <Button
               type="button"
               variant="secondary"

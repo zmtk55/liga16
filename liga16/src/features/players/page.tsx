@@ -4,10 +4,9 @@ import { db } from "@/lib/data";
 import { buildDirectoryStats, type DirStats } from "@/lib/data/record-stats";
 import type { PlayerProfile } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
-import { CardShell, CardIdentity, CardFooterStrip, CardStat } from "@/components/cards/card-kit";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PlayerCard, PlayerCompactRow } from "@/components/players/player-card";
 import { PlayerAvatar } from "@/components/cards/card-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHero } from "@/components/page-hero";
@@ -259,37 +258,13 @@ export default function PlayersPage() {
           {filtered.map((p) => {
             const st = stats?.[p.id];
             return (
-              <Link key={p.id} to={`/jugadores/${p.id}`} className="group block focus:outline-none">
-                <CardShell accent className="h-full">
-                  <CardContent className="p-4">
-                    <CardIdentity
-                      lead={<PlayerAvatar name={p.display_name} photoUrl={p.photo_url} className="h-11 w-11" />}
-                      title={p.display_name}
-                      meta={
-                        [p.city || "", divisions[p.id]]
-                          .filter(Boolean)
-                          .join(" · ") || undefined
-                      }
-                      end={
-                        st && st.played > 0 ? (
-                          <Badge variant="secondary" className="shrink-0 tabular-nums">
-                            {winPctOf(p)}%
-                          </Badge>
-                        ) : undefined
-                      }
-                    />
-                  </CardContent>
-                  <CardFooterStrip
-                    stats={
-                      <>
-                        <CardStat value={levelOf(p).toFixed(1)} label="Nivel" />
-                        <CardStat value={st ? st.played : "—"} label="Partidos" />
-                        <CardStat value={st && st.played > 0 ? `${st.won}–${st.played - st.won}` : "—"} label="Récord" />
-                      </>
-                    }
-                  />
-                </CardShell>
-              </Link>
+              <PlayerCard
+                key={p.id}
+                player={p}
+                played={st?.played}
+                won={st?.won}
+                division={divisions[p.id]}
+              />
             );
           })}
         </div>
@@ -299,21 +274,13 @@ export default function PlayersPage() {
           {filtered.map((p) => {
             const st = stats?.[p.id];
             return (
-              <Link
+              <PlayerCompactRow
                 key={p.id}
-                to={`/jugadores/${p.id}`}
-                className="group flex items-center gap-2.5 rounded-xl border bg-card p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
-              >
-                <PlayerAvatar name={p.display_name} photoUrl={p.photo_url} className="h-9 w-9 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold leading-tight">{p.display_name}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {st && st.played > 0
-                      ? `${st.won}–${st.played - st.won} · ${winPctOf(p)}%`
-                      : `${levelOf(p).toFixed(1)} lvl`}
-                  </p>
-                </div>
-              </Link>
+                player={p}
+                played={st?.played}
+                won={st?.won}
+                division={divisions[p.id]}
+              />
             );
           })}
         </div>

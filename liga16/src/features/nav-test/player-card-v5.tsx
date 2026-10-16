@@ -10,14 +10,14 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { initials, sexLabel, winRate } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
-import type { PlayerCardProps } from "./player-card";
+import type { PlayerCardProps } from "@/components/players/player-card";
 import {
   FavStar,
   PlayerCardCompareBack,
   divisionFromLevel,
-} from "./player-card";
+} from "@/components/players/player-card";
 
-export function PlayerCardV5({ player, played, won, onOpen }: PlayerCardProps) {
+export function PlayerCardV5({ player, played, won }: PlayerCardProps) {
   const [flipped, setFlipped] = useState(false);
   const level = player.official_level ?? player.declared_level;
   const categoria = divisionFromLevel(level);
@@ -129,13 +129,7 @@ export function PlayerCardV5({ player, played, won, onOpen }: PlayerCardProps) {
                   "h-6 shrink-0 rounded-full px-2.5 font-semibold text-foreground",
                   "hover:bg-foreground/10 hover:text-foreground",
                 )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onOpen) {
-                    buzz("select");
-                    onOpen(player);
-                  }
-                }}
+                onClick={(e) => e.stopPropagation()}
               >
                 <Link
                   to={`/jugadores/${player.id}`}

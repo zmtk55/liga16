@@ -36,10 +36,7 @@ import { cn } from "@/lib/utils";
 import { sexLabel, winRate } from "@/lib/format";
 import { teamCategoryLabel } from "@/lib/categories";
 import { buzz } from "@/lib/haptics";
-// La estrella vive en el playground porque nació allí; ya es parte del
-// sistema (la usa la galería de jugadores) y duplicarla sería peor que
-// importar el original.
-import { FavStar } from "@/features/nav-test/player-card";
+import { FavStar } from "@/components/players/player-card";
 import type { Team } from "@/types";
 
 /** La pareja son DOS líneas ("Fuentes" / "Rojas"), igual que `CardIdentity`

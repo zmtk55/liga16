@@ -1,0 +1,14 @@
+/* transitions-dev — barrel. Importado desde main.tsx una sola vez.
+   Los tokens :root ya están en index.css; los snippets viven acá abajo. */
+@import "./01-card-resize.css";
+@import "./02-number-pop-in.css";
+@import "./03-notification-badge.css";
+@import "./04-text-states-swap.css";
+@import "./05-menu-dropdown.css";
+@import "./06-modal.css";
+@import "./07-panel-reveal.css";
+@import "./08-page-side-by-side.css";
+@import "./09-icon-swap.css";
+@import "./10-success-check.css";
+@import "./11-avatar-group-hover.css";
+@import "./12-error-state-shake.css";

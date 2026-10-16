@@ -134,6 +134,48 @@ function SortablePair({
 }
 
 /**
+ * Selector compacto de grupo: un botón fantasma con chevron en lugar de un
+ * <Select> completo. Cada equipo tenía su propio Select (una fila entera por
+ * pareja) y, con varios grupos, el tab era una pared de controles idénticos que
+ * no se distinguía del contenido. Un dropdown del mismo tamaño que el nombre
+ * del grupo actual conserva la accesibilidad sin ensuciar la tarjeta.
+ */
+function GroupPicker({
+  current,
+  groups,
+  onChange,
+}: {
+  current: string;
+  groups: Group[];
+  onChange: (target: string) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 max-w-40 truncate text-xs text-muted-foreground hover:text-foreground"
+          aria-label={`Grupo actual: ${current}`}
+        >
+          <span className="truncate">{current}</span>
+          <ChevronDown className="ms-1 h-3 w-3 shrink-0" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        {groups.map((g) => (
+          <DropdownMenuItem key={g.name} onClick={() => onChange(g.name)}>
+            {g.name}
+            {g.name === current ? " (actual)" : ""}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuItem onClick={() => onChange("__pool__")}>Sin grupo</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
  * Bracket de UNA categoría: siembra por puntos, con el primero plantado arriba.
  *
  * No guarda nada: se deriva de los resultados que el admin ya capturó, así que
@@ -298,22 +340,22 @@ function CategoryBracket({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5"
+                className="h-7 w-7"
                 onClick={() => mover(p.pairId, -1)}
                 disabled={i === 0}
                 aria-label={`Subir a ${p.name} en la siembra`}
               >
-                <ChevronDown className="h-3 w-3 rotate-180" />
+                <ChevronDown className="h-4 w-4 rotate-180" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5"
+                className="h-7 w-7"
                 onClick={() => mover(p.pairId, 1)}
                 disabled={i === clasificadas.length - 1}
                 aria-label={`Bajar a ${p.name} en la siembra`}
               >
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -326,7 +368,7 @@ function CategoryBracket({
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {ronda === bracket.rounds ? "Final" : `Ronda ${ronda}`}
             </p>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {bracket.matches
                 .filter((m) => m.round === ronda)
                 .map((m) => {
@@ -1020,7 +1062,7 @@ export default function AdminTournamentDetail() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" disabled={statusSaving}>
                   <TournamentStatusBadge status={tournament.status} />
-                  <ChevronDown className="h-3.5 w-3.5 ml-1" />
+                  <ChevronDown className="h-3.5 w-3.5 ms-1" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1030,7 +1072,7 @@ export default function AdminTournamentDetail() {
                     onClick={() => setChangingStatus({ target: tr.target })}
                     disabled={statusSaving}
                   >
-                    <Check className="h-3.5 w-3.5 mr-2" />
+                    <Check className="h-3.5 w-3.5 ms-2" />
                     {tr.label}
                   </DropdownMenuItem>
                 ))}
@@ -1115,16 +1157,16 @@ return (
                           key={m.id}
                           type="button"
                           variant="outline"
-                          className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:border-primary/40 hover:bg-muted/40 justify-start"
+                          className="flex w-full items-center gap-3 px-4 py-3 text-start text-sm hover:border-primary/40 hover:bg-muted/40 justify-start"
                           onClick={() => setEditingMatchId(m.id)}
                         >
-                          <div className="flex flex-col items-start gap-1 shrink-0 w-28">
-                            <Badge variant="secondary" className="w-full text-xs font-normal">{groupName}</Badge>
-                            <Badge variant="outline" className="w-full text-xs font-normal">{jornadaNum}</Badge>
+                          <div className="flex min-w-0 flex-col items-start gap-1">
+                            <Badge variant="secondary" className="max-w-full truncate text-xs font-normal">{groupName}</Badge>
+                            <Badge variant="outline" className="text-xs font-normal">{jornadaNum}</Badge>
                           </div>
-                          <div className="flex flex-col items-start gap-1 shrink-0 w-20">
+                          <div className="flex min-w-0 flex-col items-start gap-1">
                             <span className="text-xs tabular-nums text-muted-foreground">{timeDisplay}</span>
-                            <Badge variant="secondary" className="w-full text-xs font-normal">{courtDisplay}</Badge>
+                            <Badge variant="secondary" className="text-xs font-normal">{courtDisplay}</Badge>
                           </div>
                           <span className={`flex-1 truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
                             {m.side_a.pair_name} <span className="text-muted-foreground"> vs </span> {m.side_b.pair_name}
@@ -1193,7 +1235,7 @@ return (
                   </div>
                 )}
                 <Button onClick={handleAddPair} disabled={saving || !newPairP1.trim() || !newPairP2.trim()}>
-                  <UserPlus className="h-4 w-4 mr-1" /> Registrar equipo
+                  <UserPlus className="h-4 w-4 ms-1" /> Registrar equipo
                 </Button>
               </div>
             </CardContent>
@@ -1233,15 +1275,15 @@ return (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="pl-4">Equipo</TableHead>
+                      <TableHead className="ps-4">Equipo</TableHead>
                       <TableHead className="hidden sm:table-cell">Categoría</TableHead>
-                      <TableHead className="text-right pr-4">Acciones</TableHead>
+                      <TableHead className="text-end pe-4">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPairs.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell className="pl-4 font-medium">{p.name}</TableCell>
+                        <TableCell className="ps-4 font-medium">{p.name}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                           {p.category_id ? (
                             <Badge variant="secondary">{catNameById.get(p.category_id) ?? "—"}</Badge>
@@ -1249,7 +1291,7 @@ return (
                             <span className="text-xs text-muted-foreground">{SIN_CATEGORIA}</span>
                           )}
                         </TableCell>
-                        <TableCell className="pr-4 text-right space-x-1">
+                        <TableCell className="pe-4 text-end space-x-1">
                           <Button variant="ghost" size="sm" onClick={() => openEditPair(p)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -1270,14 +1312,14 @@ return (
         <TabsContent value="grupos" className="space-y-4 pt-2">
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={handleDraw} disabled={!pairs || pairs.length < 2}>
-              <Dice5 className="h-4 w-4 mr-1" /> Sortear grupos al azar
+              <Dice5 className="h-4 w-4 ms-1" /> Sortear grupos al azar
             </Button>
             <Button variant="outline" onClick={addGroup} disabled={groups.length >= 10}>
-              <Plus className="h-4 w-4 mr-1" /> Añadir grupo
+              <Plus className="h-4 w-4 ms-1" /> Añadir grupo
             </Button>
             {groups.length > 0 && (
               <Button variant="outline" onClick={() => setGroups([])}>
-                <RotateCcw className="h-4 w-4 mr-1" /> Vaciar grupos
+                <RotateCcw className="h-4 w-4 ms-1" /> Vaciar grupos
               </Button>
             )}
             {groups.length > 0 && (
@@ -1292,7 +1334,7 @@ return (
                 }}
                 disabled={saving}
               >
-                <CalendarClock className="h-4 w-4 mr-1" /> Generar calendario
+                <CalendarClock className="h-4 w-4 ms-1" /> Generar calendario
               </Button>
             )}
           </div>
@@ -1324,14 +1366,11 @@ return (
                         <div key={p.id} className="space-y-1">
                           <SortablePair id={p.id} name={p.name} onRemove={() => handleRemovePair(p.id)} />
                           {groups.length > 0 && (
-                            <Select value="__pool__" onValueChange={(v) => reassignPair(p.id, v)}>
-                              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {groups.map((g) => (
-                                  <SelectItem key={g.name} value={g.name}>→ {g.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <GroupPicker
+                              current="__pool__"
+                              groups={groups}
+                              onChange={(v) => reassignPair(p.id, v)}
+                            />
                           )}
                         </div>
                       ))}
@@ -1339,11 +1378,8 @@ return (
                   </CardContent>
                 </Card>
               )}
-              <div
-                className={`grid gap-4 ${
-                  groups.length <= 2 ? "sm:grid-cols-2" : groups.length <= 4 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"
-                }`}
-              >
+              <div className="overflow-x-auto">
+              <div className={`grid gap-4 ${groups.length <= 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
                 {groups.map((g, gi) => (
                   <Card key={g.name}>
                     <CardHeader className="pb-2">
@@ -1365,19 +1401,11 @@ return (
                         {g.pairIds.map((id) => (
                           <div key={id} className="space-y-1">
                             <SortablePair id={id} name={nameById[id] ?? id} onRemove={() => handleRemovePair(id)} />
-                            <Select value={g.name} onValueChange={(v) => reassignPair(id, v)}>
-                              <SelectTrigger className="h-6 text-xs text-muted-foreground" aria-label={`Reasignar ${nameById[id]}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {groups.map((other) => (
-                                  <SelectItem key={other.name} value={other.name}>
-                                    {other.name}{other.name === g.name ? " (actual)" : ""}
-                                  </SelectItem>
-                                ))}
-                                <SelectItem value="__pool__">Sin grupo</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <GroupPicker
+                              current={g.name}
+                              groups={groups}
+                              onChange={(v) => reassignPair(id, v)}
+                            />
                           </div>
                         ))}
                       </div>
@@ -1385,6 +1413,7 @@ return (
                   </Card>
                 ))}
               </div>
+            </div>
             </SortableContext>
           </DndContext>
         </TabsContent>
@@ -1501,7 +1530,7 @@ return (
                   setMatchRound("all");
                 }}
               >
-                <div className="ml-auto flex items-center gap-1 rounded-lg border p-1">
+                <div className="ms-auto flex items-center gap-1 rounded-lg border p-1">
                   {(["lista", "timeline"] as const).map((v) => (
                     <Button key={v} type="button" size="sm" variant={calView === v ? "secondary" : "ghost"} className="h-7 text-xs capitalize" onClick={() => setCalView(v)}>
                       {v}
@@ -1526,11 +1555,11 @@ return (
                           <div key={day} className="overflow-x-auto rounded-xl border">
                             <p className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold">
                               {new Date(`${day}T12:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
-                              <span className="ml-2 text-xs font-normal text-muted-foreground">{dayMatches.length} partidos</span>
+                              <span className="ms-2 text-xs font-normal text-muted-foreground">{dayMatches.length} partidos</span>
                             </p>
                             <table className="w-full min-w-160 text-sm">
                               <thead>
-                                <tr className="border-b text-left text-xs text-muted-foreground">
+                                <tr className="border-b text-start text-xs text-muted-foreground">
                                   <th className="w-16 px-3 py-2 font-medium">Hora</th>
                                   {courtCols.map((c) => (
                                     <th key={c} className="px-3 py-2 font-medium">{c}</th>
@@ -1550,7 +1579,7 @@ return (
                                           <Button
                                             type="button"
                                             variant={done ? "secondary" : "outline"}
-                                            className="w-full flex-col items-start gap-0.5 px-2.5 py-1.5 text-left text-xs hover:border-primary/40 hover:bg-muted/40"
+                                            className="w-full flex-col items-start gap-0.5 px-2.5 py-1.5 text-start text-xs hover:border-primary/40 hover:bg-muted/40"
                                             onClick={() => setEditingMatchId(m.id)}
                                           >
                                             <span className={`block max-w-full truncate font-normal ${done ? "line-through decoration-border" : ""}`}>
@@ -1599,7 +1628,7 @@ return (
                             <Card key={m.id} className="overflow-hidden">
                               <CardContent className="flex items-center gap-3 px-3 py-2 text-sm">
                                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                                  <div className="flex w-14 shrink-0 flex-col items-center rounded-md bg-muted/60 px-1 py-1">
+                                  <div className="flex shrink-0 flex-col items-center rounded-md bg-muted/60 px-1 py-1">
                                     <span className="text-sm font-bold tabular-nums leading-none">{m.scheduled_at ? localTimeHHMM(m.scheduled_at) : "--:--"}</span>
                                     <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{m.court_name ?? "S/C"}</span>
                                   </div>
@@ -1612,17 +1641,21 @@ return (
                                     </p>
                                   </div>
                                 </div>
-                                {(scheduleIssues.get(m.id) ?? []).map((issue, i) => (
-                                  <Badge key={i} variant="outline" className="border-destructive/50 text-destructive">
-                                    {issue.label}
-                                  </Badge>
-                                ))}
-                                <Button variant="ghost" size="sm" onClick={() => openReschedule(m)} aria-label={`Reprogramar ${m.side_a.pair_name} contra ${m.side_b.pair_name}`}>
-                                  <CalendarClock className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
-                                  {m.status === "finished" ? "Ver" : "Editar"}
-                                </Button>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  {(scheduleIssues.get(m.id) ?? []).map((issue, i) => (
+                                    <Badge key={i} variant="outline" className="border-destructive/50 text-destructive">
+                                      {issue.label}
+                                    </Badge>
+                                  ))}
+                                  <div className="flex gap-1">
+                                    <Button variant="ghost" size="sm" onClick={() => openReschedule(m)} aria-label={`Reprogramar ${m.side_a.pair_name} contra ${m.side_b.pair_name}`}>
+                                      <CalendarClock className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
+                                      {m.status === "finished" ? "Ver" : "Editar"}
+                                    </Button>
+                                  </div>
+                                </div>
                               </CardContent>
                             </Card>
                           ))}
@@ -1839,7 +1872,7 @@ return (
                           setScheduleConfig((c) => ({ ...c, dayInput: "" }));
                         }}
                       >
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Añadir día
+                        <Plus className="h-3.5 w-3.5 ms-1" /> Añadir día
                       </Button>
                     </div>
                   </>
@@ -2060,7 +2093,7 @@ function MatchResultDialog({
               onClick={() => setSets((arr) => [...arr, { a: "", b: "" }])}
               disabled={sets.length >= 5}
             >
-              <Plus className="h-4 w-4 mr-1" /> Añadir set
+              <Plus className="h-4 w-4 ms-1" /> Añadir set
             </Button>
 {winner && (
                 <Badge variant="default">
@@ -2184,7 +2217,7 @@ function GroupStandingsCard({
           )}
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setExpanded((e) => !e)}>
             {expanded ? "Ver básico" : "Ver completa"}
-            <ChevronDown className={`ml-1 h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+            <ChevronDown className={`ms-1 h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
           </Button>
         </CardTitle>
       </CardHeader>
@@ -2192,17 +2225,17 @@ function GroupStandingsCard({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="pl-4 w-8">#</TableHead>
+              <TableHead className="ps-4 w-8">#</TableHead>
               <TableHead>Equipo</TableHead>
               {isLiga16 ? (
                 // Columnas Liga16: PJ, PG, %PG, %PTS, JERARQUIA
                 !expanded && (
                   <>
-                    <TableHead className="text-right" title="Partidos jugados">PJ</TableHead>
-                    <TableHead className="text-right" title="Partidos ganados">PG</TableHead>
-                    <TableHead className="text-right" title="Porcentaje de partidos ganados">%PG</TableHead>
-                    <TableHead className="text-right" title="Puntos ganados sobre el total de puntos jugados">%PTS</TableHead>
-                    <TableHead className="text-right pr-4" title="Posición en la tabla">Pos</TableHead>
+                    <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
+                    <TableHead className="text-end" title="Partidos ganados">PG</TableHead>
+                    <TableHead className="text-end" title="Porcentaje de partidos ganados">%PG</TableHead>
+                    <TableHead className="text-end" title="Puntos ganados sobre el total de puntos jugados">%PTS</TableHead>
+                    <TableHead className="text-end pe-4" title="Posición en la tabla">Pos</TableHead>
                   </>
                 )
               ) : (
@@ -2210,25 +2243,25 @@ function GroupStandingsCard({
                 !expanded && (
                   <>
                     <TableHead className="text-center w-28" title="Últimos partidos: G es victoria, D es derrota">Forma</TableHead>
-                    <TableHead className="text-right" title="Partidos jugados">PJ</TableHead>
-                    <TableHead className="text-right" title="Sets ganados - sets perdidos">Sets</TableHead>
-                    <TableHead className="text-right pr-4" title="Puntos acumulados">Pts</TableHead>
+                    <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
+                    <TableHead className="text-end" title="Sets ganados - sets perdidos">Sets</TableHead>
+                    <TableHead className="text-end pe-4" title="Puntos acumulados">Pts</TableHead>
                   </>
                 )
               )}
               {expanded && (
                 <>
                   <TableHead className="text-center w-28" title="Últimos partidos: G es victoria, D es derrota">Forma</TableHead>
-                  <TableHead className="text-right" title="Partidos jugados">PJ</TableHead>
-                  <TableHead className="text-right" title="Partidos ganados">PG</TableHead>
-                  <TableHead className="text-right" title="Partidos perdidos (no puntos: van juntos a PJ y PG)">PP</TableHead>
-                  <TableHead className="text-right" title="Sets ganados">Sets G</TableHead>
-                  <TableHead className="text-right" title="Sets perdidos">Sets P</TableHead>
-                  <TableHead className="text-right" title="Diferencia de sets a favor">Dif sets</TableHead>
-                  <TableHead className="text-right" title="Juegos ganados">Juegos G</TableHead>
-                  <TableHead className="text-right" title="Juegos perdidos">Juegos P</TableHead>
-                  <TableHead className="text-right" title="Diferencia de juegos a favor">Dif juegos</TableHead>
-                  <TableHead className="text-right pr-4" title="Puntos acumulados">Pts</TableHead>
+                  <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
+                  <TableHead className="text-end" title="Partidos ganados">PG</TableHead>
+                  <TableHead className="text-end" title="Partidos perdidos (no puntos: van juntos a PJ y PG)">PP</TableHead>
+                  <TableHead className="text-end" title="Sets ganados">Sets G</TableHead>
+                  <TableHead className="text-end" title="Sets perdidos">Sets P</TableHead>
+                  <TableHead className="text-end" title="Diferencia de sets a favor">Dif sets</TableHead>
+                  <TableHead className="text-end" title="Juegos ganados">Juegos G</TableHead>
+                  <TableHead className="text-end" title="Juegos perdidos">Juegos P</TableHead>
+                  <TableHead className="text-end" title="Diferencia de juegos a favor">Dif juegos</TableHead>
+                  <TableHead className="text-end pe-4" title="Puntos acumulados">Pts</TableHead>
                 </>
               )}
             </TableRow>
@@ -2240,23 +2273,23 @@ function GroupStandingsCard({
               const position = row.jerarquia ?? i + 1;
               return (
                 <TableRow key={row.pairId} className={position === 1 ? "bg-primary/5" : ""}>
-                  <TableCell className="pl-4 font-medium">{position}</TableCell>
-                  <TableCell className="font-medium max-w-52 truncate">{nameById[row.pairId] ?? "?"}</TableCell>
+                  <TableCell className="ps-4 font-medium">{position}</TableCell>
+                  <TableCell className="font-medium min-w-0 truncate">{nameById[row.pairId] ?? "?"}</TableCell>
                   {isLiga16 ? (
                     // Vista compacta Liga16
                     !expanded && (
                       <>
-                        <TableCell className="text-right tabular-nums">{row.played}</TableCell>
-                        <TableCell className="text-right tabular-nums text-success">{row.won}</TableCell>
-                        <TableCell className="text-right tabular-nums">
+                        <TableCell className="text-end tabular-nums">{row.played}</TableCell>
+                        <TableCell className="text-end tabular-nums text-success">{row.won}</TableCell>
+                        <TableCell className="text-end tabular-nums">
                           {row.played > 0 ? ((row.won / row.played) * 100).toFixed(1) + "%" : "—"}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
+                        <TableCell className="text-end tabular-nums">
                           {row.gamesFor > 0 || row.gamesAgainst > 0
                             ? ((row.gamesFor / (row.gamesFor + row.gamesAgainst)) * 100).toFixed(1) + "%"
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-right pr-4 font-bold tabular-nums">{position}</TableCell>
+                        <TableCell className="text-end pe-4 font-bold tabular-nums">{position}</TableCell>
                       </>
                     )
                   ) : (
@@ -2279,9 +2312,9 @@ function GroupStandingsCard({
                             ))}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{row.played}</TableCell>
-                        <TableCell className="text-right tabular-nums">{row.setsFor}-{row.setsAgainst}</TableCell>
-                        <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>
+                        <TableCell className="text-end tabular-nums">{row.played}</TableCell>
+                        <TableCell className="text-end tabular-nums">{row.setsFor}-{row.setsAgainst}</TableCell>
+                        <TableCell className="text-end pe-4 font-bold tabular-nums">{row.points}</TableCell>
                       </>
                     )
                   )}
@@ -2303,20 +2336,20 @@ function GroupStandingsCard({
                           ))}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{row.played}</TableCell>
-                      <TableCell className="text-right tabular-nums text-success">{row.won}</TableCell>
-                      <TableCell className="text-right tabular-nums text-destructive">{row.lost}</TableCell>
-                      <TableCell className="text-right tabular-nums">{row.setsFor}</TableCell>
-                      <TableCell className="text-right tabular-nums">{row.setsAgainst}</TableCell>
-                      <TableCell className={`text-right tabular-nums ${difSets > 0 ? "text-success" : difSets < 0 ? "text-destructive" : ""}`}>
+                      <TableCell className="text-end tabular-nums">{row.played}</TableCell>
+                      <TableCell className="text-end tabular-nums text-success">{row.won}</TableCell>
+                      <TableCell className="text-end tabular-nums text-destructive">{row.lost}</TableCell>
+                      <TableCell className="text-end tabular-nums">{row.setsFor}</TableCell>
+                      <TableCell className="text-end tabular-nums">{row.setsAgainst}</TableCell>
+                      <TableCell className={`text-end tabular-nums ${difSets > 0 ? "text-success" : difSets < 0 ? "text-destructive" : ""}`}>
                         {difSets > 0 ? "+" : ""}{difSets}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{row.gamesFor}</TableCell>
-                      <TableCell className="text-right tabular-nums">{row.gamesAgainst}</TableCell>
-                      <TableCell className={`text-right tabular-nums ${difGames > 0 ? "text-success" : difGames < 0 ? "text-destructive" : ""}`}>
+                      <TableCell className="text-end tabular-nums">{row.gamesFor}</TableCell>
+                      <TableCell className="text-end tabular-nums">{row.gamesAgainst}</TableCell>
+                      <TableCell className={`text-end tabular-nums ${difGames > 0 ? "text-success" : difGames < 0 ? "text-destructive" : ""}`}>
                         {difGames > 0 ? "+" : ""}{difGames}
                       </TableCell>
-                      <TableCell className="text-right pr-4 font-bold tabular-nums">{row.points}</TableCell>
+                      <TableCell className="text-end pe-4 font-bold tabular-nums">{row.points}</TableCell>
                     </>
                   )}
                 </TableRow>

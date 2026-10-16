@@ -171,24 +171,19 @@ export default function TournamentDetailPage() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
             <Badge
               variant={tournament.status === "registration_open" ? "default" : "secondary"}
-              className="absolute left-4 top-4 shadow-md"
+              className="absolute inset-inline-start-4 top-4 shadow-md"
             >
               {tournamentStatusLabel[tournament.status]}
             </Badge>
           </div>
         )}
         <div className="space-y-3 p-6 md:p-8">
-        {!tournament.cover_url && (
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{tournament.name}</h1>
             <Badge variant={tournament.status === "registration_open" ? "default" : "secondary"}>
               {tournamentStatusLabel[tournament.status]}
             </Badge>
           </div>
-        )}
-        {tournament.cover_url && (
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{tournament.name}</h1>
-        )}
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <span className="flex items-center gap-1.5 font-medium">
             <CalendarDays className="h-4 w-4 text-primary" />

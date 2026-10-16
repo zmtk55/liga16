@@ -260,46 +260,44 @@ export function computeStandings(
   for (const m of finished) {
     const a = resolve(m.side_a);
     const b = resolve(m.side_b);
-    if (!a || !b || a === b) continue;
-    const rowA = rows.get(a)!;
-    const rowB = rows.get(b)!;
-    rowA.played++;
-    rowB.played++;
+    if (a === b) continue;
+    const rowA = a ? rows.get(a) : null;
+    const rowB = b ? rows.get(b) : null;
+    // Un lado que no es una pareja inscrita (rival externo, par con id ajeno)
+    // NO descarta el partido: el lado registrado sí tiene derecho a su PJ,
+    // sets y puntos. Antes `if (!a || !b) continue` tiraba el partido entero
+    // y el equipo inscrito perdía un resultado que sí jugó —la tabla mostraba
+    // menos PJ de los que había, sin que nada lo indicara.
+    if (!rowA && !rowB) continue;
 
     // sumar juegos/sets de ESTE match
     let matchGamesForA = 0;
     let matchGamesForB = 0;
     for (const s of m.sets) {
-      rowA.setsFor += s.a;
-      rowA.setsAgainst += s.b;
-      rowA.gamesFor += s.a;
-      rowA.gamesAgainst += s.b;
-      rowB.setsFor += s.b;
-      rowB.setsAgainst += s.a;
-      rowB.gamesFor += s.b;
-      rowB.gamesAgainst += s.a;
       matchGamesForA += s.a;
       matchGamesForB += s.b;
     }
 
     const aWon = m.winner === "a";
-    if (aWon) {
-      rowA.won++;
-      rowB.lost++;
-      rowA.form.push("G");
-      rowB.form.push("P");
-    } else {
-      rowB.won++;
-      rowA.lost++;
-      rowB.form.push("G");
-      rowA.form.push("P");
-    }
+    const updateSide = (row: StandingRow | undefined, isA: boolean, won: boolean) => {
+      if (!row) return;
+      row.played++;
+      if (won) row.won++;
+      else row.lost++;
+      row.form.push(won ? "G" : "P");
+      // % de puntos (Liga16): sumar sólo los juegos DE ESTE match.
+      const forThis = isA ? matchGamesForA : matchGamesForB;
+      const againstThis = isA ? matchGamesForB : matchGamesForA;
+      row.pointsFor = (row.pointsFor ?? 0) + forThis;
+      row.pointsTotal = (row.pointsTotal ?? 0) + forThis + againstThis;
+      row.setsFor += isA ? matchGamesForA : matchGamesForB;
+      row.setsAgainst += isA ? matchGamesForB : matchGamesForA;
+      row.gamesFor += isA ? matchGamesForA : matchGamesForB;
+      row.gamesAgainst += isA ? matchGamesForB : matchGamesForA;
+    };
 
-    // % de puntos (Liga16): sumar sólo los juegos DE ESTE match.
-    rowA.pointsFor = (rowA.pointsFor ?? 0) + matchGamesForA;
-    rowA.pointsTotal = (rowA.pointsTotal ?? 0) + matchGamesForA + matchGamesForB;
-    rowB.pointsFor = (rowB.pointsFor ?? 0) + matchGamesForB;
-    rowB.pointsTotal = (rowB.pointsTotal ?? 0) + matchGamesForA + matchGamesForB;
+    updateSide(rowA, true, aWon);
+    updateSide(rowB, false, !aWon);
   }
 
   rows.forEach((r) => {
