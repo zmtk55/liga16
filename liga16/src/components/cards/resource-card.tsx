@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+﻿import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { TournamentCover } from "./card-image";
 interface ResourceCardProps {
   tournament: Tournament;
   badge?: string;
-  description?: string;
   cta?: string;
   to?: string;
   className?: string;
@@ -18,86 +17,84 @@ interface ResourceCardProps {
 export function ResourceCard({
   tournament,
   badge,
-  description,
   cta = "Ver detalle",
   to,
   className,
 }: ResourceCardProps) {
+  const isLive = tournament.status === "in_progress";
+  const price =
+    tournament.price_cents > 0
+      ? formatMoney(tournament.price_cents, tournament.currency)
+      : null;
+
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-card shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 animate-scale-in",
+        "liga16-surface--poster liga16-card liga16-card--lift relative overflow-hidden rounded-xl",
+        "min-h-[14rem] transition-colors",
         className,
       )}
     >
-      {/* Square-dominant image area */}
-      <div className="relative aspect-square w-full overflow-hidden">
-        <TournamentCover tournament={tournament} className="h-full w-full" />
+      <span className="liga16-stripe" aria-hidden />
 
-        {/* Floating status badge */}
-{badge && (
-            <div className="absolute inset-inline-end-3 top-3 z-20 animate-float">
-              <Badge variant="secondary" className="shadow-sm">
+      <div className="relative flex flex-col">
+        {/* Image zone: 4:5 portrait, the poster face */}
+        <div className="relative aspect-[4/5] overflow-hidden">
+          <TournamentCover tournament={tournament} className="h-full w-full" />
+
+          {/* Live dot — top-left, always visible */}
+          {isLive && (
+            <span className="absolute inset-inline-start-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-destructive/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+              </span>
+              En vivo
+            </span>
+          )}
+
+          {/* Status badge — top-right, only when not live and a badge was passed */}
+          {badge && !isLive && (
+            <span className="absolute inset-inline-end-3 top-3 z-20">
+              <Badge variant="secondary" className="rounded-full bg-black/55 text-white backdrop-blur-sm">
                 {badge}
               </Badge>
+            </span>
+          )}
+
+          {/* Hover CTA — desktop only, keyboard safe */}
+          {to && (
+            <div className="absolute inset-0 hidden flex-col items-end justify-end p-3 transition-opacity duration-200 group-hover:flex group-focus-within:flex">
+              <Button
+                asChild
+                size="sm"
+                className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Link to={to}>{cta}</Link>
+              </Button>
             </div>
           )}
-
-          {/* Live indicator pulse */}
-          {tournament.status === "in_progress" && (
-            <div className="absolute inset-inline-start-3 top-3 z-20 flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
-            </span>
-          </div>
-        )}
-
-        {/* Dark hover overlay — visible on mobile (touch), hover-only on desktop.
-            `group-focus-within` va con `group-hover`: sin esto, quien navega con
-            teclado llegaba al enlace y al botón sin verlos (opacidad 0 = invisible,
-            pero seguían siendo tabulables). */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 flex flex-col justify-end p-4">
-          {description && (
-            <p className="mb-3 line-clamp-2 text-sm text-white/90">
-              {description}
-            </p>
-          )}
-          {to ? (
-            <Button asChild size="sm" className="self-start bg-white text-foreground hover:bg-white/90 animate-slide-up">
-              <Link to={to}>{cta}</Link>
-            </Button>
-          ) : (
-            <Button asChild size="sm" className="self-start bg-white text-foreground hover:bg-white/90">
-              <span>{cta}</span>
-            </Button>
-          )}
         </div>
-      </div>
 
-      {/* Footer with metadata and action */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{tournament.name}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {tournament.club_name ?? (tournament.city || "Sede por confirmar")}
+        {/* Body: title + meta + price */}
+        <div className="flex flex-1 flex-col gap-1.5 p-3.5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="truncate text-sm font-bold leading-tight text-surface-inverse-foreground">
+              {tournament.name}
+            </p>
+            {price && (
+              <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-primary">
+                {price}
+              </span>
+            )}
+          </div>
+          <p className="truncate text-xs text-surface-inverse-foreground/60">
+            {tournament.club_name ?? tournament.city ?? "Sede por confirmar"}
+          </p>
+          <p className="truncate text-[11px] uppercase tracking-wide text-surface-inverse-foreground/45">
+            {formatDateRange(tournament.start_date, tournament.end_date)} — {formatLabel[tournament.format] ?? tournament.format}
           </p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className="text-xs text-muted-foreground">
-            {formatDateRange(tournament.start_date, tournament.end_date)}
-          </span>
-          {tournament.price_cents > 0 && (
-            <span className="text-xs font-medium">
-              {formatMoney(tournament.price_cents, tournament.currency)}
-            </span>
-          )}
-        </div>
-        {to && (
-          <Button asChild size="sm" className="sm:hidden">
-            <Link to={to}>{cta}</Link>
-          </Button>
-        )}
       </div>
     </div>
   );
@@ -115,14 +112,10 @@ export function TournamentCard({
   className?: string;
 }) {
   const statusBadge = tournamentStatusLabel[tournament.status];
-  const description =
-    tournament.description ??
-    `${tournament.modality} · ${formatLabel[tournament.format] ?? tournament.format}`;
   return (
     <ResourceCard
       tournament={tournament}
       badge={statusBadge}
-      description={description}
       cta="Ver torneo"
       to={`/torneos/${tournament.slug}`}
       className={className}

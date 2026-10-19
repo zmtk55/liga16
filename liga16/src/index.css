@@ -342,3 +342,175 @@
     transition: background-color 9999s ease-out 0s;
   }
 }
+/* === Liga16 card system: poster-surface cards ===
+   Direction: "póster deportivo". Cards read like Liga16 tournament posters,
+   not like Material cards. The brand surface system (dark poster + one orange
+   stripe) replaces the generic `bg-card / border / shadow-sm` everywhere a card
+   belongs to this product.
+*/
+
+/* 1. Surface system ------------------------------------------------------- */
+.liga16-surface {
+  --surface: var(--card);
+  background-color: var(--surface);
+  color: var(--card-foreground);
+  border: 1px solid hsl(var(--border));
+}
+.liga16-surface--poster {
+  --surface: var(--surface-inverse);
+  background-color: var(--surface);
+  color: var(--surface-inverse-foreground);
+  border: 1px solid var(--surface-inverse-border);
+}
+.liga16-surface--light {
+  --surface: var(--card);
+  background-color: var(--surface);
+  color: var(--card-foreground);
+  border: 1px solid hsl(var(--border));
+}
+
+/* 2. Card shell ----------------------------------------------------------- */
+.liga16-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow   220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, box-shadow;
+}
+.liga16-card--lift:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.18),
+    0 10px 24px -12px hsl(var(--primary) / 0.35),
+    0 4px 8px -6px hsl(0 0% 0% / 0.35);
+  border-color: hsl(var(--primary) / 0.45);
+}
+.liga16-card--lift:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* 3. Brand stripe --------------------------------------------------------- */
+.liga16-stripe {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  background: hsl(var(--primary));
+  opacity: 0.9;
+}
+.liga16-stripe--ghost {
+  opacity: 0.55;
+}
+
+/* 4. Hero numeral --------------------------------------------------------- */
+.liga16-numeral {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: hsl(var(--primary));
+  opacity: 0.16;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* 5. Stat row (the "cifras" strip) --------------------------------------- */
+.liga16-statrow {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 0;
+  border-top: 1px solid hsl(var(--border));
+}
+.liga16-statrow > div {
+  padding: 0.55rem 0.75rem;
+  border-inline-start: 1px solid hsl(var(--border));
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.liga16-statrow .liga16-statrow__v {
+  font-family: var(--font-display);
+  font-size: var(--text-stat);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.liga16-statrow .liga16-statrow__l {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+/* 6. Pair avatar ---------------------------------------------------------- */
+.liga16-pair {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  background: hsl(var(--primary) / 0.14);
+  color: hsl(var(--primary-strong));
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: -0.02em;
+  border: 1px solid hsl(var(--primary) / 0.25);
+}
+
+/* 7. Motion hooks (transitions-dev) -------------------------------------- */
+.liga16-pop {
+  display: inline-flex;
+  align-items: baseline;
+}
+.liga16-pop .liga16-digit {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+.liga16-pop.is-animating .liga16-digit {
+  animation: liga16-digit-pop-in var(--digit-dur) var(--digit-ease) both;
+}
+.liga16-pop.is-animating .liga16-digit[data-stagger="1"] {
+  animation-delay: var(--digit-stagger);
+}
+.liga16-pop.is-animating .liga16-digit[data-stagger="2"] {
+  animation-delay: calc(var(--digit-stagger) * 2);
+}
+@keyframes liga16-digit-pop-in {
+  0%   { transform: translate(calc(var(--digit-distance) * var(--digit-dir-x)), calc(var(--digit-distance) * var(--digit-dir-y))); opacity: 0; filter: blur(var(--digit-blur)); }
+  100% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
+}
+
+.liga16-panel {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  pointer-events: none;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity   var(--panel-close-dur) var(--panel-ease),
+    filter    var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity, filter;
+}
+.liga16-panel.is-open {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity   var(--panel-open-dur) var(--panel-ease),
+    filter    var(--panel-open-dur) var(--panel-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liga16-pop .liga16-digit { animation: none !important; }
+  .liga16-panel { transition: none !important; }
+  .liga16-card { transition: none !important; }
+}
