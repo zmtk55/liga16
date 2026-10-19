@@ -29,11 +29,14 @@ export interface DrawablePair {
  * aparte, así que un grupo NUNCA mezcla 4tas con 5tas. Cada grupo se arma solo
  * con parejas de su categoría, con el mismo reparto parejo.
  *
- * Con más de una categoría en juego el nombre lleva la delante ("4ta Varonil ·
- * Grupo A"): dos "Grupo A" de categorías distintas tienen que poder convivir sin
- * que el admin los confunda al leerlos.
+ * `groupCount` es opcional: si el admin quiere un número de grupos distinto al
+ * sugerido (1 por cada 4 parejas) lo pasa por aquí. Si no, se usa
+ * `suggestGroupCount`.
  */
-export function drawGroupsByCategory(pairs: DrawablePair[]): Group[] {
+export function drawGroupsByCategory(
+  pairs: DrawablePair[],
+  groupCount?: (catPairs: DrawablePair[]) => number,
+): Group[] {
   const byCategory = new Map<string, DrawablePair[]>();
   for (const p of pairs) {
     const key = p.categoryName;
@@ -48,7 +51,8 @@ export function drawGroupsByCategory(pairs: DrawablePair[]): Group[] {
       multiCategory && categoryName ? `${categoryName} · Grupo ${letter}` : `Grupo ${letter}`;
     // Un nombre de grupo no puede repetirse dentro del torneo.
     const names: string[] = [];
-    for (let i = 0; names.length < suggestGroupCount(catPairs.length) && i < LETTERS.length; i++) {
+    const nGroups = groupCount ? groupCount(catPairs) : suggestGroupCount(catPairs.length);
+    for (let i = 0; names.length < nGroups && i < LETTERS.length; i++) {
       const name = base(LETTERS[i]);
       if (taken.has(name)) continue;
       names.push(name);

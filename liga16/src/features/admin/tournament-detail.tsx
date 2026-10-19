@@ -47,7 +47,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { drawGroupsByCategory, parseRound, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
+import { drawGroupsByCategory, parseRound, scheduleWithAvailability, computeStandings, suggestGroupCount, type Group, type AvailabilityConfig } from "@/lib/groups";
 import type { TournamentScoring } from "@/types";
 import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
 import { DEFAULT_SCORING } from "@/lib/scoring";
@@ -130,48 +130,6 @@ function SortablePair({
         </Button>
       )}
     </div>
-  );
-}
-
-/**
- * Selector compacto de grupo: un botón fantasma con chevron en lugar de un
- * <Select> completo. Cada equipo tenía su propio Select (una fila entera por
- * pareja) y, con varios grupos, el tab era una pared de controles idénticos que
- * no se distinguía del contenido. Un dropdown del mismo tamaño que el nombre
- * del grupo actual conserva la accesibilidad sin ensuciar la tarjeta.
- */
-function GroupPicker({
-  current,
-  groups,
-  onChange,
-}: {
-  current: string;
-  groups: Group[];
-  onChange: (target: string) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 max-w-40 truncate text-xs text-muted-foreground hover:text-foreground"
-          aria-label={`Grupo actual: ${current}`}
-        >
-          <span className="truncate">{current}</span>
-          <ChevronDown className="ms-1 h-3 w-3 shrink-0" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        {groups.map((g) => (
-          <DropdownMenuItem key={g.name} onClick={() => onChange(g.name)}>
-            {g.name}
-            {g.name === current ? " (actual)" : ""}
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuItem onClick={() => onChange("__pool__")}>Sin grupo</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -531,6 +489,8 @@ export default function AdminTournamentDetail() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  /** Número de grupos que quiere el admin por cada categoría (1–4, 0 = sugerido). */
+  const [groupsPerCat, setGroupsPerCat] = useState(0);
   const [newPairName, setNewPairName] = useState("");
   const [newPairP1, setNewPairP1] = useState("");
   const [newPairP2, setNewPairP2] = useState("");
@@ -714,6 +674,9 @@ export default function AdminTournamentDetail() {
         category_id: p.category_id ?? null,
         categoryName: p.category_id ? (catNameById.get(p.category_id) ?? "") : "",
       })),
+      groupsPerCat > 0
+        ? (catPairs) => Math.min(groupsPerCat, Math.max(1, Math.ceil(catPairs.length / 4)))
+        : undefined,
     );
     setGroups(drawn);
     const categoriesInPlay = new Set(pairs.map((p) => p.category_id ?? "")).size;
@@ -1310,112 +1273,147 @@ return (
 
         {/* ============ GRUPOS ============ */}
         <TabsContent value="grupos" className="space-y-4 pt-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={handleDraw} disabled={!pairs || pairs.length < 2}>
-              <Dice5 className="h-4 w-4 ms-1" /> Sortear grupos al azar
-            </Button>
-            <Button variant="outline" onClick={addGroup} disabled={groups.length >= 10}>
-              <Plus className="h-4 w-4 ms-1" /> Añadir grupo
-            </Button>
-            {groups.length > 0 && (
-              <Button variant="outline" onClick={() => setGroups([])}>
-                <RotateCcw className="h-4 w-4 ms-1" /> Vaciar grupos
-              </Button>
-            )}
-            {groups.length > 0 && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  // Al abrir se marcan los días del torneo: son la disponibilidad
-                  // obvia y dejar la casilla vacía hacía que "Generar" fallara con
-                  // un toast que nadie entendía de dónde salía.
-                  setScheduleConfig((c) => ({ ...c, days: c.days.length > 0 ? c.days : tournamentDays(tournament) }));
-                  setScheduleOpen(true);
-                }}
-                disabled={saving}
-              >
-                <CalendarClock className="h-4 w-4 ms-1" /> Generar calendario
-              </Button>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {groups.length === 0
-              ? "El sorteo reparte todos los equipos en grupos parejos. Después puedes arrastrar o reasignar cualquiera."
-              : "Arrastra los equipos entre grupos, usa el selector de grupo en cada tarjeta, o renombra el grupo con un clic en su título."}
-          </p>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Sorteo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={handleDraw} disabled={!pairs || pairs.length < 2}>
+                  <Dice5 className="h-4 w-4 ms-1" /> Sortear grupos al azar
+                </Button>
+                <Button variant="outline" onClick={addGroup} disabled={groups.length >= 10}>
+                  <Plus className="h-4 w-4 ms-1" /> Añadir grupo
+                </Button>
+                {groups.length > 0 && (
+                  <Button variant="outline" onClick={() => setGroups([])}>
+                    <RotateCcw className="h-4 w-4 ms-1" /> Vaciar grupos
+                  </Button>
+                )}
+                {groups.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      // Al abrir se marcan los días del torneo: son la disponibilidad
+                      // obvia y dejar la casilla vacía hacía que "Generar" fallara con
+                      // un toast que nadie entendía de dónde salía.
+                      setScheduleConfig((c) => ({ ...c, days: c.days.length > 0 ? c.days : tournamentDays(tournament) }));
+                      setScheduleOpen(true);
+                    }}
+                    disabled={saving}
+                  >
+                    <CalendarClock className="h-4 w-4 ms-1" /> Generar calendario
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Grupos por categoría:</span>
+                  <div className="flex items-center gap-1" role="group" aria-label="Grupos por categoría">
+                    {[0, 1, 2, 3, 4].map((n) => (
+                      <Button
+                        key={n}
+                        type="button"
+                        size="sm"
+                        variant={groupsPerCat === n ? "secondary" : "ghost"}
+                        className="h-7 w-9 tabular-nums"
+                        onClick={() => setGroupsPerCat(n)}
+                        title={n === 0 ? "Auto (1 grupo por cada 4 parejas)" : `${n} grupo${n === 1 ? "" : "s"}`}
+                      >
+                        {n === 0 ? "Auto" : n}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Las categorías no se mezclan: 4tas y 5tas nunca caen en el mismo grupo. Con 16 parejas de 4ta, "Auto" hace 4 grupos de 4.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {pairs && pairs.length < 2 && (
             <p className="text-sm text-amber-600 dark:text-amber-400">
               Tienes {pairs.length} equipo{pairs.length === 1 ? "" : "s"} inscrito{pairs.length === 1 ? "" : "s"} — se necesitan al menos 2 para sortear o generar partidos. Regístralos en la pestaña Parejas.
             </p>
           )}
 
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            {/* Pool + all groups in a single SortableContext for cross-group drag */}
-            <SortableContext items={[
-              ...unassigned.map((p) => p.id),
-              ...groups.flatMap((g) => g.pairIds)
-            ]} strategy={verticalListSortingStrategy}>
-              {unassigned.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Equipos sin grupo ({unassigned.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {unassigned.map((p) => (
-                        <div key={p.id} className="space-y-1">
-                          <SortablePair id={p.id} name={p.name} onRemove={() => handleRemovePair(p.id)} />
-                          {groups.length > 0 && (
-                            <GroupPicker
-                              current="__pool__"
-                              groups={groups}
-                              onChange={(v) => reassignPair(p.id, v)}
+          {groups.length === 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                Aún no hay grupos. Pulsa "Sortear grupos al azar" o añádelos a mano.
+              </CardContent>
+            </Card>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext
+                items={[
+                  ...unassigned.map((p) => p.id),
+                  ...groups.flatMap((g) => g.pairIds),
+                ]}
+                strategy={verticalListSortingStrategy}
+              >
+                {/* Pool a la izquierda, grupos a la derecha: dos columnas fijas
+                    evitaban que el admin tuviera que scrollear para ver todos los
+                    grupos, y el pool quedaba oculto cuando había muchos. Con un
+                    grid de 2 columnas el pool siempre está a la vista. */}
+                <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+                  <div className="space-y-4">
+                    {unassigned.length > 0 ? (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Equipos sin grupo ({unassigned.length})</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {unassigned.map((p) => (
+                            <SortablePair key={p.id} id={p.id} name={p.name} onRemove={() => handleRemovePair(p.id)} />
+                          ))}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card>
+                        <CardContent className="py-6 text-center text-xs text-muted-foreground">
+                          Todos los equipos están en un grupo.
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {groups.map((g, gi) => (
+                      <Card key={g.name}>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm flex items-center justify-between gap-2">
+                            <Input
+                              value={g.name}
+                              onChange={(e) => renameGroup(gi, e.target.value)}
+                              className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
+                              aria-label={`Nombre del grupo ${gi + 1}`}
                             />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              <div className="overflow-x-auto">
-              <div className={`grid gap-4 ${groups.length <= 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-                {groups.map((g, gi) => (
-                  <Card key={g.name}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center justify-between gap-2">
-                        <Input
-                          value={g.name}
-                          onChange={(e) => renameGroup(gi, e.target.value)}
-                          className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
-                          aria-label={`Nombre del grupo ${gi + 1}`}
-                        />
-                        <Badge variant="outline">{g.pairIds.length}</Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 min-h-16">
-                        {g.pairIds.length === 0 && (
-                          <p className="text-xs text-muted-foreground py-2">Arrastra equipos aquí</p>
-                        )}
-                        {g.pairIds.map((id) => (
-                          <div key={id} className="space-y-1">
-                            <SortablePair id={id} name={nameById[id] ?? id} onRemove={() => handleRemovePair(id)} />
-                            <GroupPicker
-                              current={g.name}
-                              groups={groups}
-                              onChange={(v) => reassignPair(id, v)}
-                            />
+                            <Badge variant="outline">{g.pairIds.length}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 min-h-16">
+                            {g.pairIds.length === 0 && (
+                              <p className="text-xs text-muted-foreground py-2">Arrastra equipos aquí</p>
+                            )}
+                            {g.pairIds.map((id) => (
+                              <SortablePair
+                                key={id}
+                                id={id}
+                                name={nameById[id] ?? id}
+                                onRemove={() => handleRemovePair(id)}
+                              />
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-            </SortableContext>
-          </DndContext>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
         </TabsContent>
 
         {/* ============ TABLAS DE POSICIONES ============ */}
