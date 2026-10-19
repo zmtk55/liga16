@@ -2,7 +2,7 @@ import fs from "node:fs"
 import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
-import { inspectAttr } from 'kimi-plugin-inspect-react'
+
 
 // Los chunks de manualChunks son entry points para Rollup: si listan un paquete que
 // ya no está instalado, el build muere. Derivar la lista de package.json + node_modules

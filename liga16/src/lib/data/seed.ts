@@ -1,7 +1,7 @@
 // Datos semilla realistas de Liga16 (modo demo).
 import type {
   Club, League, Match, NewsItem, Pair, PlayerCard, PlayerProfile,
-  Sponsor, Team, Tournament, TournamentCategory,
+  Sponsor, Team, Tournament, TournamentCategory, UUID,
 } from '@/types';
 
 export const clubs: Club[] = [

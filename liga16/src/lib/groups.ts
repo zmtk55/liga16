@@ -279,7 +279,7 @@ export function computeStandings(
     }
 
     const aWon = m.winner === "a";
-    const updateSide = (row: StandingRow | undefined, isA: boolean, won: boolean) => {
+    const updateSide = (row: StandingRow | null | undefined, isA: boolean, won: boolean) => {
       if (!row) return;
       row.played++;
       if (won) row.won++;

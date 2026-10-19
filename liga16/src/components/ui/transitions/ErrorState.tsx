@@ -22,7 +22,7 @@ export function ErrorState({
 }) {
   return (
     <div
-      className={cn("t-input-wrap", error && "is-error", className)}
+      className={cn("t-input-wrap", error && "is-error", shake && "is-shaking", className)}
       data-error={error ? "true" : "false"}
       {...props}
     >
