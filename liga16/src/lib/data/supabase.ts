@@ -760,7 +760,27 @@ export const supabaseProvider: DataProvider = {
       .from('matches').select('*');
     if (error) throw error;
     const orderKeys: string[] = ['live', 'scheduled', 'disputed', 'finished', 'walkover', 'cancelled'];
-    const rows = (data ?? []).map((r: Record<string, unknown>) => matchFromRow(r));
+    // Los nombres de los lados se resuelven contra `pairs` ACTUAL: un partido
+    // guarda un snapshot del nombre y, al renombrar la pareja, el buscador de
+    // resultados no encontraba el nuevo nombre. Con el lookup siempre sale el
+    // nombre de hoy, por pair_id y, de respaldo, por nombre (partidos sin id).
+    const { data: pairsData } = await client()
+      .from('pairs').select('id, name');
+    const nameById = new Map((pairsData ?? []).map((r: Record<string, unknown>) => [r.id as string, r.name as string]));
+    const nameByLower = new Map((pairsData ?? []).map((r: Record<string, unknown>) => [(r.name as string).trim().toLowerCase(), r.name as string]));
+    const resolveName = (pairId: string | null, pairName: string | null) => {
+      if (pairId && nameById.has(pairId)) return nameById.get(pairId)!;
+      const byName = nameByLower.get((pairName ?? "").trim().toLowerCase());
+      return byName ?? pairName ?? "";
+    };
+    const rows = (data ?? []).map((r: Record<string, unknown>) => {
+      const m = matchFromRow(r);
+      return {
+        ...m,
+        side_a: { ...m.side_a, pair_name: resolveName(m.side_a.pair_id, m.side_a.pair_name) },
+        side_b: { ...m.side_b, pair_name: resolveName(m.side_b.pair_id, m.side_b.pair_name) },
+      };
+    });
     return rows.sort((a, b) => {
       const sa = orderKeys.indexOf(a.status);
       const sb = orderKeys.indexOf(b.status);

@@ -21,7 +21,7 @@ export default defineConfig({
   // Base ABSOLUTA: con './' las rutas anidadas (/admin/dashboard) pedían
   // ./assets/*.js y el rewrite de SPA devolvía HTML → pantalla en blanco.
   base: '/',
-  plugins: [inspectAttr(), react()],
+  plugins: [react()],
   server: {
     port: 3000,
   },

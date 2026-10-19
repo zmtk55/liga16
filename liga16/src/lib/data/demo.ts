@@ -242,7 +242,19 @@ async getTournament(slug: string) {
     await delay();
     const idx = store.pairs.findIndex((p) => p.id === id);
     if (idx === -1) throw new Error("Pareja no encontrada");
+    const viejoNombre = store.pairs[idx].name;
     store.pairs[idx] = { ...store.pairs[idx], ...data } as unknown as Pair;
+    // Al cambiar el nombre, los partidos que la mencionan quedan con el viejo
+    // nombre y el buscador de resultados no la encuentra. Se actualizan por
+    // pair_id y, de respaldo, por nombre (partidos del seed sin id).
+    if (data.name && data.name !== viejoNombre) {
+      for (const m of store.matches) {
+        if (m.side_a.pair_id === id) m.side_a.pair_name = data.name;
+        if (m.side_b.pair_id === id) m.side_b.pair_name = data.name;
+        if (!m.side_a.pair_id && m.side_a.pair_name === viejoNombre) m.side_a.pair_name = data.name;
+        if (!m.side_b.pair_id && m.side_b.pair_name === viejoNombre) m.side_b.pair_name = data.name;
+      }
+    }
     return store.pairs[idx];
   },
 
@@ -496,9 +508,26 @@ async getTournament(slug: string) {
   async listRecentMatches() {
     await delay();
     const order = { live: 0, scheduled: 1, disputed: 2, finished: 3, walkover: 4, cancelled: 5 };
-    return [...store.matches].sort(
-      (a, b) => order[a.status] - order[b.status] || (a.scheduled_at ?? '').localeCompare(b.scheduled_at ?? ''),
-    );
+    // Los nombres de los lados se resuelven contra `pairs` ACTUAL: un partido
+    // guarda un snapshot del nombre y, al renombrar la pareja, el buscador de
+    // resultados no encontraba el nuevo nombre. Con el lookup siempre sale el
+    // nombre de hoy, por pair_id y, de respaldo, por nombre (partidos sin id).
+    const pairNameById = new Map(store.pairs.map((p) => [p.id, p.name]));
+    const pairByName = new Map(store.pairs.map((p) => [p.name.trim().toLowerCase(), p.name]));
+    const resolveName = (side: Match["side_a"]) => {
+      if (side.pair_id && pairNameById.has(side.pair_id)) return pairNameById.get(side.pair_id)!;
+      const byName = pairByName.get((side.pair_name ?? "").trim().toLowerCase());
+      return byName ?? side.pair_name;
+    };
+    return [...store.matches]
+      .map((m) => ({
+        ...m,
+        side_a: { ...m.side_a, pair_name: resolveName(m.side_a) },
+        side_b: { ...m.side_b, pair_name: resolveName(m.side_b) },
+      }))
+      .sort(
+        (a, b) => order[a.status] - order[b.status] || (a.scheduled_at ?? '').localeCompare(b.scheduled_at ?? ''),
+      );
   },
 
   async updateMatch(id: string, updates: Partial<Match>) {
