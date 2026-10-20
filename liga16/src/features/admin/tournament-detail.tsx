@@ -731,15 +731,6 @@ export default function AdminTournamentDetail() {
     setGroups((gs) => gs.map((g, i) => (i === index ? { ...g, name } : g)));
   }
 
-  /** Reasignar equipo a un grupo (o al pool) con Select — sin depender del drag. */
-  function _reassignPair(pairId: string, target: string) {
-    setGroups((gs) => {
-      const without = gs.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== pairId) }));
-      if (target === "__pool__") return without;
-      return without.map((g) => (g.name === target ? { ...g, pairIds: [...g.pairIds, pairId] } : g));
-    });
-  }
-
   async function handleAddPair() {
     if (!tournament) return;
     // Los 2 jugadores vienen de sus inputs; el nombre se arma solo si no se tocó
@@ -2361,4 +2352,4 @@ function GroupStandingsCard({
       </CardContent>
     </Card>
   );
-        }
+                                       }
