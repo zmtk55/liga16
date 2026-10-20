@@ -2,5 +2,6 @@
   "buildCommand": "npm ci && npx tsc -b && npx vite build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm ci"
+  "installCommand": "npm ci",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
