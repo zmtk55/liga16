@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TeamCard } from "@/components/cards/team-card";
+import { CardShell, CardIdentity } from "@/components/cards/card-kit";
 import { TeamCrest } from "@/components/cards/card-image";
 import { PageHero } from "@/components/page-hero";
 import { FilterNav } from "@/components/ui/filter-nav";
@@ -138,10 +139,8 @@ export default function TeamsPage() {
   return (
     <div className="animate-fade-in space-y-8">
       <PageHero
-        eyebrow="El circuito"
         title="Equipos"
         subtitle="Las parejas de Liga16, división por división. Récord y puntos calculados de los partidos reales del circuito."
-        stats={stats}
       />
 
       {/* El buscador vive en el header (variante "search", ADR-0009): una sola
@@ -242,15 +241,27 @@ export default function TeamsPage() {
             <Link
               key={team.slug}
               to={`/equipos/${team.slug}`}
-              className="group flex items-center gap-2.5 rounded-xl border bg-card p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+              className="group"
             >
-              <TeamCrest name={team.name} crestUrl={team.crest_url} className="h-9 w-9 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold leading-tight">{team.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {team.won}–{team.played - team.won} · {winRate(team.played, team.won)}%
-                </p>
-              </div>
+              <CardShell
+                className="rounded-xl border bg-card p-3 transition-colors hover:bg-muted/60"
+              >
+                <CardIdentity
+                  lead={
+                    <TeamCrest
+                      name={team.name}
+                      crestUrl={team.crest_url}
+                      className="h-9 w-9 shrink-0"
+                    />
+                  }
+                  title={team.name}
+                  meta={
+                    <span className="text-xs text-muted-foreground">
+                      {team.won}–{team.played - team.won} · {winRate(team.played, team.won)}%
+                    </span>
+                  }
+                />
+              </CardShell>
             </Link>
           ))}
         </div>

@@ -1,20 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
-import { TournamentCard } from "@/components/cards/resource-card";
 import { PageHero } from "@/components/page-hero";
 import { Card, CardContent } from "@/components/ui/card";
+import { CardShell, CardIdentity } from "@/components/cards/card-kit";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar, Trophy, Filter, Users } from "lucide-react";
+import { FilterNav } from "@/components/ui/filter-nav";
+import { formatDateRange, formatLabel, formatMoney, tournamentStatusLabel } from "@/lib/format";
+import { Trophy } from "lucide-react";
 
 export default function TournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[] | null>(null);
@@ -61,43 +57,36 @@ export default function TournamentsPage() {
   return (
     <div className="animate-fade-in space-y-8">
       <PageHero
-        eyebrow="Calendario"
         title="Torneos"
         subtitle="Las fechas del circuito. Inscripciones abiertas, sedes y formatos de cada evento."
         ghost="16"
-        stats={[
-          { k: "Torneos", v: tournaments?.length ?? "…" },
-          { k: "Inscripción abierta", v: abiertos },
-          { k: "Formatos", v: tournaments ? new Set(tournaments.map((t) => t.format)).size : "…" },
-        ]}
       />
 
-      <div className="relative z-10 -mt-4 flex flex-wrap gap-2">
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los estados</SelectItem>
-            <SelectItem value="registration_open"><Calendar className="mr-2 h-3 w-3" /> Inscripciones abiertas</SelectItem>
-            <SelectItem value="registration_closed"><Calendar className="mr-2 h-3 w-3" /> Inscripciones cerradas</SelectItem>
-            <SelectItem value="published"><Trophy className="mr-2 h-3 w-3" /> Publicado</SelectItem>
-            <SelectItem value="in_progress"><Trophy className="mr-2 h-3 w-3" /> En juego</SelectItem>
-            <SelectItem value="finished"><Trophy className="mr-2 h-3 w-3" /> Finalizado</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={format} onValueChange={setFormat}>
-          <SelectTrigger className="w-[240px]">
-            <SelectValue placeholder="Formato" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all"><Filter className="mr-2 h-3 w-3" /> Todos los formatos</SelectItem>
-            <SelectItem value="single_elimination"><Trophy className="mr-2 h-3 w-3" /> Eliminación directa</SelectItem>
-            <SelectItem value="groups_knockout"><Users className="mr-2 h-3 w-3" /> Grupos + eliminación</SelectItem>
-            <SelectItem value="americano"><Trophy className="mr-2 h-3 w-3" /> Americano</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="relative z-10 -mt-4 flex flex-wrap items-end gap-4">
+        <FilterNav
+          label="Estado"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { key: "registration_open", label: "Inscripciones abiertas" },
+            { key: "registration_closed", label: "Inscripciones cerradas" },
+            { key: "published", label: "Publicados" },
+            { key: "in_progress", label: "En juego" },
+            { key: "finished", label: "Finalizados" },
+          ]}
+          allLabel="Todos los estados"
+        />
+        <FilterNav
+          label="Formato"
+          value={format}
+          onChange={(v) => setFormat(v)}
+          options={[
+            { key: "single_elimination", label: "Eliminación directa" },
+            { key: "groups_knockout", label: "Grupos + eliminación" },
+            { key: "americano", label: "Americano" },
+          ]}
+          allLabel="Todos los formatos"
+        />
       </div>
 
       {tournaments === null ? (
@@ -117,7 +106,40 @@ export default function TournamentsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((t) => (
-            <TournamentCard key={t.id} tournament={t} />
+            <Link key={t.id} to={`/torneos/${t.slug}`} className="group">
+              <CardShell
+                banner={t.cover_url}
+                bannerAlt={`Portada del torneo ${t.name}`}
+                className="h-full"
+              >
+                <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                  <CardIdentity
+                    lead={
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-bold uppercase text-primary-strong">
+                        {t.club_name?.charAt(0) ?? t.city?.charAt(0) ?? "16"}
+                      </span>
+                    }
+                    title={t.name}
+                    meta={
+                      `${formatDateRange(t.start_date, t.end_date)} · ${formatLabel[t.format] ?? t.format}`
+                    }
+                    end={
+                      <Badge variant={t.status === "registration_open" ? "default" : "secondary"}>
+                        {tournamentStatusLabel[t.status]}
+                      </Badge>
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t.club_name ?? t.city ?? "Sede por confirmar"}
+                  </p>
+                  {t.price_cents > 0 && (
+                    <p className="mt-auto font-mono text-sm font-bold tabular-nums text-primary">
+                      {formatMoney(t.price_cents, t.currency)}
+                    </p>
+                  )}
+                </CardContent>
+              </CardShell>
+            </Link>
           ))}
         </div>
       )}

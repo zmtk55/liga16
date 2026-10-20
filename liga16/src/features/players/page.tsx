@@ -159,15 +159,9 @@ export default function PlayersPage() {
   return (
     <div className="animate-fade-in space-y-8">
       <PageHero
-        eyebrow="La comunidad"
         title="Jugadores"
         subtitle="El directorio del circuito: nivel, puntos y rumbo al muro de campeones."
         ghost="16"
-        stats={[
-          { k: "Jugadores", v: players?.length ?? "…", icon: <Users className="h-4 w-4" /> },
-          { k: "Con partidos", v: stats ? Object.values(stats).filter((s) => s.played > 0).length : "…", icon: <Medal className="h-4 w-4" /> },
-          { k: "En vista", v: players ? filtered.length : "…", icon: <Target className="h-4 w-4" /> },
-        ]}
       />
 
       {/* El buscador vive en el header (variante "search", ADR-0009). Aquí solo

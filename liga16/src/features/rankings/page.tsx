@@ -313,15 +313,9 @@ export default function RankingsPage() {
   return (
     <div className="animate-fade-in space-y-8">
       <PageHero
-        eyebrow="Clasificación oficial"
         title="Ranking"
         subtitle="Parejas ordenadas por puntos dentro de su división y género. Gana partidos y sube."
         ghost="16"
-        stats={[
-          { k: "Parejas", v: teams?.length ?? "…", icon: <Users className="h-4 w-4" /> },
-          { k: "Categoría", v: categoria === "all" ? "Todas" : catActiva, icon: <Trophy className="h-4 w-4" /> },
-          { k: "Género", v: sex === "all" ? "Todas" : sexLabel(sex), icon: <Target className="h-4 w-4" /> },
-        ]}
       />
 
       {/* El buscador vive en el header (ADR-0009). Los filtros van aquí porque

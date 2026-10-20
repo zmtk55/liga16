@@ -74,7 +74,7 @@
     --digit-distance: 8px;
     --digit-stagger: 70ms;
     --digit-blur: 2px;
-    --digit-ease: cubic-bezier(0.34, 1.45, 0.64, 1);
+    --digit-ease: cubic-bezier(0.16, 1, 0.3, 1);
     --digit-dir-x: 0;
     --digit-dir-y: 1;
     /* Notification badge */
@@ -87,7 +87,7 @@
     --badge-offset-x: -8.2px;
     --badge-offset-y: 12.4px;
     --badge-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
-    --badge-pop-ease: cubic-bezier(0.34, 1.36, 0.64, 1);
+    --badge-pop-ease: cubic-bezier(0.16, 1, 0.3, 1);
     --badge-close-ease: cubic-bezier(0.4, 0, 0.2, 1);
     /* Text states swap */
     --text-swap-dur: 200ms;
@@ -139,7 +139,7 @@
     --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --check-ease-opacity: cubic-bezier(0.22, 1, 0.36, 1);
     --check-ease-rotate: cubic-bezier(0.22, 1, 0.36, 1);
-    --check-ease-bob: cubic-bezier(0.34, 1.35, 0.64, 1);
+    --check-ease-bob: cubic-bezier(0.16, 1, 0.3, 1);
     --check-ease-path: cubic-bezier(0.22, 1, 0.36, 1);
     /* Avatar group hover */
     --avatar-lift: -4px;
@@ -147,7 +147,7 @@
     --avatar-scale: 1.05;
     --avatar-falloff: 0.45;
     --avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
-    --avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
+    --avatar-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     /* Error state shake */
     --shake-distance: 6px;
     --shake-overshoot: 4px;
@@ -509,8 +509,31 @@
     filter    var(--panel-open-dur) var(--panel-ease);
 }
 
+/* === Glowing wave background (player dashboard cover) === */
+@keyframes glow-wave {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.glow-wave-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(at 20% 30%, rgba(255,155,60,0.35) 0%, transparent 50%),
+    radial-gradient(at 80% 70%, rgba(255,120,40,0.25) 0%, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(255,180,70,0.2) 0%, transparent 60%),
+    radial-gradient(at 10% 80%, rgba(255,140,50,0.15) 0%, transparent 40%),
+    radial-gradient(at 90% 20%, rgba(255,100,30,0.15) 0%, transparent 45%);
+  background-size: 200% 200%;
+  animation: glow-wave 12s ease infinite;
+  filter: blur(60px) saturate(1.2);
+  opacity: 0.85;
+  z-index: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .liga16-pop .liga16-digit { animation: none !important; }
   .liga16-panel { transition: none !important; }
   .liga16-card { transition: none !important; }
+  .glow-wave-bg { animation: none !important; background-size: 100% 100%; }
 }

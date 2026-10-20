@@ -19,6 +19,7 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CardShell, CardIdentity } from "@/components/cards/card-kit";
 import {
   matchStatusLabel,
   tournamentStatusLabel,
@@ -55,12 +56,10 @@ function initialsOf(name: string) {
 }
 
 function SectionHeading({
-  eyebrow,
   title,
   to,
   action,
 }: {
-  eyebrow: string;
   title: string;
   to: string;
   action: string;
@@ -68,9 +67,6 @@ function SectionHeading({
   return (
     <div className="mb-4 flex items-end justify-between gap-4">
       <div>
-        <p className="mb-1 text-xs font-bold uppercase tracking-[0.24em] text-primary-strong">
-          {eyebrow}
-        </p>
         <h2 className="font-headline text-3xl uppercase leading-none tracking-tight sm:text-4xl">
           {title}
         </h2>
@@ -355,7 +351,6 @@ setStats({ tournaments, teams, matches, news, sponsors });
       {featured && (
         <section>
           <SectionHeading
-            eyebrow="En agenda"
             title="Próximo torneo"
             to="/torneos"
             action="Ver todos"
@@ -445,7 +440,6 @@ setStats({ tournaments, teams, matches, news, sponsors });
           señalaba una categoría que el filtro podía haber dejado fuera. */}
       <section className="space-y-5">
         <SectionHeading
-          eyebrow="Parejas"
           title="En dupla"
           to="/equipos"
           action="Ver todas"
@@ -541,7 +535,6 @@ setStats({ tournaments, teams, matches, news, sponsors });
       {featuredMatch && (
         <section>
           <SectionHeading
-            eyebrow={matchStatusLabel[featuredMatch.status]}
             title={
               featuredMatch.status === "live" ? "Ahora en juego" : "En la cancha"
             }
@@ -630,7 +623,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
       {stats.news.length > 0 && (
         <section>
           <SectionHeading
-            eyebrow="Del circuito"
+
             title="Últimas noticias"
             to="/noticias"
             action="Ver todas"

@@ -35,7 +35,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import ImageUpload from "@/components/ui/image-upload";
 import { deleteStoredImage } from "@/lib/storage";
-import { PairAvatar } from "@/components/cards/card-kit";
+import { PairAvatar, CardShell, CardIdentity } from "@/components/cards/card-kit";
+import { cn } from "@/lib/utils";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SIN_CATEGORIA } from "@/lib/format";
@@ -352,7 +353,7 @@ export default function AdminTeams() {
               const [sp1, sp2] = (sel?.name ?? " / ").split(" / ");
               return (
                 <div className="grid divide-y lg:grid-cols-[minmax(260px,320px)_1fr] lg:divide-x lg:divide-y-0">
-                  <div className="max-h-[70vh] overflow-y-auto p-2">
+                  <div className="max-h-[70vh] overflow-y-auto p-2 space-y-2">
                     {filtered.map((p) => {
                       const [p1, p2] = p.name.split(" / ");
                       const active = p.id === selectedId;
@@ -361,23 +362,24 @@ export default function AdminTeams() {
                           key={p.id}
                           type="button"
                           onClick={() => setSelectedId(p.id)}
-                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${active ? "bg-muted" : "hover:bg-muted/50"}`}
+                          className="w-full text-left"
                         >
-                          {p.crest_url ? (
-                            <img src={p.crest_url} alt="" className="h-8 w-8 rounded-full object-cover" />
-                          ) : (
-                            <PairAvatar p1={p1} p2={p2} />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{p1} / {p2 ?? "—"}</p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {categoryOf(p.category_id)}
-                            </p>
-                          </div>
+                          <CardShell
+                            className={cn(
+                              "h-24 rounded-xl border bg-muted/50 p-3 transition-colors hover:bg-muted/60",
+                              active && "accent ring-2 ring-primary/40"
+                            )}
+                            accent={active}
+                          >
+                            <CardIdentity
+                              lead={<PairAvatar p1={p1} p2={p2} />}
+                              title={`${p1} / ${p2 ?? "—"}`}
+                              meta={`${categoryOf(p.category_id)} · ${p.tournament_name ?? "Sin torneo"}`}
+                            />
+                          </CardShell>
                         </button>
                       );
-                    })}
-                  </div>
+                    })}</div>
 
                   <div className="p-4">
                     {!sel ? (

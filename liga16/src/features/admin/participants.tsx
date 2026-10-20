@@ -28,7 +28,8 @@ import {
 import { toast } from "sonner";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { PairAvatar } from "@/components/cards/card-kit";
+import { PairAvatar, CardShell, CardIdentity } from "@/components/cards/card-kit";
+import { cn } from "@/lib/utils";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -386,14 +387,24 @@ export default function AdminParticipants() {
                         key={p.id}
                         type="button"
                         onClick={() => setSelectedId(p.id)}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${active ? "bg-muted" : "hover:bg-muted/50"}`}
+                        className="w-full text-left"
                       >
-                        <PairAvatar p1={p1} p2={p2} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{p1} / {p2 ?? "—"}</p>
-                          <p className="truncate text-xs text-muted-foreground">{categoryDisplay(p)} · {p.tournament_name ?? "Sin torneo"}</p>
-                        </div>
-                        <span className="shrink-0">{paymentBadge(p)}</span>
+                        <CardShell
+                          className={cn(
+                            "h-20 rounded-xl border bg-muted/50 p-3 transition-colors hover:bg-muted/60",
+                            active && "accent ring-2 ring-primary/40"
+                          )}
+                          accent={active}
+                        >
+                          <CardIdentity
+                            lead={<PairAvatar p1={p1} p2={p2} />}
+                            title={`${p1} / ${p2 ?? "—"}`}
+                            meta={`${categoryDisplay(p)} · ${p.tournament_name ?? "Sin torneo"}`}
+                          />
+                          <div className="mt-2 flex items-center justify-end">
+                            {paymentBadge(p)}
+                          </div>
+                        </CardShell>
                       </button>
                     );
                   })}

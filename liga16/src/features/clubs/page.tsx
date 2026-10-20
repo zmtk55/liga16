@@ -47,7 +47,6 @@ export default function ClubsPage() {
     return (
       <div className="space-y-6">
         <PageHero
-          eyebrow="Casa del circuito"
           title="Sede"
           subtitle="La sede oficial de Liga16"
         />
@@ -59,16 +58,10 @@ export default function ClubsPage() {
   return (
     <div className="space-y-8">
       <PageHero
-        eyebrow="Casa del circuito"
-        title="Sede"
-        subtitle={club.description ?? "La sede oficial de Liga16"}
-        ghost="16"
-        stats={[
-          { k: "Ciudad", v: club.city || "—", icon: <MapPin className="h-4 w-4" /> },
-          { k: "Estado", v: club.state || "—", icon: <Building2 className="h-4 w-4" /> },
-          { k: "Canchas", v: courts ? courts.length || "—" : "…", icon: <Target className="h-4 w-4" /> },
-        ]}
-      />
+          title="Sede"
+          subtitle={club.description ?? "La sede oficial de Liga16"}
+          ghost="16"
+        />
 
       {/* Hero banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/5 to-background px-6 py-8 md:px-10 md:py-12 animate-slide-up">

@@ -77,7 +77,7 @@ export function MobileBottomNav() {
                   }}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group relative flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 outline-none transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    "group relative flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 outline-none transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
                     "active:scale-90 focus-visible:ring-2 focus-visible:ring-primary/60",
                   )}
                 >

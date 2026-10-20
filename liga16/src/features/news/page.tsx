@@ -42,14 +42,9 @@ export default function NewsPage() {
   return (
     <div className="animate-fade-in space-y-8">
       <PageHero
-        eyebrow="Prensa del circuito"
         title="Noticias"
         subtitle="Novedades, resultados y las historias que mueven a Liga16."
         ghost="16"
-        stats={[
-          { k: "Publicaciones", v: news?.length ?? "…" },
-          { k: "Última", v: news?.[0] ? formatDate(news[0].published_at) : "—" },
-        ]}
       />
 
       {news === null ? (

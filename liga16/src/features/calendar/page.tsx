@@ -170,15 +170,9 @@ export default function CalendarPage() {
   return (
     <div className="animate-fade-in space-y-6">
       <PageHero
-        eyebrow="Agenda"
         title="Calendario"
         subtitle="Qué juega hoy y cuándo es el próximo partido del circuito."
         ghost="16"
-        stats={[
-          { k: "En juego", v: liveCount, icon: <Radio className="h-4 w-4" /> },
-          { k: "Por jugar", v: porJugar.length, icon: <Calendar className="h-4 w-4" /> },
-          { k: "Días con juego", v: days.length, icon: <MapPin className="h-4 w-4" /> },
-        ]}
       />
 
       {liveCount > 0 && (

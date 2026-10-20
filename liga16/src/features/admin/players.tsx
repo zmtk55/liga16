@@ -47,7 +47,7 @@ import {
   buildDirectoryStats,
   type DirStats,
 } from "@/lib/data/record-stats";
-import { PlayerCardV5 } from "@/features/nav-test/player-card-v5";
+import { PlayerCard } from "@/components/players/player-card";
 import { SEX_BRANCHES, sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -490,7 +490,7 @@ export default function AdminPlayers() {
                 {filtered.map((p) => {
                   const c = stats[p.id];
                   return (
-                    <PlayerCardV5
+                    <PlayerCard
                       key={p.id}
                       player={p}
                       played={c?.played}

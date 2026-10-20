@@ -459,14 +459,28 @@ export default function MyProfile() {
         </div>
       </Alert>
 
+      {/* === Cover del jugador ===
+          Fondo "glowing wave" (gradientes radiales animados, sin WebGL) + la
+          foto de perfil ENCIMA del fondo, no dentro de una caja gris. Antes el
+          avatar era un círculo con iniciales sobre fondo plano: la foto que
+          sube el jugador no aparecía nunca en su propio dashboard. */}
       <Card className="relative overflow-hidden">
+        <div className="glow-wave-bg" aria-hidden />
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-warning to-primary" />
-        <CardContent className="p-4 md:p-6">
+        <CardContent className="relative z-10 p-4 md:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-2xl font-bold text-white">
-                {profile ? initials(profile.display_name) : "?"}
-              </div>
+              {profile?.photo_url ? (
+                <img
+                  src={profile.photo_url}
+                  alt={profile.display_name}
+                  className="h-16 w-16 shrink-0 rounded-full border-2 border-primary/40 object-cover shadow-lg shadow-primary/20"
+                />
+              ) : (
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-primary/40 bg-gradient-to-br from-primary to-primary/60 text-2xl font-bold text-white shadow-lg shadow-primary/20">
+                  {profile ? initials(profile.display_name) : "?"}
+                </div>
+              )}
               <div>
                 <h2 className="text-lg font-bold">{profile?.display_name ?? "Sin nombre"}</h2>
                 <p className="text-sm text-muted-foreground">

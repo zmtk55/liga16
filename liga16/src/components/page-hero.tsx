@@ -1,18 +1,19 @@
 // Hero de página reutilizable — lleva el lenguaje visual de la landing (póster
 // oscuro, franja primaria, numeral fantasma y tracking amplio) a cada sección.
-import { Sparkles } from "lucide-react";
+//
+// Sin "eyebrow" ni tira de stats: el kicker en versalitas sobre cada título
+// es andamiaje de plantilla, no información. Si una sección necesita una cifra
+// de contexto, la muestra junto al contenido que explica, no en el hero.
 import { cn } from "@/lib/utils";
 
 interface PageHeroProps {
-  eyebrow: string;
   title: string;
   subtitle?: string;
   ghost?: string;
-  stats?: { k: string; v: string | number; icon?: React.ReactNode }[];
   className?: string;
 }
 
-export function PageHero({ eyebrow, title, subtitle, ghost = "16", stats, className }: PageHeroProps) {
+export function PageHero({ title, subtitle, ghost = "16", className }: PageHeroProps) {
   return (
     <section
       className={cn(
@@ -36,28 +37,10 @@ export function PageHero({ eyebrow, title, subtitle, ghost = "16", stats, classN
       <div className="relative mx-auto max-w-7xl px-4 pb-8 pt-8 md:px-6 md:pb-10 md:pt-10">
         {/* El hero es una superficie oscura: aquí el naranja de marca sí tiene
             contraste (5.3:1). `--primary-strong` es para texto sobre fondo claro. */}
-        <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-          <Sparkles className="h-3.5 w-3.5 shrink-0" />
-          {eyebrow}
-        </p>
         <h1 className="font-headline text-3xl uppercase leading-[0.95] tracking-tight sm:text-4xl md:text-5xl">
           {title}
         </h1>
         {subtitle && <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/70 md:text-base">{subtitle}</p>}
-        {stats && stats.length > 0 && (
-          <dl
-            className="mt-6 grid max-w-2xl divide-x divide-white/10 rounded-xl border border-white/10 bg-white/[0.03]"
-            style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}
-          >
-            {stats.map((s) => (
-              <div key={s.k} className="px-3 py-2.5 text-center md:px-4 md:text-left flex flex-col items-center md:items-start gap-2">
-                {s.icon && <div className="text-primary shrink-0">{s.icon}</div>}
-                <dd className="font-headline text-xl tabular-nums sm:text-2xl md:text-3xl">{s.v}</dd>
-                <dt className="mt-0.5 text-xs uppercase tracking-widest text-white/60">{s.k}</dt>
-              </div>
-            ))}
-          </dl>
-        )}
       </div>
     </section>
   );
