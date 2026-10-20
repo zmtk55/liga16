@@ -47,7 +47,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { drawGroupsByCategory, parseRound, scheduleWithAvailability, computeStandings, suggestGroupCount, type Group, type AvailabilityConfig } from "@/lib/groups";
+import { drawGroupsByCategory, parseRound, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
 import type { TournamentScoring } from "@/types";
 import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
 import { DEFAULT_SCORING } from "@/lib/scoring";
@@ -732,7 +732,7 @@ export default function AdminTournamentDetail() {
   }
 
   /** Reasignar equipo a un grupo (o al pool) con Select — sin depender del drag. */
-  function reassignPair(pairId: string, target: string) {
+  function _reassignPair(pairId: string, target: string) {
     setGroups((gs) => {
       const without = gs.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== pairId) }));
       if (target === "__pool__") return without;
@@ -2361,4 +2361,4 @@ function GroupStandingsCard({
       </CardContent>
     </Card>
   );
-}
+        }
