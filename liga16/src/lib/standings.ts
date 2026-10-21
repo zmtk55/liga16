@@ -61,7 +61,8 @@ export function deriveTeamStandings(teams: Team[], matches: Match[]): Team[] {
       t.tied = false;
     }
 
-    // Marcar empates: misma posición y mismo desempate completo.
+    // Empate: dos parejas con la misma posición (JERARQUIA > 0) que coinciden
+    // en el criterio completo (puntaje, diferencia de sets, PG, PJ).
     const byRank = new Map<number, typeof ranked>();
     for (const s of ranked) {
       const bucket = byRank.get(s.JERARQUIA) ?? [];
@@ -70,19 +71,12 @@ export function deriveTeamStandings(teams: Team[], matches: Match[]): Team[] {
     }
     for (const bucket of byRank.values()) {
       if (bucket.length < 2) continue;
+      const rankVal = bucket[0].JERARQUIA;
       for (const s of bucket) {
         const t = byId.get(s.pairId);
         if (!t) continue;
-        const same = bucket.every((other) => {
-          if (other === s) return true;
-          if ((other.RENDIMIENTO_PTS ?? 0) !== (s.RENDIMIENTO_PTS ?? 0)) return false;
-          const dA = other.SETS_FAVOR - other.SETS_CONTRA;
-          const dB = s.SETS_FAVOR - s.SETS_CONTRA;
-          if (dA !== dB) return false;
-          if (other.PG !== s.PG) return false;
-          return other.PJ === s.PJ;
-        });
-        t.tied = same;
+        // Sin partidos (JERARQUIA = 0) no cuentan como empate.
+        t.tied = rankVal > 0;
       }
     }
   }
