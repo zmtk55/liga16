@@ -3,8 +3,8 @@
 //
 // Dos modos:
 //  - Con `bucket`: sube a Supabase Storage, reescala la imagen a máx. 512px
-//    (canvas, PNG con transparencia) y devuelve la URL pública vía onChange.
-//  - Sin `bucket` (legacy): devuelve el dataURL sin subir nada.
+//    (canvas, WebP) y devuelve la URL pública vía onChange.
+//  - Sin `bucket` (legacy): devuelve el dataURL reescalado, sin subir nada.
 //
 // El componente NO borra objetos: quien integre la URL decide cuándo borrar
 // (p. ej. al guardar el formulario), para que cancelar no rompa imágenes ya
@@ -15,7 +15,20 @@ import { supabase } from "@/lib/supabase";
 
 const MAX_DIMENSION = 512;
 
-/** Lee el archivo y lo reescala a máx. 512px por lado (PNG, conserva transparencia). */
+/**
+ * WebP, no PNG.
+ *
+ * El PNG de un avatar de 512px con transparencia pesa entre 1 y 3 MB, y esa
+ * base64 se guarda TAL CUAL en la fila de `player_profiles.photo_url`. Una
+ * sola foto de 2.8 MB hizo que CUALQUIER consulta que selecte `photo_url`
+ * tardara 12 segundos en vez de 200, y que la home tardara 7 en pintar el
+ * hero. WebP con calidad 0.85 pesa lo mismo en pantalla y entre 30 y 60 KB en
+ * el cable. La transparencia la conserva igual.
+ */
+const IMAGE_TYPE = "image/webp";
+const IMAGE_QUALITY = 0.85;
+
+/** Lee el archivo y lo reescala a máx. 512px por lado (WebP, conserva transparencia). */
 async function fileToScaledBlob(file: File): Promise<Blob> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -37,8 +50,22 @@ async function fileToScaledBlob(file: File): Promise<Blob> {
   canvas.height = h;
   canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
   return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("No se pudo procesar la imagen"))), "image/png"),
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("No se pudo procesar la imagen"))),
+      IMAGE_TYPE,
+      IMAGE_QUALITY,
+    ),
   );
+}
+
+/** El blob reescalado como dataURL, para el modo legacy (sin bucket). */
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    reader.readAsDataURL(blob);
+  });
 }
 
 export default function ImageUpload({
@@ -73,20 +100,31 @@ export default function ImageUpload({
   async function pick(file: File | null) {
     if (!file) return;
     if (!bucket || !supabase) {
-      // Modo legacy: dataURL sin storage
-      const reader = new FileReader();
-      reader.onload = () => onChange(String(reader.result));
-      reader.readAsDataURL(file);
+      // Modo legacy: el dataURL se queda en la base. Antes se guardaba el
+      // archivo ORIGINAL sin reescalar ni recomprimir: un PNG de 2.8 MB
+      // acababa en la fila y lastraba todas las consultas que leen la foto.
+      // Ahora pasa por el mismo reescalado y compresión que el modo con
+      // bucket: la imagen se ve igual y ocupa 30-60 KB.
+      setBusy(true);
+      setError(null);
+      try {
+        const blob = await fileToScaledBlob(file);
+        onChange(await blobToDataUrl(blob));
+      } catch (e) {
+        setError((e as Error).message ?? "No se pudo procesar la imagen");
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     setBusy(true);
     setError(null);
     try {
       const blob = await fileToScaledBlob(file);
-      const objPath = `${path}/${Date.now()}.png`;
+      const objPath = `${path}/${Date.now()}.webp`;
       const { error: upErr } = await supabase.storage
         .from(bucket)
-        .upload(objPath, blob, { contentType: "image/png", upsert: false });
+        .upload(objPath, blob, { contentType: IMAGE_TYPE, upsert: false });
       if (upErr) throw upErr;
       const { data } = supabase.storage.from(bucket).getPublicUrl(objPath);
       onChange(data.publicUrl);
