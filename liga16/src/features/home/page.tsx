@@ -305,10 +305,16 @@ setStats({ tournaments, teams, matches, news, sponsors });
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <h2 className="truncate font-headline text-xl uppercase leading-none tracking-[-0.02em] text-white sm:text-2xl">
-                      {featured.name}
-                    </h2>
-                    <p className="mt-2 truncate text-sm text-white/70">
+                    {/* El nombre solo cuando no hay póster: la portada lo
+                        lleva impreso (es una imagen con el nombre, la edición y
+                        las fechas), así que repetirlo al lado era decirlo dos
+                        veces en la misma ficha. */}
+                    {!featured.cover_url && (
+                      <h2 className="truncate font-headline text-xl uppercase leading-none tracking-[-0.02em] text-white sm:text-2xl">
+                        {featured.name}
+                      </h2>
+                    )}
+                    <p className={`mt-2 truncate text-sm text-white/70${featured.cover_url ? "" : " mt-0"}`}>
                       {statusLabel} · {featured.club_name ?? featured.city}
                     </p>
                     <p className="mt-1 truncate text-sm text-white/70">
