@@ -18,7 +18,6 @@ import type {
 } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   matchStatusLabel,
   tournamentStatusLabel,
@@ -352,23 +351,65 @@ setStats({ tournaments, teams, matches, news, sponsors });
 
       {/* MARKETING — 1, 2 y 10 */}
       <section className="grid gap-6 md:grid-cols-3">
+        {/* 1. Cuenta regresiva + inscripción */}
         <div className="rounded-2xl bg-surface-inverse p-6 text-white md:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">Inscripción</p>
-          <h3 className="mt-3 font-headline text-2xl uppercase leading-none tracking-tight">{featured ? "Próximo torneo" : "Agenda"}</h3>
+          <h3 className="mt-3 font-headline text-2xl uppercase leading-none tracking-tight">
+            {featured ? "Próximo torneo" : "Agenda"}
+          </h3>
+          {featured && (
+            <>
+              <p className="mt-4 text-sm text-white/70">{featured.name} · {featured.club_name ?? featured.city}</p>
+              <p className="mt-1 text-sm text-white/70">{formatDateRange(featured.start_date, featured.end_date)}</p>
+              <div className="mt-5 flex items-baseline gap-2">
+                <span className="font-headline text-4xl tabular-nums text-primary">
+                  {Math.max(0, Math.ceil((new Date(featured.start_date + "T00:00:00Z").getTime() - new Date(new Date().toISOString().slice(0,10) + "T00:00:00Z").getTime()) / 86400000))}
+                </span>
+                <span className="text-sm text-white/60">días</span>
+              </div>
+            </>
+          )}
           <Button asChild size="lg" className="mt-6 h-11 w-full rounded-none font-bold uppercase tracking-wide">
-            <Link to="/torneos">Ver torneo <ArrowRight className="ml-2 h-4 w-4" /></Link>
+            <Link to={featuredIsOpen ? `/torneos/${featured?.slug}` : "/torneos"}>
+              {featuredIsOpen ? "Inscribirme" : "Ver torneo"} <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </Button>
         </div>
+
+        {/* 2. Top 3 parejas */}
         <div className="rounded-2xl border bg-card p-6 md:p-8">
-          <h3 className="font-headline text-xl uppercase tracking-tight">Top parejas</h3>
-          <div className="mt-4 text-sm text-muted-foreground">Top 3 con puntos.</div>
+          <div className="flex items-center justify-between">
+            <h3 className="font-headline text-xl uppercase tracking-tight">Top parejas</h3>
+            <Link to="/ranking" className="text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground">Ver todas →</Link>
+          </div>
+          <div className="mt-5 space-y-3">
+            {stats ? (
+              [...(stats.teams || [])]
+                .sort((a,b) => (a.position || 999) - (b.position || 999))
+                .slice(0,3)
+                .map((team) => (
+                  <Link key={team.id} to={`/equipos/${team.slug}`} className="group flex items-center gap-3 rounded-xl border bg-background p-3 transition-colors hover:bg-muted/60">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 font-headline text-lg text-primary">{team.position}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{team.name}</span>
+                      <span className="text-2xs text-muted-foreground">{team.category_name ?? `División ${team.division}`}</span>
+                    </div>
+                    <span className="text-right font-headline text-lg text-primary">{team.points}</span>
+                  </Link>
+                ))
+            ) : <p className="text-sm text-muted-foreground">Cargando parejas…</p>}
+          </div>
         </div>
+
+        {/* 10. Alarma / newsletter */}
         <div className="rounded-2xl bg-primary/5 p-6 md:p-8 border border-primary/10">
           <h3 className="font-headline text-xl uppercase tracking-tight">Alarmas de juego</h3>
-          <form onSubmit={(e) => e.preventDefault()} className="mt-4 flex gap-2">
-            <input type="email" placeholder="tu@email.com" className="flex-1 rounded-none border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
+          <p className="mt-2 text-sm text-muted-foreground">Recibí alertas cuando empiezan los partidos que seguís.</p>
+          <form onSubmit={(e) => { e.preventDefault(); setSubscribed(true); }} className="mt-5 flex gap-2">
+            <input type="email" required placeholder="tu@email.com" className="flex-1 rounded-none border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
             <Button type="submit" size="sm" className="h-11 rounded-none px-4 font-bold uppercase tracking-wide">Enviar</Button>
           </form>
+          {subscribed && <p className="mt-3 text-xs font-bold text-primary">✓ Te avisamos cuando arranque.</p>}
         </div>
       </section>
 
