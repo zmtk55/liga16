@@ -170,10 +170,15 @@ function DivisionPie({ teams }: { teams: Team[] }) {
 function MatchesByStatus({ matches }: { matches: Match[] }) {
   const data = useMemo(() => {
     const counts = { live: 0, scheduled: 0, finished: 0 };
+    // Las tres barras cuentan con la misma regla que la card y que la
+    // pantalla de Resultados: si el partido tiene marcador, está finished.
+    // Con el campo crudo, "Programados" decía 54 en una liga con 27
+    // partidos ya jugados.
     matches.forEach((m) => {
-      if (m.status === "live") counts.live++;
-      else if (m.status === "scheduled") counts.scheduled++;
-      else if (matchStatusKey(m) === "finished") counts.finished++;
+      const k = matchStatusKey(m);
+      if (k === "live") counts.live++;
+      else if (k === "scheduled") counts.scheduled++;
+      else if (k === "finished") counts.finished++;
     });
     return [
       { name: "En vivo", value: counts.live, fill: "#e11d48" },
@@ -240,7 +245,7 @@ export default function AdminDashboard() {
     [data],
   );
   const pendingMatches = useMemo(
-    () => (data?.matches ?? []).filter((m) => m.status === "scheduled"),
+    () => (data?.matches ?? []).filter((m) => matchStatusKey(m) === "scheduled"),
     [data],
   );
   const running = useMemo(
