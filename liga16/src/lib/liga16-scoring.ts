@@ -194,8 +194,17 @@ export function computePairStatsLiga16(
   let setsContra = 0;
 
   for (const match of matches) {
-    // Solo partidos terminados con ganador
-    if (match.status !== "finished" || !match.winner) continue;
+    // Un partido cuenta si TIENE GANADOR y sets con puntos. Antes se exigía
+    // `status === "finished"`, y Resultados guardaba el marcador sin cambiar el
+    // estado: 19 partidos con resultado se quedaban en "scheduled" y no movían
+    // ni el ranking ni las fichas. El estado sigue mandando para anular.
+    if (match.status === "cancelled" || match.status === "walkover") continue;
+    if (!match.winner) continue;
+
+    const hasScore = (match.sets ?? []).some(
+      (s) => (s.a ?? 0) + (s.b ?? 0) > 0,
+    );
+    if (!hasScore) continue;
 
     // Verificar si esta pareja participó en el partido
     const isSideA = match.side_a.pair_id === pairId;
