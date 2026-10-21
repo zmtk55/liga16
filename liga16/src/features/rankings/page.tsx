@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MatchCard, PairAvatars, CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
+import { matchStatusKey } from "@/lib/match-state";
 import { sexLabel, winRate } from "@/lib/format";
 import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
@@ -59,8 +60,8 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
     };
   }, [team]);
 
-  const jugados = matches?.filter((m) => m.status === "finished") ?? [];
-  const porJugar = matches?.filter((m) => m.status === "scheduled" || m.status === "live") ?? [];
+  const jugados = matches?.filter((m) => matchStatusKey(m) === "finished") ?? [];
+  const porJugar = matches?.filter((m) => matchStatusKey(m) === "scheduled" || matchStatusKey(m) === "live") ?? [];
   const current = jugados[Math.min(idx, Math.max(jugados.length - 1, 0))] ?? null;
   const won = current ? (current.side_a.pair_name === team?.name ? current.winner === "a" : current.winner === "b") : false;
 
