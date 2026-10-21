@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { sexLabel, winRate } from "@/lib/format";
 import { categoryFacetOfValues } from "@/lib/categories";
-import { FilterNav } from "@/components/ui/filter-nav";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import {
   LayoutGrid,
   Rows3,
@@ -188,17 +188,16 @@ export default function PlayersPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-          <FilterNav
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterMenu
             label="Categoría"
             value={cat}
             onChange={setCat}
             options={catFacets.length > 1 ? catFacets : []}
             allLabel="Todas"
             showCount
-            className="max-w-2xl"
           />
-          <FilterNav
+          <FilterMenu
             label="Género"
             value={sex}
             onChange={setSex}

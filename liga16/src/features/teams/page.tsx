@@ -11,7 +11,7 @@ import { TeamCard } from "@/components/cards/team-card";
 import { CardShell, CardIdentity } from "@/components/cards/card-kit";
 import { TeamCrest } from "@/components/cards/card-image";
 import { PageHero } from "@/components/page-hero";
-import { FilterNav } from "@/components/ui/filter-nav";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Table,
@@ -148,17 +148,16 @@ export default function TeamsPage() {
           la sección —la categoría en la que compiten y la rama—, que no aplica a
           las demás. */}
       <div className="relative z-10 -mt-4 flex flex-col gap-3">
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-          <FilterNav
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterMenu
             label="Categoría"
             value={categoria}
             onChange={(v) => setParam("categoria", v)}
             options={categorias.length > 1 ? categorias : []}
             allLabel="Todas"
             showCount
-            className="max-w-2xl"
           />
-          <FilterNav
+          <FilterMenu
             label="Rama"
             value={sex}
             onChange={setSex}

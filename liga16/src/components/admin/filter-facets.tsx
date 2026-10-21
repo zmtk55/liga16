@@ -1,20 +1,18 @@
 // Las facetas del admin: un eje de filtro por fila.
 //
 // Una faceta es una pregunta que el organizador se hace sobre la lista:
-// "¿de qué estado?", "¿de qué categoría?", "¿de qué torneo?". Cada eje es una
-// fila —etiqueta a la izquierda, opciones a la derecha— y las opciones son
-// botones que se leen enteros, con su cuenta, sin abrirlos.
+// "¿de qué estado?", "¿de qué categoría?", "¿de qué torneo?".
 //
-// Por qué no un desplegable: el <Select> escondía las opciones detrás de dos
-// clics y no había forma de saber si el valor que se buscaba existía. Un
-// filtro que no se ve es un filtro que no se usa — y un admin que no filtra
-// termina revisando 60 partidos para encontrar los 6 que le importan.
+// Por qué un popover y no una fila de píldoras: la fila ocupaba una banda
+// entera con un scrollbar horizontal en el medio de la pantalla y, con
+// veinte opciones, era un muro de píldoras. El botón muestra el valor
+// elegido y el popover lista los valores con su cuenta y con búsqueda.
 //
 // La columna de etiqueta tiene ancho fijo para que todas las filas compartan
 // el mismo borde de alineación: el ojo baja por la etiqueta y no tiene que
 // cazarla en cada fila.
 import type { ReactNode } from "react";
-import { FilterNav, type FacetOption } from "@/components/ui/filter-nav";
+import { FilterMenu, type FacetOption } from "@/components/ui/filter-menu";
 
 /** Las filas de facetas, una debajo de otra, con el mismo paso de espaciado. */
 export function AdminFacets({ children }: { children: ReactNode }) {
@@ -38,14 +36,19 @@ export function AdminFacet({
   showCount?: boolean;
 }) {
   return (
-    <FilterNav
-      orientation="row"
-      label={label}
-      value={value}
-      onChange={onChange}
-      options={options}
-      allLabel={allLabel}
-      showCount={showCount}
-    />
+    <div className="flex min-w-0 items-center gap-3">
+      <p className="w-20 shrink-0 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground sm:w-24">
+        {label}
+      </p>
+      <FilterMenu
+        label=""
+        value={value}
+        onChange={onChange}
+        options={options}
+        allLabel={allLabel}
+        showCount={showCount}
+        className="min-w-0"
+      />
+    </div>
   );
 }

@@ -8,7 +8,7 @@ import { CardShell, CardIdentity } from "@/components/cards/card-kit";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { FilterNav } from "@/components/ui/filter-nav";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { formatDateRange, formatLabel, formatMoney, tournamentStatusLabel } from "@/lib/format";
 import { Trophy } from "lucide-react";
 
@@ -27,13 +27,14 @@ export default function TournamentsPage() {
   };
   const status = params.get("status") ?? "all";
   const setStatus = (v: string) => setParam("status", v);
-  const [format, setFormat] = useState("all");
+  const format = params.get("format") ?? "all";
+  const setFormat = (v: string) => setParam("format", v);
 
   useEffect(() => {
     let active = true;
     db.listTournaments().then((data) => {
       if (active) setTournaments(data);
-    });
+    }).catch(() => { if (active) setTournaments([]); });
     return () => {
       active = false;
     };
@@ -60,8 +61,8 @@ export default function TournamentsPage() {
         ghost="16"
       />
 
-      <div className="relative z-10 -mt-4 flex flex-wrap items-end gap-4">
-        <FilterNav
+      <div className="relative z-10 -mt-4 flex flex-wrap items-center gap-2">
+        <FilterMenu
           label="Estado"
           value={status}
           onChange={setStatus}
@@ -74,7 +75,7 @@ export default function TournamentsPage() {
           ]}
           allLabel="Todos los estados"
         />
-        <FilterNav
+        <FilterMenu
           label="Formato"
           value={format}
           onChange={(v) => setFormat(v)}

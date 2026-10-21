@@ -24,7 +24,7 @@ import { formatMatchDateTime } from "@/lib/format";
 import { buzz } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/page-hero";
-import { FilterNav } from "@/components/ui/filter-nav";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import {
   DIVISION_ORDER,
   categoryFacet,
@@ -328,16 +328,15 @@ export default function RankingsPage() {
       {/* El buscador vive en el header (ADR-0009). Los filtros van aquí porque
           se arman con los equipos cargados: las categorías que existen de
           verdad —"Suma 9", "Mixtos"— y solo esas. */}
-      <div className="relative z-10 -mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
-        <FilterNav
+      <div className="relative z-10 -mt-4 flex flex-wrap items-center gap-2">
+        <FilterMenu
           label="Categoría"
           value={categoria}
           onChange={(v) => setParam("categoria", v)}
           options={categorias.length > 1 ? categorias : []}
           showCount
-          className="max-w-2xl"
         />
-        <FilterNav
+        <FilterMenu
           label="Rama"
           value={sex}
           onChange={setSex}
