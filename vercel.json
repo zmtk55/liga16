@@ -1,7 +1,7 @@
 {
-  "buildCommand": "cd liga16 && npx tsc -b && npx vite build",
-  "installCommand": "cd liga16 && npm install --legacy-peer-deps",
-  "outputDirectory": "liga16/dist",
+  "buildCommand": "npx tsc -b && npx vite build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
