@@ -30,7 +30,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { MatchScoreboard } from "@/components/match-scoreboard";
 import { MatchCard } from "@/components/cards/card-kit";
-import { matchState, matchStatusKey } from "@/lib/match-state";
+import { matchBucket, matchState, type MatchBucket } from "@/lib/match-state";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -51,9 +51,14 @@ const STATUS_OPTIONS = Object.entries(matchStatusLabel).map(([value, label]) => 
 /**
  * Los estados con el nombre que usa el organizador, no el del diccionario.
  * "Programado" no dice nada; "Por capturar" sí.
+ *
+ * Los buckets salen del marcador (`matchBucket`), no del campo `status`: un
+ * partido con sets capturados y sin ganador es "En curso", no "Por
+ * capturar", y el organizador cuenta los dos distinto.
  */
-const STATUS_FACET_LABEL: Record<string, string> = {
-  scheduled: "Por capturar",
+const BUCKET_LABEL: Record<MatchBucket, string> = {
+  pending: "Por capturar",
+  playing: "En curso",
   live: "En vivo",
   finished: "Terminados",
   disputed: "En disputa",
@@ -100,8 +105,9 @@ export default function AdminResults() {
       return false;
     if (fTournament !== "all" && m.tournament_id !== fTournament) return false;
     // El filtro de estado usa la misma regla que la card: si el partido ya
-    // tiene marcador, está terminado, diga lo que diga el campo `status`.
-    if (fStatus !== "all" && matchStatusKey(m) !== fStatus) return false;
+    // tiene marcador, está terminado; si tiene marcador a medias, es "En
+    // curso" — no "Por capturar".
+    if (fStatus !== "all" && matchBucket(m) !== fStatus) return false;
     if (fCategory !== "all" && (m.category_name ?? "").toLowerCase() !== fCategory) return false;
     if (fRound !== "all" && jornadaKey(m.round) !== fRound) return false;
     return true;
@@ -120,14 +126,14 @@ export default function AdminResults() {
 
     const estados = new Map<string, number>();
     for (const m of all) {
-      const k = matchStatusKey(m);
+      const k = matchBucket(m);
       estados.set(k, (estados.get(k) ?? 0) + 1);
     }
-    const estadoOptions = Object.keys(STATUS_FACET_LABEL)
+    const estadoOptions = (Object.keys(BUCKET_LABEL) as MatchBucket[])
       .filter((s) => (estados.get(s) ?? 0) > 0)
       .map((s) => ({
         key: s,
-        label: STATUS_FACET_LABEL[s],
+        label: BUCKET_LABEL[s],
         n: estados.get(s) ?? 0,
       }));
 
@@ -157,11 +163,15 @@ export default function AdminResults() {
   }, []);
 
   async function load() {
-    const [matches, tList] = await Promise.all([db.listRecentMatches(), db.listTournaments()]);
-    setList(matches);
-    const map: Record<string, Tournament> = {};
-    for (const t of tList) map[t.id] = t;
-    setTournaments(map);
+    try {
+      const [matches, tList] = await Promise.all([db.listRecentMatches(), db.listTournaments()]);
+      setList(matches);
+      const map: Record<string, Tournament> = {};
+      for (const t of tList) map[t.id] = t;
+      setTournaments(map);
+    } catch {
+      toast.error("No se pudo cargar resultados");
+    }
   }
 
   async function handleSave(id: string, form: MatchFormData) {
@@ -233,19 +243,25 @@ export default function AdminResults() {
 
   /**
    * Cifras de cabecera. Lo que importa en esta pantalla es el trabajo que
-   * falta: partidos sin capturar y partidos en juego. Lo terminado es contexto.
+   * falta: partidos sin capturar, partidos a medias y partidos en juego. Lo
+   * terminado es contexto.
    *
    * Cuentan por marcador, igual que las cards: con el campo `status` a secas
    * esta pantalla decía "54 por capturar" mientras 27 de esas cards sayan
    * "Finalizado" — el mismo partido, dos verdades.
+   *
+   * Los cinco buckets son disjuntos y suman el total: un partido a medias no
+   * está ni "por capturar" ni "terminado", está en lo suyo.
    */
   const resumen = useMemo(() => {
     const all = list ?? [];
+    const cuenta = (bucket: MatchBucket) => all.filter((m) => matchBucket(m) === bucket).length;
     return {
       total: all.length,
-      porCapturar: all.filter((m) => matchStatusKey(m) === "scheduled").length,
-      enJuego: all.filter((m) => matchStatusKey(m) === "live").length,
-      terminados: all.filter((m) => matchStatusKey(m) === "finished").length,
+      porCapturar: cuenta("pending"),
+      aMedias: cuenta("playing"),
+      enJuego: cuenta("live"),
+      terminados: cuenta("finished"),
     };
   }, [list]);
 
@@ -259,9 +275,9 @@ export default function AdminResults() {
             <Button
               size="sm"
               variant="outline"
-              aria-pressed={fStatus === "scheduled"}
-              className={fStatus === "scheduled" ? "border-primary bg-primary text-primary-foreground hover:bg-primary-strong hover:text-primary-foreground" : undefined}
-              onClick={() => setFStatus((s) => (s === "scheduled" ? "all" : "scheduled"))}
+              aria-pressed={fStatus === "pending"}
+              className={fStatus === "pending" ? "border-primary bg-primary text-primary-foreground hover:bg-primary-strong hover:text-primary-foreground" : undefined}
+              onClick={() => setFStatus((s) => (s === "pending" ? "all" : "pending"))}
             >
               <ClipboardList className="h-4 w-4" />
               {resumen.porCapturar} por capturar
@@ -269,12 +285,17 @@ export default function AdminResults() {
           ) : undefined
         }
       >
-        <AdminStatStrip>
+        <AdminStatStrip className="sm:grid-cols-5">
           <AdminStat value={resumen.total} label="Partidos" />
           <AdminStat
             value={resumen.porCapturar}
             label="Por capturar"
             tone={resumen.porCapturar > 0 ? "text-primary" : undefined}
+          />
+          <AdminStat
+            value={resumen.aMedias}
+            label="En curso"
+            tone={resumen.aMedias > 0 ? "text-primary-strong" : undefined}
           />
           <AdminStat
             value={resumen.enJuego}
@@ -397,7 +418,8 @@ export default function AdminResults() {
           {filtered.length > 0 && (
             <div className="space-y-6 p-4">
               {categoryGroups.map(([categoria, ms], gi) => {
-                const pend = ms.filter((m) => matchStatusKey(m) === "scheduled").length;
+                const pend = ms.filter((m) => matchBucket(m) === "pending").length;
+                const aMedias = ms.filter((m) => matchBucket(m) === "playing").length;
                 const hid = `categoria-${gi}`;
                 return (
                   <section key={categoria} aria-labelledby={hid} className="space-y-3">
@@ -409,6 +431,9 @@ export default function AdminResults() {
                         {ms.length} partidos
                         {pend > 0 && (
                           <span className="text-primary-strong"> · {pend} por capturar</span>
+                        )}
+                        {aMedias > 0 && (
+                          <span className="text-primary-strong"> · {aMedias} en curso</span>
                         )}
                       </p>
                     </div>
@@ -429,9 +454,9 @@ export default function AdminResults() {
                                 {capturado
                                   ? "Resultado guardado"
                                   : state === "live"
-                                    ? "En curso"
+                                    ? "En vivo"
                                     : state === "playing"
-                                      ? "Marcador a medias"
+                                      ? "Falta completar"
                                       : "Falta capturar"}
                               </span>
                               <Button

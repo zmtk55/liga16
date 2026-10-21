@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays, CheckCircle2, XCircle } from "lucide-react";
 import { MatchCard, MatchSets } from "@/components/cards/card-kit";
-import { initials, sexLabel, winRate } from "@/lib/format";
+import { formatDate, initials, sexLabel, winRate } from "@/lib/format";
 import { matchStatusKey } from "@/lib/match-state";
 import { teamCategoryLabel } from "@/lib/categories";
 
@@ -333,10 +333,11 @@ export default function TeamDetailPage() {
                 <p className="text-sm text-muted-foreground">Sin resultados todavía.</p>
               ) : (
                 form.slice(0, 3).map((f) => {
-                  // Sin fecha, `new Date("")` imprimía literalmente "Invalid Date".
-                  const d = f.match.scheduled_at ? new Date(f.match.scheduled_at) : null;
-                  const when =
-                    d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("es-MX") : "Sin fecha";
+                  // La fecha con el formato de la app ("10 oct 2026"), no el
+                  // crudo de toLocaleDateString ("10/10/2026").
+                  const when = f.match.scheduled_at
+                    ? formatDate(f.match.scheduled_at)
+                    : "Sin fecha";
                   // De qué lado juega este equipo: para sacar SU marcador y no
                   // el del rival.
                   const isA = f.match.side_a.pair_name === team?.name;

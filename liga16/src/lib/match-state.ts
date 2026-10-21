@@ -31,12 +31,19 @@ export function setsWon(sets: Match["sets"]): { a: number; b: number } {
   return { a, b };
 }
 
-/** Quién ganó el partido: el `winner` guardado manda; si falta, el marcador. */
+/**
+ * Quién ganó el partido: el `winner` guardado manda; si falta, el marcador.
+ *
+ * Solo cuenta como ganador el que alcanzó los sets para ganar: en un partido
+ * a medias (1 set) el trofeo de la card sería mentira. Los chips en verde
+ * ya enseñan quién va ganando cada set.
+ */
 export function matchWinner(match: Match): "a" | "b" | null {
   if (match.winner) return match.winner;
   const won = setsWon(match.sets);
-  if (won.a > won.b) return "a";
-  if (won.b > won.a) return "b";
+  const need = DEFAULT_SCORING.sets_to_win;
+  if (won.a >= need) return "a";
+  if (won.b >= need) return "b";
   return null;
 }
 
@@ -83,4 +90,35 @@ export function matchStatusKey(match: Match): MatchStatus {
   if (state === "live") return "live";
   if (state === "finished") return "finished";
   return "scheduled";
+}
+
+/**
+ * El bucket fino: separa "nunca se capturó" de "se capturó a medias".
+ *
+ * `matchStatusKey` aplana las dos cosas en "scheduled" porque para saber si
+ * un partido está terminado basta. Para el listado del admin no: un partido
+ * con un set capturado y sin ganador es trabajo a medias, no un partido sin
+ * tocar, y el organizador los cuenta distinto.
+ *
+ * - `pending`  · sin marcador: nadie lo ha capturado.
+ * - `playing`  · hay marcador pero no hay ganador: quedó a medias.
+ * - `live`     · se está jugando ahora.
+ * - `finished` · hay ganador.
+ * - `disputed` · `walkover` · `cancelled` · estados sin marcador, tal cual.
+ */
+export type MatchBucket = "pending" | "playing" | "live" | "finished" | "disputed" | "walkover" | "cancelled";
+
+export function matchBucket(match: Match): MatchBucket {
+  if (
+    match.status === "disputed" ||
+    match.status === "walkover" ||
+    match.status === "cancelled"
+  ) {
+    return match.status;
+  }
+  const state = matchState(match);
+  if (state === "live") return "live";
+  if (state === "finished") return "finished";
+  if (state === "playing") return "playing";
+  return "pending";
 }

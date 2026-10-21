@@ -25,6 +25,14 @@ export default defineConfig([
       // router, las tablas de navegación) porque son datos, no componentes, y
       // partirlos en archivos aparte solo movería código sin efecto.
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // El prefijo "_" es la convención para "parámetro que ya no se usa pero
+      // se conserva por compatibilidad" (la firma de computeStandings, p.ej.).
+      // Sin esto, ESLint marcaba como error un `_scoring` deliberadamente
+      // ignorado y el lint del repo no podía pasar.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
   {

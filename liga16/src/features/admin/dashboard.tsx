@@ -29,7 +29,7 @@ import {
 } from "recharts";
 import { db } from "@/lib/data";
 import { useMatchUpdated } from "@/lib/refresh";
-import { matchStatusKey } from "@/lib/match-state";
+import { matchBucket, matchStatusKey } from "@/lib/match-state";
 import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -169,20 +169,22 @@ function DivisionPie({ teams }: { teams: Team[] }) {
 
 function MatchesByStatus({ matches }: { matches: Match[] }) {
   const data = useMemo(() => {
-    const counts = { live: 0, scheduled: 0, finished: 0 };
-    // Las tres barras cuentan con la misma regla que la card y que la
+    const counts = { live: 0, pending: 0, playing: 0, finished: 0 };
+    // Las cuatro barras cuentan con la misma regla que la card y que la
     // pantalla de Resultados: si el partido tiene marcador, está finished.
     // Con el campo crudo, "Programados" decía 54 en una liga con 27
     // partidos ya jugados.
     matches.forEach((m) => {
-      const k = matchStatusKey(m);
+      const k = matchBucket(m);
       if (k === "live") counts.live++;
-      else if (k === "scheduled") counts.scheduled++;
+      else if (k === "pending") counts.pending++;
+      else if (k === "playing") counts.playing++;
       else if (k === "finished") counts.finished++;
     });
     return [
       { name: "En vivo", value: counts.live, fill: "#e11d48" },
-      { name: "Programados", value: counts.scheduled, fill: "#f59e0b" },
+      { name: "Por capturar", value: counts.pending, fill: "#f59e0b" },
+      { name: "En curso", value: counts.playing, fill: "#a855f7" },
       { name: "Finalizados", value: counts.finished, fill: "#10b981" },
     ];
   }, [matches]);
@@ -245,7 +247,7 @@ export default function AdminDashboard() {
     [data],
   );
   const pendingMatches = useMemo(
-    () => (data?.matches ?? []).filter((m) => matchStatusKey(m) === "scheduled"),
+    () => (data?.matches ?? []).filter((m) => matchBucket(m) === "pending"),
     [data],
   );
   const running = useMemo(
