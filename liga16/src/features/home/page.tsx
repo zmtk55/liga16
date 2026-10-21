@@ -19,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   matchStatusLabel,
-  tournamentStatusLabel,
   tierLabel,
   formatDateRange,
   formatMatchDateTime,
@@ -241,11 +240,6 @@ setStats({ tournaments, teams, matches, news, sponsors });
     (featured.registration_deadline ?? featured.end_date) >= today;
   // Sede REAL: ciudad del torneo destacado (única fuente, sin inventar)
   const sedeLabel = formatCity(featured?.city || stats.tournaments[0]?.city) || "Liga16";
-  // El estado sale del mapa de `@/lib/format`, que ya traduce los siete estados
-  // del torneo. La ternaria local solo cubría tres y dejaba los demás en "".
-  const statusLabel = featured?.status
-    ? tournamentStatusLabel[featured.status]
-    : "";
 
   return (
     <div className="space-y-16 md:space-y-20">
@@ -287,56 +281,13 @@ setStats({ tournaments, teams, matches, news, sponsors });
             </h1>
 
 
-            {featured && (
-              /* La ficha del torneo, con su acción DENTRO.
-                 Antes el "Ver torneo" era un botón suelto veinte píxeles más
-                 abajo, lejos de la ficha que describía, y la ficha se quedaba
-                 en un póster de 64px con el nombre en 16px: dos elementos
-                 para una sola cosa. Ahora la ficha es el torneo —póster, nombre,
-                 estado, fechas— y su botón es la acción. El fondo baja a
-                 negro al 45%: sobre la foto el texto blanco necesita un suelo
-                 o no se lee. */
-              <div className="mt-8 max-w-xl rounded-2xl bg-black/45 p-4 ring-1 ring-inset ring-white/10 sm:p-5">
-                <div className="flex items-start gap-4">
-                  {featured.cover_url && (
-                    <img
-                      src={featured.cover_url}
-                      alt=""
-                      className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-white/10 sm:h-24 sm:w-24"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    {/* El nombre solo cuando no hay póster: la portada lo
-                        lleva impreso (es una imagen con el nombre, la edición y
-                        las fechas), así que repetirlo al lado era decirlo dos
-                        veces en la misma ficha. */}
-                    {!featured.cover_url && (
-                      <h2 className="truncate font-headline text-xl uppercase leading-none tracking-[-0.02em] text-white sm:text-2xl">
-                        {featured.name}
-                      </h2>
-                    )}
-                    <p className={`mt-2 truncate text-sm text-white/70${featured.cover_url ? "" : " mt-0"}`}>
-                      {statusLabel} · {featured.club_name ?? formatCity(featured.city)}
-                    </p>
-                    <p className="mt-1 truncate text-sm text-white/70">
-                      {formatDateRange(featured.start_date, featured.end_date)}
-                    </p>
-                    <Button
-                      asChild
-                      size="lg"
-                      className="mt-4 h-11 w-full rounded-none px-5 font-bold uppercase tracking-wide sm:w-auto"
-                    >
-                      <Link to={featured ? `/torneos/${featured.slug}` : "/torneos"}>
-                        {featuredIsOpen ? "Ver inscripción" : "Ver torneo"}
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            {/* La ficha del torneo se fue del hero.
+                Era una miniatura de la tarjeta "INSCRIPCIÓN · PRÓXIMO TORNEO"
+                de la banda de abajo, justo debajo: el mismo póster, el mismo
+                nombre, las mismas fechas y la misma acción. La misma
+                información dos veces en la misma pantalla, y la versión
+                pequeña encima. Aquí solo queda el escape al catálogo. */}
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
                 to="/torneos"
                 className="inline-flex h-11 items-center justify-center border-b border-white/25 text-sm font-semibold uppercase tracking-wide text-white/75 transition-colors hover:border-white hover:text-white sm:justify-start"
