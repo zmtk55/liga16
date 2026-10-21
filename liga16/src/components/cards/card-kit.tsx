@@ -440,7 +440,9 @@ export function MatchCard({
               {court && (
                 <span className="inline-flex shrink-0 items-center gap-1">
                   <MapPin className="h-3 w-3" />
-                  Cancha {court}
+                  {/* El nombre de la cancha ya viene completo ("Cancha 1"):
+                      anteponerle "Cancha" imprimía "Cancha Cancha 1". */}
+                  {/^cancha\b/i.test(court) ? court : `Cancha ${court}`}
                 </span>
               )}
               {match.tournament_name && (
