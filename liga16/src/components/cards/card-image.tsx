@@ -131,27 +131,22 @@ export function PlayerAvatar({
     );
   }
 
-  // Tonos -700 (o el token, que ya es oscuro): con -600 y texto blanco las
-  // iniciales medían 2.9:1 sobre el ámbar y 3.4:1 sobre el naranja.
-  const colors = [
-    "bg-primary text-primary-foreground",
-    "bg-success",
-    "bg-blue-700",
-    "bg-purple-700",
-    "bg-amber-700",
-    "bg-destructive",
-    "bg-cyan-700",
-    "bg-orange-700",
-    "bg-teal-700",
-    "bg-indigo-700",
-  ];
-  const colorIndex = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
-
+  /**
+   * Un solo tratamiento para todos: el naranja de marca.
+   *
+   * Antes el color salía de un hash del nombre, con diez tonos saturados. En una
+   * grilla de 48 jugadores eso era un arcoíris de diez colores que no
+   * significaba nada —el color no codificaba ninguna categoría— y competía con
+   * el naranja de la marca, que es el único acento del sistema. Las iniciales
+   * ya identifican a quién; el color no hacía falta.
+   *
+   * Mismo criterio que `PairAvatar` y `PairAvatars`: `bg-primary/10` con el
+   * texto en `text-primary`.
+   */
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-full text-white font-bold",
-        colors[colorIndex],
+        "flex items-center justify-center rounded-full bg-primary/10 font-bold text-primary",
         className,
       )}
     >

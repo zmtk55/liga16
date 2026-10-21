@@ -451,7 +451,6 @@ export default function RankingsPage() {
                     <CardStat value={`${winRate(t.played, t.won)}%`} label="Efect." />
                   </>
                 }
-                chip={<Badge variant="outline">{t.division}</Badge>}
               />
             </CardShell>
           ))}

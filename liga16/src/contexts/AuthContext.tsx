@@ -46,25 +46,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let hydratedUserId: string | null = null;
+    /**
+     * Una sola hidratación a la vez.
+     *
+     * La sesión llega por dos vías (`getSession()` y el evento INITIAL_SESSION
+     * del listener) y las dos disparan la hidratación. Antes, la segunda
+     * encontra el id ya hidratado, hace `setLoading(false)` y se va: el guard
+     * veía "ya no estoy cargando" con el usuario todavía SIN PONER, y
+     * `RequireAuth` echaba al login. Por eso /jugadores y /mi-perfil
+     * devolvían al login con la sesión viva, mientras el admin no (su guard
+     * no redirige, muestra "Acceso restringido" y se recupera solo).
+     *
+     * Ahora la segunda señal ESPERA a la primera: `loading` baja a false
+     * cuando el usuario ya está puesto.
+     */
+    let hydration: Promise<void> | null = null;
 
     async function hydrateUser(
       sessionUser: { id: string; email?: string | null; created_at?: string | null; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> },
     ) {
-      // Evitar hidrataciones duplicadas (getSession + INITIAL_SESSION disparan ambas)
-      if (hydratedUserId === sessionUser.id) {
-        setLoading(false);
-        return;
+      if (!hydration) {
+        hydration = (async () => {
+          const { role, player_id } = await resolveUser(sessionUser);
+          setUser({
+            id: sessionUser.id,
+            email: sessionUser.email || "",
+            role,
+            player_id,
+            created_at: sessionUser.created_at || new Date().toISOString(),
+          });
+        })();
       }
-      hydratedUserId = sessionUser.id;
-      const { role, player_id } = await resolveUser(sessionUser);
-      setUser({
-        id: sessionUser.id,
-        email: sessionUser.email || "",
-        role,
-        player_id,
-        created_at: sessionUser.created_at || new Date().toISOString(),
-      });
+      await hydration;
       setLoading(false);
     }
 
@@ -83,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           void hydrateUser(session.user);
         } else {
-          hydratedUserId = null;
+          hydration = null;
           setUser(null);
           setLoading(false);
         }

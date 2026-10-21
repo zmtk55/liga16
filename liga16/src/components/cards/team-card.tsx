@@ -30,7 +30,6 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { sexLabel, winRate } from "@/lib/format";
@@ -114,9 +113,16 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
       >
         {/* Frente: fondo + panel de blur */}
         <div className="absolute inset-0 flex flex-col [backface-visibility:hidden]">
+          {/*
+            El fondo ocupa la parte de ARRIBA de la card y el panel se apoya
+            abajo. Antes los dos se montaban encima: el escudo y la marca de
+            agua se centraban en toda la card y el panel tapaba su mitad de
+            abajo, así que quedaban cortados. El `pb-28` sube el contenido del
+            fondo a la zona que se ve.
+          */}
           <div
             aria-hidden
-            className="absolute inset-0 flex items-center justify-center bg-muted"
+            className="absolute inset-0 flex items-center justify-center bg-muted pb-28"
           >
             <span className="text-6xl font-black text-foreground/15">
               {pairInitials(lines)}
@@ -124,7 +130,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
           </div>
 
           {crest ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-muted to-muted/70 p-8">
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-muted to-muted/70 p-8 pb-32">
               <img
                 src={crest}
                 onError={(e) => {
@@ -167,22 +173,29 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               </span>
             ) : null}
           </div>
-          {/* La DIVISIÓN con su abreviatura, arriba a la izquierda: es el dato
-              que la gente busca primero ("¿en qué categoría juego?"). Va como
-              rótulo propio y no dentro de la línea de la categoría del torneo
-              porque son dos cosas distintas: "Suma 9" es la categoría con la que
-              se inscribieron y "6ta" es la mesa en la que compiten. Antes acá
-              salía "Sexta categoría", que además de ser otra respuesta para lo
-              mismo obligaba a descifrar una abreviatura que nadie descifra. */}
+          {/* La CATEGORÍA con la que se inscribieron, arriba a la izquierda: es
+              el dato que la gente busca primero ("¿en qué categoría juego?").
+              Antes ponía la DIVISIÓN ("4TA"), que es solo el bucket de orden
+              derivado de ese mismo nombre: la pareja de "Cuarta femenil"
+              aparecía como "4TA" y, dos líneas más abajo, como "Cuarta
+              femenino" — la misma respuesta dos veces y en dos palabras. La
+              categoría manda; la división vive en el reverso y en los filtros. */}
           <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
-            <span className="rounded-full bg-black/55 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white backdrop-blur-sm">
-              {team.division}
+            <span
+              title={teamCategoryLabel(team)}
+              className="max-w-[11rem] truncate rounded-full bg-black/55 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white backdrop-blur-sm"
+            >
+              {teamCategoryLabel(team)}
             </span>
             <FavStar />
           </div>
 
-          {/* Panel con blur en la zona inferior (face-safe) */}
-          <div className="relative z-10 mx-3 mb-3 mt-auto rounded-xl border border-foreground/15 bg-background/75 p-2.5 backdrop-blur-md dark:bg-background/45">
+          {/* Panel con blur en la zona inferior (face-safe).
+              El fondo va casi opaco a propósito: con la foto de fondo, un
+              panel al 75% dejaba los números peleándose con la imagen (la
+              "%" se perdía sobre un poster). Los datos mandan; la foto sigue
+              siendo la identidad de la card, no su contenido. */}
+          <div className="relative z-10 mx-3 mb-3 mt-auto rounded-xl border border-foreground/15 bg-background/90 p-2.5 backdrop-blur-md dark:bg-background/80">
             <h3 className="text-sm leading-tight font-bold text-foreground">
               {lines.map((l, i) => (
                 <span key={i} className="block truncate">
@@ -191,17 +204,8 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               ))}
             </h3>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-foreground/80">
-              {/* La categoría REAL del torneo ("Suma 9", "4ta Varonil"), que es
-                  como la gente la reconoce; la división derivada es solo el
-                  bucket de orden. Antes la card mostraba la división sola y una
-                  pareja de Suma 9 aparecía como "6ta", que no es su categoría.
-                  Mismo criterio que ya usa el Home. */}
-              <Badge
-                variant="outline"
-                className="rounded-full border-foreground/20 bg-foreground/10 text-foreground"
-              >
-                {teamCategoryLabel(team)}
-              </Badge>
+              {/* La categoría ya está arriba; aquí va el resto de la identidad:
+                  rama y ciudad. */}
               <span className="shrink-0">{sexLabel(team.sex)}</span>
               <span className="truncate">· {team.city}</span>
             </div>
@@ -221,8 +225,8 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
             <Button
               asChild
               size="sm"
-              variant="secondary"
-              className="mt-1.5 h-7 w-full rounded-full font-semibold"
+              variant="outline"
+              className="mt-1.5 h-7 w-full rounded-full border-foreground/25 bg-background/60 font-semibold text-foreground backdrop-blur-sm hover:bg-background/90"
               onClick={(e) => {
                 e.stopPropagation();
                 buzz("select");
@@ -239,7 +243,9 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
             <p className="truncate text-xs uppercase tracking-wide text-muted-foreground">
               {[
                 team.position > 0 ? `#${team.position}` : null,
-                teamCategoryLabel(team),
+                // Aquí sí va la DIVISIÓN: es la mesa en la que compiten. En el
+                // frente está la categoría con la que se inscribieron.
+                team.division,
                 sexLabel(team.sex),
               ]
                 .filter(Boolean)

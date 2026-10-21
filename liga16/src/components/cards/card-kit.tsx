@@ -48,7 +48,7 @@ export function CardShell({
   return (
     <Card
       className={cn(
-        "group gap-0 overflow-hidden py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+        "group min-w-0 gap-0 overflow-hidden py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
         className,
       )}
     >
@@ -130,7 +130,9 @@ export function CardStat({
     <div className="flex min-w-0 flex-col items-center px-1 py-1.5">
       {/* `value` es ReactNode → bloque. `label` es string → puede seguir siendo inline. */}
       <div className={cn("text-stat tabular-nums", tone)}>{value}</div>
-      <span className="text-caption uppercase text-muted-foreground">{label}</span>
+      {/* La etiqueta trunca: si la celda se queda corta, se recorta la palabra
+          larga, no se empuja el chip de al lado fuera de la card. */}
+      <span className="max-w-full truncate text-caption uppercase text-muted-foreground">{label}</span>
     </div>
   );
 }

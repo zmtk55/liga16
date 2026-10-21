@@ -42,7 +42,7 @@ export function PlayerCard({
   className,
   footer,
 }: PlayerCardProps) {
-  const level = player.official_level ?? player.declared_level ?? 0;
+  const level = player.official_level ?? player.declared_level ?? null;
   const hasStats = (played ?? 0) > 0;
   const wr = hasStats ? winRate(played!, won!) : null;
   const wrPct = wr !== null ? `${wr}%` : "—";
@@ -62,7 +62,12 @@ export function PlayerCard({
           }
           title={player.display_name}
           meta={
-            [player.city, division].filter(Boolean).join(" · ") || undefined
+            // La rama va en la meta y no en un chip aparte: en la franja de
+            // cifras competía con las tres estadísticas por el ancho y la
+            // última se salía de la card (la tapaba la siguiente de la grilla).
+            // Y si el jugador ya tiene categoría ("Cuarta femenil"), esa dice
+            // la rama mejor que el gender: no van las dos.
+            [player.city, division ?? sexLabel(player.sex)].filter(Boolean).join(" · ") || undefined
           }
           end={
             hasStats ? (
@@ -76,15 +81,11 @@ export function PlayerCard({
           className="mt-3"
           stats={
             <>
-              <CardStat value={level.toFixed(1)} label="Nivel" />
+              {/* Sin nivel no hay nivel: "0.0" parecía una medición. */}
+              <CardStat value={level !== null ? level.toFixed(1) : "—"} label="Nivel" />
               <CardStat value={played ?? "—"} label="Partidos" />
               <CardStat value={record} label="Récord" />
             </>
-          }
-          chip={
-            <Badge variant="outline" className="text-2xs">
-              {sexLabel(player.sex)}
-            </Badge>
           }
         />
         {footer}
