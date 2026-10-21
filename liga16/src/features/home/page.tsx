@@ -19,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   matchStatusLabel,
-  tierLabel,
   formatDateRange,
   formatMatchDateTime,
   formatCity,
@@ -30,6 +29,7 @@ import {
   teamCategoryLabel,
 } from "@/lib/categories";
 import { GroupFilterBar } from "@/components/shadcn-space/blocks/navbar-01/group-filter-bar";
+import SponsorMarquee from "@/components/blocks/sponsor-marquee";
 
 const HERO_IMAGE = "/images/hero-padel.jpg";
 
@@ -301,7 +301,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
 
 
       {/* MARKETING — 1, 2 y 10 */}
-      <section className="grid gap-6 md:grid-cols-3">
+      <section aria-label="Estado del circuito" className="grid gap-6 md:grid-cols-3">
         {/* 1. Cuenta regresiva + inscripción */}
         <div className="rounded-2xl bg-surface-inverse p-6 text-white md:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">Inscripción</p>
@@ -354,13 +354,13 @@ setStats({ tournaments, teams, matches, news, sponsors });
 
         {/* 10. Alarma / newsletter */}
         <div className="rounded-2xl bg-primary/5 p-6 md:p-8 border border-primary/10">
-          <h3 className="font-headline text-xl uppercase tracking-tight">Alarmas de juego</h3>
-          <p className="mt-2 text-sm text-muted-foreground">Recibí alertas cuando empiezan los partidos que seguís.</p>
+          <h3 className="font-headline text-xl uppercase tracking-tight">Suscribirse para regalos y noticias</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Recibí regalos exclusivos y novedades del circuito.</p>
           <form onSubmit={(e) => { e.preventDefault(); setSubscribed(true); }} className="mt-5 flex gap-2">
             <input type="email" required placeholder="tu@email.com" className="flex-1 rounded-none border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
             <Button type="submit" size="sm" className="h-11 rounded-none px-4 font-bold uppercase tracking-wide">Enviar</Button>
           </form>
-          {subscribed && <p className="mt-3 text-xs font-bold text-primary">✓ Te avisamos cuando arranque.</p>}
+          {subscribed && <p className="mt-3 text-xs font-bold text-primary">✓ ¡Listo! Te avisamos de los próximos regalos.</p>}
         </div>
       </section>
 
@@ -604,34 +604,8 @@ setStats({ tournaments, teams, matches, news, sponsors });
         </section>
       )}
 
-      {/* Patrocinadores como créditos, no como dashboard */}
-      {stats.sponsors.length > 0 && (
-        <section className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">
-            Con el apoyo de
-          </p>
-          <div className="flex flex-wrap gap-x-8 gap-y-3">
-            {stats.sponsors.map((sponsor) => (
-              <div key={sponsor.id} className="flex items-center gap-2">
-                {sponsor.logo_url ? (
-                  <img
-                    src={sponsor.logo_url}
-                    alt={sponsor.name}
-                    className="h-7 w-auto max-w-28 object-contain"
-                  />
-                ) : (
-                  <span className="text-sm font-bold tracking-tight">
-                    {sponsor.name}
-                  </span>
-                )}
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  {tierLabel[sponsor.tier]}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Banner rotativo de patrocinadores — se administra en /admin/sponsors */}
+      <SponsorMarquee sponsors={stats?.sponsors ?? []} />
     </div>
   );
 }

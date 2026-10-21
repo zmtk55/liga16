@@ -114,6 +114,37 @@ export default function TeamDetailPage() {
     return { sf, sa, diff: sf - sa };
   }, [form, team]);
 
+  // Estadísticas adicionales del rendimiento (hooks antes de los early-returns)
+  const setsWinAvg = useMemo(() => {
+    let total = 0, contests = 0;
+    for (const f of form) {
+      const isA = f.match.side_a.pair_name === team?.name;
+      for (const s of f.match.sets) {
+        total += (isA ? s.a : s.b);
+        contests++;
+      }
+    }
+    return contests > 0 ? Math.round(total / contests) : null;
+  }, [form, team]);
+  // Rival directo: el que más partidos ha disputado contra este equipo
+  const rivalDir = useMemo(() => {
+    if (form.length === 0) return null;
+    const counts = new Map<string, number>();
+    for (const f of form) {
+      counts.set(f.rival, (counts.get(f.rival) ?? 0) + 1);
+    }
+    let best: string | null = null;
+    let bestCount = 0;
+    for (const [name, n] of counts) {
+      if (n > bestCount) {
+        bestCount = n;
+        best = name;
+      }
+    }
+    return best;
+  }, [form]);
+  const rivalDirWon = rivalDir ? form.filter((f) => f.rival === rivalDir && f.won).length : null;
+
   const compareTeam = allTeams.find((t) => t.name === compareName) ?? null;
 
   if (team === undefined) {
@@ -467,6 +498,45 @@ export default function TeamDetailPage() {
                   <div className="mb-1 flex items-center justify-between text-xs"><span className="text-muted-foreground">Sets ganados / totales</span><span className="font-bold tabular-nums">{winRate(setStats.sf + setStats.sa, setStats.sf)}%</span></div>
                   <Progress value={winRate(setStats.sf + setStats.sa, setStats.sf)} className="h-2 transition-all duration-700 ease-out" />
                 </div>
+
+                {/* Diferencial de sets: cuántos sets ganó de más la pareja.
+                    El % de arriba puede decir 60% y el diferencial −2: gana
+                    muchos pero pierde más sets de los que gana. */}
+                <div className="flex items-center justify-between border-t pt-3 text-xs">
+                  <span className="text-muted-foreground">Diferencial de sets</span>
+                  <span className={`font-bold tabular-nums ${setStats.diff > 0 ? "text-success" : setStats.diff < 0 ? "text-destructive" : ""}`}>
+                    {setStats.diff > 0 ? "+" : ""}{setStats.diff}
+                  </span>
+                </div>
+
+                {/* Promedio de juegos ganados por set: si ganan 6-2 o 6-0.
+                    Dice si el Dominio es de fondo o de deceptive. */}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Juegos ganados por set</span>
+                  <span className="font-bold tabular-nums">
+                    {setsWinAvg === null ? "—" : `${setsWinAvg} de media`}
+                  </span>
+                </div>
+
+                {/* Puntos y posición en la división: el objetivo de cada fecha. */}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Puntos / posición en la división</span>
+                  <span className="font-bold tabular-nums">
+                    {team.points ?? 0} pts · #{team.position || "—"}
+                  </span>
+                </div>
+
+                {/* Rival directo: contra quién gana la pareja. */}
+                {rivalDir && rivalDirWon !== null && (
+                  <div className="flex items-center justify-between border-t pt-3 text-xs">
+                    <span className="min-w-0 truncate pr-2 text-muted-foreground">
+                      vs {rivalDir}
+                    </span>
+                    <span className="shrink-0 font-bold tabular-nums">
+                      {rivalDirWon}G — {form.filter((f) => f.rival === rivalDir).length - rivalDirWon}P
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

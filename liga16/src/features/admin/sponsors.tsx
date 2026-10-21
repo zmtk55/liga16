@@ -110,7 +110,7 @@ export default function AdminSponsors() {
     <div className="space-y-5">
       <AdminPageHeader
         title="Patrocinadores"
-        description="Gestiona los logos y tiers de los patrocinadores que aparecen en la landing page."
+        description="Los logos que subís acá giran en el banner rotativo de la landing page. Subí PNG con fondo transparente para que se vea prolijo."
         action={
           <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
             <Plus className="h-4 w-4" /> Nuevo patrocinador
@@ -320,7 +320,7 @@ function SponsorFormDialog({
                       variant="secondary"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => update("logo_url", "")}
+                      onClick={() => update("logo_url", null)}
                       aria-label="Quitar logo"
                     >
                       <X className="h-4 w-4" />
