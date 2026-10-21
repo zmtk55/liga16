@@ -10,7 +10,6 @@ import {
   Radio,
   ShieldCheck,
   Target,
-  TrendingUp,
   Trophy,
   Users,
 } from "lucide-react";
@@ -37,8 +36,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
+import { AdminPageHeader } from "@/components/admin/page-header";
 import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
 import { PopNumber } from "@/components/ui/transitions";
@@ -72,10 +70,10 @@ const activityConfig = {
 } satisfies ChartConfig;
 
 const statusConfig = {
-  "En vivo": { label: "En vivo", color: "hsl(var(--destructive))" },
-  "Por capturar": { label: "Por capturar", color: "hsl(var(--chart-3))" },
-  "En curso": { label: "En curso", color: "hsl(var(--chart-1))" },
-  Finalizados: { label: "Finalizados", color: "hsl(var(--success))" },
+  "En vivo": { label: "En vivo", color: "hsl(var(--chart-live))" },
+  "Por capturar": { label: "Por capturar", color: "hsl(var(--chart-pending))" },
+  "En curso": { label: "En curso", color: "hsl(var(--chart-playing))" },
+  Finalizados: { label: "Finalizados", color: "hsl(var(--chart-done))" },
 } satisfies ChartConfig;
 
 function DashboardSkeleton() {
@@ -96,46 +94,39 @@ function DashboardSkeleton() {
   );
 }
 
+/**
+ * Cifra del circuito: icono, número y etiqueta en una línea. Antes eran
+ * cuatro cajas altas con un número perdido en el centro; el dato es
+ * pequeño y no necesita una caja.
+ */
 function StatCard({
   label,
   value,
   icon: Icon,
-  trend,
-  trendUp,
   accent,
 }: {
   label: string;
   value: string | number;
   icon: React.ElementType;
-  trend?: string;
-  trendUp?: boolean;
   accent?: boolean;
 }) {
   return (
-    <Card className="group relative overflow-hidden border-border/60 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-            {/* La cifra entra dígito a dígito cuando cambia (transitions-dev). */}
-            <p className="text-2xl font-bold">
-              <PopNumber value={value} className={cn(accent && "text-primary")} />
-            </p>
-            {trend && (
-              <p className={`flex items-center gap-1 text-xs ${trendUp ? "text-emerald-600" : "text-muted-foreground"}`}>
-                {trendUp && <TrendingUp className="h-3 w-3" />}
-                {trend}
-              </p>
-            )}
-          </div>
-          <div
-            className={cn(
-              "rounded-lg p-2 transition-transform duration-200 ease-out group-hover:scale-110",
-              accent ? "bg-primary/10" : "bg-muted",
-            )}
-          >
-            <Icon className={cn("h-4 w-4", accent ? "text-primary" : "text-muted-foreground")} />
-          </div>
+    <Card className="group transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+      <CardContent className="flex items-center gap-3 p-3">
+        <span
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 ease-out group-hover:scale-110",
+            accent ? "bg-primary/12 text-primary" : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          {/* La cifra entra dígito a dígito cuando cambia (transitions-dev). */}
+          <p className="text-stat leading-none">
+            <PopNumber value={value} className={cn(accent && "text-primary")} />
+          </p>
+          <p className="mt-0.5 truncate text-caption uppercase text-muted-foreground">{label}</p>
         </div>
       </CardContent>
     </Card>
@@ -308,10 +299,10 @@ function MatchesByStatus({ matches }: { matches: Match[] }) {
       else if (k === "finished") counts.finished++;
     });
     return [
-      { name: "En vivo", value: counts.live, fill: "hsl(var(--destructive))" },
-      { name: "Por capturar", value: counts.pending, fill: "hsl(var(--chart-3))" },
-      { name: "En curso", value: counts.playing, fill: "hsl(var(--chart-1))" },
-      { name: "Finalizados", value: counts.finished, fill: "hsl(var(--success))" },
+      { name: "En vivo", value: counts.live, fill: "hsl(var(--chart-live))" },
+      { name: "Por capturar", value: counts.pending, fill: "hsl(var(--chart-pending))" },
+      { name: "En curso", value: counts.playing, fill: "hsl(var(--chart-playing))" },
+      { name: "Finalizados", value: counts.finished, fill: "hsl(var(--chart-done))" },
     ];
   }, [matches]);
 
@@ -328,7 +319,7 @@ function MatchesByStatus({ matches }: { matches: Match[] }) {
           tickLine={false}
           axisLine={false}
           tickMargin={6}
-          width={86}
+          width={94}
           tick={{ fontSize: 11 }}
         />
         <ChartTooltip
@@ -479,29 +470,10 @@ export default function AdminDashboard() {
       <AdminPageHeader
         title="Panel de control"
         description="Resumen general del circuito: actividad, torneos y tareas pendientes."
-      >
-        <AdminStatStrip>
-          <AdminStat
-            value={<PopNumber value={pendingPlayers.length} />}
-            label="Por verificar"
-            tone={pendingPlayers.length > 0 ? "text-primary" : undefined}
-          />
-          <AdminStat
-            value={<PopNumber value={pendingMatches.length} />}
-            label="Por capturar"
-            tone={pendingMatches.length > 0 ? "text-primary" : undefined}
-          />
-          <AdminStat value={<PopNumber value={running.length} />} label="En juego" />
-        </AdminStatStrip>
-      </AdminPageHeader>
+      />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Jugadores" value={totalPlayers} icon={Users} accent />
-        <StatCard label="Equipos" value={totalTeams} icon={Target} />
-        <StatCard label="Torneos" value={totalTournaments} icon={Trophy} />
-        <StatCard label="Partidos jugados" value={finishedMatches} icon={BarChart3} />
-      </div>
-
+      {/* Lo que pide atención va primero y en fila: una lista que se lee de un
+          vistazo, no cuatro cajas con un número perdido en el centro. */}
       <section aria-labelledby="hoy" className="space-y-3">
         <h2 id="hoy" className="text-sm font-semibold">
           Tareas de hoy
@@ -521,42 +493,42 @@ export default function AdminDashboard() {
             </Empty>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="space-y-2">
             {tasks.map((t) => (
               <Link
                 key={t.key}
                 to={t.to}
-                className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group flex items-center gap-4 rounded-xl border bg-card px-4 py-3 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <CardShell accent>
-                  <CardIdentity
-                    lead={<t.icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
-                    title={t.label}
-                    meta={t.hint}
-                  />
-                  <CardFooterStrip
-                    className="mt-3"
-                    stats={[
-                      <CardStat
-                        key="n"
-                        value={<PopNumber value={t.count} />}
-                        label={t.count === 1 ? "pendiente" : "pendientes"}
-                        tone="text-primary"
-                      />,
-                    ]}
-                    chip={
-                      <Badge variant="secondary" className="gap-1 transition-transform duration-200 group-hover:translate-x-0.5">
-                        {t.cta}
-                        <ArrowRight className="h-3 w-3" />
-                      </Badge>
-                    }
-                  />
-                </CardShell>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
+                  <t.icon className="h-5 w-5" aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-sm">{t.label}</p>
+                  <p className="truncate text-xs text-muted-foreground">{t.hint}</p>
+                </div>
+                <p className="shrink-0 text-stat leading-none text-primary">
+                  <PopNumber value={t.count} />
+                </p>
+                <Badge
+                  variant="secondary"
+                  className="hidden shrink-0 gap-1 transition-transform duration-200 group-hover:translate-x-0.5 sm:inline-flex"
+                >
+                  {t.cta}
+                  <ArrowRight className="h-3 w-3" />
+                </Badge>
               </Link>
             ))}
           </div>
         )}
       </section>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Jugadores" value={totalPlayers} icon={Users} accent />
+        <StatCard label="Equipos" value={totalTeams} icon={Target} />
+        <StatCard label="Torneos" value={totalTournaments} icon={Trophy} />
+        <StatCard label="Partidos jugados" value={finishedMatches} icon={BarChart3} />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>

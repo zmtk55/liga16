@@ -48,16 +48,24 @@
     --warning: 38 92% 50%;
 
     /* Paleta de gráficas (convención shadcn: --chart-1..6).
-       Las consume el componente <ChartContainer />: cada serie y cada porción
-       de dona toma su color de aquí, en vez de un hex escrito en la página.
-       La 1 es el naranja de marca; las demás completan la paleta del
-       circuito y mantienen el contraste sobre el fondo de las cards. */
-    --chart-1: 16 100% 50%;
-    --chart-2: 152 65% 32%;
-    --chart-3: 38 92% 46%;
-    --chart-4: 199 89% 44%;
-    --chart-5: 275 62% 52%;
-    --chart-6: 340 72% 50%;
+       Las divisiones de una liga son la misma cosa: van en una rampa cálida
+       (naranja → ámbar → arena), no en un arcoíris de colores saturados que
+       se pelean entre sí. El tono 1 es el color de marca. */
+    --chart-1: 16 100% 48%;
+    --chart-2: 28 88% 54%;
+    --chart-3: 14 78% 64%;
+    --chart-4: 38 55% 66%;
+    --chart-5: 16 55% 38%;
+    --chart-6: 30 35% 34%;
+
+    /* Gráficas de estado: aquí el color SÍ significa algo (rojo = en vivo,
+       naranja = lo que falta, ámbar = a medias, verde = cerrado). Son los
+       tokens del sistema, bajados de saturación para que un panel lleno de
+       barras no parezca un cartel de oferta. */
+    --chart-live: 0 62% 45%;
+    --chart-pending: 16 92% 46%;
+    --chart-playing: 32 78% 46%;
+    --chart-done: 152 42% 34%;
 
     /* Escala tipográfica semántica: números de stats y etiquetas mini.
        Las pages NUNCA inventan tamaños: usan text-stat / text-caption.
@@ -203,14 +211,20 @@
 
     --warning: 38 92% 55%;
 
-    /* Paleta de gráficas en oscuro: un punto más claros que en claro, porque
-       el fondo oscuro se come los tonos apagados. */
-    --chart-1: 16 100% 58%;
-    --chart-2: 152 60% 45%;
-    --chart-3: 38 92% 58%;
-    --chart-4: 199 89% 58%;
-    --chart-5: 275 70% 66%;
-    --chart-6: 340 78% 64%;
+    /* Paleta de gráficas en oscuro: la rampa sube de luminosidad (sobre
+       negro un tono apagado no se ve) y los estados se abren un poco para
+       que el relleno siga leyéndose. */
+    --chart-1: 16 100% 56%;
+    --chart-2: 28 88% 62%;
+    --chart-3: 14 78% 70%;
+    --chart-4: 38 55% 72%;
+    --chart-5: 16 55% 42%;
+    --chart-6: 30 35% 38%;
+
+    --chart-live: 0 68% 56%;
+    --chart-pending: 16 96% 58%;
+    --chart-playing: 34 82% 56%;
+    --chart-done: 150 44% 44%;
 
     --sidebar-background: 240 6% 10%;
     --sidebar-foreground: 0 0% 96%;
