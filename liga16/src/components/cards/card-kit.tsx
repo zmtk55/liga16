@@ -28,6 +28,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MapPin, Calendar, Trophy } from "lucide-react";
 import { initials, formatMatchTime, formatMatchDay, formatMatchMonth } from "@/lib/format";
 import { matchState, matchWinner } from "@/lib/match-state";
+import { parseRound } from "@/lib/groups";
 import type { Match } from "@/types";
 
 /** Contenedor uniforme: mismo radio, borde, hover y transición en TODO el sistema. */
@@ -313,8 +314,17 @@ export function MatchCard({
   const winner = matchWinner(match);
   const state = matchState(match);
   const court = match.court_name?.trim();
+  /**
+   * El contexto de la card: "Jornada 2 · Sexta femenina".
+   *
+   * Se usa la JORNADA del round y no el round entero. El round lleva el grupo
+   * ("Sexta femenina · Grupo A · J2") porque es lo que distingue un grupo de
+   * otro dentro de la categoría; concatenarlo con la categoría repetía las dos
+   * veces: "SEXTA FEMENIL · GRUPO A · J2 · SEXTA FEMENIL".
+   */
+  const { jornada } = parseRound(match.round ?? "");
   const context =
-    [match.round, match.category_name].filter(Boolean).join(" · ") ||
+    [jornada ? `Jornada ${jornada}` : match.round, match.category_name].filter(Boolean).join(" · ") ||
     match.tournament_name ||
     "Liga16";
 

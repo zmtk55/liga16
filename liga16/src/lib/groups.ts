@@ -81,6 +81,20 @@ export function parseRound(round: string): { group: string; jornada: number | nu
   return { group, jornada: match?.[2] ? Number(match[2]) : null };
 }
 
+/**
+ * La jornada de un partido como clave de filtro: "J1", "J2"… o "all" si el
+ * round no trae número de jornada.
+ *
+ * El round completo lleva la categoría y el grupo ("Sexta femenina · Grupo A ·
+ * J1") porque es lo que distingue un grupo de otro dentro de la categoría. Para
+ * filtrar, la jornada es el número de ronda dentro del grupo: ofrecer el round
+ * entero como opción daba 20 opciones redundantes con el filtro de categoría.
+ */
+export function jornadaKey(round: string | null | undefined): string {
+  const j = parseRound(round ?? "").jornada;
+  return j ? `J${j}` : "all";
+}
+
 /** Sugerencia de número de grupos: 1 grupo por cada 4 parejas, mínimo 1. */
 export function suggestGroupCount(pairCount: number): number {
   if (pairCount <= 4) return 1;

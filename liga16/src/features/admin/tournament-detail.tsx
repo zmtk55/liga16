@@ -86,6 +86,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { formatDateRange, formatLabel, formatMatchTime, SIN_CATEGORIA, tournamentStatusLabel } from "@/lib/format";
+import { matchStatusKey } from "@/lib/match-state";
 import {
   findScheduleIssues,
   isSlotFree,
@@ -192,7 +193,7 @@ function CategoryBracket({
   const base = useMemo(() => buildBracket(clasificadas), [clasificadas]);
   const bracket = useMemo(() => {
     // El ganador de cada cruce sale de los resultados que el admin ya capturó.
-    const terminado = matches.filter((m) => m.status === "finished" && m.winner);
+    const terminado = matches.filter((m) => matchStatusKey(m) === "finished" && m.winner);
     return {
       ...base,
       matches: resolveBracket(base, (a, b) => {
@@ -223,7 +224,7 @@ function CategoryBracket({
   const prog = tournamentProgress({
     matches: bracket.matches,
     rounds: bracket.rounds,
-    played: matches.filter((m) => m.status === "finished").length,
+    played: matches.filter((m) => matchStatusKey(m) === "finished").length,
     total: matches.length,
   });
   const rondaNombre = (n: number) =>
@@ -254,7 +255,7 @@ function CategoryBracket({
             Partidos
           </p>
           <p className="mt-1 font-display text-xl leading-none tabular-nums">
-            {matches.filter((m) => m.status === "finished").length}
+            {matches.filter((m) => matchStatusKey(m) === "finished").length}
             <span className="text-sm text-muted-foreground"> / {matches.length}</span>
           </p>
         </div>
@@ -623,9 +624,24 @@ export default function AdminTournamentDetail() {
   useEffect(() => {
     if (jornadaAutoOpened || matches.length === 0) return;
     setJornadaAutoOpened(true);
-    const days = [...new Set(matches.map((m) => localDayKey(m.scheduled_at ?? "")).filter(Boolean))].sort();
-    if (days.length > 0 && !days.includes(jornadaDay)) setJornadaDay(days[0]);
-  }, [matches, jornadaAutoOpened, jornadaDay]);
+    const byDay = new Map<string, number>();
+    for (const m of matches) {
+      const d = localDayKey(m.scheduled_at ?? "");
+      if (!d) continue;
+      byDay.set(d, (byDay.get(d) ?? 0) + 1);
+    }
+    const days = [...byDay.keys()].sort();
+    if (days.length === 0) return;
+    // Se abre en un día que tenga partidos, no en "hoy" a secas: si el torneo
+    // se agendó para el sábado y hoy es martes, entrar y ver un día vacío era
+    // leer una jornada que no existe. Y si hoy tiene partidos, hoy: es el día
+    // vivo del torneo. Si no, el día con MÁS partidos, que es donde está el
+    // trabajo. Antes se abría en el primero por fecha, que en un torneo de 11
+    // días podía tener un solo partido y hacía ver la jornada vacía.
+    const hoy = todayKey();
+    const masCargado = days.reduce((a, b) => ((byDay.get(b) ?? 0) > (byDay.get(a) ?? 0) ? b : a));
+    setJornadaDay(days.includes(hoy) ? hoy : masCargado);
+  }, [matches, jornadaAutoOpened]);
 
   const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
 
@@ -695,17 +711,19 @@ export default function AdminTournamentDetail() {
   }, [matches]);
 
   const matchRoundOptions = useMemo(() => {
+    // La jornada es la del round-robin dentro del grupo: J1, J2, J3… El round
+    // completo lleva la categoría y el grupo ("Sexta femenina · Grupo A · J1"),
+    // así que usarlo de eje daba 20 opciones redundantes con el de categoría.
     const n = new Map<string, number>();
     for (const m of matches) {
-      const r = m.round;
-      if (!r) continue;
-      n.set(r, (n.get(r) ?? 0) + 1);
+      const j = parseRound(m.round ?? "").jornada;
+      if (!j) continue;
+      const key = `J${j}`;
+      n.set(key, (n.get(key) ?? 0) + 1);
     }
-    // "Jornada 2" antes que "Jornada 10": el número manda, no el texto.
-    const num = (r: string) => Number(r.match(/\d+/)?.[0] ?? Number.MAX_SAFE_INTEGER);
     return [...n.entries()]
-      .map(([key, count]) => ({ key, label: key, n: count }))
-      .sort((a, b) => num(a.key) - num(b.key) || a.label.localeCompare(b.label, "es"));
+      .map(([key, count]) => ({ key, label: key.replace("J", "Jornada "), n: count }))
+      .sort((a, b) => Number(a.key.slice(1)) - Number(b.key.slice(1)));
   }, [matches]);
 
   /**
@@ -1051,7 +1069,10 @@ export default function AdminTournamentDetail() {
     .filter((m) => {
       const q = matchQuery.trim().toLowerCase();
       if (q && !m.side_a.pair_name.toLowerCase().includes(q) && !m.side_b.pair_name.toLowerCase().includes(q)) return false;
-      if (matchRound !== "all" && m.round !== matchRound) return false;
+      // La jornada se compara con la del round ("J2"), no con el round entero:
+      // el round lleva la categoría y el grupo, y el filtro de jornada es el
+      // número de ronda dentro del grupo.
+      if (matchRound !== "all" && `J${parseRound(m.round ?? "").jornada ?? ""}` !== matchRound) return false;
       // El día se compara con `localDayKey`, no con el prefijo UTC del string:
       // `scheduled_at` es un instante UTC y el filtro lista días locales. Con
       // `startsWith` todos los partidos de la tarde-noche (18:00 en adelante) se
@@ -1142,7 +1163,10 @@ export default function AdminTournamentDetail() {
               ariaLabel="Elegir día de la jornada"
             />
             <Badge variant="outline">
-              {matches.filter((m) => localDayKey(m.scheduled_at ?? "") === jornadaDay).length} partidos
+              {(() => {
+                const n = matches.filter((m) => localDayKey(m.scheduled_at ?? "") === jornadaDay).length;
+                return `${n} ${n === 1 ? "partido" : "partidos"}`;
+              })()}
             </Badge>
           </div>
           {(() => {
@@ -1164,30 +1188,38 @@ export default function AdminTournamentDetail() {
 return (
                   <div className="space-y-2">
                     {dayMatches.map((m) => {
-                      const done = m.status === "finished" && m.winner;
+                      const done = matchStatusKey(m) === "finished" && m.winner;
                       const score = m.sets.map((x) => `${x.a}-${x.b}`).join(" ");
                       // Extraer grupo y jornada del campo round: "Grupo A · J1"
                       const { group: groupName, jornada } = parseRound(m.round ?? "");
                       const jornadaNum = jornada ? `J${jornada}` : "";
-                      const courtDisplay = m.court_name ?? "—";
+                      const courtDisplay = m.court_name?.trim() || "Sin cancha";
                       const timeDisplay = m.scheduled_at ? formatMatchTime(m.scheduled_at) : "—";
                       return (
+                        /* h-auto: el Button trae `h-9` fijo (36px) y esta fila
+                           apila dos columnas de badges: con el alto fijo, la
+                           segunda línea se salía de la caja y el partido
+                           quedaba cortado a media altura. */
                         <Button
                           key={m.id}
                           type="button"
                           variant="outline"
-                          className="flex w-full items-center gap-3 px-4 py-3 text-start text-sm hover:border-primary/40 hover:bg-muted/40 justify-start"
+                          className="h-auto w-full flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-start text-sm hover:border-primary/40 hover:bg-muted/40"
                           onClick={() => setEditingMatchId(m.id)}
                         >
-                          <div className="flex min-w-0 flex-col items-start gap-1">
-                            <Badge variant="secondary" className="max-w-full truncate text-xs font-normal">{groupName}</Badge>
-                            <Badge variant="outline" className="text-xs font-normal">{jornadaNum}</Badge>
-                          </div>
-                          <div className="flex min-w-0 flex-col items-start gap-1">
+                          <span className="flex min-w-0 shrink-0 flex-col items-start gap-1">
+                            <Badge variant="secondary" className="max-w-full truncate text-xs font-normal">
+                              {groupName || "Sin grupo"}
+                            </Badge>
+                            {jornadaNum && (
+                              <Badge variant="outline" className="text-xs font-normal">{jornadaNum}</Badge>
+                            )}
+                          </span>
+                          <span className="flex min-w-0 shrink-0 flex-col items-start gap-1">
                             <span className="text-xs tabular-nums text-muted-foreground">{timeDisplay}</span>
                             <Badge variant="secondary" className="text-xs font-normal">{courtDisplay}</Badge>
-                          </div>
-                          <span className={`flex-1 truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
+                          </span>
+                          <span className={`min-w-0 flex-1 truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
                             {m.side_a.pair_name} <span className="text-muted-foreground"> vs </span> {m.side_b.pair_name}
                           </span>
                           {done ? (
@@ -1522,7 +1554,7 @@ return (
                   capturar y qué está chocado, antes de la lista. */}
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">
-                  {matches.filter((m) => m.status !== "finished").length} sin capturar
+                  {matches.filter((m) => matchStatusKey(m) !== "finished").length} sin capturar
                 </Badge>
                 <Badge variant="outline">
                   {matchDays.length} día{matchDays.length === 1 ? "" : "s"}
@@ -1633,7 +1665,7 @@ return (
                                     {courtCols.map((c) => {
                                       const m = dayMatches.find((x) => x.court_name === c && localTimeHHMM(x.scheduled_at ?? "") === t);
                                       if (!m) return <td key={c} className="px-3 py-2" />;
-                                      const done = m.status === "finished" && m.winner;
+                                      const done = matchStatusKey(m) === "finished" && m.winner;
                                       return (
                                         <td key={c} className="px-2 py-1.5">
                                           <Button
@@ -1712,7 +1744,7 @@ return (
                                       <CalendarClock className="h-4 w-4" />
                                     </Button>
                                     <Button variant="outline" size="sm" onClick={() => setEditingMatchId(m.id)}>
-                                      {m.status === "finished" ? "Ver" : "Editar"}
+                                      {matchStatusKey(m) === "finished" ? "Ver" : "Editar"}
                                     </Button>
                                   </div>
                                 </div>
@@ -2029,7 +2061,7 @@ return (
              match={matches.find((m) => m.id === editingMatchId)!}
           nextMatchId={
             matches
-              .filter((m) => localDayKey(m.scheduled_at ?? "") === jornadaDay && m.status !== "finished")
+              .filter((m) => localDayKey(m.scheduled_at ?? "") === jornadaDay && matchStatusKey(m) !== "finished")
               .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
               .find((m) => m.id !== editingMatchId)?.id ?? null
           }
@@ -2237,7 +2269,7 @@ function GroupStandingsCard({
   const groupMatches = matches.filter(
     (m) => group.pairIds.includes(m.side_a.pair_id ?? "") && group.pairIds.includes(m.side_b.pair_id ?? ""),
   );
-  const played = groupMatches.filter((m) => m.status === "finished").length;
+  const played = groupMatches.filter((m) => matchStatusKey(m) === "finished").length;
 
   // Jornada summary solo para Liga16
   const isLiga16 = liga16Cat !== null;

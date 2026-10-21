@@ -38,6 +38,7 @@ import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
 import { matchStatusLabel } from "@/lib/format";
 import { categoryFacetOfValues } from "@/lib/categories";
+import { jornadaKey, parseRound } from "@/lib/groups";
 import {
   determineMatchWinner,
   normalizeScoring,
@@ -100,7 +101,7 @@ export default function AdminResults() {
     if (fTournament !== "all" && m.tournament_id !== fTournament) return false;
     if (fStatus !== "all" && m.status !== fStatus) return false;
     if (fCategory !== "all" && (m.category_name ?? "").toLowerCase() !== fCategory) return false;
-    if (fRound !== "all" && (m.round || "Sin jornada") !== fRound) return false;
+    if (fRound !== "all" && jornadaKey(m.round) !== fRound) return false;
     return true;
   });
 
@@ -129,12 +130,12 @@ export default function AdminResults() {
 
     const rondas = new Map<string, number>();
     for (const m of all) {
-      const r = m.round || "Sin jornada";
+      const r = jornadaKey(m.round);
       rondas.set(r, (rondas.get(r) ?? 0) + 1);
     }
     const rondaOptions = [...rondas.entries()]
-      .map(([key, n]) => ({ key, label: key, n }))
-      .sort((a, b) => a.label.localeCompare(b.label, "es", { numeric: true }));
+      .map(([key, n]) => ({ key, label: key === "all" ? key : `Jornada ${key.slice(1)}`, n }))
+      .sort((a, b) => Number(a.key.slice(1)) - Number(b.key.slice(1)));
 
     const porTorneo = new Map<string, number>();
     for (const m of all) porTorneo.set(m.tournament_id, (porTorneo.get(m.tournament_id) ?? 0) + 1);
@@ -196,21 +197,36 @@ export default function AdminResults() {
   const editingMatch = list?.find((m) => m.id === editingId) ?? null;
 
   /**
-   * Agrupación por jornada. En desktop, 60 cards planas en dos columnas eran
-   * 5600px de scroll sin puntos de referencia: cada jornada encabeza su
-   * bloque con cuántos partidos trae y cuántos faltan por capturar. El orden
-   * es numérico, no el del listado, que llega revuelto.
+   * Agrupación por CATEGORÍA, y dentro de cada una por jornada.
+   *
+   * Antes el bloque era la jornada y metía las cuatro categorías en el mismo
+   * sitio: "Jornada 1" con 3 partidos de 4tas, 3 de 5tas, 3 de 6tas y 3 de
+   * suma 9. Una categoría es una competencia cerrada —las parejas de 4tas no
+   * juegan con las de 5tas—, así que el bloque es la categoría y la jornada
+   * ordena por dentro. En desktop, 60 cards planas en dos columnas eran 5600px
+   * de scroll sin puntos de referencia; cada bloque encabeza con cuántos
+   * partidos trae y cuántos faltan por capturar.
    */
-  const roundGroups = useMemo(() => {
+  const categoryGroups = useMemo(() => {
     const map = new Map<string, Match[]>();
     for (const m of filtered) {
-      const key = m.round || "Sin jornada";
+      const key = m.category_name?.trim() || "Sin categoría";
       const arr = map.get(key);
       if (arr) arr.push(m);
       else map.set(key, [m]);
     }
-    const num = (r: string) => Number(r.match(/\d+/)?.[0] ?? 0);
-    return Array.from(map.entries()).sort((a, b) => num(a[0]) - num(b[0]));
+    return Array.from(map.entries())
+      .map(
+        ([label, ms]) =>
+          [
+            label,
+            ms.sort((a, b) => {
+              const ja = parseRound(a.round ?? "").jornada ?? 0;
+              const jb = parseRound(b.round ?? "").jornada ?? 0;
+              return ja - jb || String(a.scheduled_at ?? "").localeCompare(String(b.scheduled_at ?? ""));
+            }),
+          ] as [string, Match[]],
+      );
   }, [filtered]);
 
   /**
@@ -374,14 +390,14 @@ export default function AdminResults() {
 
           {filtered.length > 0 && (
             <div className="space-y-6 p-4">
-              {roundGroups.map(([round, ms], gi) => {
+              {categoryGroups.map(([categoria, ms], gi) => {
                 const pend = ms.filter((m) => m.status === "scheduled").length;
-                const hid = `ronda-${gi}`;
+                const hid = `categoria-${gi}`;
                 return (
-                  <section key={round} aria-labelledby={hid} className="space-y-3">
+                  <section key={categoria} aria-labelledby={hid} className="space-y-3">
                     <div className="sticky top-14 z-10 flex items-baseline justify-between gap-2 rounded-lg bg-card/95 py-1.5 backdrop-blur lg:top-0">
                       <h2 id={hid} className="text-sm font-semibold">
-                        {round}
+                        {categoria}
                       </h2>
                       <p className="text-xs text-muted-foreground">
                         {ms.length} partidos
