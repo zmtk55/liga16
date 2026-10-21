@@ -30,7 +30,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { MatchScoreboard } from "@/components/match-scoreboard";
 import { MatchCard } from "@/components/cards/card-kit";
-import { matchState } from "@/lib/match-state";
+import { matchState, matchStatusKey } from "@/lib/match-state";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -99,7 +99,9 @@ export default function AdminResults() {
     )
       return false;
     if (fTournament !== "all" && m.tournament_id !== fTournament) return false;
-    if (fStatus !== "all" && m.status !== fStatus) return false;
+    // El filtro de estado usa la misma regla que la card: si el partido ya
+    // tiene marcador, está terminado, diga lo que diga el campo `status`.
+    if (fStatus !== "all" && matchStatusKey(m) !== fStatus) return false;
     if (fCategory !== "all" && (m.category_name ?? "").toLowerCase() !== fCategory) return false;
     if (fRound !== "all" && jornadaKey(m.round) !== fRound) return false;
     return true;
@@ -117,7 +119,10 @@ export default function AdminResults() {
     const all = list ?? [];
 
     const estados = new Map<string, number>();
-    for (const m of all) estados.set(m.status, (estados.get(m.status) ?? 0) + 1);
+    for (const m of all) {
+      const k = matchStatusKey(m);
+      estados.set(k, (estados.get(k) ?? 0) + 1);
+    }
     const estadoOptions = Object.keys(STATUS_FACET_LABEL)
       .filter((s) => (estados.get(s) ?? 0) > 0)
       .map((s) => ({
@@ -216,30 +221,31 @@ export default function AdminResults() {
       else map.set(key, [m]);
     }
     return Array.from(map.entries())
-      .map(
-        ([label, ms]) =>
-          [
-            label,
-            ms.sort((a, b) => {
-              const ja = parseRound(a.round ?? "").jornada ?? 0;
-              const jb = parseRound(b.round ?? "").jornada ?? 0;
-              return ja - jb || String(a.scheduled_at ?? "").localeCompare(String(b.scheduled_at ?? ""));
-            }),
-          ] as [string, Match[]],
-      );
+      .map(([label, ms]) => [
+        label,
+        ms.sort((a, b) => {
+          const ja = parseRound(a.round ?? "").jornada ?? 0;
+          const jb = parseRound(b.round ?? "").jornada ?? 0;
+          return ja - jb || String(a.scheduled_at ?? "").localeCompare(String(b.scheduled_at ?? ""));
+        }),
+      ] as [string, Match[]]);
   }, [filtered]);
 
   /**
    * Cifras de cabecera. Lo que importa en esta pantalla es el trabajo que
    * falta: partidos sin capturar y partidos en juego. Lo terminado es contexto.
+   *
+   * Cuentan por marcador, igual que las cards: con el campo `status` a secas
+   * esta pantalla decía "54 por capturar" mientras 27 de esas cards sayan
+   * "Finalizado" — el mismo partido, dos verdades.
    */
   const resumen = useMemo(() => {
     const all = list ?? [];
     return {
       total: all.length,
-      porCapturar: all.filter((m) => m.status === "scheduled").length,
-      enJuego: all.filter((m) => m.status === "live").length,
-      terminados: all.filter((m) => m.status === "finished").length,
+      porCapturar: all.filter((m) => matchStatusKey(m) === "scheduled").length,
+      enJuego: all.filter((m) => matchStatusKey(m) === "live").length,
+      terminados: all.filter((m) => matchStatusKey(m) === "finished").length,
     };
   }, [list]);
 
@@ -391,7 +397,7 @@ export default function AdminResults() {
           {filtered.length > 0 && (
             <div className="space-y-6 p-4">
               {categoryGroups.map(([categoria, ms], gi) => {
-                const pend = ms.filter((m) => m.status === "scheduled").length;
+                const pend = ms.filter((m) => matchStatusKey(m) === "scheduled").length;
                 const hid = `categoria-${gi}`;
                 return (
                   <section key={categoria} aria-labelledby={hid} className="space-y-3">

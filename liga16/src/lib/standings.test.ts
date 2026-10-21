@@ -33,7 +33,7 @@ const match = (
   a: string,
   b: string,
   sets: SetScore[],
-  winner: "a" | "b",
+  winner: "a" | "b" | null,
 ): Match => ({
   id,
   tournament_id: "t-1",
@@ -70,9 +70,23 @@ describe("deriveTeamStandings", () => {
   });
 
   it("ignora partidos sin terminar", () => {
-    const scheduled = { ...match("m2", "A / A", "B / B", [S(6, 0), S(6, 0)], "a"), status: "scheduled" as const };
+    // Sin ganador no hay partido, diga lo que diga el estado: lo que decide
+    // es el marcador, no el campo `status`.
+    const scheduled = { ...match("m2", "A / A", "B / B", [S(6, 0), S(6, 0)], null), status: "scheduled" as const };
     const out = deriveTeamStandings(roster.map((t) => ({ ...t })), [scheduled]);
     expect(out.every((t) => t.played === 0)).toBe(true);
+  });
+
+  it("cuenta el partido con marcador aunque el estado siga en 'scheduled'", () => {
+    // El estado se cerraba a mano y quedó en "scheduled" en partidos ya
+    // capturados: si el ranking exigía `status === "finished"`, 19 partidos
+    // con resultado no movían ni la tabla ni las fichas. El ganador y el
+    // marcador mandan.
+    const scheduled = { ...match("m2", "A / A", "B / B", [S(6, 0), S(6, 0)], "a"), status: "scheduled" as const };
+    const out = deriveTeamStandings(roster.map((t) => ({ ...t })), [scheduled]);
+    const a = out.find((t) => t.name === "A / A")!;
+    expect(a.played).toBe(1);
+    expect(a.won).toBe(1);
   });
 
   it("ordena por % de puntos, no por victorias", () => {

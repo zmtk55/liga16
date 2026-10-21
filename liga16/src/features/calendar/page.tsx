@@ -11,6 +11,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { Radio, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatMatchTime } from "@/lib/format";
 import { localDayKey, todayKey } from "@/lib/schedule";
+import { matchStatusKey } from "@/lib/match-state";
 import { MatchCard } from "@/components/cards/card-kit";
 import { cn } from "@/lib/utils";
 
@@ -147,7 +148,7 @@ export default function CalendarPage() {
   const liveCount = agenda.filter(isLiveNow).length;
   // `agenda` incluye los finalizados, así que "Por jugar" los excluye: el
   // contador decía 3 mientras dos de los tres listados ya estaban "Finalizado".
-  const porJugar = agenda.filter((m) => !isPast(m) && m.status !== "finished" && !isLiveNow(m));
+  const porJugar = agenda.filter((m) => !isPast(m) && matchStatusKey(m) !== "finished" && !isLiveNow(m));
   // Un partido sin `scheduled_at` (la columna admite null) tiene `isPast()`
   // en `false`, así que se colaba como "próximo" y el rótulo imprimía
   // "Invalid Date a las Invalid Date".

@@ -1,5 +1,6 @@
 // Liga16 — utilidades del sistema de grupos de un torneo
 import type { Match, UUID, TournamentScoring } from "@/types";
+import { matchStatusKey } from "@/lib/match-state";
 
 export interface Group {
   name: string; // "Grupo A", "Grupo B"…
@@ -262,7 +263,7 @@ export function computeStandings(
   );
 
   const finished = matches
-    .filter((m) => m.status === "finished" && m.winner)
+    .filter((m) => matchStatusKey(m) === "finished" && m.winner)
     .sort((x, y) => String(x.scheduled_at).localeCompare(String(y.scheduled_at)));
 
   const nameToId = new Map<string, UUID>();

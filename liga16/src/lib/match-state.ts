@@ -7,7 +7,7 @@
 //
 // Aquí vive la única regla: el estado sale del marcador, y todas las
 // pantallas (card pública, pie del admin) leen de aquí.
-import type { Match } from "@/types";
+import type { Match, MatchStatus } from "@/types";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 
 export type MatchState = "live" | "finished" | "playing" | "pending";
@@ -58,4 +58,29 @@ export function matchState(match: Match): MatchState {
     return "finished";
   }
   return match.sets.length > 0 ? "playing" : "pending";
+}
+
+/**
+ * El estado con el que trabaja el admin, en las etiquetas del organizador.
+ *
+ * Es el mismo estado que ve la card, no el campo crudo: un partido con
+ * marcador completo ya no está "por capturar" aunque su `status` siga
+ * diciendo "scheduled". Sin esto, el stat decía "54 por capturar" en la
+ * misma pantalla donde 27 cards decían "Finalizado".
+ *
+ * Los estados que no tienen marcador (disputado, walkover, cancelado) se
+ * quedan como están: el campo crudo es lo único que los describe.
+ */
+export function matchStatusKey(match: Match): MatchStatus {
+  if (
+    match.status === "disputed" ||
+    match.status === "walkover" ||
+    match.status === "cancelled"
+  ) {
+    return match.status;
+  }
+  const state = matchState(match);
+  if (state === "live") return "live";
+  if (state === "finished") return "finished";
+  return "scheduled";
 }

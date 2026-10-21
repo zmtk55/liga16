@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays, CheckCircle2, XCircle } from "lucide-react";
 import { MatchCard, MatchSets } from "@/components/cards/card-kit";
 import { initials, sexLabel, winRate } from "@/lib/format";
+import { matchStatusKey } from "@/lib/match-state";
 import { teamCategoryLabel } from "@/lib/categories";
 
 export default function TeamDetailPage() {
@@ -58,7 +59,7 @@ export default function TeamDetailPage() {
 
   const form = useMemo(() => {
     const finished = [...matches]
-      .filter((m) => m.status === "finished" && m.winner)
+      .filter((m) => matchStatusKey(m) === "finished" && m.winner)
       .sort((a, b) => String(b.scheduled_at).localeCompare(String(a.scheduled_at)));
     return finished.map((m) => {
       const isA = m.side_a.pair_name === team?.name;

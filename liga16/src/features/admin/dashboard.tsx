@@ -29,6 +29,7 @@ import {
 } from "recharts";
 import { db } from "@/lib/data";
 import { useMatchUpdated } from "@/lib/refresh";
+import { matchStatusKey } from "@/lib/match-state";
 import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -172,7 +173,7 @@ function MatchesByStatus({ matches }: { matches: Match[] }) {
     matches.forEach((m) => {
       if (m.status === "live") counts.live++;
       else if (m.status === "scheduled") counts.scheduled++;
-      else if (m.status === "finished") counts.finished++;
+      else if (matchStatusKey(m) === "finished") counts.finished++;
     });
     return [
       { name: "En vivo", value: counts.live, fill: "#e11d48" },
@@ -254,7 +255,7 @@ export default function AdminDashboard() {
   const totalTeams = data?.teams.length ?? 0;
   const totalTournaments = data?.tournaments.length ?? 0;
   const finishedMatches = useMemo(
-    () => (data?.matches ?? []).filter((m) => m.status === "finished").length,
+    () => (data?.matches ?? []).filter((m) => matchStatusKey(m) === "finished").length,
     [data],
   );
 
