@@ -962,7 +962,15 @@ export default function AdminTournamentDetail() {
     }
     setSaving(true);
     try {
-      await db.deleteMatchesByTournament(tournament.id);
+      // NO borrar todos los partidos: destruirían resultados ya capturados.
+      // Solo eliminamos los que aún no se jugaron (sin winner ni sets) para
+      // poder re-generar su calendario sin duplicar datos válidos.
+      const existing = await db.listMatchesByTournament(tournament.id);
+      for (const m of existing) {
+        if (!m.winner && (!m.sets || m.sets.length === 0)) {
+          await db.deleteMatchById(m.id).catch(() => undefined);
+        }
+      }
       const allScheduled: Array<Omit<Match, "id">> = [];
       // Reparto justo: intercalar los grupos para que las primeras jornadas de cada
       // grupo no se peleen por los mismos slots. Recorrido por ronda.

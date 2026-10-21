@@ -87,6 +87,7 @@ export interface DataProvider {
   createMatches(matches: Array<Omit<Match, 'id'>>): Promise<Match[]>;
   updateMatch(id: string, updates: Partial<Match>): Promise<Match | null>;
   deleteMatchesByTournament(tournamentId: string): Promise<boolean>;
+  deleteMatchById(id: string): Promise<boolean>;
   // Canchas
   listCourts(): Promise<Court[]>;
   createCourt(data: Omit<Court, 'id'>): Promise<Court>;

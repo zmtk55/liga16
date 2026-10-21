@@ -374,6 +374,12 @@ export const supabaseProvider: DataProvider = {
     return (data ?? []).map((r: Record<string, unknown>) => matchFromRow(r)) as never;
   },
 
+  async deleteMatchById(id: string) {
+    const { error } = await client().from('matches').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
+
   async createMatches(list: Array<Omit<Match, 'id'>>) {
     const rows = list.map((m) => ({
       tournament_id: m.tournament_id,

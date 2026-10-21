@@ -743,6 +743,11 @@ teams.forEach((t) => {
     }
     setSaving(true);
     try {
+      const pairNameById = new Map<string, string>();
+      for (const idx in teams) {
+        const t = teams[idx];
+        if (t.id) pairNameById.set(t.id, t.name || `${t.player1 ?? "?"} / ${t.player2 ?? "?"}`);
+      }
       const allMatches: Array<Parameters<typeof db.createMatches>[0][number]> = [];
       for (const group of groups) {
         if (group.pairIds.length < 2) continue;
