@@ -802,6 +802,18 @@ export const supabaseProvider: DataProvider = {
     // en el update y se perdía en silencio. El toast decía "guardado" y la caja
     // volvía al valor viejo al reabrir.
     if (updates.round !== undefined) row.round = updates.round;
+    // Capturar el marcador en Resultados guardaba `sets` + `winner` pero dejaba
+    // el estado en "scheduled", y el ranking y las fichas exigían partido
+    // cerrado: el resultado se veía en el diálogo y no movía nada. Si llega un
+    // ganador con sets jugados y el partido seguía programado, se cierra.
+    if (
+      row.status === 'scheduled' &&
+      row.winner != null &&
+      Array.isArray(row.sets) &&
+      (row.sets as Array<{ a?: number; b?: number }>).some((s) => (s.a ?? 0) + (s.b ?? 0) > 0)
+    ) {
+      row.status = 'finished';
+    }
     const { data: result, error } = await client()
       .from('matches').update(row).eq('id', id).select().single();
     if (error) throw error;

@@ -124,7 +124,16 @@ export function buildPlayerRecords(
   };
 
   const finished = matches
-    .filter((m) => m.status === "finished" && m.winner)
+    .filter(
+      (m) =>
+        // Igual que el ranking: manda tener ganador y marcador, no el rótulo de
+        // estado. Resultados guardaba el score sin cerrar el partido y estas
+        // fichas se quedaban sin esos juegos.
+        m.status !== "cancelled" &&
+        m.status !== "walkover" &&
+        m.winner != null &&
+        (m.sets ?? []).some((s) => (s.a ?? 0) + (s.b ?? 0) > 0),
+    )
     .sort((x, y) => String(x.scheduled_at ?? "").localeCompare(String(y.scheduled_at ?? "")));
 
   for (const match of finished) {
