@@ -14,7 +14,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { db } from '@/lib/data';
 
 const severityOrder: AlertSeverity[] = ['critical', 'warning', 'info'];
 const severityLabel: Record<AlertSeverity, string> = {

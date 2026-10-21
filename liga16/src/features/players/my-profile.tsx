@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -317,7 +317,7 @@ function TrendChart({ trend }: { trend: number[] }) {
 }
 
 export default function MyProfile() {
-  const { user, isConfigured, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [record, setRecord] = useState<PlayerRecord | null>(null);
