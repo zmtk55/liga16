@@ -25,8 +25,9 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MapPin, Calendar } from "lucide-react";
+import { MapPin, Calendar, Trophy } from "lucide-react";
 import { initials, formatMatchTime, formatMatchDay, formatMatchMonth } from "@/lib/format";
+import { matchState, matchWinner } from "@/lib/match-state";
 import type { Match } from "@/types";
 
 /** Contenedor uniforme: mismo radio, borde, hover y transición en TODO el sistema. */
@@ -206,23 +207,94 @@ export function PairAvatars({
 
 /* ============================================================
  * MatchCard — LA card de partido del sistema (una sola anatomía).
- *   [ HORA | pareja A          s s ]
- *   [  pm  |────────────────────── ]
- *   [ día  | pareja B          s s ]
- *   [      | ronda · categoría     ]
- *   [      | [● Cancha N]          ]
  *
- * La usan: agenda/calendario, rol de equipo y popups de resultados.
- * Antes había 3 implementaciones distintas; ahora hay una.
+ *   ┌────────┬──────────────────────────────────────────────┐
+ *   │  17:26 │ JORNADA 5 · QUINTA FEMENIL         Finalizado│
+ *   │  10 OCT│──────────────────────────────────────────────│
+ *   │        │ ♛ Erika Beltran / Monica          6   3   10 │
+ *   │        │   Imeyra / Valeria Coronado       4   6    4 │
+ *   │        │ 📍 Cancha 2 · LIGA16 4TA EDICION             │
+ *   └────────┴──────────────────────────────────────────────┘
+ *
+ * Las reglas que la sostienen (antes la card se leía como un formulario):
+ *  · El marcador va PEGADO a la pareja que le pertenece. Flotando al borde
+ *    de una card ancha, el "6 3 10" se queda sin dueño.
+ *  · Un set ganado se pinta y el perdido se apaga: el patrón se lee de un
+ *    vistazo, sin tener que comparar dos números.
+ *  · El ganador se marca con trofeo, no con un punto de radio que parece
+ *    un control sin usar.
+ *  · La hora es el riel fijo de la izquierda: es lo único que no cambia de
+ *    lugar entre partido y partido.
+ *  · Nada por debajo de 12px (la escala del sistema manda) y nada de chips
+ *    que dicen lo que no pasó ("Cancha por asignar"): si no hay cancha, no
+ *    hay chip.
+ *
+ * La usan: agenda/calendario, rol de equipo, ranking, panel del jugador y
+ * la captura de resultados del admin.
  * ============================================================ */
 
-/** Pares "Nombre Apellido" desde "Nombre1 / Nombre2" (tolera "y", "&"). */
-function pairNames(full: string): string[] {
-  const parts = full
-    .split(/\s*\/\s*|\s+y\s*|\s*&\s*/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return parts.length ? parts : [full.trim()];
+/**
+ * Sets ganados por cada lado leyendo el marcador como lo lee una persona:
+ * el lado con más juegos ganó el set (el super tie-break a 10 también sale
+ * así). La regla oficial (`determineMatchWinner`) necesita los puntos del
+ * tie-break para resolver un 6-7, y ese dato casi nunca se captura: con esa
+ * regla un partido claramente ganado se quedaba sin trofeo y la card se
+ * contradecía a sí misma (dos sets en verde y ningún ganador).
+ */
+/** Los sets de un lado: el ganado se pinta, el perdido se apaga. */
+export function MatchSets({
+  match,
+  side,
+  size = "md",
+}: {
+  match: Match;
+  side: "a" | "b";
+  size?: "sm" | "md";
+}) {
+  if (match.sets.length === 0) {
+    // Sin sets no hay columna: el estado ya lo dice la pastilla de arriba
+    // ("Por jugar"). Escribirlo dos veces, en cada fila, era ruido puro.
+    return null;
+  }
+  const cell =
+    size === "sm"
+      ? "h-6 min-w-6 px-1 text-xs"
+      : // En móvil el marcador se achica: el nombre de la pareja importa más
+        // que el aire alrededor del número.
+        "h-6 min-w-6 px-1 text-xs sm:h-7 sm:min-w-7 sm:px-1.5 sm:text-sm";
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      {match.sets.map((s, i) => {
+        const mine = side === "a" ? (s.a ?? 0) : (s.b ?? 0);
+        const theirs = side === "a" ? (s.b ?? 0) : (s.a ?? 0);
+        const tb = side === "a" ? s.tiebreak_a : s.tiebreak_b;
+        const tookSet = mine > theirs;
+        // El tie-break sólo aparece en el set empatado (6-6): en cualquier
+        // otro caso es ruido que confunde ("6" con un "5" pegado).
+        const showTb = tb != null && (s.a ?? 0) === (s.b ?? 0);
+        return (
+          <span
+            key={i}
+            title={`Set ${i + 1}: ${mine} a ${theirs}`}
+            className={cn(
+              "flex items-center justify-center rounded-md font-bold tabular-nums transition-colors duration-150",
+              cell,
+              tookSet
+                ? "bg-success/15 text-success"
+                : // El set perdido se apaga, pero se LEE: al 50% de opacidad
+                  // el número caía a 1.9:1 sobre la card clara.
+                  "text-muted-foreground",
+            )}
+          >
+            {mine}
+            {showTb && (
+              <span className="ms-0.5 text-2xs font-normal opacity-80">({tb})</span>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 export function MatchCard({
@@ -238,60 +310,36 @@ export function MatchCard({
   const isLive = match.status === "live";
   const hasScore = match.sets.length > 0;
   const matchTime = match.scheduled_at ? formatMatchTime(match.scheduled_at) : null;
+  const winner = matchWinner(match);
+  const state = matchState(match);
+  const court = match.court_name?.trim();
+  const context =
+    [match.round, match.category_name].filter(Boolean).join(" · ") ||
+    match.tournament_name ||
+    "Liga16";
 
   const sideRow = (side: "a" | "b") => {
-    const names = pairNames(side === "a" ? match.side_a.pair_name : match.side_b.pair_name);
-    const won = match.winner === side;
+    const name = side === "a" ? match.side_a.pair_name : match.side_b.pair_name;
+    const isWinner = hasScore && winner === side;
     return (
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-2">
+        <span aria-hidden className="flex h-4 w-4 items-center justify-center">
+          {isWinner && <Trophy className="h-3.5 w-3.5 text-success" />}
+        </span>
         <span
-          aria-hidden
+          title={name}
           className={cn(
-            "h-2.5 w-2.5 shrink-0 rounded-full border-2 transition-colors duration-150",
-            hasScore
-              ? won
-                ? "bg-success border-success"
-                : "bg-muted-foreground/20 border-border/40"
-              : "bg-primary/40 border-primary/40",
+            "truncate text-sm",
+            !hasScore
+              ? "font-semibold text-foreground"
+              : isWinner
+                ? "font-bold text-foreground"
+                : "font-medium text-muted-foreground",
           )}
-        />
-        <div className="min-w-0 flex-1">
-          {names.map((n, i) => (
-            <p
-              key={i}
-              className={cn(
-                "truncate text-sm leading-snug",
-                i === 0 && "font-bold",
-                hasScore ? (won ? "text-foreground" : "text-muted-foreground/80") : "text-foreground",
-              )}
-            >
-              {n}
-            </p>
-          ))}
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {match.sets.map((s, i) => {
-            const mine = side === "a" ? s.a : s.b;
-            const theirs = side === "a" ? s.b : s.a;
-            const tookSet = (mine ?? 0) > (theirs ?? 0);
-            return (
-              <span
-                key={i}
-                className={cn(
-                  "flex h-7 w-8 items-center justify-center rounded-lg font-headline text-sm font-bold tabular-nums transition-colors duration-150",
-                  tookSet
-                    ? "bg-success/10 text-success border border-success/30"
-                    : "bg-muted/50 text-muted-foreground border border-border/50",
-                )}
-              >
-                {mine ?? "—"}
-              </span>
-            );
-          })}
-          {!hasScore && (
-            <span className="px-2 text-caption uppercase text-muted-foreground/50 font-medium">—</span>
-          )}
-        </div>
+        >
+          {name}
+        </span>
+        <MatchSets match={match} side={side} />
       </div>
     );
   };
@@ -299,87 +347,101 @@ export function MatchCard({
   return (
     <Card
       className={cn(
-        "group gap-0 py-0 transition-all duration-200 ease-out active:scale-[0.995] liga16-card liga16-card--lift",
+        "group gap-0 overflow-hidden py-0 transition-all duration-200 ease-out active:scale-[0.995] liga16-card liga16-card--lift",
         isLive
           ? "border-destructive/40 bg-destructive/5 shadow-sm"
           : "hover:border-primary/30 hover:shadow-md",
         className,
       )}
     >
-      <CardContent className="flex gap-3 p-3.5">
-        {/* Riel izquierdo: CUÁNDO, el ancla visual más grande */}
+      <CardContent className="flex gap-0 p-0">
+        {/* Riel izquierdo: CUÁNDO. Columna fija, el ancla de la card. */}
         <div
           className={cn(
-            "flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2.5",
-            isLive
-              ? "border-destructive/40 bg-destructive/10 text-destructive"
-              : "border-border/80 bg-muted/40",
+            "flex w-[3.75rem] shrink-0 flex-col items-center justify-center gap-0.5 border-r py-3 sm:w-[4.25rem]",
+            isLive ? "border-destructive/30 bg-destructive/10" : "border-border/60 bg-muted/30",
           )}
         >
           {matchTime ? (
             <>
-              <span className="font-headline text-lg leading-none tabular-nums">{matchTime}</span>
-              <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {formatMatchDay(match.scheduled_at!)}
+              <span
+                className={cn(
+                  "font-headline text-lg leading-none tabular-nums sm:text-xl",
+                  isLive ? "text-destructive" : "text-foreground",
+                )}
+              >
+                {matchTime}
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                {formatMatchMonth(match.scheduled_at!)}
+              <span className="text-caption uppercase text-muted-foreground">
+                {formatMatchDay(match.scheduled_at!)} {formatMatchMonth(match.scheduled_at!)}
               </span>
             </>
           ) : (
             <>
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <span className="mt-1 text-caption uppercase text-muted-foreground">
                 Sin hora
               </span>
             </>
           )}
-          {isLive && (
-            <span className="mt-1.5 flex items-center gap-1 text-[10px] font-bold uppercase text-destructive">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" /> Vivo
-            </span>
-          )}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <p className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-              {[match.round, match.category_name]
-                .filter(Boolean)
-                .join(" · ") ||
-                match.tournament_name ||
-                "Liga16"}
+        <div className="min-w-0 flex-1 p-3">
+          <div className="flex items-start justify-between gap-2">
+            <p
+              title={context}
+              className="min-w-0 truncate text-caption uppercase text-muted-foreground"
+            >
+              {context}
             </p>
-            <span className="shrink-0 text-xs text-muted-foreground/60">
-              {match.status === "scheduled"
-                ? "Por capturar"
-                : match.status === "live"
-                  ? "En vivo"
-                  : "Terminado"}
-            </span>
+            {state === "live" ? (
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-destructive/15 px-2 py-0.5 text-caption uppercase text-destructive">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
+                En vivo
+              </span>
+            ) : (
+              <span
+                className={cn(
+                  "shrink-0 rounded-full border px-2 py-0.5 text-caption uppercase",
+                  state === "finished"
+                    ? "border-success/40 bg-success/10 text-success"
+                    : state === "playing"
+                      ? "border-primary/40 bg-primary/10 text-primary-strong"
+                      : "border-border/70 text-muted-foreground",
+                )}
+              >
+                {state === "finished"
+                  ? "Finalizado"
+                  : state === "playing"
+                    ? "En curso"
+                    : "Por jugar"}
+              </span>
+            )}
           </div>
-          <div className="space-y-1.5">
+
+          <div className="mt-2 space-y-1.5">
             {sideRow("a")}
-            <div aria-hidden className="ms-3 h-px bg-border/60" />
+            <div aria-hidden className="h-px bg-border/50" />
             {sideRow("b")}
           </div>
-          <div className="mt-2 flex items-center gap-1.5">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
-                match.court_name
-                  ? "bg-primary/8 text-primary-strong"
-                  : "border border-dashed border-border text-muted-foreground",
+
+          {(court || match.tournament_name) && (
+            <div className="mt-2.5 flex items-center gap-3 text-caption text-muted-foreground">
+              {court && (
+                <span className="inline-flex shrink-0 items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  Cancha {court}
+                </span>
               )}
-            >
-              <MapPin className="h-3 w-3" />
-              {match.court_name ? `Cancha ${match.court_name}` : "Cancha por asignar"}
-            </span>
-          </div>
+              {match.tournament_name && (
+                <span className="truncate">{match.tournament_name}</span>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
       {footer && (
-        <div className="border-t border-border/60 px-3.5 py-2">{footer}</div>
+        <div className="border-t border-border/60 bg-muted/30 px-3 py-2">{footer}</div>
       )}
     </Card>
   );

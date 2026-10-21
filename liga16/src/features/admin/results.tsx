@@ -30,6 +30,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { MatchScoreboard } from "@/components/match-scoreboard";
 import { MatchCard } from "@/components/cards/card-kit";
+import { matchState } from "@/lib/match-state";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -390,27 +391,35 @@ export default function AdminResults() {
                       </p>
                     </div>
                     <div className="grid gap-3 lg:grid-cols-2">
-                      {ms.map((m) => (
+                      {ms.map((m) => {
+                        // El pie lee del mismo estado que la card: si la card
+                        // dice "Finalizado", aquí no puede decir "Falta
+                        // capturar" — el partido ya tiene su marcador.
+                        const state = matchState(m);
+                        const capturado = state === "finished";
+                        return (
                         <MatchCard
                           key={m.id}
                           match={m}
                           footer={
                             <div className="flex items-center justify-between gap-2">
                               <span className="truncate text-2xs uppercase tracking-wide text-muted-foreground/70">
-                                {m.status === "finished"
+                                {capturado
                                   ? "Resultado guardado"
-                                  : m.status === "live"
+                                  : state === "live"
                                     ? "En curso"
-                                    : "Falta capturar"}
+                                    : state === "playing"
+                                      ? "Marcador a medias"
+                                      : "Falta capturar"}
                               </span>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 className="h-7 shrink-0 gap-1.5 rounded-full px-3 text-xs hover:border-primary hover:bg-primary hover:text-primary-foreground"
                                 onClick={() => setEditingId(m.id)}
-                                aria-label={`${m.status === "finished" ? "Ver resultado" : "Capturar resultado"} de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}
+                                aria-label={`${capturado ? "Ver resultado" : "Capturar resultado"} de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}
                               >
-                                {m.status === "finished" ? (
+                                {capturado ? (
                                   <>
                                     <Eye className="h-3.5 w-3.5" /> Ver
                                   </>
@@ -423,7 +432,8 @@ export default function AdminResults() {
                             </div>
                           }
                         />
-                      ))}
+                        );
+                      })}
                     </div>
                   </section>
                 );

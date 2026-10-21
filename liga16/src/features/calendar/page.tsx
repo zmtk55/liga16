@@ -292,7 +292,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <div className="stagger-in space-y-3">
+      <div className="space-y-3">
         {dayMatches.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-muted-foreground">
@@ -317,9 +317,14 @@ export default function CalendarPage() {
         ) : (
           <>
             <p className="border-b pb-1.5 text-sm font-semibold capitalize">{dayLabel(day)}</p>
-            {dayMatches.map((m) => (
-              <MatchCard key={m.id} match={m} />
-            ))}
+            {/* Dos columnas en escritorio: la card de partido es de ancho
+                corto; estirada a 1200px el marcador quedaba huérfano en el
+                borde derecho, a 900px de la pareja que le pertenece. */}
+            <div className="stagger-in mt-3 grid gap-3 sm:grid-cols-2">
+              {dayMatches.map((m) => (
+                <MatchCard key={m.id} match={m} />
+              ))}
+            </div>
           </>
         )}
       </div>
@@ -329,9 +334,11 @@ export default function CalendarPage() {
       {recent.length > 0 && (
         <section className="space-y-3">
           <p className="border-b pb-1.5 text-sm font-semibold">Últimos resultados</p>
-          {recent.map((m) => (
-            <MatchCard key={m.id} match={m} />
-          ))}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {recent.map((m) => (
+              <MatchCard key={m.id} match={m} />
+            ))}
+          </div>
         </section>
       )}
     </div>

@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays, CheckCircle2, XCircle } from "lucide-react";
-import { MatchCard } from "@/components/cards/card-kit";
+import { MatchCard, MatchSets } from "@/components/cards/card-kit";
 import { initials, sexLabel, winRate } from "@/lib/format";
 import { teamCategoryLabel } from "@/lib/categories";
 
@@ -336,13 +336,19 @@ export default function TeamDetailPage() {
                   const d = f.match.scheduled_at ? new Date(f.match.scheduled_at) : null;
                   const when =
                     d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("es-MX") : "Sin fecha";
+                  // De qué lado juega este equipo: para sacar SU marcador y no
+                  // el del rival.
+                  const isA = f.match.side_a.pair_name === team?.name;
                   return (
-                    <div key={f.match.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
+                    <div key={f.match.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3">
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold text-sm">{f.rival}</p>
                         <p className="text-xs text-muted-foreground">{when}</p>
                       </div>
-                      <div className={`shrink-0 ml-2 flex items-center justify-center w-6 h-6 rounded-full ${f.won ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                      {/* El marcador va con el resultado: un check sin
+                          games no dice cómo se ganó. */}
+                      <MatchSets match={f.match} side={isA ? "a" : "b"} size="sm" />
+                      <div className={`shrink-0 flex items-center justify-center w-6 h-6 rounded-full ${f.won ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
                         {f.won ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                       </div>
                     </div>

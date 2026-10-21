@@ -1690,7 +1690,7 @@ return (
                                 <div className="flex min-w-0 flex-1 items-center gap-3">
                                   <div className="flex shrink-0 flex-col items-center rounded-md bg-muted/60 px-1 py-1">
                                     <span className="text-sm font-bold tabular-nums leading-none">{m.scheduled_at ? localTimeHHMM(m.scheduled_at) : "--:--"}</span>
-                                    <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{m.court_name ?? "S/C"}</span>
+                                    <span className="mt-0.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">{m.court_name ?? "S/C"}</span>
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate font-medium leading-tight">

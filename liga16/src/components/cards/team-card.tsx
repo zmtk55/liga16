@@ -297,7 +297,7 @@ function StatCell({ value, label }: { value: ReactNode; label: string }) {
       <span className="font-headline text-sm font-bold tabular-nums text-foreground">
         {value}
       </span>
-      <span className="text-[10px] uppercase tracking-wider text-foreground/60">
+      <span className="text-caption uppercase tracking-wider text-foreground/60">
         {label}
       </span>
     </div>

@@ -44,7 +44,7 @@ export function ResourceCard({
 
           {/* Live dot — top-left, always visible */}
           {isLive && (
-            <span className="absolute inset-inline-start-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-destructive/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white">
+            <span className="absolute inset-inline-start-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-destructive/90 px-2 py-0.5 text-caption font-bold uppercase tracking-widest text-white">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
@@ -91,7 +91,7 @@ export function ResourceCard({
           <p className="truncate text-xs text-surface-inverse-foreground/60">
             {tournament.club_name ?? tournament.city ?? "Sede por confirmar"}
           </p>
-          <p className="truncate text-[11px] uppercase tracking-wide text-surface-inverse-foreground/45">
+          <p className="truncate text-caption uppercase tracking-wide text-surface-inverse-foreground/60">
             {formatDateRange(tournament.start_date, tournament.end_date)} — {formatLabel[tournament.format] ?? tournament.format}
           </p>
         </div>

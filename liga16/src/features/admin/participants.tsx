@@ -449,7 +449,7 @@ export default function AdminParticipants() {
                               { name: selP2, level: prof2 ? (prof2.official_level ?? prof2.declared_level) : null },
                             ].filter((c) => c.name).map((c) => (
                               <span key={c.name} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs">
-                                <PairAvatar p1={c.name} className="h-6 w-6 border text-[10px]" />
+                                <PairAvatar p1={c.name} className="h-6 w-6 border text-xs" />
                                 <span className="font-medium">{c.name}</span>
                                 {c.level != null && <span className="text-muted-foreground">Nv {c.level}</span>}
                               </span>
