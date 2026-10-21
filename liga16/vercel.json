@@ -1,6 +1,7 @@
 {
-  "buildCommand": "npm ci && npx tsc -b && npx vite build",
+  "buildCommand": "npx tsc -b && npx vite build",
+  "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm ci"
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
