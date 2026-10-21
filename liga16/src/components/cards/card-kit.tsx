@@ -342,7 +342,10 @@ export function MatchCard({
           title={name}
           className={cn(
             "truncate text-sm",
-            !hasScore
+            // Sin ganador nadie ha ganado todavía (partido por jugar o a
+            // medias): los dos nombres van igual y son los chips en verde los
+            // que enseñan quién va ganando.
+            !winner
               ? "font-semibold text-foreground"
               : isWinner
                 ? "font-bold text-foreground"
