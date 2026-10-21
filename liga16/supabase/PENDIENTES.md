@@ -5,6 +5,10 @@ Proyecto de producción: `kmvjslcpemwssqtllosk`.
 Verificado el 2026-10-21 contra la base real (no contra el repo). Cada línea
 de abajo se comprobó con una consulta o con la API de storage.
 
+> **Estado: queda UNA cosa por aplicar** (los dos buckets de Storage). El resto
+> ya está en la base. Cuando llegue el token de administración, se aplican los
+> dos `.sql` de abajo y se verifica con la misma comprobación.
+
 ---
 
 ## 🔴 FALTA — bloquea funciones de la app
