@@ -1389,7 +1389,7 @@ return (
                     }}
                     disabled={saving}
                   >
-                    <CalendarClock className="h-4 w-4 ms-1" /> Generar calendario
+                    <CalendarClock className="h-4 w-4 ms-1" /> Repartir calendario
                   </Button>
                 )}
               </div>
