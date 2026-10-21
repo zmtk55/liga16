@@ -321,7 +321,7 @@ export default function RankingsPage() {
     <div className="animate-fade-in space-y-8">
       <PageHero
         title="Ranking"
-        subtitle="Parejas ordenadas por puntos dentro de su división y género. Gana partidos y sube."
+        subtitle="Parejas ordenadas por puntos dentro de su división y género. Gana partidos y sube. Criterio de desempate: diferencia de sets → PG → PJ."
         ghost="16"
       />
 
@@ -467,9 +467,6 @@ export default function RankingsPage() {
                   <TableHead className="text-right">Puntos</TableHead>
                   <TableHead className="text-right">Record</TableHead>
                   <TableHead className="text-right">División / Género</TableHead>
-                  <TableHead className="hidden items-center gap-2 lg:table-cell">
-                    <Users className="h-4 w-4" /> Jugadores
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -484,10 +481,26 @@ export default function RankingsPage() {
                   >
                     <TableCell className="text-xl font-extrabold tabular-nums text-muted-foreground">
                       {t.position > 0 ? t.position : "—"}
+                      {t.tied && (
+                        <Badge
+                          variant="outline"
+                          className="ml-1.5 align-middle text-2xs"
+                          title="Empatada en posición: mismo % de puntos, sets, PG y PJ"
+                        >
+                          Empate
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">{t.name}</div>
-                      <div className="text-xs text-muted-foreground">Toca para ver sus partidos</div>
+                      {/* Los nombres de los jugadores ya viven en `t.name` ("Fuentes /
+                          Rojas"), por eso la columna "Jugadores" se quitó: repetía
+                          exactamente lo mismo que la columna "Pareja". */}
+                      <div className="text-xs text-muted-foreground">
+                        {t.player1?.name || t.player2?.name
+                          ? `${t.player1?.name ?? "—"} / ${t.player2?.name ?? "—"}`
+                          : "Toca para ver sus partidos"}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
                       {t.points.toLocaleString("es-MX")}
@@ -503,14 +516,6 @@ export default function RankingsPage() {
                       <Badge variant="secondary" className="ml-1">
                         {sexLabel(t.sex)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground lg:table-cell">
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <Users className="h-3.5 w-3.5 shrink-0" />
-                        <span>
-                          {t.player1?.name ?? "—"} / {t.player2?.name ?? "—"}
-                        </span>
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

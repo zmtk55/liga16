@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { FilterMenu } from "@/components/ui/filter-menu";
-import { formatDateRange, formatLabel, formatMoney, tournamentStatusLabel } from "@/lib/format";
+import { formatCity, formatDateRange, formatLabel, formatMoney, tournamentStatusLabel } from "@/lib/format";
 import { Trophy } from "lucide-react";
 
 export default function TournamentsPage() {
@@ -115,7 +115,7 @@ export default function TournamentsPage() {
                   <CardIdentity
                     lead={
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-bold uppercase text-primary-strong">
-                        {t.club_name?.charAt(0) ?? t.city?.charAt(0) ?? "16"}
+                        {t.club_name?.charAt(0) || formatCity(t.city).charAt(0) || "16"}
                       </span>
                     }
                     title={t.name}
@@ -129,7 +129,7 @@ export default function TournamentsPage() {
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    {t.club_name ?? t.city ?? "Sede por confirmar"}
+                    {t.club_name || formatCity(t.city) || "Sede por confirmar"}
                   </p>
                   {t.price_cents > 0 && (
                     <p className="mt-auto font-mono text-sm font-bold tabular-nums text-primary">

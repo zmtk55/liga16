@@ -40,7 +40,8 @@ export function deriveTeamStandings(teams: Team[], matches: Match[]): Team[] {
 
   for (const list of groups.values()) {
     const stats = list.map((t, i) => computePairStatsLiga16(t.id, i + 1, t.name, matches));
-    for (const s of computeJerarquiaLiga16(stats)) {
+    const ranked = computeJerarquiaLiga16(stats);
+    for (const s of ranked) {
       const t = byId.get(s.pairId);
       if (!t) continue;
       t.played = s.PJ;
@@ -55,6 +56,34 @@ export function deriveTeamStandings(teams: Team[], matches: Match[]): Team[] {
       t.rendimiento_pct = s.RENDIMIENTO_PTS == null ? null : Math.round(s.RENDIMIENTO_PTS * 1000) / 10;
       t.points = t.rendimiento_pct ?? 0;
       t.position = s.JERARQUIA;
+      // Empate: dos parejas comparten JERARQUIA si ninguna de los dos criterios
+      // de desempate (diferencia de sets, luego PG, luego PJ) las separa.
+      t.tied = false;
+    }
+
+    // Marcar empates: misma posición y mismo desempate completo.
+    const byRank = new Map<number, typeof ranked>();
+    for (const s of ranked) {
+      const bucket = byRank.get(s.JERARQUIA) ?? [];
+      bucket.push(s);
+      byRank.set(s.JERARQUIA, bucket);
+    }
+    for (const bucket of byRank.values()) {
+      if (bucket.length < 2) continue;
+      for (const s of bucket) {
+        const t = byId.get(s.pairId);
+        if (!t) continue;
+        const same = bucket.every((other) => {
+          if (other === s) return true;
+          if ((other.RENDIMIENTO_PTS ?? 0) !== (s.RENDIMIENTO_PTS ?? 0)) return false;
+          const dA = other.SETS_FAVOR - other.SETS_CONTRA;
+          const dB = s.SETS_FAVOR - s.SETS_CONTRA;
+          if (dA !== dB) return false;
+          if (other.PG !== s.PG) return false;
+          return other.PJ === s.PJ;
+        });
+        t.tied = same;
+      }
     }
   }
 

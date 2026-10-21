@@ -26,6 +26,7 @@ import {
   formatDateRange,
   formatLabel,
   formatMatchDateTime,
+  formatCity,
 } from "@/lib/format";
 import {
   DIVISION_ORDER,
@@ -115,6 +116,7 @@ function TeamCrest({
 
 export default function Home() {
   const [stats, setStats] = useState<HomeData | null>(null);
+  const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -239,7 +241,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
     featured?.status === "registration_open" &&
     (featured.registration_deadline ?? featured.end_date) >= today;
   // Sede REAL: ciudad del torneo destacado (única fuente, sin inventar)
-  const sedeLabel = featured?.city || stats.tournaments[0]?.city || "Liga16";
+  const sedeLabel = formatCity(featured?.city || stats.tournaments[0]?.city) || "Liga16";
   // El estado sale del mapa de `@/lib/format`, que ya traduce los siete estados
   // del torneo. La ternaria local solo cubría tres y dejaba los demás en "".
   const statusLabel = featured?.status
@@ -315,7 +317,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
                       </h2>
                     )}
                     <p className={`mt-2 truncate text-sm text-white/70${featured.cover_url ? "" : " mt-0"}`}>
-                      {statusLabel} · {featured.club_name ?? featured.city}
+                      {statusLabel} · {featured.club_name ?? formatCity(featured.city)}
                     </p>
                     <p className="mt-1 truncate text-sm text-white/70">
                       {formatDateRange(featured.start_date, featured.end_date)}
@@ -347,90 +349,28 @@ setStats({ tournaments, teams, matches, news, sponsors });
         </div>
       </section>
 
-      {/* PRÓXIMO TORNEO — póster */}
-      {featured && (
-        <section>
-          <SectionHeading
-            title="Próximo torneo"
-            to="/torneos"
-            action="Ver todos"
-          />
-          <Link
-            to={`/torneos/${featured.slug}`}
-            className="group grid min-h-[390px] overflow-hidden rounded-2xl bg-surface-inverse text-white md:grid-cols-[0.9fr_1.1fr]"
-          >
-            <div className="flex flex-col justify-between p-6 sm:p-8 lg:p-10">
-              <div>
-                <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center bg-primary font-headline text-xl">
-                    16
-                  </span>
-                  <span className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">
-                    Liga16
-                    <br />
-                    Torneo oficial
-                  </span>
-                </div>
-                <h3 className="mt-9 max-w-xl font-headline text-4xl uppercase leading-[0.92] tracking-tight sm:text-5xl lg:text-6xl">
-                  {featured.name}
-                </h3>
-              </div>
 
-              <div className="mt-10">
-                <div className="mb-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/65">
-                  <span className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4 text-primary" />
-                    {formatDateRange(featured.start_date, featured.end_date)}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    {featured.club_name ?? featured.city}
-                  </span>
-                </div>
-                <span className="inline-flex items-center gap-2 border-b border-primary pb-1 text-sm font-bold uppercase tracking-wide">
-                  {featuredIsOpen
-                    ? tournamentStatusLabel.registration_open
-                    : "Ver convocatoria"}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </span>
-              </div>
-            </div>
-
-            {featured.cover_url ? (
-              <div className="relative min-h-72 overflow-hidden border-t border-white/10 md:border-l md:border-t-0">
-                <img
-                  src={featured.cover_url}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
-              </div>
-            ) : (
-              <div className="relative flex min-h-72 flex-col justify-between overflow-hidden bg-primary p-7 md:border-l md:border-white/10">
-                <span className="absolute -bottom-16 -right-3 font-headline text-[19rem] leading-none text-black/[0.13]">
-                  16
-                </span>
-                <span aria-hidden className="absolute inset-y-0 left-[34%] w-px rotate-[18deg] bg-black/20" />
-                <span aria-hidden className="absolute inset-y-0 left-[54%] w-px rotate-[18deg] bg-black/20" />
-                <span aria-hidden className="absolute inset-y-0 left-[74%] w-px rotate-[18deg] bg-black/20" />
-
-                {/* El formato baja a etiqueta. "Americano" a 4xl era un titular
-                    que no le decía nada a quien no conoce el formato; la frase
-                    que sí lo explica es la del propio torneo. */}
-                <p className="relative flex flex-wrap items-baseline gap-x-3 text-xs font-bold uppercase tracking-[0.24em] text-black/55">
-                  <span>{formatLabel[featured.format] ?? featured.format}</span>
-                  {statusLabel && <span>· {statusLabel}</span>}
-                </p>
-                {featured.rules_summary && (
-                  <p className="relative mt-6 max-w-sm text-sm leading-relaxed text-black/70">
-                    {featured.rules_summary}
-                  </p>
-                )}
-              </div>
-            )}
-          </Link>
-        </section>
-      )}
+      {/* MARKETING — 1, 2 y 10 */}
+      <section className="grid gap-6 md:grid-cols-3">
+        <div className="rounded-2xl bg-surface-inverse p-6 text-white md:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">Inscripción</p>
+          <h3 className="mt-3 font-headline text-2xl uppercase leading-none tracking-tight">{featured ? "Próximo torneo" : "Agenda"}</h3>
+          <Button asChild size="lg" className="mt-6 h-11 w-full rounded-none font-bold uppercase tracking-wide">
+            <Link to="/torneos">Ver torneo <ArrowRight className="ml-2 h-4 w-4" /></Link>
+          </Button>
+        </div>
+        <div className="rounded-2xl border bg-card p-6 md:p-8">
+          <h3 className="font-headline text-xl uppercase tracking-tight">Top parejas</h3>
+          <div className="mt-4 text-sm text-muted-foreground">Top 3 con puntos.</div>
+        </div>
+        <div className="rounded-2xl bg-primary/5 p-6 md:p-8 border border-primary/10">
+          <h3 className="font-headline text-xl uppercase tracking-tight">Alarmas de juego</h3>
+          <form onSubmit={(e) => e.preventDefault()} className="mt-4 flex gap-2">
+            <input type="email" placeholder="tu@email.com" className="flex-1 rounded-none border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
+            <Button type="submit" size="sm" className="h-11 rounded-none px-4 font-bold uppercase tracking-wide">Enviar</Button>
+          </form>
+        </div>
+      </section>
 
       {/* PAREJAS — una sola sección.
           Antes había dos: "Pareja destacada" con una tarjeta naranja y "Top por

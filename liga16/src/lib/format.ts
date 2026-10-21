@@ -7,7 +7,8 @@ import type { Sex } from '@/types';
  * sin que nada se quejara.
  */
 export function formatMoney(cents: number, currency: string): string {
-     return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(cents / 100);
+  if (cents === 0) return "Gratis";
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(cents / 100);
 }
 
 /**
@@ -169,4 +170,20 @@ export function initials(name: string): string {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+}
+
+/**
+ * La ciudad viene de la captura del admin y llega como la escribió quien
+ * escribió: "caborca", "CABORCA", "Caborca". La app la muestra en la ficha de
+ * torneo, en la de sede y en los metadatos, y cada vez que se normalizaba era
+ * a mano en una vista distinta. Aquí se normaliza una sola vez: primera
+ * letra en mayúscula, el resto como venga, y los nombres compuestos ("SAN
+ * LUIS" → "San Luis") también.
+ */
+export function formatCity(city: string | null | undefined): string {
+  if (!city) return "";
+  return city
+    .trim()
+    .toLowerCase()
+    .replace(/(^|[\s-])([a-záéíóúñü])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
 }

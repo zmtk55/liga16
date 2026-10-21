@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router";
 import { ArrowLeft, CalendarDays, MapPin, Trophy, Users, Check, ChevronRight, ChevronLeft, CreditCard, User } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Pair, Tournament, TournamentCategory } from "@/types";
-import { formatMoney, formatDateRange, formatLabel, tournamentStatusLabel } from "@/lib/format";
+import { formatMoney, formatDateRange, formatLabel, tournamentStatusLabel, formatCity } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -191,7 +191,7 @@ export default function TournamentDetailPage() {
           </span>
           <span className="flex items-center gap-1.5 font-medium">
             <MapPin className="h-4 w-4 text-primary" />
-            {tournament.club_name ?? (tournament.city || "Sede por confirmar")}
+            {tournament.club_name ?? (formatCity(tournament.city) || "Sede por confirmar")}
           </span>
           <span className="flex items-center gap-1.5 font-medium">
             <Trophy className="h-4 w-4 text-primary" />

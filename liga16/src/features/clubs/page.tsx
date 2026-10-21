@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { MapPin, Phone, Clock, CalendarDays, ChevronRight } from "lucide-react";
+import { formatCity } from "@/lib/format";
 import { db } from "@/lib/data";
 import type { Club, Court } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,7 +70,7 @@ export default function ClubsPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">{club.city}, {club.state}</span>
+              <span className="text-sm font-medium text-primary">{formatCity(club.city)}, {club.state}</span>
             </div>
             <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">{club.name}</h2>
             <p className="max-w-xl text-sm text-muted-foreground">{club.description}</p>

@@ -281,20 +281,29 @@ export function computePairStatsLiga16(
  * - RANK de Excel: misma posición para valores iguales, salta la siguiente (1, 1, 3...)
  * - Si RENDIMIENTO_PTS es null → JERARQUIA = 0 (como en el Excel con IFERROR)
  */
+/** Compara dos estadísticas por el criterio de orden de Liga16 (descendente).
+ *  > 0 si `a` va por delante de `b`. */
+function rankCompare(a: Liga16PairStats, b: Liga16PairStats): number {
+  const pts = (a.RENDIMIENTO_PTS ?? 0) - (b.RENDIMIENTO_PTS ?? 0);
+  if (pts !== 0) return pts;
+  const diffA = (a.SETS_FAVOR ?? 0) - (a.SETS_CONTRA ?? 0);
+  const diffB = (b.SETS_FAVOR ?? 0) - (b.SETS_CONTRA ?? 0);
+  if (diffA !== diffB) return diffA - diffB;
+  if (a.PG !== b.PG) return a.PG - b.PG;
+  return a.PJ - b.PJ;
+}
+
 export function computeJerarquiaLiga16(stats: Liga16PairStats[]): Liga16PairStats[] {
-  // Filtrar solo los que tienen RENDIMIENTO_PTS válido para el ranking
   const withRank = stats.filter((s) => s.RENDIMIENTO_PTS !== null);
   const withoutRank = stats.filter((s) => s.RENDIMIENTO_PTS === null);
 
-  // Ordenar descendente por RENDIMIENTO_PTS
-  withRank.sort((a, b) => (b.RENDIMIENTO_PTS ?? 0) - (a.RENDIMIENTO_PTS ?? 0));
+  // Ordenar descendente por todos los criterios (puntaje, sets, PG, PJ)
+  withRank.sort((a, b) => rankCompare(b, a));
 
-  // Asignar JERARQUIA estilo Excel RANK
-  // Para cada pareja, JERARQUIA = 1 + cantidad de parejas con RENDIMIENTO_PTS mayor
+  // JERARQUIA estilo Excel RANK extendido: 1 + cuántos van estrictamente
+  // por delante según el mismo criterio de desempate.
   for (const s of withRank) {
-    const higher = withRank.filter(
-      (other) => (other.RENDIMIENTO_PTS ?? 0) > (s.RENDIMIENTO_PTS ?? 0)
-    ).length;
+    const higher = withRank.filter((other) => rankCompare(other, s) > 0).length;
     s.JERARQUIA = 1 + higher;
   }
 

@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Facebook, Instagram } from "lucide-react";
+import { Mail } from "lucide-react";
 
 const explore = [
   { to: "/torneos", label: "Torneos" },
@@ -9,12 +9,11 @@ const explore = [
 ];
 
 const community = [
-  { to: "/noticias", label: "Noticias" },
   { to: "/padel", label: "Sede" },
 ];
 
 /** Footer compacto: menos altura en móvil, grupos en grid de 2 columnas y
- * links legales como texto simple porque aún no tienen página de destino. */
+ *  links legales que sí llevan a una página real. */
 export function AppFooter() {
   return (
     <footer className="border-t bg-card">
@@ -28,24 +27,36 @@ export function AppFooter() {
                 </span>
                 <span className="text-lg font-bold tracking-tight">Liga16</span>
               </Link>
-              <div className="flex gap-3 md:hidden">
-                <SocialLinks />
-              </div>
             </div>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
               Torneos, ranking y vida de padel en un solo lugar.
             </p>
-            <div className="mt-3 hidden gap-3 md:flex">
-              <SocialLinks />
-            </div>
+            <a
+              href="mailto:admin@liga16.mx"
+              className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Mail className="h-4 w-4" />
+              admin@liga16.mx
+            </a>
           </div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
             <FooterGroup title="Explorar" items={explore} />
             <FooterGroup title="Comunidad" items={community} />
-            <p className="col-span-2 text-caption leading-relaxed text-muted-foreground sm:col-span-1">
-              Aviso de Privacidad · Términos y Condiciones · Soporte y ayuda · Eliminar mi cuenta
-            </p>
+            <div className="col-span-2 flex flex-col items-start gap-1 text-caption leading-relaxed text-muted-foreground sm:col-span-1">
+              <Link to="/legal/privacidad" className="inline-flex min-h-8 items-center hover:text-foreground">
+                Aviso de Privacidad
+              </Link>
+              <Link to="/legal/terminos" className="inline-flex min-h-8 items-center hover:text-foreground">
+                Términos y Condiciones
+              </Link>
+              <Link to="/legal/soporte" className="inline-flex min-h-8 items-center hover:text-foreground">
+                Soporte y ayuda
+              </Link>
+              <Link to="/legal/eliminar" className="inline-flex min-h-8 items-center hover:text-foreground">
+                Eliminar mi cuenta
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -54,33 +65,6 @@ export function AppFooter() {
         </div>
       </div>
     </footer>
-  );
-}
-
-/** Los iconos se ven de 16px pero se tocan con 32px: el área de clic del
- * ícono desnudo era de 16x16, menor que la mitad del mínimo cómodo. */
-function SocialLinks() {
-  return (
-    <>
-      <a
-        href="https://facebook.com"
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Liga16 en Facebook"
-        className="-m-2 flex h-8 w-8 items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <Facebook className="h-4 w-4" />
-      </a>
-      <a
-        href="https://instagram.com"
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Liga16 en Instagram"
-        className="-m-2 flex h-8 w-8 items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <Instagram className="h-4 w-4" />
-      </a>
-    </>
   );
 }
 
@@ -97,7 +81,7 @@ function FooterGroup({ title, items }: { title: string; items: { to: string; lab
           <li key={item.to + item.label}>
             <Link
               to={item.to}
-              className="inline-block py-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex min-h-8 items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               {item.label}
             </Link>

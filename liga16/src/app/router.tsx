@@ -6,6 +6,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createBrowserRouter, Navigate, useParams } from "react-router";
 import AppLayout from "./layout";
+import { RouteErrorElement } from "@/components/app-error-boundary";
 import Home from "../features/home/page";
 import { lazy } from "react";
 import { RequireAuth, RequireRole } from "@/components/auth/guards";
@@ -20,6 +21,7 @@ const TeamDetail = lazy(() => import("../features/teams/detail"));
 const Tournaments = lazy(() => import("../features/tournaments/page"));
 const TournamentDetail = lazy(() => import("../features/tournaments/detail"));
 const Rankings = lazy(() => import("../features/rankings/page"));
+import LegalPage from "../features/legal/page";
 const Clubs = lazy(() => import("../features/clubs/page"));
 const News = lazy(() => import("../features/news/page"));
 const MyProfile = lazy(() => import("../features/players/my-profile"));
@@ -64,6 +66,7 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <AppLayout />,
+    errorElement: <RouteErrorElement />,
     children: [
       { index: true, element: <Home /> },
       { path: "login", element: <Login /> },
@@ -85,24 +88,15 @@ export const router = createBrowserRouter([
       { path: "ranking", element: <Rankings /> },
       { path: "equipos", element: <Teams /> },
       { path: "equipos/:slug", element: <TeamDetail /> },
-      {
-        path: "jugadores",
-        element: (
-          <RequireAuth>
-            <Players />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "jugadores/:id",
-        element: (
-          <RequireAuth>
-            <PlayerDetail />
-          </RequireAuth>
-        ),
-      },
+      { path: "jugadores", element: <Players /> },
+      { path: "jugadores/:id", element: <PlayerDetail /> },
       { path: "padel", element: <Clubs /> },
       { path: "noticias", element: <News /> },
+      { path: "legal/privacidad", element: <LegalPage slug="privacidad" /> },
+      { path: "legal/terminos", element: <LegalPage slug="terminos" /> },
+      { path: "legal/soporte", element: <LegalPage slug="soporte" /> },
+      { path: "legal/eliminar", element: <LegalPage slug="eliminar" /> },
+      { path: "cuenta/eliminar", element: <LegalPage slug="eliminar" /> },
     ],
   },
   {
@@ -112,6 +106,7 @@ export const router = createBrowserRouter([
         <AdminLayout />
       </AdminRoute>
     ),
+    errorElement: <RouteErrorElement />,
     children: [
       { index: true, element: <AdminDashboard /> },
       { path: "estado", element: <SystemStatus /> },

@@ -329,6 +329,7 @@ export interface Team {
   sets_for: number;
   sets_against: number;
   titles: number;
+  tied?: boolean;            // Indica empate en ranking dentro de división/sex
 }
 
 export interface League {
