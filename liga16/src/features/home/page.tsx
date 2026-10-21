@@ -2,11 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowRight,
-  CalendarDays,
   ChevronRight,
   Clock,
   Flame,
-  MapPin,
 } from "lucide-react";
 import { db } from "@/lib/data";
 import type {
@@ -24,7 +22,6 @@ import {
   tournamentStatusLabel,
   tierLabel,
   formatDateRange,
-  formatLabel,
   formatMatchDateTime,
   formatCity,
 } from "@/lib/format";
@@ -116,6 +113,8 @@ function TeamCrest({
 
 export default function Home() {
   const [stats, setStats] = useState<HomeData | null>(null);
+  // Estado del formulario de alarmas: la confirmación es local, no hay
+  // backend de suscripciones todavía.
   const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
