@@ -3,6 +3,7 @@
 // Los CSS están cargados desde main.tsx (./transitions.css).
 export { CardResize } from "./CardResize";
 export { NumberPopIn } from "./NumberPopIn";
+export { PopNumber } from "./PopNumber";
 export { NotificationBadge, BadgeDot } from "./NotificationBadge";
 export { TextSwap } from "./TextSwap";
 export { MenuDropdown } from "./MenuDropdown";

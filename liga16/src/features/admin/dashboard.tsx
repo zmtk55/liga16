@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
   Activity,
+  ArrowRight,
   ArrowUpRight,
   BarChart3,
   CalendarDays,
@@ -22,8 +23,7 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
-  Tooltip,
+  Sector,
   XAxis,
   YAxis,
 } from "recharts";
@@ -33,13 +33,18 @@ import { matchBucket, matchStatusKey } from "@/lib/match-state";
 import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { CardShell, CardIdentity, CardStat, CardFooterStrip } from "@/components/cards/card-kit";
 import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
+import { PopNumber } from "@/components/ui/transitions";
 import { formatDateRange } from "@/lib/format";
 import { groupByDivision } from "@/lib/categories";
+import { cn } from "@/lib/utils";
 
 interface DashboardData {
   tournaments: Tournament[];
@@ -48,7 +53,30 @@ interface DashboardData {
   matches: Match[];
 }
 
-const CHART_COLORS = ["#e11d48", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4"];
+/**
+ * Paleta de las gráficas: los tokens --chart-1..6 de index.css. En la
+ * página no hay ningún hex — el color de cada serie sale del token, y por
+ * eso las gráficas se ven igual en claro y en oscuro.
+ */
+const PALETTE = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-6))",
+];
+
+const activityConfig = {
+  partidos: { label: "Partidos", color: "hsl(var(--chart-1))" },
+} satisfies ChartConfig;
+
+const statusConfig = {
+  "En vivo": { label: "En vivo", color: "hsl(var(--destructive))" },
+  "Por capturar": { label: "Por capturar", color: "hsl(var(--chart-3))" },
+  "En curso": { label: "En curso", color: "hsl(var(--chart-1))" },
+  Finalizados: { label: "Finalizados", color: "hsl(var(--success))" },
+} satisfies ChartConfig;
 
 function DashboardSkeleton() {
   return (
@@ -84,12 +112,15 @@ function StatCard({
   accent?: boolean;
 }) {
   return (
-    <Card className="relative overflow-hidden">
+    <Card className="group relative overflow-hidden border-border/60 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
       <CardContent className="p-4">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-            <p className={`text-2xl font-bold tabular-nums ${accent ? "text-primary" : ""}`}>{value}</p>
+            {/* La cifra entra dígito a dígito cuando cambia (transitions-dev). */}
+            <p className="text-2xl font-bold">
+              <PopNumber value={value} className={cn(accent && "text-primary")} />
+            </p>
             {trend && (
               <p className={`flex items-center gap-1 text-xs ${trendUp ? "text-emerald-600" : "text-muted-foreground"}`}>
                 {trendUp && <TrendingUp className="h-3 w-3" />}
@@ -97,8 +128,13 @@ function StatCard({
               </p>
             )}
           </div>
-          <div className={`rounded-lg p-2 ${accent ? "bg-primary/10" : "bg-muted"}`}>
-            <Icon className={`h-4 w-4 ${accent ? "text-primary" : "text-muted-foreground"}`} />
+          <div
+            className={cn(
+              "rounded-lg p-2 transition-transform duration-200 ease-out group-hover:scale-110",
+              accent ? "bg-primary/10" : "bg-muted",
+            )}
+          >
+            <Icon className={cn("h-4 w-4", accent ? "text-primary" : "text-muted-foreground")} />
           </div>
         </div>
       </CardContent>
@@ -119,51 +155,141 @@ function ActivityChart({ matches }: { matches: Match[] }) {
     }));
   }, [matches]);
 
+  // Una gráfica vacía parece rota. Si no hubo partidos en la semana, se dice
+  // con palabras.
+  if (data.every((d) => d.partidos === 0)) {
+    return (
+      <Empty className="border-0 py-8">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Activity className="h-5 w-5 text-muted-foreground" />
+          </EmptyMedia>
+          <EmptyTitle className="text-sm">Sin actividad esta semana</EmptyTitle>
+          <EmptyDescription>No se jugó ningún partido en los últimos 7 días.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
   return (
-    <ResponsiveContainer width="100%" height={180}>
+    <ChartContainer config={activityConfig} className="h-[180px] w-full aspect-auto">
       <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
         <defs>
-          <linearGradient id="colorPartidos" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#e11d48" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#e11d48" stopOpacity={0} />
+          <linearGradient id="fillActividad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="var(--color-partidos)" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="var(--color-partidos)" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-        <XAxis dataKey="day" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-        <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
-        <Tooltip
-          contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }}
+        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+        <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 11 }} />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          width={26}
+          allowDecimals={false}
+          tick={{ fontSize: 11 }}
         />
-        <Area type="monotone" dataKey="partidos" stroke="#e11d48" strokeWidth={2} fill="url(#colorPartidos)" />
+        <ChartTooltip
+          cursor={{ stroke: "hsl(var(--border))" }}
+          content={<ChartTooltipContent indicator="line" />}
+        />
+        <Area
+          dataKey="partidos"
+          type="monotone"
+          fill="url(#fillActividad)"
+          stroke="var(--color-partidos)"
+          strokeWidth={2}
+        />
       </AreaChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
 function DivisionPie({ teams }: { teams: Team[] }) {
   const data = useMemo(() => {
     const groups = groupByDivision(teams.filter((t) => t.played > 0));
-    return groups.map((g) => ({
+    return groups.map((g, i) => ({
       name: g.label,
       value: g.teams.length,
+      fill: PALETTE[i % PALETTE.length],
     }));
   }, [teams]);
+  // La porción sobre la que está el puntero se separa: es el micro-efecto
+  // que dice "este número es este" sin tener que leer la leyenda.
+  const [active, setActive] = useState<number | null>(null);
+  // La config del shadcn: una entrada por división, con su color del token.
+  const config = useMemo(
+    () =>
+      Object.fromEntries(
+        data.map((d) => [d.name, { label: d.name, color: d.fill }]),
+      ) as ChartConfig,
+    [data],
+  );
 
   if (data.length === 0) return null;
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} paddingAngle={2}>
-          {data.map((_, i) => (
-            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip
-          contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <>
+      <ChartContainer config={config} className="h-[180px] w-full aspect-auto">
+        <PieChart>
+          <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="name" />} />
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={44}
+            outerRadius={70}
+            paddingAngle={2}
+            strokeWidth={0}
+            activeIndex={active ?? undefined}
+            activeShape={(props: {
+              cx?: number;
+              cy?: number;
+              innerRadius?: number;
+              outerRadius?: number;
+              startAngle?: number;
+              endAngle?: number;
+              fill?: string;
+            }) => {
+              const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+              return (
+                <Sector
+                  cx={cx}
+                  cy={cy}
+                  innerRadius={innerRadius}
+                  outerRadius={(outerRadius ?? 0) + 6}
+                  startAngle={startAngle}
+                  endAngle={endAngle}
+                  fill={fill}
+                />
+              );
+            }}
+            onMouseEnter={(_, index) => setActive(index)}
+            onMouseLeave={() => setActive(null)}
+          >
+            {data.map((entry) => (
+              <Cell key={entry.name} fill={entry.fill} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      {/* Leyenda: sin ella la dona dice cuántas parejas hay por división, pero
+          no en cuál. */}
+      <ul className="mt-3 space-y-1.5">
+        {data.map((d) => (
+          <li key={d.name} className="flex items-center gap-2 text-xs">
+            <span
+              aria-hidden
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: d.fill }}
+            />
+            <span className="truncate text-muted-foreground">{d.name}</span>
+            <span className="ml-auto shrink-0 font-medium tabular-nums">{d.value}</span>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -182,29 +308,40 @@ function MatchesByStatus({ matches }: { matches: Match[] }) {
       else if (k === "finished") counts.finished++;
     });
     return [
-      { name: "En vivo", value: counts.live, fill: "#e11d48" },
-      { name: "Por capturar", value: counts.pending, fill: "#f59e0b" },
-      { name: "En curso", value: counts.playing, fill: "#a855f7" },
-      { name: "Finalizados", value: counts.finished, fill: "#10b981" },
+      { name: "En vivo", value: counts.live, fill: "hsl(var(--destructive))" },
+      { name: "Por capturar", value: counts.pending, fill: "hsl(var(--chart-3))" },
+      { name: "En curso", value: counts.playing, fill: "hsl(var(--chart-1))" },
+      { name: "Finalizados", value: counts.finished, fill: "hsl(var(--success))" },
     ];
   }, [matches]);
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <BarChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-        <XAxis dataKey="name" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-        <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
-        <Tooltip
-          contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }}
+    <ChartContainer config={statusConfig} className="h-[180px] w-full aspect-auto">
+      {/* Barras horizontales: los cuatro nombres caben enteros en el eje y no
+          hay que adivinar de qué barra es cada número. */}
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
+        <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+        <XAxis type="number" tickLine={false} axisLine={false} tickMargin={6} allowDecimals={false} tick={{ fontSize: 11 }} />
+        <YAxis
+          type="category"
+          dataKey="name"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={6}
+          width={86}
+          tick={{ fontSize: 11 }}
         />
-        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-          {data.map((entry, i) => (
-            <Cell key={i} fill={entry.fill} />
+        <ChartTooltip
+          cursor={{ fill: "hsl(var(--muted))" }}
+          content={<ChartTooltipContent nameKey="name" hideLabel />}
+        />
+        <Bar dataKey="value" radius={[4, 4, 4, 4]} barSize={18}>
+          {data.map((entry) => (
+            <Cell key={entry.name} fill={entry.fill} />
           ))}
         </Bar>
       </BarChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
@@ -328,6 +465,7 @@ export default function AdminDashboard() {
         <h1 className="text-lg font-semibold">No se pudo cargar el panel</h1>
         <p className="mt-1 text-sm text-muted-foreground">{error}</p>
         <Button className="mt-4" variant="outline" size="sm" onClick={() => window.location.reload()}>
+          <Spinner />
           Reintentar
         </Button>
       </div>
@@ -344,16 +482,16 @@ export default function AdminDashboard() {
       >
         <AdminStatStrip>
           <AdminStat
-            value={pendingPlayers.length}
+            value={<PopNumber value={pendingPlayers.length} />}
             label="Por verificar"
             tone={pendingPlayers.length > 0 ? "text-primary" : undefined}
           />
           <AdminStat
-            value={pendingMatches.length}
+            value={<PopNumber value={pendingMatches.length} />}
             label="Por capturar"
             tone={pendingMatches.length > 0 ? "text-primary" : undefined}
           />
-          <AdminStat value={running.length} label="En juego" />
+          <AdminStat value={<PopNumber value={running.length} />} label="En juego" />
         </AdminStatStrip>
       </AdminPageHeader>
 
@@ -370,12 +508,17 @@ export default function AdminDashboard() {
         </h2>
         {tasks.length === 0 ? (
           <Card className="border-dashed">
-            <CardContent className="flex items-center gap-3 py-5">
-              <ShieldCheck className="h-5 w-5 text-success" />
-              <p className="text-sm text-muted-foreground">
-                Nada pendiente. No hay perfiles por verificar ni partidos por capturar.
-              </p>
-            </CardContent>
+            <Empty className="border-0 py-6">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ShieldCheck className="h-5 w-5 text-success" />
+                </EmptyMedia>
+                <EmptyTitle className="text-base">Nada pendiente</EmptyTitle>
+                <EmptyDescription>
+                  No hay perfiles por verificar ni partidos por capturar.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -396,12 +539,17 @@ export default function AdminDashboard() {
                     stats={[
                       <CardStat
                         key="n"
-                        value={t.count}
+                        value={<PopNumber value={t.count} />}
                         label={t.count === 1 ? "pendiente" : "pendientes"}
                         tone="text-primary"
                       />,
                     ]}
-                    chip={<Badge variant="secondary">{t.cta} →</Badge>}
+                    chip={
+                      <Badge variant="secondary" className="gap-1 transition-transform duration-200 group-hover:translate-x-0.5">
+                        {t.cta}
+                        <ArrowRight className="h-3 w-3" />
+                      </Badge>
+                    }
                   />
                 </CardShell>
               </Link>
@@ -453,14 +601,25 @@ export default function AdminDashboard() {
         </div>
         {running.length === 0 ? (
           <Card className="border-dashed">
-            <CardContent className="py-5 text-sm text-muted-foreground">
-              No hay torneos en juego ahora mismo.
-            </CardContent>
+            <Empty className="border-0 py-6">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Trophy className="h-5 w-5 text-muted-foreground" />
+                </EmptyMedia>
+                <EmptyTitle className="text-base">Sin torneos en juego</EmptyTitle>
+                <EmptyDescription>
+                  No hay torneos en juego ahora mismo.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {running.map((t) => (
-              <Card key={t.id} className="overflow-hidden">
+              <Card
+                key={t.id}
+                className="overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+              >
                 <CardContent className="space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -498,14 +657,25 @@ export default function AdminDashboard() {
           </div>
           {lideres.length === 0 ? (
             <Card className="border-dashed">
-              <CardContent className="py-5 text-sm text-muted-foreground">
-                Todavía no hay parejas con partidos jugados.
-              </CardContent>
+              <Empty className="border-0 py-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Target className="h-5 w-5 text-muted-foreground" />
+                  </EmptyMedia>
+                  <EmptyTitle className="text-base">Todavía no hay líderes</EmptyTitle>
+                  <EmptyDescription>
+                    Todavía no hay parejas con partidos jugados.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             </Card>
           ) : (
             <div className="space-y-2">
               {lideres.map(({ label, leader }) => (
-                <div key={label} className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
+                <div
+                  key={label}
+                  className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 transition-colors duration-200 hover:bg-muted/40"
+                >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary font-display text-lg text-primary-foreground">
                     1
                   </span>
@@ -539,7 +709,10 @@ export default function AdminDashboard() {
                 </p>
               ) : (
                 data.matches.slice(0, 5).map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 px-4 py-3">
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 px-4 py-3 transition-colors duration-200 hover:bg-muted/40"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm">
                         {m.side_a.pair_name} vs {m.side_b.pair_name}
@@ -567,14 +740,25 @@ export default function AdminDashboard() {
           </div>
           {openSignups.length === 0 ? (
             <Card className="border-dashed">
-              <CardContent className="py-5 text-sm text-muted-foreground">
-                No hay torneos con inscripciones abiertas.
-              </CardContent>
+              <Empty className="border-0 py-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Users className="h-5 w-5 text-muted-foreground" />
+                  </EmptyMedia>
+                  <EmptyTitle className="text-base">Sin inscripciones abiertas</EmptyTitle>
+                  <EmptyDescription>
+                    No hay torneos con inscripciones abiertas.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             </Card>
           ) : (
             <div className="space-y-2">
               {openSignups.map((t) => (
-                <Card key={t.id}>
+                <Card
+                  key={t.id}
+                  className="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                >
                   <CardContent className="flex items-center justify-between gap-3 p-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{t.name}</p>

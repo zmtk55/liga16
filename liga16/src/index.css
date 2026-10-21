@@ -47,6 +47,18 @@
     /* Semántico de aviso (tendencias neutras, barras de probabilidad) */
     --warning: 38 92% 50%;
 
+    /* Paleta de gráficas (convención shadcn: --chart-1..6).
+       Las consume el componente <ChartContainer />: cada serie y cada porción
+       de dona toma su color de aquí, en vez de un hex escrito en la página.
+       La 1 es el naranja de marca; las demás completan la paleta del
+       circuito y mantienen el contraste sobre el fondo de las cards. */
+    --chart-1: 16 100% 50%;
+    --chart-2: 152 65% 32%;
+    --chart-3: 38 92% 46%;
+    --chart-4: 199 89% 44%;
+    --chart-5: 275 62% 52%;
+    --chart-6: 340 72% 50%;
+
     /* Escala tipográfica semántica: números de stats y etiquetas mini.
        Las pages NUNCA inventan tamaños: usan text-stat / text-caption.
        El piso de la escala es 12px: por debajo el texto ya no se lee sin
@@ -190,6 +202,15 @@
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 55%;
+
+    /* Paleta de gráficas en oscuro: un punto más claros que en claro, porque
+       el fondo oscuro se come los tonos apagados. */
+    --chart-1: 16 100% 58%;
+    --chart-2: 152 60% 45%;
+    --chart-3: 38 92% 58%;
+    --chart-4: 199 89% 58%;
+    --chart-5: 275 70% 66%;
+    --chart-6: 340 78% 64%;
 
     --sidebar-background: 240 6% 10%;
     --sidebar-foreground: 0 0% 96%;
