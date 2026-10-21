@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
+import { useMatchUpdated } from "@/lib/refresh";
 import type { Team } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,14 @@ export default function TeamsPage() {
     setParams(next, { replace: true });
   }
 
+  // El récord y los puntos de cada pareja salen de los partidos: al guardar un
+  // resultado, la lista se recalcula sola.
+  useMatchUpdated(() => {
+    db.listTeams()
+      .then((data) => setTeams(data))
+      .catch(() => setTeams([]));
+  });
+
   useEffect(() => {
     let active = true;
     // El `catch` importa: sin él, si la petición falla el estado se queda en
@@ -126,15 +135,6 @@ export default function TeamsPage() {
       .map(([key, count]) => ({ key, label: sexLabel(key), n: count }))
       .sort((a, b) => b.n - a.n);
   }, [teams]);
-
-  const stats = useMemo(
-    () => [
-      { k: "Parejas", v: teams?.length ?? "…" },
-      { k: "Categorías", v: teams ? categorias.length : "…" },
-      { k: "Partidos", v: teams?.reduce((s, t) => s + t.played, 0) ?? "…" },
-    ],
-    [teams, categorias],
-  );
 
   return (
     <div className="animate-fade-in space-y-8">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { MapPin, Phone, Clock, CalendarDays, ChevronRight, Building2, Target } from "lucide-react";
+import { MapPin, Phone, Clock, CalendarDays, ChevronRight } from "lucide-react";
 import { db } from "@/lib/data";
 import type { Club, Court } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

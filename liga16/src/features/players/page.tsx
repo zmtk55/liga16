@@ -36,8 +36,6 @@ import {
   Table2,
   X,
   Users,
-  Target,
-  Medal,
 } from "lucide-react";
 
 type View = "grid" | "compact" | "table";

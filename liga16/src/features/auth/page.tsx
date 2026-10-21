@@ -62,7 +62,7 @@ export default function LoginPage() {
           {!isConfigured && (
             <Alert variant="destructive">
               <AlertDescription>
-                Supabase no está configurado. La app está en modo demo; el login no funciona.
+                Supabase no está configurado. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.
               </AlertDescription>
             </Alert>
           )}

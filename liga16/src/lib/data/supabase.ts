@@ -4,6 +4,7 @@
 import { supabase } from '@/lib/supabase';
 import { divisionFromCategory } from "@/lib/categories";
 import { deriveTeamStandings } from "@/lib/standings";
+import { emitMatchUpdated } from '@/lib/refresh';
 import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
 import type { TournamentFilters } from '@/types';
@@ -804,6 +805,7 @@ export const supabaseProvider: DataProvider = {
     const { data: result, error } = await client()
       .from('matches').update(row).eq('id', id).select().single();
     if (error) throw error;
+    emitMatchUpdated(); // Ranking y equipos se refrescan tras guardar el resultado
     return matchFromRow(result as Record<string, unknown>) as never;
   },
 

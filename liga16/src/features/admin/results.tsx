@@ -39,7 +39,7 @@ import {
   normalizeScoring,
   validateScoring,
 } from "@/lib/scoring";
-import { ClipboardList, Plus, Trash2, Trophy } from "lucide-react";
+import { ClipboardList, Eye, Plus, Trash2, Trophy } from "lucide-react";
 
 const STATUS_OPTIONS = Object.entries(matchStatusLabel).map(([value, label]) => ({ value, label }));
 
@@ -281,19 +281,38 @@ export default function AdminResults() {
                     </div>
                     <div className="grid gap-3 lg:grid-cols-2">
                       {ms.map((m) => (
-                        <div key={m.id} className="relative">
-                          <MatchCard match={m} />
-                          <div className="absolute right-3 top-3 flex gap-1">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setEditingId(m.id)}
-                              aria-label={`Editar resultado de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}
-                            >
-                              {m.status === "finished" ? "Ver" : "Capturar"}
-                            </Button>
-                          </div>
-                        </div>
+                        <MatchCard
+                          key={m.id}
+                          match={m}
+                          footer={
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate text-2xs uppercase tracking-wide text-muted-foreground/70">
+                                {m.status === "finished"
+                                  ? "Resultado capturado"
+                                  : m.status === "live"
+                                    ? "Partido en curso"
+                                    : "Falta capturar el resultado"}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 shrink-0 gap-1.5 rounded-full px-3 text-xs hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                                onClick={() => setEditingId(m.id)}
+                                aria-label={`${m.status === "finished" ? "Ver resultado" : "Capturar resultado"} de ${m.side_a.pair_name} vs ${m.side_b.pair_name}`}
+                              >
+                                {m.status === "finished" ? (
+                                  <>
+                                    <Eye className="h-3.5 w-3.5" /> Ver
+                                  </>
+                                ) : (
+                                  <>
+                                    <ClipboardList className="h-3.5 w-3.5" /> Capturar
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          }
+                        />
                       ))}
                     </div>
                   </section>

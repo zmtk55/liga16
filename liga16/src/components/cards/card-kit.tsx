@@ -243,12 +243,16 @@ export function MatchCard({
     const names = pairNames(side === "a" ? match.side_a.pair_name : match.side_b.pair_name);
     const won = match.winner === side;
     return (
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2.5">
         <span
           aria-hidden
           className={cn(
-            "h-2 w-2 shrink-0 rounded-full",
-            hasScore ? (won ? "bg-success" : "bg-muted-foreground/30") : "bg-primary/50",
+            "h-2.5 w-2.5 shrink-0 rounded-full border-2 transition-colors duration-150",
+            hasScore
+              ? won
+                ? "bg-success border-success"
+                : "bg-muted-foreground/20 border-border/40"
+              : "bg-primary/40 border-primary/40",
           )}
         />
         <div className="min-w-0 flex-1">
@@ -256,16 +260,16 @@ export function MatchCard({
             <p
               key={i}
               className={cn(
-                "truncate text-xs leading-snug",
-                i === 0 && "font-semibold",
-                hasScore ? (won ? "text-foreground" : "text-muted-foreground") : "text-foreground",
+                "truncate text-sm leading-snug",
+                i === 0 && "font-bold",
+                hasScore ? (won ? "text-foreground" : "text-muted-foreground/80") : "text-foreground",
               )}
             >
               {n}
             </p>
           ))}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
           {match.sets.map((s, i) => {
             const mine = side === "a" ? s.a : s.b;
             const theirs = side === "a" ? s.b : s.a;
@@ -274,16 +278,18 @@ export function MatchCard({
               <span
                 key={i}
                 className={cn(
-                  "flex h-5 w-6 items-center justify-center rounded-md font-mono text-xs font-bold tabular-nums",
-                  tookSet ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+                  "flex h-7 w-8 items-center justify-center rounded-lg font-headline text-sm font-bold tabular-nums transition-colors duration-150",
+                  tookSet
+                    ? "bg-success/10 text-success border border-success/30"
+                    : "bg-muted/50 text-muted-foreground border border-border/50",
                 )}
               >
-                {mine ?? "-"}
+                {mine ?? "—"}
               </span>
             );
           })}
           {!hasScore && (
-            <span className="px-1 text-caption uppercase text-muted-foreground/60">—</span>
+            <span className="px-2 text-caption uppercase text-muted-foreground/50 font-medium">—</span>
           )}
         </div>
       </div>
@@ -293,56 +299,77 @@ export function MatchCard({
   return (
     <Card
       className={cn(
-        "gap-0 py-0 transition-all duration-200 active:scale-[0.995]",
-        isLive ? "border-destructive/40 bg-destructive/5" : "hover:border-primary/25",
+        "group gap-0 py-0 transition-all duration-200 ease-out active:scale-[0.995] liga16-card liga16-card--lift",
+        isLive
+          ? "border-destructive/40 bg-destructive/5 shadow-sm"
+          : "hover:border-primary/30 hover:shadow-md",
         className,
       )}
     >
-      <CardContent className="flex gap-2.5 p-3">
-         {/* Riel izquierdo: CUÁNDO, el ancla visual más grande */}
-         <div
-           className={cn(
-             "flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2",
-             isLive ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border/80 bg-muted/40",
-           )}
-         >
-           {matchTime ? (
-             <>
-               <span className="font-headline text-base leading-none tabular-nums">{matchTime}</span>
-               <span className="mt-0.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-                 {formatMatchDay(match.scheduled_at!)}
-               </span>
-               <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground/80">
-                 {formatMatchMonth(match.scheduled_at!)}
-               </span>
-             </>
-           ) : (
-             <>
-               <Calendar className="h-4 w-4 text-muted-foreground" />
-               <span className="mt-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Sin hora</span>
-             </>
-           )}
+      <CardContent className="flex gap-3 p-3.5">
+        {/* Riel izquierdo: CUÁNDO, el ancla visual más grande */}
+        <div
+          className={cn(
+            "flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2.5",
+            isLive
+              ? "border-destructive/40 bg-destructive/10 text-destructive"
+              : "border-border/80 bg-muted/40",
+          )}
+        >
+          {matchTime ? (
+            <>
+              <span className="font-headline text-lg leading-none tabular-nums">{matchTime}</span>
+              <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {formatMatchDay(match.scheduled_at!)}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                {formatMatchMonth(match.scheduled_at!)}
+              </span>
+            </>
+          ) : (
+            <>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Sin hora
+              </span>
+            </>
+          )}
           {isLive && (
-            <span className="mt-1 flex items-center gap-1 text-2xs font-bold uppercase text-destructive">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" /> En vivo
+            <span className="mt-1.5 flex items-center gap-1 text-[10px] font-bold uppercase text-destructive">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" /> Vivo
             </span>
           )}
         </div>
 
-<div className="min-w-0 flex-1">
-            <p className="mb-1 truncate text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {[match.round, match.category_name].filter(Boolean).join(" · ") || match.tournament_name || "Liga16"}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+              {[match.round, match.category_name]
+                .filter(Boolean)
+                .join(" · ") ||
+                match.tournament_name ||
+                "Liga16"}
             </p>
-            <div className="space-y-1">
-             {sideRow("a")}
-             <div aria-hidden className="ms-4 h-px bg-border/70" />
-             {sideRow("b")}
-           </div>
-          <div className="mt-2">
+            <span className="shrink-0 text-xs text-muted-foreground/60">
+              {match.status === "scheduled"
+                ? "Por capturar"
+                : match.status === "live"
+                  ? "En vivo"
+                  : "Terminado"}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {sideRow("a")}
+            <div aria-hidden className="ms-3 h-px bg-border/60" />
+            {sideRow("b")}
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
-                match.court_name ? "bg-primary/10 text-primary-strong" : "border border-dashed text-muted-foreground",
+                "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                match.court_name
+                  ? "bg-primary/8 text-primary-strong"
+                  : "border border-dashed border-border text-muted-foreground",
               )}
             >
               <MapPin className="h-3 w-3" />

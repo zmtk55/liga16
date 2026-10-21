@@ -52,8 +52,6 @@ export default function TournamentsPage() {
     );
   }, [tournaments, status, format, q]);
 
-  const abiertos = tournaments?.filter((t) => t.status === "registration_open").length ?? 0;
-
   return (
     <div className="animate-fade-in space-y-8">
       <PageHero

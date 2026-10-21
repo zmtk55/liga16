@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BarChart3, ClipboardList } from "lucide-react";
 import { db } from "@/lib/data";
+import { useMatchUpdated } from "@/lib/refresh";
 import type { Team } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -53,14 +54,21 @@ export default function AdminRanking() {
   const [categoria, setCategoria] = useState("all");
   const [sex, setSex] = useState("all");
 
-  useEffect(() => {
+  const loadTeams = () => {
     let active = true;
     db.listTeams().then((t) => {
       if (active) setTeams(t);
     });
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
+  };
+
+  // Refresca el ranking cuando se guarda un resultado (en esta pestaña o en otra).
+  useMatchUpdated(() => {
+    db.listTeams().then((t) => setTeams(t));
+  });
+
+  useEffect(() => {
+    return loadTeams();
   }, []);
 
   const filtered = useMemo(() => {

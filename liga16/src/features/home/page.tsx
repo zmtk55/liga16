@@ -19,7 +19,6 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CardShell, CardIdentity } from "@/components/cards/card-kit";
 import {
   matchStatusLabel,
   tournamentStatusLabel,

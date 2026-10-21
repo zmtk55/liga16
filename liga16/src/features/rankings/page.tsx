@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
+import { useMatchUpdated } from "@/lib/refresh";
 import type { Match, Team } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,7 +29,7 @@ import {
   categoryFacet,
   teamCategoryKey,
 } from "@/lib/categories";
-import { Users, Trophy, Target, ChevronLeft, ChevronRight, Clock, LayoutGrid, BarChart3, List, GitCompare } from "lucide-react";
+import { Users, Trophy, ChevronLeft, ChevronRight, Clock, LayoutGrid, BarChart3, List, GitCompare } from "lucide-react";
 
 /**
  * Popup de pareja: cabecera póster + stats + UN partido a la vez con flechas.
@@ -251,6 +252,14 @@ export default function RankingsPage() {
   const [compare, setCompare] = useState<[Team | null, Team | null]>([null, null]);
   const [compareOpen, setCompareOpen] = useState(false);
 
+  // El ranking se deriva de los partidos: si se guarda un resultado, la tabla
+  // se recalcula sola sin que haya que recargar la página a mano.
+  useMatchUpdated(() => {
+    db.listTeams()
+      .then((data) => setTeams(data))
+      .catch(() => setTeams([]));
+  });
+
   useEffect(() => {
     let active = true;
     // Sin `catch`, cualquier fallo de red o de RLS dejaba la página en
@@ -307,9 +316,6 @@ export default function RankingsPage() {
       .map(([key, count]) => ({ key, label: sexLabel(key), n: count }))
       .sort((a, b) => b.n - a.n);
   }, [teams]);
-  const catActiva =
-    categorias.find((c) => c.key === categoria)?.label ?? categoria;
-
   return (
     <div className="animate-fade-in space-y-8">
       <PageHero

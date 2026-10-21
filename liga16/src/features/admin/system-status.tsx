@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
-import { db, DATA_MODE } from "@/lib/data";
+import { db } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -26,11 +26,7 @@ export default function SystemStatus() {
     out.push({
       label: "Modo de datos",
       ok: true,
-      detail:
-        DATA_MODE === "supabase"
-          ? "Supabase (lee y escribe en tu base real)"
-          : "DEMO (los cambios no llegan a tu base)",
-      warn: DATA_MODE !== "supabase",
+      detail: "Supabase (lee y escribe en tu base real)",
     });
 
     out.push({

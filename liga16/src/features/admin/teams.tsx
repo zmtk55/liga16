@@ -374,7 +374,7 @@ export default function AdminTeams() {
                             <CardIdentity
                               lead={<PairAvatar p1={p1} p2={p2} />}
                               title={`${p1} / ${p2 ?? "—"}`}
-                              meta={`${categoryOf(p.category_id)} · ${p.tournament_name ?? "Sin torneo"}`}
+                              meta={categoryOf(p.category_id)}
                             />
                           </CardShell>
                         </button>

@@ -1,7 +1,5 @@
-// Punto de acceso único a datos. Cambia entre demo y supabase por variables de entorno.
-import { DATA_MODE, type DataProvider } from './provider';
-import { demoProvider } from './demo';
+// Punto de acceso único a datos. Siempre usa Supabase (modo único en este proyecto).
 import { supabaseProvider } from './supabase';
+import type { DataProvider } from './provider';
 
-export const db: DataProvider = DATA_MODE === 'supabase' ? supabaseProvider : demoProvider;
-export { DATA_MODE };
+export const db: DataProvider = supabaseProvider as never;

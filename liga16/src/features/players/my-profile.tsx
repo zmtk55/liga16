@@ -413,7 +413,6 @@ export default function MyProfile() {
 
   if (authLoading || loading) return <ProfileSkeleton />;
 
-  const demoMode = !isConfigured && !user;
   const status = (profile?.status ?? "verificado") as PlayerStatus;
   const copy = STATUS_COPY[status];
 
@@ -433,15 +432,7 @@ export default function MyProfile() {
         </p>
       </header>
 
-      {demoMode && (
-        <Alert>
-          <AlertDescription>
-            Modo demo: no hay sesión real, así que estás viendo un perfil de ejemplo.{" "}
-            <Link to="/login" className="underline">Inicia sesión</Link> con Supabase
-            configurado para editar el tuyo.
-          </AlertDescription>
-        </Alert>
-      )}
+      // perfil conectado a Supabase
 
       <Alert>
         <div className="flex items-start gap-3">

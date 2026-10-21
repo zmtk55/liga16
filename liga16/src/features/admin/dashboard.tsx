@@ -28,6 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import { db } from "@/lib/data";
+import { useMatchUpdated } from "@/lib/refresh";
 import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -203,7 +204,7 @@ export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadDashboard = () => {
     let active = true;
     Promise.all([
       db.listTournaments(),
@@ -217,9 +218,16 @@ export default function AdminDashboard() {
       .catch((e: Error) => {
         if (active) setError(e.message || "No se pudo cargar el panel");
       });
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
+  };
+
+  // Al capturar resultados, las métricas del dashboard se actualizan sin recargar.
+  useMatchUpdated(() => {
+    loadDashboard();
+  });
+
+  useEffect(() => {
+    return loadDashboard();
   }, []);
 
   const pendingPlayers = useMemo(

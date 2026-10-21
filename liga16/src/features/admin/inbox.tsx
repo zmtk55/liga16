@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { DATA_MODE } from '@/lib/data';
+import { db } from '@/lib/data';
 
 const severityOrder: AlertSeverity[] = ['critical', 'warning', 'info'];
 const severityLabel: Record<AlertSeverity, string> = {
@@ -96,11 +96,6 @@ export default function AdminInbox() {
         description="Alertas y mensajes del sistema derivados de los datos en vivo. Desaparecen al resolverse."
         action={
           <div className="flex items-center gap-2">
-            {DATA_MODE === 'demo' && (
-              <Badge variant="secondary" className="text-xs">
-                Modo demo
-              </Badge>
-            )}
             <Button variant="outline" size="sm" onClick={refresh} disabled={loading} aria-label="Actualizar alertas">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>

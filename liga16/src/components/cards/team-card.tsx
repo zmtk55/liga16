@@ -207,11 +207,15 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
             </div>
 
             {/* Stats: chips oscuros siempre legibles (sin verde/naranja) */}
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 border-t border-foreground/10 pt-1.5">
-              <StatChip value={team.played} label="PJ" />
-              <StatChip value={team.won} label="G" />
-              <StatChip value={team.lost} label="P" />
-              <StatChip value={wr !== null ? `${wr}%` : "—"} label="Efect." />
+            {/* Cifras: una franja con la anatomía de `.liga16-statrow`.
+                Antes eran 4 pills sueltos encima de la foto: se leían como
+                etiquetas pegadas, no como un dato. Ahora cada celda es un
+                par valor/etiqueta con divisor, y el valor manda. */}
+            <div className="mt-1.5 grid grid-cols-4 divide-x divide-foreground/15 border-t border-foreground/10 pt-1.5">
+              <StatCell value={team.played} label="PJ" />
+              <StatCell value={team.won} label="G" />
+              <StatCell value={team.lost} label="P" />
+              <StatCell value={wr !== null ? `${wr}%` : "—"} label="Efect." />
             </div>
 
             <Button
@@ -287,24 +291,24 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
   );
 }
 
-/** Chip de stat sobre foto: blanco sobre negro translúcido, como en V5. */
-function StatChip({ value, label }: { value: ReactNode; label: string }) {
+function StatCell({ value, label }: { value: ReactNode; label: string }) {
   return (
-    <span className="rounded-full bg-black/55 px-2 py-0.5 font-bold text-white">
-      {value} <span className="text-xs opacity-80">{label}</span>
-    </span>
+    <div className="flex flex-col items-center gap-0.5 py-1">
+      <span className="font-headline text-sm font-bold tabular-nums text-foreground">
+        {value}
+      </span>
+      <span className="text-[10px] uppercase tracking-wider text-foreground/60">
+        {label}
+      </span>
+    </div>
   );
 }
 
 function BigStat({ value, label }: { value: ReactNode; label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg bg-muted py-2">
-      <span className="text-3xl leading-none font-extrabold tabular-nums">
-        {value}
-      </span>
-      <span className="mt-1 text-xs uppercase text-muted-foreground">
-        {label}
-      </span>
+    <div className="flex flex-col items-center justify-center rounded-lg bg-muted py-3">
+      <span className="font-headline text-xl font-extrabold tabular-nums">{value}</span>
+      <span className="mt-1 text-caption uppercase text-muted-foreground">{label}</span>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHero } from "@/components/page-hero";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { Radio, Calendar, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { Radio, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatMatchTime } from "@/lib/format";
 import { localDayKey, todayKey } from "@/lib/schedule";
 import { MatchCard } from "@/components/cards/card-kit";

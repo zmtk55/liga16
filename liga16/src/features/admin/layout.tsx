@@ -141,7 +141,7 @@ function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
         <div className="min-w-0">
           <p className="truncate text-xs font-medium">{user?.email ?? "Sesión no iniciada"}</p>
           <p className="text-xs text-muted-foreground">
-            {isConfigured ? `Rol: ${user?.role ?? "—"}` : "Modo demo local"}
+            {isConfigured ? `Rol: ${user?.role ?? "—"}` : "Sin sesión"}
           </p>
         </div>
         <ThemeToggle />
@@ -234,8 +234,8 @@ export default function AdminLayout() {
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                     <p>
-                      Modo demo: los cambios viven en memoria — duran hasta que
-                      recargues la página y no se sincronizan con Supabase.
+                      Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY para
+                      que los datos se guarden en Supabase de forma permanente.
                     </p>
                   </div>
                 )}

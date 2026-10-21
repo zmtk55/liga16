@@ -66,11 +66,11 @@ export function AdminStat({
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-1 px-4 py-3", className)}>
+      <span className={cn("text-stat tabular-nums", tone)}>{value}</span>
       <span className="flex items-center gap-1.5 text-muted-foreground">
         {icon}
         <span className="text-caption uppercase">{label}</span>
       </span>
-      <span className={cn("text-stat tabular-nums", tone)}>{value}</span>
     </div>
   );
 }

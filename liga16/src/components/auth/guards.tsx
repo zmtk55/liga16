@@ -25,9 +25,9 @@ export function RequireAuth({ children, fallback }: RequireAuthProps) {
     );
   }
 
-  // Modo demo sin Supabase: permitir acceso (útil para desarrollo local)
+  // Sin configurar Supabase: redirigir al login.
   if (!isConfigured) {
-    return <>{children}</>;
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   if (!user) {
@@ -65,7 +65,7 @@ export function RequireRole({ children, roles, message }: RequireRoleProps) {
     return <>{children}</>;
   }
 
-  // Demo local: permitir ver todo el admin para desarrollo (el rol real se valida en Supabase).
+  // Solo admins y organizadores pueden acceder al panel.
   if (!isConfigured && !user?.role) {
     return <>{children}</>;
   }

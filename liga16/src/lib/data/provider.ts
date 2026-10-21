@@ -154,7 +154,11 @@ export interface DataProvider {
   registerPair(input: RegisterPairInput): Promise<{ registration: Registration }>;
 }
 
-export const DATA_MODE: 'demo' | 'supabase' =
-  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
-    ? 'supabase'
-    : 'demo';
+/**
+ * Modo de datos: siempre Supabase en este proyecto.
+ *
+ * Antes había una rama demo/no-configurada, pero este proyecto usa Supabase
+ * como única fuente de verdad. Las variables de entorno VITE_SUPABASE_URL /
+ * VITE_SUPABASE_ANON_KEY deben estar definidas en .env.local (o en Vercel).
+ */
+export const DATA_MODE: 'supabase' = 'supabase';
