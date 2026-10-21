@@ -1,128 +1,74 @@
 # PENDIENTES — cambios de base de datos en Supabase
 
-Todo lo que falta aplicar en el proyecto de producción
-(`kmvjslcpemwssqtllosk`), verificado contra la base el 2026-10-21.
+Proyecto de producción: `kmvjslcpemwssqtllosk`.
 
-Estos cambios no se pueden aplicar desde la app: el agente no tiene
-`service_role` ni token de administración, y la API de datos (PostgREST) no
-ejecuta DDL. Se aplican desde el **Supabase Dashboard → SQL Editor** (o con un
-token de administración, que es como quedó agendado).
-
-**Los tres archivos son idempotentes**: se pueden correr las veces que sea, en
-cualquier orden, sin romper nada.
+Verificado el 2026-10-21 contra la base real (no contra el repo). Cada línea
+de abajo se comprobó con una consulta o con la API de storage.
 
 ---
 
-## 1. `tournaments.schedule_config` — la disponibilidad de cada torneo
+## 🔴 FALTA — bloquea funciones de la app
 
-```sql
-alter table public.tournaments
-  add column if not exists schedule_config jsonb;
+### 1. Los buckets de Storage: **no existe ninguno**
+
+Comprobado: `NoSuchBucket` para `team-crests`, `tournament-covers` y
+cualquier otro. **El proyecto de Storage está vacío.**
+
+```
+storage/v1/object/list/team-crests        -> 404 NoSuchBucket
+storage/v1/object/list/tournament-covers  -> 404 NoSuchBucket
 ```
 
-Archivo: [`tournament-schedule-config.sql`](./tournament-schedule-config.sql)
+**Lo que la app hace con ellos** (y hoy falla):
 
-Guarda qué días hay juego, a qué horas y con qué canchas, **por torneo** (cada
-torneo juega distinto). Sin la columna la app sigue funcionando: deduce la
-disponibilidad de los partidos ya agendados y avisa en el toast que no se pudo
-guardar. Con la columna, el calendario de un torneo se abre con su propia
-disponibilidad.
-
-**Verificación actual:** `FALTA` — `column tournaments.schedule_config does not
-exist` (HTTP 400 / 42703).
-
----
-
-## 2. `pairs.group_name` — el grupo al que pertenece cada pareja
-
-```sql
-alter table public.pairs
-  add column if not exists group_name text;
-
-create index if not exists idx_pairs_tournament_group
-  on public.pairs (tournament_id, group_name);
-```
-
-Se agrega también a [`schema.sql`](./schema.sql) (columna e índice) para que una
-base nueva salga igual que la de producción.
-
-Guarda a qué grupo ("4ta · Grupo A") quedó asignada cada pareja, para que el
-sorteo no se pierda al recargar la página.
-
-**Verificación actual:** `FALTA` — `column pairs.group_name does not exist`.
-
-> **Ojo:** esta migración es la que necesita el trabajo que hay sin commitear en
-> `src/features/admin/tournament-detail.tsx` y `src/features/admin/tournament-wizard.tsx`
-> (guardar el grupo de cada pareja en la base). Si ese código llega a
-> producción antes de aplicar la columna, **guardar una pareja falla**.
-
----
-
-## 3. Bucket `team-crests` — las fotos de escudo de los equipos
-
-Archivo: [`team-crests-storage.sql`](./team-crests-storage.sql)
-
-Crea el bucket público (solo imágenes, máx. 2 MB) y sus políticas: lectura
-pública, y subida/actualización/borrado solo para admin.
-
-**Verificación actual:** `NO EXISTE` — `Bucket not found` (storage API).
-
-> **Ojo:** la app sube los escudos a este bucket
-> (`src/features/admin/teams.tsx:547`, `src/features/admin/tournament-wizard.tsx:122`).
-> **Hoy, subir un escudo falla.**
-
----
-
-## 4. Bucket `tournament-covers` — las portadas de los torneos
-
-Archivo: [`tournament-covers-storage.sql`](./tournament-covers-storage.sql)
-
-Bucket público (solo imágenes, máx. 5 MB) y sus políticas, con el mismo
-criterio de admin.
-
-**Verificación actual:** `NO EXISTE` — `Bucket not found` (storage API).
-
-> **Ojo:** la app sube las portadas a este bucket
-> (`src/features/admin/tournament-wizard.tsx:1439`). **Hoy, subir una portada
-> falla.**
-
----
-
-## 5. `matches.status` — 27 partidos con marcador que siguen 'scheduled'
-
-Archivo: [`fix-match-status-stale.sql`](./fix-match-status-stale.sql)
-
-```sql
--- el update completo está en el archivo; en corto:
-update public.matches m
-set status = 'finished'
-where m.status = 'scheduled'
-  and (m.winner is not null or /* un lado ganó 2 sets o más */);
-```
-
-El estado se cerraba a mano y quedó viejo: **27 de 60 partidos** tienen sets
-completos y seguían en 'scheduled'. La app ya no depende de ese campo (la
-regla vive en `src/lib/match-state.ts`: el estado sale del marcador), pero
-cualquier cosa que lea `matches.status` en crudo sigue mintiendo.
-
-**Verificación actual:** `FALTA` — 27 filas con `status = 'scheduled'` y
-marcador completo.
-
----
-
-## 6. Por confirmar (necesita el SQL Editor para salir de dudas)
-
-Estas comprobaciones se hicieron contra la API de datos, que no expone las
-funciones de trigger y puede tener la caché del esquema sin recargar:
-
-| Objeto | Archivo | Nota |
+| Bucket | Quién lo usa | Qué pasa sin él |
 |---|---|---|
-| `liga16_normalize_label(txt)` | [`normalize-category-names.sql`](./normalize-category-names.sql) | La RPC devolvió 404, pero los datos **sí** están normalizados (las categorías se leen "Cuarta femenil", "Suma 9 varonil"). Probablemente es la caché del esquema. |
-| `handle_auth_user_created()`, `guard_player_self_update()` | [`self-registration.sql`](./self-registration.sql) | Son funciones de trigger: no se pueden llamar por la API, así que la comprobación no dice nada. La columna `player_profiles.status` **sí** existe, que es lo que agrega ese archivo. |
-| `sync_role_app_metadata()`, `sync_role_on_update()` | [`fix-signup.sql`](./fix-signup.sql) | Funciones de trigger, misma razón. |
+| `team-crests` | `admin/teams.tsx:547` (subir escudo de pareja), `admin/tournament-wizard.tsx:125` | **Subir un escudo falla** |
+| `tournament-covers` | `admin/tournament-wizard.tsx:1442` (portada del torneo) | **Subir una portada falla** |
+
+**Cómo se arregla** (idempotente, se puede correr las veces que sea):
+
+- [`team-crests-storage.sql`](./team-crests-storage.sql) — bucket público, solo
+  imágenes, máx. 2 MB, con sus políticas de lectura pública y escritura solo
+  para admin.
+- [`tournament-covers-storage.sql`](./tournament-covers-storage.sql) — lo mismo,
+  máx. 5 MB.
+
+Corre los dos en el **Supabase Dashboard → SQL Editor** (o con el token de
+administración, que es lo que quedó agendado).
+
+---
+
+## 🟢 YA APLICADO (verificado en la base, no en el repo)
+
+| Cambio | Archivo | Estado |
+|---|---|---|
+| `tournaments.schedule_config` jsonb — la disponibilidad por torneo (días, horas, canchas) | [`tournament-schedule-config.sql`](./tournament-schedule-config.sql) | **aplicado** ✓ |
+| `pairs.group_name` text + índice — el grupo al que pertenece cada pareja | [`pairs-group-name.sql`](./pairs-group-name.sql) | **aplicado** ✓ |
+| `tournaments.scoring`, `semifinal_slots`, `cover_url` | `migrate-scoring-courts.sql`, `tournament-semifinal-slots.sql` | aplicados ✓ |
+| `pairs.crest_url` | `schema.sql` | aplicado ✓ |
+| `player_profiles.status`, `user_id`, `username` | `self-registration.sql`, `fix-player-profiles.sql` | aplicados ✓ |
+| Función `is_admin_or_organizer(text[])` | `fix-rls.sql` | aplicada ✓ |
+| Función `normalized_player_name(text)` + índice único | `player-name-unique.sql` | aplicados ✓ |
+| Nombres de categoría normalizados | `normalize-category-names.sql` | aplicados ✓ |
+
+---
+
+## 🟡 POR CONFIRMAR (la API de datos no alcanza a verlo)
+
+Tres objetos que no se pueden comprobar desde PostgREST: el **RPC devuelve
+404** tanto si el objeto no existe como si la caché del esquema está vieja, y
+las **funciones de trigger no son invocables** por API.
+
+| Objeto | Archivo | Cómo comprobarlo |
+|---|---|---|
+| `liga16_normalize_label(txt)` | [`normalize-category-names.sql`](./normalize-category-names.sql) | El RPC dio 404, pero los datos **sí** están normalizados ("Cuarta femenil", "Suma 9 varonil"). Probablemente caché del esquema. |
+| `handle_auth_user_created()`, `guard_player_self_update()` | [`self-registration.sql`](./self-registration.sql) | Trigger: no invocable. La columna `player_profiles.status` sí existe, que es lo que agrega ese archivo. |
+| `sync_role_app_metadata()`, `sync_role_on_update()` | [`fix-signup.sql`](./fix-signup.sql) | Trigger: no invocable. |
+
+Una sola consulta los resuelve todos:
 
 ```sql
--- Una sola consulta para ver qué hay de verdad:
 select p.proname
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
@@ -137,35 +83,12 @@ order by p.proname;
 
 ---
 
-## Orden recomendado
-
-1. `tournament-schedule-config.sql` (columna del torneo)
-2. `pairs.group_name` + su índice (de arriba, en el mismo bloque)
-3. `team-crests-storage.sql` (bucket de escudos)
-4. `tournament-covers-storage.sql` (bucket de portadas)
-5. `fix-match-status-stale.sql` (los 27 partidos con marcador en 'scheduled')
-6. La consulta de verificación del punto 6, y si falta algo, correr su archivo.
-
-Todos son idempotentes: si se corre dos veces, la segunda no cambia nada.
-
----
-
-## Lo que YA está aplicado (no hay que tocarlo)
-
-Verificado contra la base el 2026-10-21:
-
-- `tournaments.scoring`, `tournaments.semifinal_slots`, `tournaments.cover_url`
-- `pairs.crest_url`
-- `player_profiles.status`, `player_profiles.user_id`, `player_profiles.username`
-- Función `is_admin_or_organizer(text[])` — la que da permisos de escritura al admin
-- Función `normalized_player_name(text)` y el índice único `player_profiles_display_name_norm_key`
-- La normalización de los nombres de categoría (los datos ya están normalizados)
-
----
-
 ## Nota sobre `schema.sql`
 
 [`schema.sql`](./schema.sql) es la base completa para instalar desde cero. La
-base de producción **no** está sincronizada con él: le faltan las columnas de
-los puntos 1 y 2. Los archivos `*.sql` de esta carpeta son los parches; cuando
-se apliquen, `schema.sql` y la base quedarán alineados.
+base de producción **ya está sincronizada** con ella (las dos columnas que
+faltaban se aplicaron).
+
+Los archivos `*.sql` de esta carpeta son los parches, no el estado: algunos ya
+están aplicados y otros no. **El único fiable es el de arriba, comprobado
+contra la base.**
