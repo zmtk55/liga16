@@ -47,7 +47,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { drawGroupsByCategory, parseRound, scheduleWithAvailability, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
+import { drawGroupsByCategory, parseRound, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
 import type { TournamentScoring } from "@/types";
 import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
 import { DEFAULT_SCORING } from "@/lib/scoring";
@@ -95,6 +95,7 @@ import {
   rescheduleTo,
   todayKey,
   tournamentDays,
+  assignSlotsToMatches,
 } from "@/lib/schedule";
 
 function SortablePair({
@@ -726,17 +727,6 @@ export default function AdminTournamentDetail() {
       .sort((a, b) => Number(a.key.slice(1)) - Number(b.key.slice(1)));
   }, [matches]);
 
-  /**
-   * La categoría de un grupo, sacada de sus parejas y no de su nombre: el
-   * nombre es una etiqueta que el admin puede cambiar, la categoría es el dato.
-   */
-  function categoryOfPairs(pairIds: string[]): string | null {
-    for (const id of pairIds) {
-      const p = (pairs ?? []).find((x) => x.id === id);
-      if (p?.category_id) return catNameById.get(p.category_id) ?? null;
-    }
-    return null;
-  }
   const assignedIds = useMemo(() => new Set(groups.flatMap((g) => g.pairIds)), [groups]);
   const unassigned = useMemo(
     () => (pairs ?? []).filter((p) => !assignedIds.has(p.id)),
@@ -962,56 +952,46 @@ export default function AdminTournamentDetail() {
     }
     setSaving(true);
     try {
-      // NO borrar todos los partidos: destruirían resultados ya capturados.
-      // Solo eliminamos los que aún no se jugaron (sin winner ni sets) para
-      // poder re-generar su calendario sin duplicar datos válidos.
+      const courtNames = scheduleConfig.courtNames.length > 0 ? scheduleConfig.courtNames : courts.map((c) => c.name);
+      if (courtNames.length === 0) {
+        toast.error("Registra canchas en la sección Sede primero");
+        return;
+      }
+      /**
+       * Se reagendan los partidos que YA existen, no se recrean.
+       *
+       * El emparejamiento no se toca: cada partido conserva contra quién juega
+       * y, con él, su resultado. Antes se borraban los partidos sin resultado
+       * y se creaban de nuevo, y el reparto se armaba por categoría: cada
+       * categoría armaba su propia lista de huecos desde el principio, así que
+       * las cuatro se pisaban en las mismas horas y canchas y el arreglo
+       * (desplazar el partido unos minutos) amontonaba doce partidos a la misma
+       * hora en vez de repartirlos.
+       */
       const existing = await db.listMatchesByTournament(tournament.id);
-      for (const m of existing) {
-        if (!m.winner && (!m.sets || m.sets.length === 0)) {
-          await db.deleteMatchById(m.id).catch(() => undefined);
-        }
-      }
-      const allScheduled: Array<Omit<Match, "id">> = [];
-      // Reparto justo: intercalar los grupos para que las primeras jornadas de cada
-      // grupo no se peleen por los mismos slots. Recorrido por ronda.
-      const perGroup = groups.map((g) =>
-        scheduleWithAvailability(g.pairIds, { ...scheduleConfig, courtNames, minutesPerMatch: scheduleConfig.minutesPerMatch }),
+      const { assignments, missing, slots } = assignSlotsToMatches(
+        existing.map((m) => ({
+          id: m.id,
+          jornada: parseRound(m.round ?? "").jornada ?? 0,
+          category: m.category_name ?? "",
+        })),
+        { days: scheduleConfig.days, hours: scheduleConfig.hours, courtNames },
       );
-      const maxLen = Math.max(0, ...perGroup.map((r) => r.length));
-      const usedCourts = new Map<string, number>();
-      for (let ri = 0; ri < maxLen; ri++) {
-        for (let gi = 0; gi < groups.length; gi++) {
-          const m = perGroup[gi][ri];
-          if (!m) continue;
-          // Evitar doble ocupación de cancha+hora: desplazar en minutos si choca
-          const key = `${m.court}|${m.scheduled_at}`;
-          const clash = usedCourts.get(key) ?? 0;
-          if (clash > 0) {
-            m.scheduled_at = new Date(new Date(m.scheduled_at).getTime() + clash * scheduleConfig.minutesPerMatch * 60000).toISOString();
-          }
-          usedCourts.set(key, clash + 1);
-          allScheduled.push({
-            tournament_id: tournament.id,
-            tournament_name: tournament.name,
-            // La categoría va como dato del partido, no solo en el nombre del
-            // grupo: es lo que separa "4tas" de "5tas" al filtrar y al armar el
-            // bracket, y no debería depender de cómo se llamó al grupo.
-            category_name: categoryOfPairs(groups[gi].pairIds) ?? undefined,
-            round: `${groups[gi].name} · J${ri + 1}`,
-            court_name: m.court,
-            scheduled_at: m.scheduled_at,
-            status: "scheduled",
-            side_a: { pair_id: m.a, pair_name: nameById[m.a] ?? "?" },
-            side_b: { pair_id: m.b, pair_name: nameById[m.b] ?? "?" },
-            sets: [],
-            winner: null,
-          });
-        }
+      if (missing > 0) {
+        toast.error(
+          `Faltan huecos: ${missing} partidos no caben en ${slots} huecos. Marca más días u horas, o quita canchas.`,
+        );
+        return;
       }
-      const created = await db.createMatches(allScheduled);
-      setMatches(created);
+      for (const a of assignments) {
+        await db.updateMatch(a.id, { scheduled_at: a.at, court_name: a.court });
+      }
+      const updated = await db.listMatchesByTournament(tournament.id);
+      setMatches(updated);
       setScheduleOpen(false);
-      toast.success(`Calendario generado: ${created.length} partidos en ${scheduleConfig.days.length} día(s)`);
+      toast.success(
+        `Calendario listo: ${assignments.length} partidos repartidos en ${scheduleConfig.days.length} día(s), ${scheduleConfig.hours.length} hora(s) y ${courtNames.length} cancha(s). Los resultados se conservaron.`,
+      );
     } catch (e) {
       toast.error((e as Error).message ?? "Error al generar el calendario");
     } finally {
@@ -1926,9 +1906,11 @@ return (
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Generar calendario</DialogTitle>
+            <DialogTitle>Repartir el calendario</DialogTitle>
             <DialogDescription>
-              Define la disponibilidad real: qué días y qué horas hay juego, y con qué canchas. Se reemplazan los partidos anteriores.
+              Define la disponibilidad real: qué días y qué horas hay juego, y con qué canchas. Los
+              partidos se reparten en esos huecos sin que dos caigan en el mismo. El emparejamiento y
+              los resultados ya capturados no se tocan.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
@@ -2042,8 +2024,33 @@ return (
               </div>
               <div className="grid items-end">
                 <p className="text-xs text-muted-foreground">
-                  Capacidad: {scheduleConfig.days.length} día(s) × {scheduleConfig.hours.length} hora(s) × {scheduleConfig.courtNames.length || courts.length || 1} cancha(s) ={" "}
-                  <strong>{scheduleConfig.days.length * scheduleConfig.hours.length * (scheduleConfig.courtNames.length || courts.length || 1)}</strong> partidos posibles
+                  Capacidad: {scheduleConfig.days.length} día(s) × {scheduleConfig.hours.length} hora(s) ×{" "}
+                  {scheduleConfig.courtNames.length || courts.length || 1} cancha(s) ={" "}
+                  <strong>
+                    {scheduleConfig.days.length *
+                      scheduleConfig.hours.length *
+                      (scheduleConfig.courtNames.length || courts.length || 1)}
+                  </strong>{" "}
+                  huecos
+                  {(() => {
+                    const capacidad =
+                      scheduleConfig.days.length *
+                      scheduleConfig.hours.length *
+                      (scheduleConfig.courtNames.length || courts.length || 1);
+                    const faltan = matches.length - capacidad;
+                    if (faltan > 0) {
+                      return (
+                        <span className="mt-1 block font-medium text-destructive">
+                          Faltan {faltan} huecos para los {matches.length} partidos: marca más días u horas.
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="mt-1 block font-medium text-success">
+                        Alcanza para los {matches.length} partidos.
+                      </span>
+                    );
+                  })()}
                 </p>
               </div>
             </div>
@@ -2051,7 +2058,7 @@ return (
           <DialogFooter>
             <Button variant="outline" onClick={() => setScheduleOpen(false)}>Cancelar</Button>
             <Button onClick={handleGenerateSchedule} disabled={saving}>
-              {saving ? "Generando…" : "Generar"}
+              {saving ? "Repartiendo…" : "Repartir"}
             </Button>
           </DialogFooter>
         </DialogContent>

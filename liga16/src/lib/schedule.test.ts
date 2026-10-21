@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  assignSlotsToMatches,
+  buildSlotGrid,
   findScheduleIssues,
   isSlotFree,
   localDayKey,
@@ -143,5 +145,59 @@ describe("isSlotFree / nextFreeTimes", () => {
       "10:00",
       "12:00",
     ]);
+  });
+});
+
+describe("buildSlotGrid / assignSlotsToMatches", () => {
+  const cfg = {
+    days: ["2026-10-06", "2026-10-07"],
+    hours: [9, 11],
+    courtNames: ["Cancha 1", "cancha 2"],
+  };
+
+  it("un hueco por día, hora y cancha, y todos distintos", () => {
+    const grid = buildSlotGrid(cfg);
+    expect(grid).toHaveLength(2 * 2 * 2);
+    expect(new Set(grid.map((g) => `${g.court}|${g.at}`)).size).toBe(grid.length);
+  });
+
+  it("el hueco cae en el día y la hora que se ven en pantalla", () => {
+    const grid = buildSlotGrid(cfg);
+    expect(localDayKey(grid[0].at)).toBe("2026-10-06");
+    expect(localTimeHHMM(grid[0].at)).toBe("09:00");
+  });
+
+  it("nadie cae en el mismo día, hora y cancha que otro", () => {
+    const matches = [
+      { id: "m1", jornada: 1, category: "4ta" },
+      { id: "m2", jornada: 1, category: "5ta" },
+      { id: "m3", jornada: 1, category: "4ta" },
+      { id: "m4", jornada: 2, category: "5ta" },
+    ];
+    const { assignments } = assignSlotsToMatches(matches, cfg);
+    const occupied = assignments.map((a) => `${a.court}|${a.at}`);
+    expect(new Set(occupied).size).toBe(assignments.length);
+  });
+
+  it("la jornada 1 va antes que la jornada 2 aunque el orden de entrada sea otro", () => {
+    const matches = [
+      { id: "j2", jornada: 2, category: "5ta" },
+      { id: "j1", jornada: 1, category: "4ta" },
+    ];
+    const { assignments } = assignSlotsToMatches(matches, cfg);
+    expect(assignments[0].id).toBe("j1");
+    expect(assignments[1].id).toBe("j2");
+  });
+
+  it("avisa cuántos partidos se quedan sin hueco en vez de amontonarlos", () => {
+    const matches = Array.from({ length: 5 }, (_, i) => ({ id: `m${i}`, jornada: 1, category: "4ta" }));
+    const { assignments, missing, slots } = assignSlotsToMatches(matches, {
+      days: ["2026-10-06"],
+      hours: [9, 11],
+      courtNames: ["Cancha 1"],
+    });
+    expect(slots).toBe(2);
+    expect(assignments).toHaveLength(2);
+    expect(missing).toBe(3);
   });
 });

@@ -26,6 +26,93 @@ export interface ScheduleMatch {
   side_b?: { pair_name?: string | null };
 }
 
+/**
+ * La rejilla de huecos de un torneo: día → hora → cancha.
+ *
+ * El orden es el que se ve en pantalla: primero el día, luego la hora, y
+ * dentro de la hora las canchas. Cada hueco es único, así que dos partidos
+ * nunca caen en el mismo sitio — que es justo lo que pasaba antes.
+ */
+export function buildSlotGrid(cfg: {
+  days: string[];
+  hours: number[];
+  courtNames: string[];
+}): Array<{ court: string; at: string }> {
+  const courts = cfg.courtNames.length > 0 ? cfg.courtNames : ["Cancha 1"];
+  const hours = [...cfg.hours].sort((a, b) => a - b);
+  const days = [...cfg.days].sort();
+  const out: Array<{ court: string; at: string }> = [];
+  for (const day of days) {
+    for (const hour of hours) {
+      for (const court of courts) {
+        out.push({
+          court,
+          at: new Date(`${day}T${String(hour).padStart(2, "0")}:00:00`).toISOString(),
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Reparte los partidos ya existentes en los huecos de la rejilla.
+ *
+ * POR JORNADA: la jornada 1 de todas las categorías ocupa los primeros huecos
+ * del primer día, la jornada 2 los siguientes, y así. Dentro de una jornada
+ * las categorías se alternan, para que un mismo grupo de parejas no juegue
+ * seguido.
+ *
+ * El emparejamiento NO se recalcula: cada partido conserva contra quién
+ * juega y, con él, su resultado. Recalcular el round-robin cambiaría las
+ * parejas de cada partido y dejarían de valer los resultados ya capturados.
+ *
+ * Devuelve también cuántos partidos se quedaron sin hueco: si hay más
+ * partidos que huecos, mejor decirlo que amontonarlos.
+ */
+export function assignSlotsToMatches(
+  matches: Array<{ id: string; jornada: number; category?: string }>,
+  cfg: { days: string[]; hours: number[]; courtNames: string[] },
+): {
+  assignments: Array<{ id: string; court: string; at: string }>;
+  missing: number;
+  slots: number;
+} {
+  const grid = buildSlotGrid(cfg);
+
+  // Por jornada, y dentro de la jornada las categorías alternadas.
+  const byJornada = new Map<number, Map<string, string[]>>();
+  for (const m of matches) {
+    const cat = m.category ?? "";
+    if (!byJornada.has(m.jornada)) byJornada.set(m.jornada, new Map());
+    const cats = byJornada.get(m.jornada)!;
+    if (!cats.has(cat)) cats.set(cat, []);
+    cats.get(cat)!.push(m.id);
+  }
+
+  const ordered: string[] = [];
+  for (const jornada of [...byJornada.keys()].sort((a, b) => a - b)) {
+    const cats = byJornada.get(jornada)!;
+    const catNames = [...cats.keys()].sort();
+    const depth = Math.max(0, ...catNames.map((c) => cats.get(c)!.length));
+    for (let i = 0; i < depth; i++) {
+      for (const c of catNames) {
+        const id = cats.get(c)![i];
+        if (id) ordered.push(id);
+      }
+    }
+  }
+
+  const assignments: Array<{ id: string; court: string; at: string }> = [];
+  let s = 0;
+  for (const id of ordered) {
+    const slot = grid[s++];
+    if (!slot) break;
+    assignments.push({ id, court: slot.court, at: slot.at });
+  }
+  return { assignments, missing: Math.max(0, ordered.length - assignments.length), slots: grid.length };
+}
+
 /** Días del torneo entre `start_date` y `end_date`, en `YYYY-MM-DD`, tope `cap`. */
 export function tournamentDays(
   t: { start_date?: string | null; end_date?: string | null },
