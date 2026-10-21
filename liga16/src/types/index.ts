@@ -142,6 +142,20 @@ export interface Tournament {
   rules_summary: string | null;
   description: string | null;
   scoring?: TournamentScoring | null;
+  /**
+   * La disponibilidad real de este torneo: qué días hay juego, a qué horas y
+   * con qué canchas.
+   *
+   * Es POR TORNEO porque cada torneo juega distinto: un torneo de fin de
+   * semana en la mañana y otro de entre semana por la noche no comparten ni un
+   * solo día. Antes esto vivía en el estado de la pantalla, así que se perdía
+   * al recargar y no había forma de guardar la disponibilidad de un torneo para
+   * el siguiente.
+   *
+   * Null si el torneo nunca se repartió, o si la columna todavía no existe en
+   * la base (ver `supabase/tournament-schedule-config.sql`).
+   */
+  schedule_config?: TournamentScheduleConfig | null;
 }
 
 export interface TournamentCategory {
@@ -226,6 +240,21 @@ export interface TournamentScoring {
   win_by_two_tiebreak?: boolean;
   tie_breaker_rules?: TieBreakerRule[];
   ranking_method?: RankingMethod; // 'match_points' (3 pts/win) | 'points_percentage' (Liga16: pts_for/pts_total)
+}
+
+/**
+ * La disponibilidad de un torneo: qué días hay juego, a qué horas y con qué
+ * canchas. Vive en el torneo porque cada uno juega distinto.
+ */
+export interface TournamentScheduleConfig {
+  /** Días con juego, "YYYY-MM-DD". */
+  days: string[];
+  /** Horas de inicio, 0-23. */
+  hours: number[];
+  /** Nombres de las canchas a usar. */
+  courtNames: string[];
+  /** Minutos que dura un partido. */
+  minutesPerMatch: number;
 }
 
 

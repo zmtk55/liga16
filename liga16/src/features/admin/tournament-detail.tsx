@@ -570,7 +570,22 @@ export default function AdminTournamentDetail() {
 
   useEffect(() => {
     if (!slug) return;
-    db.getTournament(slug).then(setTournament);
+    db.getTournament(slug).then((t) => {
+      setTournament(t);
+      // La disponibilidad guardada del torneo es la que manda: es lo que el
+      // organizador definió para ESTE torneo. Si no hay ninguna, se deja la que
+      // haya y se deduce de los partidos ya agendados.
+      const cfg = t?.schedule_config;
+      if (cfg) {
+        setScheduleConfig((c) => ({
+          ...c,
+          days: cfg.days ?? [],
+          hours: cfg.hours?.length ? cfg.hours : c.hours,
+          courtNames: cfg.courtNames ?? [],
+          minutesPerMatch: cfg.minutesPerMatch || c.minutesPerMatch,
+        }));
+      }
+    });
     db.listClubs().then(setClubs);
     db.listCourts().then(setCourts).catch(() => setCourts([]));
   }, [slug]);
@@ -986,11 +1001,24 @@ export default function AdminTournamentDetail() {
       for (const a of assignments) {
         await db.updateMatch(a.id, { scheduled_at: a.at, court_name: a.court });
       }
+      // La disponibilidad queda guardada EN el torneo: cada torneo juega
+      // distinto, y al volver a abrirlo tiene que abrir con sus mismos días,
+      // sus mismas horas y sus mismas canchas.
+      const guardado = await db
+        .saveTournamentScheduleConfig(tournament.id, {
+          days: scheduleConfig.days,
+          hours: scheduleConfig.hours,
+          courtNames,
+          minutesPerMatch: scheduleConfig.minutesPerMatch,
+        })
+        .catch(() => false);
       const updated = await db.listMatchesByTournament(tournament.id);
       setMatches(updated);
       setScheduleOpen(false);
       toast.success(
-        `Calendario listo: ${assignments.length} partidos repartidos en ${scheduleConfig.days.length} día(s), ${scheduleConfig.hours.length} hora(s) y ${courtNames.length} cancha(s). Los resultados se conservaron.`,
+        `Calendario listo: ${assignments.length} partidos repartidos en ${scheduleConfig.days.length} día(s), ${scheduleConfig.hours.length} hora(s) y ${courtNames.length} cancha(s). Los resultados se conservaron.${
+          guardado ? "" : " La disponibilidad no se pudo guardar (falta aplicar la migración de la base)."
+        }`,
       );
     } catch (e) {
       toast.error((e as Error).message ?? "Error al generar el calendario");

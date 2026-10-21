@@ -281,6 +281,23 @@ export const supabaseProvider: DataProvider = {
     return result as never;
   },
 
+  /**
+   * Guarda la disponibilidad del torneo.
+   *
+   * `schedule_config` es una columna que puede no existir todavía (ver
+   * `supabase/tournament-schedule-config.sql`). Si no existe, la escritura
+   * falla y se devuelve false en vez de romper: el calendario ya está repartido
+   * en los partidos, así que el trabajo no se pierde.
+   */
+  async saveTournamentScheduleConfig(id: string, config: import('@/types').TournamentScheduleConfig) {
+    const { error } = await client()
+      .from('tournaments')
+      .update({ schedule_config: config } as never)
+      .eq('id', id);
+    if (error) return false;
+    return true;
+  },
+
   async deleteTournament(slug: string) {
     const { error } = await client().from('tournaments').delete().eq('slug', slug);
     if (error) throw error;

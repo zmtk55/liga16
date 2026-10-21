@@ -17,6 +17,7 @@ import type {
   Tournament,
   TournamentCategory,
   TournamentFilters,
+  TournamentScheduleConfig,
   UUID,
   Court,
   PaymentMethod,
@@ -61,6 +62,15 @@ export interface DataProvider {
   getTournament(slug: string): Promise<Tournament | null>;
   createTournament(data: Omit<Tournament, 'id' | 'slug'>): Promise<Tournament>;
   updateTournament(slug: string, data: Partial<Tournament>): Promise<Tournament | null>;
+  /**
+   * Guarda la disponibilidad del torneo (días, horas, canchas).
+   *
+   * Devuelve false si la columna todavía no existe en la base: la
+   * disponibilidad se guarda igualmente en los partidos, así que el calendario
+   * se puede repartir igual; lo que se pierde es el recuerdo entre recargas.
+   * Ver `supabase/tournament-schedule-config.sql`.
+   */
+  saveTournamentScheduleConfig(id: string, config: TournamentScheduleConfig): Promise<boolean>;
   deleteTournament(slug: string): Promise<boolean>;
   getTournamentCategories(tournamentId: string): Promise<TournamentCategory[]>;
   createTournamentCategory(data: Omit<TournamentCategory, 'id'>): Promise<TournamentCategory>;
@@ -162,4 +172,4 @@ export interface DataProvider {
  * como única fuente de verdad. Las variables de entorno VITE_SUPABASE_URL /
  * VITE_SUPABASE_ANON_KEY deben estar definidas en .env.local (o en Vercel).
  */
-export const DATA_MODE: 'supabase' = 'supabase';
+export const DATA_MODE = 'supabase' as const;
