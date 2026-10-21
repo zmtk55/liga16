@@ -33,7 +33,10 @@ import { MatchCard } from "@/components/cards/card-kit";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 import { matchStatusLabel } from "@/lib/format";
+import { categoryFacetOfValues } from "@/lib/categories";
 import {
   determineMatchWinner,
   normalizeScoring,
@@ -42,6 +45,19 @@ import {
 import { ClipboardList, Eye, Plus, Trash2, Trophy } from "lucide-react";
 
 const STATUS_OPTIONS = Object.entries(matchStatusLabel).map(([value, label]) => ({ value, label }));
+
+/**
+ * Los estados con el nombre que usa el organizador, no el del diccionario.
+ * "Programado" no dice nada; "Por capturar" sí.
+ */
+const STATUS_FACET_LABEL: Record<string, string> = {
+  scheduled: "Por capturar",
+  live: "En vivo",
+  finished: "Terminados",
+  disputed: "En disputa",
+  walkover: "Walkover",
+  cancelled: "Cancelado",
+};
 
 /** "Emilio Garza / Ricardo Anaya" → "Garza / Anaya" — para cabeceras compactas. */
 function shortPairName(pairName: string): string {
@@ -68,14 +84,66 @@ export default function AdminResults() {
   };
   const [fTournament, setFTournament] = useState("all");
   const [fStatus, setFStatus] = useState("all");
+  const [fCategory, setFCategory] = useState("all");
+  const [fRound, setFRound] = useState("all");
 
   const filtered = (list ?? []).filter((m) => {
     const q = query.trim().toLowerCase();
-    if (q && !`${m.tournament_name} ${m.round} ${m.side_a.pair_name} ${m.side_b.pair_name}`.toLowerCase().includes(q)) return false;
+    if (
+      q &&
+      !`${m.tournament_name ?? ""} ${m.category_name ?? ""} ${m.round} ${m.side_a.pair_name} ${m.side_b.pair_name}`
+        .toLowerCase()
+        .includes(q)
+    )
+      return false;
     if (fTournament !== "all" && m.tournament_id !== fTournament) return false;
     if (fStatus !== "all" && m.status !== fStatus) return false;
+    if (fCategory !== "all" && (m.category_name ?? "").toLowerCase() !== fCategory) return false;
+    if (fRound !== "all" && (m.round || "Sin jornada") !== fRound) return false;
     return true;
   });
+
+  /**
+   * Las facetas salen de los propios partidos y llevan su cuenta.
+   *
+   * Antes los filtros eran dos desplegables ("Todos los torneos" / "Todos los
+   * estados") que escondían las opciones detrás de dos clics y no ofrecían la
+   * categoría ni la jornada: las dos cosas por las que un organizador
+   * realmente discrimina ("dame los de 4ta de la jornada 2").
+   */
+  const facetas = useMemo(() => {
+    const all = list ?? [];
+
+    const estados = new Map<string, number>();
+    for (const m of all) estados.set(m.status, (estados.get(m.status) ?? 0) + 1);
+    const estadoOptions = Object.keys(STATUS_FACET_LABEL)
+      .filter((s) => (estados.get(s) ?? 0) > 0)
+      .map((s) => ({
+        key: s,
+        label: STATUS_FACET_LABEL[s],
+        n: estados.get(s) ?? 0,
+      }));
+
+    const categorias = categoryFacetOfValues(all.map((m) => m.category_name));
+
+    const rondas = new Map<string, number>();
+    for (const m of all) {
+      const r = m.round || "Sin jornada";
+      rondas.set(r, (rondas.get(r) ?? 0) + 1);
+    }
+    const rondaOptions = [...rondas.entries()]
+      .map(([key, n]) => ({ key, label: key, n }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es", { numeric: true }));
+
+    const porTorneo = new Map<string, number>();
+    for (const m of all) porTorneo.set(m.tournament_id, (porTorneo.get(m.tournament_id) ?? 0) + 1);
+    const torneoOptions = Object.entries(tournaments)
+      .map(([id, t]) => ({ key: id, label: t.name, n: porTorneo.get(id) ?? 0 }))
+      .filter((o) => o.n > 0)
+      .sort((a, b) => b.n - a.n);
+
+    return { estadoOptions, categoriaOptions: categorias, rondaOptions, torneoOptions };
+  }, [list, tournaments]);
 
   useEffect(() => {
     load();
@@ -168,6 +236,8 @@ export default function AdminResults() {
             <Button
               size="sm"
               variant="outline"
+              aria-pressed={fStatus === "scheduled"}
+              className={fStatus === "scheduled" ? "border-primary bg-primary text-primary-foreground hover:bg-primary-strong hover:text-primary-foreground" : undefined}
               onClick={() => setFStatus((s) => (s === "scheduled" ? "all" : "scheduled"))}
             >
               <ClipboardList className="h-4 w-4" />
@@ -196,31 +266,57 @@ export default function AdminResults() {
           <FilterBar
             search={query}
             onSearch={setQuery}
-            searchPlaceholder="Buscar equipo o jugador…"
-            selects={[
-              {
-                key: "tournament",
-                ariaLabel: "Filtrar por torneo",
-                allLabel: "Todos los torneos",
-                value: fTournament,
-                onChange: setFTournament,
-                options: Object.entries(tournaments).map(([id, t]) => ({ value: id, label: t.name })),
-                className: "sm:w-52",
-              },
-              {
-                key: "status",
-                ariaLabel: "Filtrar por estado",
-                allLabel: "Todos los estados",
-                value: fStatus,
-                onChange: setFStatus,
-                options: STATUS_OPTIONS,
-                className: "sm:w-44",
-              },
-            ]}
+            searchPlaceholder="Buscar pareja o jugador…"
             resultCount={filtered.length}
             resultLabel="partidos"
-            onClear={() => { setQuery(""); setFTournament("all"); setFStatus("all"); }}
-          />
+            activeCount={countActive(fStatus, fCategory, fRound, fTournament)}
+            onClear={() => {
+              setQuery("");
+              setFStatus("all");
+              setFCategory("all");
+              setFRound("all");
+              setFTournament("all");
+            }}
+          >
+            {/* Un eje de filtro por fila, con su cuenta. Las opciones se leen
+                enteras sin abrirlas, que es justo lo que el <Select> no
+                permitía. Al cambiar de torneo se sueltan categoría y jornada:
+                si no, un filtro quedaría apuntando a algo que ya no existe. */}
+            <AdminFacets>
+              <AdminFacet
+                label="Estado"
+                value={fStatus}
+                onChange={setFStatus}
+                options={facetas.estadoOptions}
+                allLabel="Todos"
+              />
+              <AdminFacet
+                label="Categoría"
+                value={fCategory}
+                onChange={setFCategory}
+                options={facetas.categoriaOptions}
+                allLabel="Todas"
+              />
+              <AdminFacet
+                label="Jornada"
+                value={fRound}
+                onChange={setFRound}
+                options={facetas.rondaOptions}
+                allLabel="Todas"
+              />
+              <AdminFacet
+                label="Torneo"
+                value={fTournament}
+                onChange={(v) => {
+                  setFTournament(v);
+                  setFCategory("all");
+                  setFRound("all");
+                }}
+                options={facetas.torneoOptions}
+                allLabel="Todos"
+              />
+            </AdminFacets>
+          </FilterBar>
         </CardHeader>
         {/* Sin overflow-x: el contenedor deja de ser scroll propio y los
             encabezados de jornada sí se quedan pegados (sticky) al hacer
@@ -257,6 +353,20 @@ export default function AdminResults() {
                 <EmptyDescription>
                   Ningún partido coincide con la búsqueda o el filtro.
                 </EmptyDescription>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => {
+                    setQuery("");
+                    setFStatus("all");
+                    setFCategory("all");
+                    setFRound("all");
+                    setFTournament("all");
+                  }}
+                >
+                  Quitar filtros
+                </Button>
               </EmptyHeader>
             </Empty>
           )}
@@ -268,7 +378,7 @@ export default function AdminResults() {
                 const hid = `ronda-${gi}`;
                 return (
                   <section key={round} aria-labelledby={hid} className="space-y-3">
-                    <div className="sticky top-0 z-10 flex items-baseline justify-between gap-2 rounded-lg bg-card/95 py-1.5 backdrop-blur">
+                    <div className="sticky top-14 z-10 flex items-baseline justify-between gap-2 rounded-lg bg-card/95 py-1.5 backdrop-blur lg:top-0">
                       <h2 id={hid} className="text-sm font-semibold">
                         {round}
                       </h2>
@@ -288,10 +398,10 @@ export default function AdminResults() {
                             <div className="flex items-center justify-between gap-2">
                               <span className="truncate text-2xs uppercase tracking-wide text-muted-foreground/70">
                                 {m.status === "finished"
-                                  ? "Resultado capturado"
+                                  ? "Resultado guardado"
                                   : m.status === "live"
-                                    ? "Partido en curso"
-                                    : "Falta capturar el resultado"}
+                                    ? "En curso"
+                                    : "Falta capturar"}
                               </span>
                               <Button
                                 variant="outline"

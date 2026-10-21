@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { formatDateRange, formatLabel, tournamentStatusLabel } from "@/lib/format";
 import { ExternalLink, Pencil, Plus, Trash2, Trophy, Check } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { CardShell, CardIdentity } from "@/components/cards/card-kit";
@@ -84,6 +86,19 @@ export default function AdminTournaments() {
     };
   }, [list]);
 
+  /**
+   * Los estados que de verdad hay, con su cuenta. La lista sale de los
+   * torneos cargados, no de un catálogo escrito a mano: un estado sin
+   * torneos no se ofrece y uno con playoffs no falta.
+   */
+  const statusOptions = useMemo(() => {
+    const all = list ?? [];
+    return Object.entries(tournamentStatusLabel)
+      .map(([key, label]) => ({ key, label, n: all.filter((t) => t.status === key).length }))
+      .filter((o) => o.n > 0)
+      .sort((a, b) => b.n - a.n);
+  }, [list]);
+
   async function handleDelete(t: Tournament) {
     try {
       await db.deleteTournament(t.slug);
@@ -143,20 +158,21 @@ export default function AdminTournaments() {
             search={query}
             onSearch={setQuery}
             searchPlaceholder="Buscar torneo…"
-            selects={[
-              {
-                key: "status",
-                ariaLabel: "Filtrar por estado",
-                allLabel: "Todos los estados",
-                value: status,
-                onChange: setStatus,
-                options: Object.entries(tournamentStatusLabel).map(([v, l]) => ({ value: v, label: l })),
-              },
-            ]}
             resultCount={filtered.length}
             resultLabel="torneos"
+            activeCount={countActive(status)}
             onClear={() => { setQuery(""); setStatus("all"); }}
-          />
+          >
+            <AdminFacets>
+              <AdminFacet
+                label="Estado"
+                value={status}
+                onChange={setStatus}
+                options={statusOptions}
+                allLabel="Todos"
+              />
+            </AdminFacets>
+          </FilterBar>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           {list === null && (

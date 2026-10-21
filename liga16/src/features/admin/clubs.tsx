@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { Club, Court } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,9 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 export default function AdminClubs() {
@@ -24,6 +27,9 @@ export default function AdminClubs() {
   const [submitting, setSubmitting] = useState(false);
   const [courts, setCourts] = useState<Court[]>([]);
   const [newCourt, setNewCourt] = useState("");
+  /** Filtros de la lista de canchas: buscador + superficie. */
+  const [courtQuery, setCourtQuery] = useState("");
+  const [fSurface, setFSurface] = useState("all");
 
   const reload = () => {
     db.listClubs().then((list) => {
@@ -91,6 +97,29 @@ export default function AdminClubs() {
       setSubmitting(false);
     }
   }
+
+  /** Las canchas que se ven: por nombre y por superficie. */
+  const visibleCourts = useMemo(() => {
+    const q = courtQuery.trim().toLowerCase();
+    return courts.filter(
+      (c) =>
+        (!q || c.name.toLowerCase().includes(q) || (c.surface ?? "").toLowerCase().includes(q)) &&
+        (fSurface === "all" || c.surface === fSurface),
+    );
+  }, [courts, courtQuery, fSurface]);
+
+  /** Las superficies que hay, con su cuenta. */
+  const surfaceOptions = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of courts) {
+      const s = (c.surface ?? "").trim();
+      if (!s) continue;
+      map.set(s, (map.get(s) ?? 0) + 1);
+    }
+    return [...map.entries()]
+      .map(([key, n]) => ({ key, label: key, n }))
+      .sort((a, b) => b.n - a.n);
+  }, [courts]);
 
   if (!club) return <Skeleton className="h-64 w-full rounded-xl" />;
 
@@ -260,8 +289,27 @@ export default function AdminClubs() {
 
       {/* Canchas */}
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="gap-3">
           <CardTitle className="text-base">Canchas disponibles ({courts.length})</CardTitle>
+          <FilterBar
+            search={courtQuery}
+            onSearch={setCourtQuery}
+            searchPlaceholder="Buscar cancha…"
+            resultCount={visibleCourts.length}
+            resultLabel="canchas"
+            activeCount={countActive(fSurface)}
+            onClear={() => { setCourtQuery(""); setFSurface("all"); }}
+          >
+            <AdminFacets>
+              <AdminFacet
+                label="Superficie"
+                value={fSurface}
+                onChange={setFSurface}
+                options={surfaceOptions}
+                allLabel="Todas"
+              />
+            </AdminFacets>
+          </FilterBar>
         </CardHeader>
         <ConfirmDialog
           open={!!deletingCourt}
@@ -290,9 +338,16 @@ export default function AdminClubs() {
                 <EmptyDescription>Agrega la primera cancha con el campo de arriba.</EmptyDescription>
               </EmptyHeader>
             </Empty>
+          ) : visibleCourts.length === 0 ? (
+            <Empty className="border-0 py-8">
+              <EmptyHeader>
+                <EmptyTitle>Ninguna cancha coincide</EmptyTitle>
+                <EmptyDescription>Prueba con otro nombre o quita el filtro de superficie.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <ul className="divide-y rounded-lg border">
-              {courts.map((c) => (
+              {visibleCourts.map((c) => (
                 <li key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
                   <span className="font-medium">{c.name}</span>
                   <span className="flex items-center gap-2">

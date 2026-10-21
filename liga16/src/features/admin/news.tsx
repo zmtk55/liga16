@@ -39,6 +39,8 @@ import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/p
 import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 
 const TAG_OPTIONS = ["General", "Resultados", "Torneos", "Ligas", "Jugadores", "Clubs"];
 
@@ -114,6 +116,15 @@ export default function AdminNews() {
     return true;
   });
 
+  /** Los tags que hay, con su cuenta. Los que no se usan no se ofrecen. */
+  const tagOptions = useMemo(() => {
+    const all = list ?? [];
+    return TAG_OPTIONS
+      .map((t) => ({ key: t, label: t, n: all.filter((n) => n.tag === t).length }))
+      .filter((o) => o.n > 0)
+      .sort((a, b) => b.n - a.n);
+  }, [list]);
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -142,21 +153,21 @@ export default function AdminNews() {
             search={query}
             onSearch={setQuery}
             searchPlaceholder="Buscar noticia…"
-            selects={[
-              {
-                key: "tag",
-                ariaLabel: "Filtrar por tag",
-                allLabel: "Todos los tags",
-                value: fTag,
-                onChange: setFTag,
-                options: TAG_OPTIONS.map((t) => ({ value: t, label: t })),
-                className: "sm:w-44",
-              },
-            ]}
             resultCount={filtered.length}
             resultLabel="noticias"
+            activeCount={countActive(fTag)}
             onClear={() => { setQuery(""); setFTag("all"); }}
-          />
+          >
+            <AdminFacets>
+              <AdminFacet
+                label="Tag"
+                value={fTag}
+                onChange={setFTag}
+                options={tagOptions}
+                allLabel="Todos"
+              />
+            </AdminFacets>
+          </FilterBar>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <Table>

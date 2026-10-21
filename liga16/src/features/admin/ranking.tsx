@@ -16,7 +16,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { FilterNav } from "@/components/ui/filter-nav";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
 import { PairAvatars } from "@/components/cards/card-kit";
@@ -153,6 +154,7 @@ export default function AdminRanking() {
             searchPlaceholder="Buscar pareja o jugador…"
             resultCount={filtered.length}
             resultLabel="parejas"
+            activeCount={countActive(categoria, sex)}
             onClear={() => {
               setQuery("");
               setCategoria("all");
@@ -161,23 +163,22 @@ export default function AdminRanking() {
           >
             {/* Los filtros van como barra y no como desplegables: las opciones
                 se leen enteras sin abrirlas, y son las que hay de verdad. */}
-            <div className="flex flex-wrap items-end gap-x-6 gap-y-3 pt-1">
-              <FilterNav
+            <AdminFacets>
+              <AdminFacet
                 label="Categoría"
                 value={categoria}
                 onChange={setCategoria}
                 options={categorias.length > 1 ? categorias : []}
-                showCount
-                className="max-w-2xl"
+                allLabel="Todas"
               />
-              <FilterNav
+              <AdminFacet
                 label="Rama"
                 value={sex}
                 onChange={setSex}
                 options={ramas.length > 1 ? ramas : []}
-                showCount
+                allLabel="Todas"
               />
-            </div>
+            </AdminFacets>
           </FilterBar>
         </CardHeader>
         <CardContent className="p-0">

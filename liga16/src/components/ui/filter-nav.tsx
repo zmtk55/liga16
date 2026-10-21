@@ -22,6 +22,7 @@ export function FilterNav({
   options,
   allLabel = "Todas",
   showCount = false,
+  orientation = "stack",
   className,
 }: {
   /** Texto del grupo: "Categoría", "Rama". */
@@ -31,6 +32,14 @@ export function FilterNav({
   options: FacetOption[];
   allLabel?: string;
   showCount?: boolean;
+  /**
+   * "stack": la etiqueta arriba y las opciones debajo (páginas públicas, donde
+   * la etiqueta introduce la lista). "row": la etiqueta a la izquierda, en una
+   * columna de ancho fijo, y las opciones a la derecha — el patrón de las
+   * barras de herramientas del admin, donde cada eje de filtro es una fila y
+   * todas las etiquetas comparten el mismo borde de alineación.
+   */
+  orientation?: "stack" | "row";
   className?: string;
 }) {
   // La barra se oculta si no hay nada que elegir, SALVO que haya un filtro
@@ -45,12 +54,26 @@ export function FilterNav({
   return (
     <nav
       aria-label={`Filtrar por ${label.toLowerCase()}`}
-      className={cn("flex min-w-0 flex-col gap-1.5", className)}
+      className={cn(
+        "flex min-w-0 max-w-full",
+        orientation === "row" ? "items-center gap-3" : "flex-col gap-1.5",
+        className,
+      )}
     >
-      <p className="px-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
+      <p
+        className={cn(
+          "text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground",
+          orientation === "row" ? "w-20 shrink-0 sm:w-24" : "px-0.5",
+        )}
+      >
         {label}
       </p>
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5 [scrollbar-width:thin]">
+      <div
+        className={cn(
+          "-mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5 [scrollbar-width:thin]",
+          orientation === "row" && "min-w-0 max-w-full flex-1",
+        )}
+      >
         {items.map((o) => {
           const active = value === o.key;
           return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { PlayerProfile } from "@/types";
@@ -50,6 +50,8 @@ import {
 import { PlayerCard } from "@/components/players/player-card";
 import { SEX_BRANCHES, sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   AdminPageHeader,
@@ -106,6 +108,28 @@ export default function AdminPlayers() {
   const pendingCount = (list ?? []).filter(
     (p) => statusOf(p) === "pendiente",
   ).length;
+
+  /**
+   * Las facetas con su cuenta. La de verificación es la que el organizador
+   * usa todos los días —los pendientes van primero en la tabla—, así que su
+   * cuenta se ve sin abrir nada.
+   */
+  const verificationOptions = useMemo(() => {
+    const all = list ?? [];
+    const n = (s: string) => all.filter((p) => statusOf(p) === s).length;
+    return [
+      { key: "pendiente", label: "Por verificar", n: n("pendiente") },
+      { key: "verificado", label: "Verificados", n: n("verificado") },
+      { key: "rechazado", label: "Rechazados", n: n("rechazado") },
+    ].filter((o) => o.n > 0);
+  }, [list]);
+
+  const tournamentOptions = useMemo(() => {
+    const all = list ?? [];
+    return tournaments
+      .map((t) => ({ key: t.id, label: t.name, n: all.filter((p) => tournamentPlayers.has(p.id)).length }))
+      .filter((o) => o.n > 0);
+  }, [list, tournaments, tournamentPlayers]);
 
   const filtered = (list ?? [])
     .filter((p) => {
@@ -312,44 +336,32 @@ export default function AdminPlayers() {
             search={query}
             onSearch={setQuery}
             searchPlaceholder="Buscar jugador…"
-            selects={[
-              {
-                key: "tid",
-                ariaLabel: "Filtrar por torneo",
-                allLabel: "Todo el directorio",
-                value: tid,
-                onChange: setTid,
-                options: tournaments.map((t) => ({
-                  value: t.id,
-                  label: `Juega en: ${t.name}`,
-                })),
-                className: "sm:w-60",
-              },
-              {
-                key: "verification",
-                ariaLabel: "Filtrar por verificación",
-                allLabel: "Cualquier verificación",
-                value: verification,
-                onChange: setVerification,
-                options: [
-                  {
-                    value: "pendiente",
-                    label: `Por verificar (${pendingCount})`,
-                  },
-                  { value: "verificado", label: "Verificados" },
-                  { value: "rechazado", label: "Rechazados" },
-                ],
-                className: "sm:w-48",
-              },
-            ]}
             resultCount={filtered.length}
             resultLabel="jugadores"
+            activeCount={countActive(tid, verification)}
             onClear={() => {
               setQuery("");
               setTid("all");
               setVerification("all");
             }}
-          />
+          >
+            <AdminFacets>
+              <AdminFacet
+                label="Verificación"
+                value={verification}
+                onChange={setVerification}
+                options={verificationOptions}
+                allLabel="Cualquiera"
+              />
+              <AdminFacet
+                label="Torneo"
+                value={tid}
+                onChange={setTid}
+                options={tournamentOptions}
+                allLabel="Todo el directorio"
+              />
+            </AdminFacets>
+          </FilterBar>
         </CardHeader>
         {view === "lista" ? (
         <CardContent className="overflow-x-auto p-0">

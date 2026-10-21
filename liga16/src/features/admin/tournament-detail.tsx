@@ -70,6 +70,8 @@ import {
 import type { Court } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -557,6 +559,8 @@ export default function AdminTournamentDetail() {
   const [pairForm, setPairForm] = useState({ name: "", category_id: "" });
   // Filtros
   const [pairQuery, setPairQuery] = useState("");
+  /** Categoría de la lista de parejas: cada equipo juega en una sola. */
+  const [pairCategory, setPairCategory] = useState("all");
   const [matchQuery, setMatchQuery] = useState("");
   const [matchRound, setMatchRound] = useState("all");
 
@@ -616,8 +620,6 @@ export default function AdminTournamentDetail() {
     return map;
   }, [pairs]);
 
-  const rounds = useMemo(() => [...new Set(matches.map((m) => m.round))].sort(), [matches]);
-
   useEffect(() => {
     if (jornadaAutoOpened || matches.length === 0) return;
     setJornadaAutoOpened(true);
@@ -626,6 +628,14 @@ export default function AdminTournamentDetail() {
   }, [matches, jornadaAutoOpened, jornadaDay]);
 
   const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+
+  /** Las categorías del torneo con la cuenta de parejas de cada una. */
+  const pairCategoryOptions = useMemo(() => {
+    const all = pairs ?? [];
+    return categories
+      .map((c) => ({ key: c.id, label: c.name, n: all.filter((p) => p.category_id === c.id).length }))
+      .filter((o) => o.n > 0);
+  }, [categories, pairs]);
 
   // El día de un partido es el día LOCAL: `scheduled_at` es un instante UTC y su
   // prefijo de fecha apunta al día siguiente para todo partido de la tarde noche.
@@ -642,7 +652,61 @@ export default function AdminTournamentDetail() {
     if (m.category_name) return m.category_name;
     return parseRound(m.round ?? "").group.split(" · ")[0];
   }
-  const matchCategories = useMemo(() => [...new Set(matches.map(matchCategoryName))].sort(), [matches]);
+  /**
+   * Las facetas de la jornada, con la cuenta de partidos de cada una.
+   *
+   * Eran cuatro desplegables: para saber qué días había o qué canchas se
+   * usaban había que abrirlos uno por uno. Con la barra, de un vistazo.
+   */
+  const matchCategoryOptions = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const m of matches) {
+      const c = matchCategoryName(m);
+      if (!c) continue;
+      n.set(c, (n.get(c) ?? 0) + 1);
+    }
+    return [...n.entries()].map(([key, count]) => ({ key, label: key, n: count }));
+  }, [matches]);
+
+  const matchDayOptions = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const m of matches) {
+      const d = localDayKey(m.scheduled_at ?? "");
+      if (!d) continue;
+      n.set(d, (n.get(d) ?? 0) + 1);
+    }
+    return [...n.entries()]
+      .map(([key, count]) => ({
+        key,
+        label: new Date(`${key}T12:00:00`).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" }),
+        n: count,
+      }))
+      .sort((a, b) => a.key.localeCompare(b.key));
+  }, [matches]);
+
+  const matchCourtOptions = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const m of matches) {
+      const c = m.court_name;
+      if (!c) continue;
+      n.set(c, (n.get(c) ?? 0) + 1);
+    }
+    return [...n.entries()].map(([key, count]) => ({ key, label: key, n: count }));
+  }, [matches]);
+
+  const matchRoundOptions = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const m of matches) {
+      const r = m.round;
+      if (!r) continue;
+      n.set(r, (n.get(r) ?? 0) + 1);
+    }
+    // "Jornada 2" antes que "Jornada 10": el número manda, no el texto.
+    const num = (r: string) => Number(r.match(/\d+/)?.[0] ?? Number.MAX_SAFE_INTEGER);
+    return [...n.entries()]
+      .map(([key, count]) => ({ key, label: key, n: count }))
+      .sort((a, b) => num(a.key) - num(b.key) || a.label.localeCompare(b.label, "es"));
+  }, [matches]);
 
   /**
    * La categoría de un grupo, sacada de sus parejas y no de su nombre: el
@@ -980,6 +1044,7 @@ export default function AdminTournamentDetail() {
   const club = clubs.find((c) => c.id === tournament.club_id);
   const filteredPairs = (pairs ?? []).filter((p) => {
     const q = pairQuery.trim().toLowerCase();
+    if (pairCategory !== "all" && (p.category_id ?? "") !== pairCategory) return false;
     return !q || p.name.toLowerCase().includes(q) || (catNameById.get(p.category_id ?? "") ?? "").toLowerCase().includes(q);
   });
   const filteredMatches = matches
@@ -1203,8 +1268,19 @@ return (
                 searchPlaceholder="Buscar equipo o categoría…"
                 resultCount={filteredPairs.length}
                 resultLabel="parejas"
-                onClear={() => setPairQuery("")}
-              />
+                activeCount={countActive(pairCategory)}
+                onClear={() => { setPairQuery(""); setPairCategory("all"); }}
+              >
+                <AdminFacets>
+                  <AdminFacet
+                    label="Categoría"
+                    value={pairCategory}
+                    onChange={setPairCategory}
+                    options={pairCategoryOptions}
+                    allLabel="Todas"
+                  />
+                </AdminFacets>
+              </FilterBar>
             </CardHeader>
             <CardContent className="p-0">
               {!pairs ? (
@@ -1468,49 +1544,9 @@ return (
                 search={matchQuery}
                 onSearch={setMatchQuery}
                 searchPlaceholder="Buscar equipo o jugador…"
-                selects={[
-                  {
-                    key: "cat",
-                    ariaLabel: "Filtrar por categoría",
-                    allLabel: "Todas las categorías",
-                    value: matchCategory,
-                    onChange: setMatchCategory,
-                    options: matchCategories.filter(Boolean).map((c) => ({ value: c, label: c })),
-                    className: "w-44",
-                  },
-                  {
-                    key: "day",
-                    ariaLabel: "Filtrar por día",
-                    allLabel: "Todos los días",
-                    value: matchDay,
-                    onChange: setMatchDay,
-                    options: matchDays.map((d) => ({
-                      value: d,
-                      label: new Date(`${d}T12:00:00`).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" }),
-                    })),
-                    className: "w-44",
-                  },
-                  {
-                    key: "court",
-                    ariaLabel: "Filtrar por cancha",
-                    allLabel: "Todas las canchas",
-                    value: matchCourt,
-                    onChange: setMatchCourt,
-                    options: matchCourtsList.map((c) => ({ value: c, label: c })),
-                    className: "w-40",
-                  },
-                  {
-                    key: "round",
-                    ariaLabel: "Filtrar por jornada",
-                    allLabel: "Todas las jornadas",
-                    value: matchRound,
-                    onChange: setMatchRound,
-                    options: rounds.map((r) => ({ value: r, label: r })),
-                    className: "w-48",
-                  },
-                ]}
                 resultCount={filteredMatches.length}
                 resultLabel="partidos"
+                activeCount={countActive(matchCategory, matchDay, matchCourt, matchRound)}
                 onClear={() => {
                   setMatchQuery("");
                   setMatchCategory("all");
@@ -1519,12 +1555,47 @@ return (
                   setMatchRound("all");
                 }}
               >
-                <div className="ms-auto flex items-center gap-1 rounded-lg border p-1">
-                  {(["lista", "timeline"] as const).map((v) => (
-                    <Button key={v} type="button" size="sm" variant={calView === v ? "secondary" : "ghost"} className="h-7 text-xs capitalize" onClick={() => setCalView(v)}>
-                      {v}
-                    </Button>
-                  ))}
+                <AdminFacets>
+                  <AdminFacet
+                    label="Categoría"
+                    value={matchCategory}
+                    onChange={setMatchCategory}
+                    options={matchCategoryOptions}
+                    allLabel="Todas"
+                  />
+                  <AdminFacet
+                    label="Día"
+                    value={matchDay}
+                    onChange={setMatchDay}
+                    options={matchDayOptions}
+                    allLabel="Todos"
+                  />
+                  <AdminFacet
+                    label="Cancha"
+                    value={matchCourt}
+                    onChange={setMatchCourt}
+                    options={matchCourtOptions}
+                    allLabel="Todas"
+                  />
+                  <AdminFacet
+                    label="Jornada"
+                    value={matchRound}
+                    onChange={setMatchRound}
+                    options={matchRoundOptions}
+                    allLabel="Todas"
+                  />
+                </AdminFacets>
+                {/* El conmutador de vista va a la derecha y ajustado a su
+                    contenido: estirado a todo el ancho dejaba una franja
+                    vacía bajo las barras de filtro. */}
+                <div className="flex justify-end">
+                  <div className="flex items-center gap-1 rounded-lg border p-1">
+                    {(["lista", "timeline"] as const).map((v) => (
+                      <Button key={v} type="button" size="sm" variant={calView === v ? "secondary" : "ghost"} className="h-7 text-xs capitalize" onClick={() => setCalView(v)}>
+                        {v}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </FilterBar>
               {calView === "timeline" ? (

@@ -31,6 +31,8 @@ import { ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import ImageUpload from "@/components/ui/image-upload";
@@ -116,6 +118,18 @@ export default function AdminTeams() {
     if (cat !== "all" && (p.category_id ?? "") !== cat) return false;
     return true;
   });
+
+  /**
+   * Las categorías del torneo con la cuenta de parejas de cada una. Antes era
+   * un desplegable con los nombres de las categorías: para saber si el
+   * torneo tenía "Suma 9" había que abrirlo y mirarlo.
+   */
+  const catOptions = useMemo(() => {
+    const all = pairs ?? [];
+    return categories
+      .map((c) => ({ key: c.id, label: c.name, n: all.filter((p) => p.category_id === c.id).length }))
+      .filter((o) => o.n > 0);
+  }, [categories, pairs]);
 
   /**
    * Cifras de cabecera. Una categoría es una competencia cerrada —las parejas de
@@ -295,21 +309,21 @@ export default function AdminTeams() {
               search={query}
               onSearch={setQuery}
               searchPlaceholder="Buscar pareja…"
-              selects={[
-                {
-                  key: "cat",
-                  ariaLabel: "Filtrar por categoría",
-                  allLabel: "Todas las categorías",
-                  value: cat,
-                  onChange: setCat,
-                  options: categories.map((c) => ({ value: c.id, label: c.name })),
-                  className: "sm:w-48",
-                },
-              ]}
               resultCount={filtered.length}
               resultLabel="parejas"
+              activeCount={countActive(cat)}
               onClear={() => { setQuery(""); setCat("all"); }}
-            />
+            >
+              <AdminFacets>
+                <AdminFacet
+                  label="Categoría"
+                  value={cat}
+                  onChange={setCat}
+                  options={catOptions}
+                  allLabel="Todas"
+                />
+              </AdminFacets>
+            </FilterBar>
           </CardHeader>
           <CardContent className="p-0">
             {pairs === null && (

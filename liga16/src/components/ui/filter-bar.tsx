@@ -90,6 +90,7 @@ export function FilterBar({
   resultCount,
   resultLabel = "resultados",
   onClear,
+  activeCount = 0,
   className,
 }: {
   search?: string;
@@ -101,6 +102,13 @@ export function FilterBar({
   resultLabel?: string;
   /** Se muestra solo si hay filtros activos. */
   onClear?: () => void;
+  /**
+   * Filtros activos que NO son `selects`: las barras de facetas (FilterNav)
+   * que viven en `children`. Sin esto, "Limpiar" solo aparecía cuando había
+   * algo escrito en el buscador, y un filtro de categoría activo se quedaba
+   * sin salida visible.
+   */
+  activeCount?: number;
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -108,7 +116,7 @@ export function FilterBar({
   const inlineSelects = collapsed ? [] : selects;
   const panelSelects = collapsed ? selects : [];
   const active = selects.filter((s) => s.value !== "all" && s.value !== "");
-  const hasFilters = (search ?? "") !== "" || active.length > 0;
+  const hasFilters = (search ?? "") !== "" || active.length > 0 || activeCount > 0;
   const meta = typeof resultCount === "number" && (
     <span aria-live="polite" className="shrink-0 text-xs tabular-nums text-muted-foreground">
       {resultCount} {resultCount === 1 ? resultLabel.replace(/s$/, "") : resultLabel}
@@ -126,8 +134,11 @@ export function FilterBar({
   );
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <div className="flex flex-wrap items-center gap-2">
+    // min-w-0 en la raíz: la barra vive en un `grid` (CardHeader) y sus
+    //tracks se dimensionan por contenido. Sin esto, la fila de píldoras
+    //empujaba la columna y la página entera se iba de ancho en el móvil.
+    <div className={cn("min-w-0 space-y-2", className)}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         {onSearch && (
           <div className="relative min-w-0 flex-1 sm:max-w-60">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -210,12 +221,13 @@ export function FilterBar({
             </PopoverContent>
           </Popover>
         )}
-        {active.length === 0 && (
-          <>
-            {meta}
-            {clearBtn}
-          </>
-        )}
+        {/* La cuenta y el "Limpiar" viven siempre en esta fila: el número de
+            resultados que quedan es el dato que dice si el filtro funciona, y
+            no debe desaparecer en cuanto se activa uno. */}
+        <div className="ms-auto flex shrink-0 items-center gap-2">
+          {meta}
+          {clearBtn}
+        </div>
       </div>
 
       {active.length > 0 && (
@@ -228,8 +240,6 @@ export function FilterBar({
               onRemove={() => s.onChange("all")}
             />
           ))}
-          {meta}
-          {clearBtn}
         </div>
       )}
 

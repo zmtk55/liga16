@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PairAvatar, CardShell, CardIdentity } from "@/components/cards/card-kit";
 import { cn } from "@/lib/utils";
@@ -132,6 +134,27 @@ export default function AdminParticipants() {
     if (fCategory !== "all" && (p.category_id ?? "") !== fCategory) return false;
     return true;
   });
+
+  /**
+   * Las facetas con su cuenta: cuántos parejas hay en cada torneo y en cada
+   * categoría. Con la cuenta a la vista, el filtro dice de entrada cuántos
+   * pares se van a ver.
+   */
+  const tournamentOptions = useMemo(() => {
+    const all = pairs ?? [];
+    return tournaments
+      .map((t) => ({ key: t.id, label: t.name, n: all.filter((p) => p.tournament_id === t.id).length }))
+      .filter((o) => o.n > 0)
+      .sort((a, b) => b.n - a.n);
+  }, [pairs, tournaments]);
+
+  const categoryOptions = useMemo(() => {
+    const all = pairs ?? [];
+    return filterCats
+      .map((c) => ({ key: c.id, label: c.name, n: all.filter((p) => p.category_id === c.id).length }))
+      .filter((o) => o.n > 0)
+      .sort((a, b) => b.n - a.n);
+  }, [pairs, filterCats]);
 
   /**
    * Cifras de cabecera. Se cuenta por torneo —cada torneo es su propio
@@ -276,6 +299,11 @@ export default function AdminParticipants() {
       <AdminPageHeader
         title="Participantes"
         description="Todas las parejas de todos los torneos, en una sola vista."
+        action={
+          <Button size="sm" onClick={() => { setDraft({ name: "", category_id: "", player1: "", player2: "" }); setDraftTournament(""); setOpenCreate(true); }}>
+            <UserPlus className="h-4 w-4" /> Inscribir pareja
+          </Button>
+        }
       >
         <AdminStatStrip>
           <AdminStat value={resumen.parejas} label="Parejas" />
@@ -309,33 +337,27 @@ export default function AdminParticipants() {
             search={query}
             onSearch={setQuery}
             searchPlaceholder="Buscar pareja o torneo…"
-            selects={[
-              {
-                key: "tournament",
-                ariaLabel: "Filtrar por torneo",
-                allLabel: "Todos los torneos",
-                value: fTournament,
-                onChange: (v) => { setFTournament(v); setFCategory("all"); },
-                options: tournaments.map((t) => ({ value: t.id, label: t.name })),
-                className: "sm:w-52",
-              },
-              {
-                key: "category",
-                ariaLabel: "Filtrar por categoría",
-                allLabel: "Todas las categorías",
-                value: fCategory,
-                onChange: setFCategory,
-                options: filterCats.map((c) => ({ value: c.id, label: c.name })),
-                className: "sm:w-48",
-              },
-            ]}
             resultCount={filtered.length}
             resultLabel="parejas"
+            activeCount={countActive(fTournament, fCategory)}
             onClear={() => { setQuery(""); setFTournament("all"); setFCategory("all"); }}
           >
-            <Button size="sm" onClick={() => { setDraft({ name: "", category_id: "", player1: "", player2: "" }); setDraftTournament(""); setOpenCreate(true); }}>
-              <UserPlus className="h-4 w-4" /> Inscribir pareja
-            </Button>
+            <AdminFacets>
+              <AdminFacet
+                label="Torneo"
+                value={fTournament}
+                onChange={(v) => { setFTournament(v); setFCategory("all"); }}
+                options={tournamentOptions}
+                allLabel="Todos"
+              />
+              <AdminFacet
+                label="Categoría"
+                value={fCategory}
+                onChange={setFCategory}
+                options={categoryOptions}
+                allLabel="Todas"
+              />
+            </AdminFacets>
           </FilterBar>
         </CardHeader>
         <CardContent className="p-0">

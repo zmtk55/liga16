@@ -7,6 +7,8 @@ import type { AlertSeverity, AdminAlert } from '@/types';
 import { alertTypeMeta } from '@/lib/alerts';
 import { AdminPageHeader } from '@/components/admin/page-header';
 import { FilterBar } from '@/components/ui/filter-bar';
+import { AdminFacet, AdminFacets } from '@/components/admin/filter-facets';
+import { countActive } from '@/lib/filters';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -88,6 +90,11 @@ export default function AdminInbox() {
   const grouped = (key: AlertSeverity) => visible.filter((a) => a.severity === key);
   const total = visible.length;
 
+  /** Las severidades que hay, con su cuenta. */
+  const severityOptions = severityOrder
+    .map((s) => ({ key: s, label: severityLabelKey(s), n: alerts.filter((a) => a.severity === s).length }))
+    .filter((o) => o.n > 0);
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -106,21 +113,21 @@ export default function AdminInbox() {
         search={query}
         onSearch={setQuery}
         searchPlaceholder="Buscar alerta…"
-        selects={[
-          {
-            key: "severity",
-            ariaLabel: "Filtrar por severidad",
-            allLabel: "Todas",
-            value: fSeverity,
-            onChange: setFSeverity,
-            options: (["critical", "warning", "info"] as AlertSeverity[]).map((s) => ({ value: s, label: severityLabelKey(s) })),
-            className: "sm:w-44",
-          },
-        ]}
         resultCount={total}
         resultLabel="alertas"
+        activeCount={countActive(fSeverity)}
         onClear={() => { setQuery(""); setFSeverity("all"); }}
-      />
+      >
+        <AdminFacets>
+          <AdminFacet
+            label="Severidad"
+            value={fSeverity}
+            onChange={setFSeverity}
+            options={severityOptions}
+            allLabel="Todas"
+          />
+        </AdminFacets>
+      </FilterBar>
 
       {error && (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
