@@ -26,11 +26,11 @@ colors:
   card-foreground: "hsl(24 100% 10%)"
 typography:
   display:
-    fontFamily: "Anton, Impact, sans-serif"
+    fontFamily: "Barlow Condensed, Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(0.875rem, 2vw, 1.125rem)"
     fontWeight: 700
     lineHeight: 1
-    letterSpacing: "-0.04em"
+    letterSpacing: "-0.02em"
   body:
     fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
@@ -44,7 +44,7 @@ typography:
     lineHeight: 1.4
     letterSpacing: "0.08em"
   stat:
-    fontFamily: "Anton, Impact, sans-serif"
+    fontFamily: "Barlow Condensed, Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 700
     lineHeight: 1.1
@@ -135,7 +135,7 @@ Every screen reads like the moments before a tournament tips off: the lights com
 
 **Key Characteristics:**
 - Orange primary (#ff4500) as a functional accent, never decoration
-- Typography hierarchy split: Anton for headlines/display, Inter for body/ui
+- Typography hierarchy split: Barlow Condensed for headlines/display, Inter for body/ui
 - Micro-animations that confirm state (settled scores, drawn groups, captured results)
 - Two tonal worlds: clean light surfaces (cards, forms) and inverted dark surfaces (heroes, match cards, stat strips)
 - "póster deportivo" card treatment: dark poster surface + 3px orange stripe instead of generic Material cards
@@ -171,14 +171,16 @@ The palette is a **single-saturated-accent system**: orange primary over a neutr
 
 ## 3. Typography
 
-**Display Font:** Anton (fallback: Impact, sans-serif) — used for section titles, numerals, stat values, and the large "16" brand mark. Tight tracking at display size.
+**Display Font:** Barlow Condensed 800 (fallback: Inter, sans-serif) — used for section titles, numerals, stat values, and the large "16" brand mark. Slightly tight tracking at display size (-0.02em); it is a wide face, so it is not squeezed further.
+
+> **En prueba.** La display anterior era Anton (condensada, muy pesada, "cartel de gimnasio"). Se cambió a Barlow Condensed: geométrica, abierta y con la misma condensación, para que el "16", los avatales de una letra y los titulares cortos sigan cabiendo. La prueba vive en un solo sitio (el titular del hero de la home, token `poster`); cuando se apruebe, `display` y `headline` en `tailwind.config.js` pasan a apuntar aquí y Anton sale del proyecto.
 
 **Body Font:** Inter (fallback: system-ui, ui-sans-serif) — used for all UI text, tables, forms, and body copy.
 
-**Character:** The pairing contrasts a condensed grotesque display with a readable humanist workhorse. Anton is never used for UI labels or data; Inter is never used for display headlines. Three weights maximum (400/600/700) across the system.
+**Character:** The pairing contrasts a condensed display with a readable humanist workhorse. The display face is never used for UI labels or data; Inter is never used for display headlines. Three weights maximum (400/600/700) across the system.
 
 ### Hierarchy
-- **Display** (700, clamp(0.875rem, 2vw, 1.125rem) — used for the home h1 "Pádel" at 9rem): Hero and section mastheads
+- **Display** (700, clamp(0.875rem, 2vw, 1.125rem) — used for the home h1 at 4rem): Hero and section mastheads
 - **Headline** (700, 1.5–2.25rem): Section headings, tournament names
 - **Body** (400, 1rem, 1.5): Standard text, table rows
 - **Label** (600, 0.75rem, 0.08em tracking, uppercase): Stat row labels, badges, captions — `text-caption` token
@@ -218,12 +220,12 @@ The palette is a **single-saturated-accent system**: orange primary over a neutr
 ### Cards
 - **Surface treatment:** `.liga16-surface` base (clean light or inverted dark) with 1px border; `.liga16-surface--poster` for hero/match cards (dark in both themes)
 - **Stripe:** `.liga16-stripe` — 3px absolute top bar at `hsl(16 100% 50%)`; the primary visual cue for "this is Liga16"
-- **Numeral:** `.liga16-numeral` — oversized Anton at 16 opacity, the decorative "16" brand mark
+- **Numeral:** `.liga16-numeral` — oversized display face at 16 opacity, the decorative "16" brand mark
 - **Lift hover:** `.liga16-card--lift` — raises 2px, orange-tints the border, adds the hover shadow above. Never on static containers
 - **Corner radius:** `10px` (`var(--radius)`) — never over-rounded
 
 ### Stat Row
-- **`.liga16-statrow`** — grid of labeled values (the "cifras" strip on heroes): value in `hsl(16 100% 85%) / Anton / tabular-nums`, label in uppercase `text-caption` / muted
+- **`.liga16-statrow`** — grid of labeled values (the "cifras" strip on heroes): value in `hsl(16 100% 85%) / display face / tabular-nums`, label in uppercase `text-caption` / muted
 - Bordered by top + inline separators in `hsl(24 40% 88% / 0.5)`
 - **Purpose:** makes tournament stats (Parejas, Torneos, Categorías) scannable at a glance
 
@@ -244,7 +246,7 @@ The palette is a **single-saturated-accent system**: orange primary over a neutr
 
 ### Do:
 - **Do** use orange as a functional accent only — on primary actions, live state, the card stripe, and score emphasis. Keep it rare so it reads.
-- **Do** render stat values in Anton with `tabular-nums` so columns hold alignment.
+- **Do** render stat values in the display face with `tabular-nums` so columns hold alignment.
 - **Do** present active filter state on chips with the `hsl(16 100% 32% / 0.1)` background — instantly scannable.
 - **Do** treat hero/match surfaces as dark poster cards (`--surface-inverse`) regardless of theme for consistent branding.
 - **Do** keep card corners at 10px and button corners at 8px — consistent vocabulary.

@@ -252,7 +252,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
       <section className="relative -mx-4 -mt-8 overflow-hidden bg-surface-inverse text-white md:-mx-6 md:rounded-b-[2rem]">
         {/* El fondo es la FOTO de la cancha, no el póster del torneo. El póster
             lleva el nombre del torneo escrito encima y ese texto se cruzaba
-            con el titular: "PÁDEL EN JUEGO" encima de "LIGA16 4TA EDICIÓN",
+            con el titular del torneo encima de "LIGA16 4TA EDICIÓN",
             dos tipografías peleando por el mismo sitio. Ahora el póster
             aparece, pequeño y con su marco, dentro del bloque del torneo. */}
         <img
@@ -275,11 +275,16 @@ setStats({ tournaments, teams, matches, news, sponsors });
           </p>
 
           <div className="max-w-3xl py-14 sm:py-16">
-            <h1 className="font-headline text-[3.5rem] uppercase leading-[0.85] tracking-[-0.03em] sm:text-[5rem] md:text-[6rem]">
-              Pádel
+
+            {/* PRUEBA DE FUENTE: solo este titular usa la display nueva
+                (token `poster` = Barlow Condensed). El resto de la app
+                sigue con Anton, hasta que se decida. */}
+            <h1 className="font-poster text-[2.5rem] font-extrabold uppercase leading-[0.88] tracking-[-0.02em] sm:text-[3rem] md:text-[4rem] text-white/90">
+              Liga16
               <br />
-              <span className="text-primary-strong">en juego.</span>
+              <span className="text-primary-strong">4ta Edición</span>
             </h1>
+
 
             {featured && (
               /* Sin la franja de color a la izquierda (era un adorno que

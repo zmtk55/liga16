@@ -92,6 +92,10 @@ module.exports = {
         /* Alias semántico: jerarquía editorial (títulos de sección).
            Todo lo demás — cards, popups, datos — usa sans. */
         headline: ["Anton", "Impact", "sans-serif"],
+        /* La display que se está probando (token `poster`). Va en el hero de
+           la home mientras se decide; si se aprueba, `display` y `headline`
+           pasan a apuntar aquí y Anton sale del proyecto. */
+        poster: ["Barlow Condensed", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
