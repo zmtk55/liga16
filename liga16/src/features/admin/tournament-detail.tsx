@@ -1381,10 +1381,19 @@ return (
                   <Button
                     variant="secondary"
                     onClick={() => {
-                      // Al abrir se marcan los días del torneo: son la disponibilidad
-                      // obvia y dejar la casilla vacía hacía que "Generar" fallara con
-                      // un toast que nadie entendía de dónde salía.
-                      setScheduleConfig((c) => ({ ...c, days: c.days.length > 0 ? c.days : tournamentDays(tournament) }));
+                      // Al abrir se marcan los días donde YA hay partidos: es la
+                      // disponibilidad real del torneo y deja la casilla vacía
+                      // fuera de la ecuación. Si no hay partidos todavía, se
+                      // marcan los días del torneo.
+                      setScheduleConfig((c) => ({
+                        ...c,
+                        days:
+                          c.days.length > 0
+                            ? c.days
+                            : matchDays.length > 0
+                              ? matchDays
+                              : tournamentDays(tournament),
+                      }));
                       setScheduleOpen(true);
                     }}
                     disabled={saving}
@@ -2038,6 +2047,19 @@ return (
                       scheduleConfig.hours.length *
                       (scheduleConfig.courtNames.length || courts.length || 1);
                     const faltan = matches.length - capacidad;
+                    // Las horas marcadas tienen que estar al menos un partido
+                    // aparte: si no, el segundo turno empieza cuando el
+                    // primero sigue en la cancha.
+                    const horas = [...scheduleConfig.hours].sort((a, b) => a - b);
+                    const huecoMin = horas.length > 1 ? Math.min(...horas.slice(1).map((h, i) => h - horas[i])) : Infinity;
+                    if (huecoMin * 60 < scheduleConfig.minutesPerMatch) {
+                      return (
+                        <span className="mt-1 block font-medium text-destructive">
+                          Las horas marcadas están menos de {scheduleConfig.minutesPerMatch} min aparte: dos
+                          partidos se enciman.
+                        </span>
+                      );
+                    }
                     if (faltan > 0) {
                       return (
                         <span className="mt-1 block font-medium text-destructive">
