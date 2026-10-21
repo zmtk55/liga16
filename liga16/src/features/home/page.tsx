@@ -249,26 +249,20 @@ setStats({ tournaments, teams, matches, news, sponsors });
   return (
     <div className="space-y-16 md:space-y-20">
       {/* HERO — una sola composición, sin dashboard */}
-      <section className="relative -mx-4 -mt-8 min-h-[620px] overflow-hidden bg-surface-inverse text-white md:-mx-6 md:rounded-b-[2rem]">
-        {/* La foto ES el fondo del mensaje. El `grayscale` + tres capas de
-            velo la dejaban irreconocible; con un solo degradado de apoyo se
-            lee la cancha y el texto mantiene el contraste que necesita. */}
+      <section className="relative -mx-4 -mt-8 overflow-hidden bg-surface-inverse text-white md:-mx-6 md:rounded-b-[2rem]">
+        {/* El fondo es la FOTO de la cancha, no el póster del torneo. El póster
+            lleva el nombre del torneo escrito encima y ese texto se cruzaba
+            con el titular: "PÁDEL EN JUEGO" encima de "LIGA16 4TA EDICIÓN",
+            dos tipografías peleando por el mismo sitio. Ahora el póster
+            aparece, pequeño y con su marco, dentro del bloque del torneo. */}
         <img
-          src={featured?.cover_url || HERO_IMAGE}
+          src={HERO_IMAGE}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-[62%_center] opacity-60"
+          className="absolute inset-0 h-full w-full object-cover object-[62%_center] opacity-70"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/20" />
-        {/* La marca "16" es adorno: solo aparece donde hay sitio para ella. En
-            móvil se cruzaba con el titular y con el enlace secundario. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -bottom-10 -right-4 hidden select-none font-headline text-[24rem] leading-none text-white/[0.07] md:block"
-        >
-          16
-        </span>
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/65 to-black/25" />
 
-        <div className="relative mx-auto flex min-h-[620px] max-w-7xl flex-col justify-between px-4 pb-7 pt-8 md:px-8 md:pb-8 md:pt-10">
+        <div className="relative mx-auto flex min-h-[560px] max-w-7xl flex-col justify-between px-4 pb-8 pt-8 md:px-8 md:pb-10 md:pt-12">
           {/* La sede aparece UNA vez, y solo cuando no hay partido en vivo:
               cuando lo hay, el eyebrow lo ocupa el estado, que es lo que la
               gente viene a mirar. Antes se repetía tres veces (aquí, en el
@@ -280,21 +274,32 @@ setStats({ tournaments, teams, matches, news, sponsors });
               : `Circuito de pádel · ${sedeLabel}`}
           </p>
 
-          <div className="max-w-3xl pb-7 pt-20 sm:pb-10 sm:pt-28">
-            <h1 className="font-headline text-[4.25rem] uppercase leading-[0.82] tracking-[-0.035em] sm:text-[7rem] md:text-[9rem]">
+          <div className="max-w-3xl py-14 sm:py-16">
+            <h1 className="font-headline text-[3.5rem] uppercase leading-[0.85] tracking-[-0.03em] sm:text-[5rem] md:text-[6rem]">
               Pádel
               <br />
               <span className="text-primary-strong">en juego.</span>
             </h1>
 
             {featured && (
-              <div className="mt-7 border-l-2 border-primary pl-4 sm:mt-9 sm:pl-5">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">
-                  Próximo torneo
-                </p>
-                <p className="mt-1 max-w-xl text-lg font-semibold leading-tight sm:text-2xl">
-                  {featured.name}
-                </p>
+              /* Sin la franja de color a la izquierda (era un adorno que
+                 duplicaba el borde del botón) y con el póster del torneo en
+                 miniatura: el nombre se lee de una vez y la imagen no le
+                 dispute el sitio al titular. */
+              <div className="mt-8 flex max-w-lg items-center gap-4 rounded-xl bg-white/[0.06] p-3 ring-1 ring-inset ring-white/10">
+                {featured.cover_url && (
+                  <img
+                    src={featured.cover_url}
+                    alt=""
+                    className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                  />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{featured.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-white/60">
+                    {statusLabel} · {featured.club_name ?? featured.city}
+                  </p>
+                </div>
               </div>
             )}
 
@@ -317,32 +322,6 @@ setStats({ tournaments, teams, matches, news, sponsors });
               </Link>
             </div>
           </div>
-
-          {/* Cifras que cambian con la liga. "Sede" salía aquí con un fallback
-              inventado ("CDMX") que además se truncaba a una letra; la sede
-              vive ahora en el eyebrow. El estado en vivo NO se repite acá:
-              ya es el eyebrow de arriba. */}
-          <dl className="grid grid-cols-3 border-y border-white/15 bg-black/20 backdrop-blur-sm">
-            {[
-              { label: "Parejas", value: String(stats.teams.length) },
-              { label: "Torneos", value: String(stats.tournaments.length) },
-              { label: "Categorías", value: String(teamGroups.length) },
-            ].map((item, index) => (
-              <div
-                key={item.label}
-                className={`px-3 py-3 sm:px-5 sm:py-4 ${
-                  index > 0 ? "border-l border-white/15" : ""
-                }`}
-              >
-                <dd className="font-headline text-xl uppercase sm:text-3xl">
-                  {item.value}
-                </dd>
-                <dt className="mt-1 text-xs font-bold uppercase tracking-[0.22em] text-white/60">
-                  {item.label}
-                </dt>
-              </div>
-            ))}
-          </dl>
         </div>
       </section>
 
