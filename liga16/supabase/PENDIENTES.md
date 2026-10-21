@@ -88,7 +88,29 @@ criterio de admin.
 
 ---
 
-## 5. Por confirmar (necesita el SQL Editor para salir de dudas)
+## 5. `matches.status` — 27 partidos con marcador que siguen 'scheduled'
+
+Archivo: [`fix-match-status-stale.sql`](./fix-match-status-stale.sql)
+
+```sql
+-- el update completo está en el archivo; en corto:
+update public.matches m
+set status = 'finished'
+where m.status = 'scheduled'
+  and (m.winner is not null or /* un lado ganó 2 sets o más */);
+```
+
+El estado se cerraba a mano y quedó viejo: **27 de 60 partidos** tienen sets
+completos y seguían en 'scheduled'. La app ya no depende de ese campo (la
+regla vive en `src/lib/match-state.ts`: el estado sale del marcador), pero
+cualquier cosa que lea `matches.status` en crudo sigue mintiendo.
+
+**Verificación actual:** `FALTA` — 27 filas con `status = 'scheduled'` y
+marcador completo.
+
+---
+
+## 6. Por confirmar (necesita el SQL Editor para salir de dudas)
 
 Estas comprobaciones se hicieron contra la API de datos, que no expone las
 funciones de trigger y puede tener la caché del esquema sin recargar:
@@ -121,7 +143,8 @@ order by p.proname;
 2. `pairs.group_name` + su índice (de arriba, en el mismo bloque)
 3. `team-crests-storage.sql` (bucket de escudos)
 4. `tournament-covers-storage.sql` (bucket de portadas)
-5. La consulta de verificación del punto 5, y si falta algo, correr su archivo.
+5. `fix-match-status-stale.sql` (los 27 partidos con marcador en 'scheduled')
+6. La consulta de verificación del punto 6, y si falta algo, correr su archivo.
 
 Todos son idempotentes: si se corre dos veces, la segunda no cambia nada.
 
