@@ -59,7 +59,7 @@ export default function AdminRanking() {
     let active = true;
     db.listTeams().then((t) => {
       if (active) setTeams(t);
-    });
+    }).catch(() => { if (active) setTeams([]); });
     return () => { active = false; };
   };
 

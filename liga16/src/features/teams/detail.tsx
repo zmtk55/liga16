@@ -20,6 +20,7 @@ export default function TeamDetailPage() {
   const [team, setTeam] = useState<Team | null | undefined>(undefined);
   const [matches, setMatches] = useState<Match[]>([]);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const [rolExpanded, setRolExpanded] = useState(false);
   const [compareName, setCompareName] = useState<string>("");
 
   useEffect(() => {
@@ -81,13 +82,21 @@ export default function TeamDetailPage() {
  * no caía en ninguna rama). "Por jugar" también lo contaba.
  */
   const pendientes = useMemo(() => {
-    const now = new Date().getTime();
-    return rol.filter((m) => {
-      if (m.status !== "scheduled" && m.status !== "live") return false;
-      const at = new Date(m.scheduled_at ?? "").getTime();
-      // Sin fecha no se puede decir que sea futuro: se cuenta, pero no se fecha.
-      return !Number.isFinite(at) || at >= now;
-    });
+    const at = (m: Match) => {
+      const t = new Date(m.scheduled_at ?? "").getTime();
+      return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+    };
+    // "Por jugar" = lo que aún NO se ha capturado, según `matchStatusKey` (la
+    // única fuente de verdad). Antes se filtraba por `status` crudo y además
+    // por fecha futura: un partido agendado para un día que ya pasó se
+    // borraba de la lista y la sección quedaba siempre vacía.
+    return rol
+      .filter((m) => {
+        const key = matchStatusKey(m);
+        return key === "scheduled" || key === "live" || key === "disputed";
+      })
+      // A futuro primero; los que ya pasaron (o no tienen fecha) al final.
+      .sort((a, b) => at(a) - at(b));
   }, [rol]);
 
   // Stats de sets reales desde los partidos capturados
@@ -226,28 +235,28 @@ export default function TeamDetailPage() {
               {[team.player1, team.player2].map((p, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:border-white/20 hover:bg-white/10"
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 transition-colors hover:border-white/20 hover:bg-white/10"
                 >
                   {p?.player_id ? (
                     <Link to={`/jugadores/${p.player_id}`} className="shrink-0" aria-label={`Ver dashboard de ${p.name}`}>
-                      <Avatar className="h-14 w-14 border-2 border-white/20">
-                        <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${p.name}`} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">{initials(p.name)}</AvatarFallback>
+                      <Avatar className="h-12 w-12 border-2 border-white/20">
+                        <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(p.name ?? "")}`} />
+                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">{initials(p.name)}</AvatarFallback>
                       </Avatar>
                     </Link>
                   ) : (
-                    <Avatar className="h-14 w-14 border-2 border-white/20 shrink-0">
-                      <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${p?.name ?? "Jugador"}`} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">{p ? initials(p.name) : "?"}</AvatarFallback>
+                    <Avatar className="h-12 w-12 border-2 border-white/20 shrink-0">
+                      <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(p?.name ?? "Jugador")}`} />
+                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">{p ? initials(p.name) : "?"}</AvatarFallback>
                     </Avatar>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-lg font-black">{p?.name ?? "Pendiente"}</p>
-                    <p className="text-xs text-white/50">{p ? `Nivel ${p.level?.toFixed(1) ?? "—"}` : "Nivel —"} · {i === 0 ? "Jugador 1" : "Jugador 2"}</p>
+                    <p className="truncate text-base font-bold leading-snug">{p?.name ?? "Pendiente"}</p>
+                    <p className="text-[11px] text-white/50">{p ? `Nivel ${p.level?.toFixed(1) ?? "—"}` : "Nivel —"} · {i === 0 ? "Jugador 1" : "Jugador 2"}</p>
                   </div>
                   {p && p.player_id && (
-                    <Button asChild variant="outline" size="icon" className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white shrink-0" aria-label={`Abrir dashboard de ${p.name}`}>
-                      <Link to={`/jugadores/${p.player_id}`}><ExternalLink className="h-4 w-4" /></Link>
+                    <Button asChild variant="outline" size="icon" className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white shrink-0 h-8 w-8" aria-label={`Abrir dashboard de ${p.name}`}>
+                      <Link to={`/jugadores/${p.player_id}`}><ExternalLink className="h-3.5 w-3.5" /></Link>
                     </Button>
                   )}
                 </div>
@@ -368,7 +377,7 @@ export default function TeamDetailPage() {
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Comparar con otro equipo</CardTitle>
             <Select value={compareName} onValueChange={setCompareName}>
-              <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-44 max-w-[240px] text-xs truncate"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
               <SelectContent>
                 {allTeams.map((t) => (
                   <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
@@ -379,14 +388,24 @@ export default function TeamDetailPage() {
           <CardContent>
             {compareTeam ? (
               <CompareBlock
-                nameA={team.name}
-                nameB={compareTeam.name}
-                rows={[
-                  { k: "Win%", a: winRatePct, b: winRate(compareTeam.played, compareTeam.won), suffix: "%" },
-                  { k: "PJ", a: team.played, b: compareTeam.played },
-                  { k: "Sets G", a: setStats.sf, b: compareTeam.sets_for },
-                  { k: "Puntos", a: team.points, b: compareTeam.points },
-                ]}
+                a={{
+                  name: team.name,
+                  seed: team.player1?.name ?? team.name,
+                  stats: [
+                    { k: "Win%", v: `${winRatePct}%` },
+                    { k: "PJ", v: String(team.played) },
+                    { k: "Puntos", v: team.points.toLocaleString("es-MX") },
+                  ],
+                }}
+                b={{
+                  name: compareTeam.name,
+                  seed: compareTeam.player1?.name ?? compareTeam.name,
+                  stats: [
+                    { k: "Win%", v: `${winRate(compareTeam.played, compareTeam.won)}%` },
+                    { k: "PJ", v: String(compareTeam.played) },
+                    { k: "Puntos", v: compareTeam.points.toLocaleString("es-MX") },
+                  ],
+                }}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -410,17 +429,25 @@ export default function TeamDetailPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {rol.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Sin partidos en el rol. Aparecerán cuando se genere el calendario de un torneo.
-                </p>
+                <p className="text-sm text-muted-foreground">Sin partidos en el rol. Aparecerán cuando se genere el calendario de un torneo.</p>
               ) : (
-                rol.map((m) => (
-                  <MatchCard
-                    key={m.id}
-                    match={m}
-                    className={m.status === "live" ? "border-primary/40" : ""}
-                  />
-                ))
+                <>
+                  {(rolExpanded ? rol : rol.slice(-3)).map((m) => (
+                    <MatchCard
+                      key={m.id}
+                      match={m}
+                      className={m.status === "live" ? "border-primary/40" : ""}
+                    />
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setRolExpanded((v) => !v)}
+                  >
+                    {rolExpanded ? "Ver menos" : `Ver todo (${rol.length} partidos)`}
+                  </Button>
+                </>
               )}
             </CardContent>
           </Card>
@@ -450,59 +477,57 @@ export default function TeamDetailPage() {
   );
 }
 
-// Comparativa cara a cara: valores a los lados del indicador, barra partida
-// proporcional (el que va adelante va saturado) y animación al montar.
+// Comparativa compacta: dos tarjetas enfrentadas (VS) con avatar, nombre y
+// las tres cifras clave. Reemplaza a la tabla larga, que ocupaba más espacio
+// del que aportaba.
 function CompareBlock({
-  nameA,
-  nameB,
-  rows,
+  a,
+  b,
 }: {
-  nameA: string;
-  nameB: string;
-  rows: { k: string; a: number; b: number; suffix?: string }[];
+  a: { name: string; seed: string; stats: { k: string; v: string }[] };
+  b: { name: string; seed: string; stats: { k: string; v: string }[] };
 }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 text-xs font-semibold">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-primary" />
-          <span className="truncate">{nameA}</span>
-        </span>
-        <span className="shrink-0 text-xs uppercase tracking-widest text-muted-foreground/70">vs</span>
-        <span className="flex min-w-0 items-center justify-end gap-1.5">
-          <span className="truncate">{nameB}</span>
-          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-muted-foreground/50" />
-        </span>
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
+      <div className="rounded-xl border bg-muted/30 p-3 sm:p-4">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10 shrink-0 border border-border">
+            <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(a.seed)}`} />
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials(a.name)}</AvatarFallback>
+          </Avatar>
+          <p className="min-w-0 truncate text-sm font-bold">{a.name}</p>
+        </div>
+        <dl className="mt-3 grid grid-cols-3 gap-2 border-t pt-3 text-center">
+          {a.stats.map((s) => (
+            <div key={s.k} className="min-w-0">
+              <dt className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">{s.k}</dt>
+              <dd className="mt-0.5 text-sm font-black tabular-nums">{s.v}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      {rows.map((r) => {
-        const total = r.a + r.b;
-        const pa = total > 0 ? (r.a / total) * 100 : 50;
-        const leadA = r.a >= r.b;
-        return (
-          <div key={r.k}>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-baseline gap-3">
-              <span className={`text-right text-sm font-black tabular-nums ${leadA ? "text-foreground" : "text-muted-foreground/60"}`}>
-                {r.a}{r.suffix ?? ""}
-              </span>
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">{r.k}</span>
-              <span className={`text-left text-sm font-black tabular-nums ${!leadA ? "text-foreground" : "text-muted-foreground/60"}`}>
-                {r.b}{r.suffix ?? ""}
-              </span>
+      <span className="rounded-full border bg-card px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+        vs
+      </span>
+
+      <div className="rounded-xl border bg-muted/30 p-3 sm:p-4">
+        <div className="flex items-center gap-3 sm:flex-row-reverse sm:text-right">
+          <Avatar className="h-10 w-10 shrink-0 border border-border">
+            <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(b.seed)}`} />
+            <AvatarFallback className="bg-muted text-muted-foreground text-xs">{initials(b.name)}</AvatarFallback>
+          </Avatar>
+          <p className="min-w-0 truncate text-sm font-bold">{b.name}</p>
+        </div>
+        <dl className="mt-3 grid grid-cols-3 gap-2 border-t pt-3 text-center">
+          {b.stats.map((s) => (
+            <div key={s.k} className="min-w-0">
+              <dt className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">{s.k}</dt>
+              <dd className="mt-0.5 text-sm font-black tabular-nums">{s.v}</dd>
             </div>
-            <div className="mt-1 flex h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className={`h-full ${leadA ? "bg-primary" : "bg-primary/40"}`}
-                style={{ width: `${pa}%` }}
-              />
-              <div
-                className={`h-full ${leadA ? "bg-muted-foreground/40" : "bg-muted-foreground"}`}
-                style={{ width: `${100 - pa}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
+          ))}
+        </dl>
+      </div>
     </div>
   );
 }

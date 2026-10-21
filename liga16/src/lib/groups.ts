@@ -1,6 +1,6 @@
 // Liga16 — utilidades del sistema de grupos de un torneo
 import type { Match, UUID, TournamentScoring } from "@/types";
-import { matchStatusKey } from "@/lib/match-state";
+import { computePairStatsLiga16, computeJerarquiaLiga16 } from "@/lib/liga16-scoring";
 
 export interface Group {
   name: string; // "Grupo A", "Grupo B"…
@@ -23,6 +23,8 @@ export interface DrawablePair {
   category_id: UUID | null;
   /** Nombre de la categoría; vacío si la pareja no tiene ninguna asignada. */
   categoryName: string;
+  /** Nombre del grupo ya asignado (para preservar sorteos previos). */
+  groupName?: string;
 }
 
 /**
@@ -37,6 +39,7 @@ export interface DrawablePair {
 export function drawGroupsByCategory(
   pairs: DrawablePair[],
   groupCount?: (catPairs: DrawablePair[]) => number,
+  preserveAssignments?: boolean,
 ): Group[] {
   const byCategory = new Map<string, DrawablePair[]>();
   for (const p of pairs) {
@@ -62,9 +65,24 @@ export function drawGroupsByCategory(
     names.forEach((n) => taken.add(n));
 
     const catGroups: Group[] = names.map((name) => ({ name, pairIds: [] }));
-    shuffle(catPairs).forEach((p, i) => {
-      catGroups[i % catGroups.length].pairIds.push(p.id);
-    });
+
+    if (preserveAssignments) {
+      // Las parejas ya asignadas conservan su grupo; sólo se reparten las
+      // parejas libres entre los grupos que aún tienen cupo.
+      const assigned = catPairs.filter((p) => p.groupName);
+      const free = catPairs.filter((p) => !p.groupName);
+      for (const p of assigned) {
+        const g = catGroups.find((x) => x.name === p.groupName);
+        if (g) g.pairIds.push(p.id);
+      }
+      shuffle(free).forEach((p, i) => {
+        catGroups[i % catGroups.length].pairIds.push(p.id);
+      });
+    } else {
+      shuffle(catPairs).forEach((p, i) => {
+        catGroups[i % catGroups.length].pairIds.push(p.id);
+      });
+    }
     out.push(...catGroups);
   }
   return out;
@@ -252,98 +270,29 @@ export function computeStandings(
   pairIds: UUID[],
   matches: Match[],
   pairNameById: Record<string, string>,
-  // El scoring ya no cambia el cálculo (único criterio: % de puntos). Se deja
-  // el parámetro por firma para no tocar los llamadores, pero no se lee.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _scoring?: TournamentScoring,
 ): StandingRow[] {
-  const rows = new Map<UUID, StandingRow>();
-  pairIds.forEach((id) =>
-    rows.set(id, { pairId: id, played: 0, won: 0, lost: 0, setsFor: 0, setsAgainst: 0, gamesFor: 0, gamesAgainst: 0, points: 0, form: [], pointsFor: 0, pointsTotal: 0, pointsPercentage: 0, jerarquia: 0 }),
+  // Reglas únicas Liga16: derivar de partidos con ganador + puntos (no status crudo)
+  const stats = pairIds.map((id, i) =>
+    computePairStatsLiga16(id, i + 1, pairNameById[id] ?? "", matches),
   );
-
-  const finished = matches
-    .filter((m) => matchStatusKey(m) === "finished" && m.winner)
-    .sort((x, y) => String(x.scheduled_at).localeCompare(String(y.scheduled_at)));
-
-  const nameToId = new Map<string, UUID>();
-  pairIds.forEach((id) => {
-    const n = (pairNameById[id] ?? "").trim().toLowerCase();
-    if (n) nameToId.set(n, id);
-  });
-  const resolve = (side: { pair_id: UUID | null; pair_name: string | null }): UUID | null =>
-    side.pair_id && rows.has(side.pair_id)
-      ? side.pair_id
-      : nameToId.get((side.pair_name ?? "").trim().toLowerCase()) ?? null;
-
-  for (const m of finished) {
-    const a = resolve(m.side_a);
-    const b = resolve(m.side_b);
-    if (a === b) continue;
-    const rowA = a ? rows.get(a) : null;
-    const rowB = b ? rows.get(b) : null;
-    // Un lado que no es una pareja inscrita (rival externo, par con id ajeno)
-    // NO descarta el partido: el lado registrado sí tiene derecho a su PJ,
-    // sets y puntos. Antes `if (!a || !b) continue` tiraba el partido entero
-    // y el equipo inscrito perdía un resultado que sí jugó —la tabla mostraba
-    // menos PJ de los que había, sin que nada lo indicara.
-    if (!rowA && !rowB) continue;
-
-    // sumar juegos/sets de ESTE match
-    let matchGamesForA = 0;
-    let matchGamesForB = 0;
-    for (const s of m.sets) {
-      matchGamesForA += s.a;
-      matchGamesForB += s.b;
-    }
-
-    const aWon = m.winner === "a";
-    const updateSide = (row: StandingRow | null | undefined, isA: boolean, won: boolean) => {
-      if (!row) return;
-      row.played++;
-      if (won) row.won++;
-      else row.lost++;
-      row.form.push(won ? "G" : "P");
-      // % de puntos (Liga16): sumar sólo los juegos DE ESTE match.
-      const forThis = isA ? matchGamesForA : matchGamesForB;
-      const againstThis = isA ? matchGamesForB : matchGamesForA;
-      row.pointsFor = (row.pointsFor ?? 0) + forThis;
-      row.pointsTotal = (row.pointsTotal ?? 0) + forThis + againstThis;
-      row.setsFor += isA ? matchGamesForA : matchGamesForB;
-      row.setsAgainst += isA ? matchGamesForB : matchGamesForA;
-      row.gamesFor += isA ? matchGamesForA : matchGamesForB;
-      row.gamesAgainst += isA ? matchGamesForB : matchGamesForA;
-    };
-
-    updateSide(rowA, true, aWon);
-    updateSide(rowB, false, !aWon);
-  }
-
-  rows.forEach((r) => {
-    r.form = r.form.slice(-5);
-    r.pointsPercentage = r.pointsTotal && r.pointsTotal > 0 ? r.pointsFor! / r.pointsTotal! : null;
-    // `points` se rellena con el porcentaje (basis points) para que las
-    // columnas que leen `StandingRow.points` —comparadores, gráficas— no
-    // tengan que saber de dónde salió el número.
-    r.points = r.pointsPercentage ? Math.round(r.pointsPercentage * 10000) : 0;
-  });
-
-  let result = [...rows.values()];
-
-  // Ordenar por % puntos descendente, RANK estilo Excel (1,1,3...)
-  const withPct = result.filter((r) => r.pointsPercentage !== null && r.pointsPercentage !== undefined);
-  const withoutPct = result.filter((r) => r.pointsPercentage === null || r.pointsPercentage === undefined);
-  withPct.sort((x, y) => (y.pointsPercentage ?? 0) - (x.pointsPercentage ?? 0));
-  for (const r of withPct) {
-    const higher = withPct.filter((o) => (o.pointsPercentage ?? 0) > (r.pointsPercentage ?? 0)).length;
-    r.jerarquia = 1 + higher;
-  }
-  for (const r of withoutPct) {
-    r.jerarquia = 0;
-  }
-  result = [...withPct.sort((a, b) => a.jerarquia! - b.jerarquia!), ...withoutPct];
-
-  return result;
+  const ranked = computeJerarquiaLiga16(stats);
+  return ranked.map((s) => ({
+    pairId: s.pairId,
+    played: s.PJ,
+    won: s.PG,
+    lost: s.PJ - s.PG,
+    setsFor: s.SETS_FAVOR,
+    setsAgainst: s.SETS_CONTRA,
+    gamesFor: 0,
+    gamesAgainst: 0,
+    points: s.RENDIMIENTO_PTS ? Math.round(s.RENDIMIENTO_PTS * 1000) / 10 : 0,
+    form: [], // El form requiere historial por partido; se conserva vacío si no se usa directamente
+    pointsFor: s.PUNTOS_A_FAVOR,
+    pointsTotal: s.PUNTOS_TOTALES,
+    pointsPercentage: s.RENDIMIENTO_PTS,
+    jerarquia: s.JERARQUIA ?? 0,
+  }));
 }
 
 const LETTERS = "ABCDEFGHIJ";

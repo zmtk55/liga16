@@ -59,6 +59,10 @@ export default function AdminNews() {
   const load = () => db.listNews().then(setList);
 
   async function handleSave(form: NewsForm) {
+    if (!form.title?.trim()) {
+      toast.error("El título es obligatorio");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {

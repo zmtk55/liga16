@@ -178,6 +178,7 @@ export interface Pair {
   player1_id: UUID;
   player2_id: UUID;
   seed: number | null;
+  group_name: string | null;
 }
 
 export interface Registration {

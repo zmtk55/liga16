@@ -1,6 +1,7 @@
 # Logs y sesiones de agentes
 .freebuff/
 .opencode/
+.openchamber/
 
 # Dependencias
 node_modules/

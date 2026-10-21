@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Match, PlayerProfile } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,10 +57,21 @@ export default function CalendarPage() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [myPairIds, setMyPairIds] = useState<Set<string> | null>(null);
   const [day, setDay] = useState<string>("");
-  const [query, setQuery] = useState("");
-  const [tournament, setTournament] = useState("all");
-  const [category, setCategory] = useState("all");
-  const [onlyMine, setOnlyMine] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [query, setQuery] = useState(params.get("q") ?? "");
+  const [tournament, setTournament] = useState(params.get("tournament") ?? "all");
+  const [category, setCategory] = useState(params.get("category") ?? "all");
+  const [onlyMine, setOnlyMine] = useState(params.get("onlyMine") === "true");
+
+  // Sincronizar filtros de calendario con la URL (se pueden compartir/recargar)
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (query.trim()) next.set("q", query.trim());
+    if (tournament && tournament !== "all") next.set("tournament", tournament);
+    if (category && category !== "all") next.set("category", category);
+    if (onlyMine) next.set("onlyMine", "true");
+    setParams(next, { replace: true });
+  }, [query, tournament, category, onlyMine, setParams]);
 
   useEffect(() => {
     let active = true;

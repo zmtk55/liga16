@@ -349,11 +349,12 @@ export const supabaseProvider: DataProvider = {
     return result as never;
   },
 
-  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; tournament_id?: string; crest_url?: string | null }) {
+  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; group_name?: string | null; tournament_id?: string; crest_url?: string | null }) {
     const patch: Record<string, unknown> = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.category_id !== undefined) patch.category_id = data.category_id;
     if (data.seed !== undefined) patch.seed = data.seed;
+    if (data.group_name !== undefined) patch.group_name = data.group_name;
     if (data.tournament_id !== undefined) patch.tournament_id = data.tournament_id;
     if (data.crest_url !== undefined) patch.crest_url = data.crest_url;
     const { data: result, error } = await client()

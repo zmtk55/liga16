@@ -159,10 +159,7 @@ export default function AdminPlayers() {
   };
 
   const load = () =>
-    db.listPlayers().then((l) => {
-      setList(l);
-      loadStats(l);
-    });
+    db.listPlayers().then((l) => { setList(l); loadStats(l); }).catch((_e) => toast.error("No se cargaron jugadores"));
 
   useEffect(() => {
     load();
@@ -195,6 +192,11 @@ export default function AdminPlayers() {
   async function handleSave(form: PlayerFormData) {
     setSubmitting(true);
     try {
+      if (!form.display_name?.trim()) {
+        toast.error("El nombre visible es obligatorio");
+        setSubmitting(false);
+        return;
+      }
       await new Promise((r) => setTimeout(r, 400));
       if (editing) {
         await db.updatePlayer(

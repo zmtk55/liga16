@@ -198,11 +198,13 @@ create table if not exists public.pairs (
   player1_id uuid references public.player_profiles (id) on delete set null,
   player2_id uuid references public.player_profiles (id) on delete set null,
   seed integer,
+  group_name text,
   status text not null default 'pending',
   created_at timestamptz not null default now()
 );
 
 create index if not exists idx_pairs_tournament on public.pairs(tournament_id);
+create index if not exists idx_pairs_tournament_group on public.pairs(tournament_id, group_name);
 
 -- Registros
 create table if not exists public.registrations (

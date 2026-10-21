@@ -43,7 +43,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { categoriasValidas, ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { DEFAULT_SCORING } from "@/lib/scoring";
-import { scheduleRounds, type Group } from "@/lib/groups";
+import { scheduleRounds, drawGroupsByCategory, type Group, type DrawablePair } from "@/lib/groups";
 import { sexLabel } from "@/lib/format";
 import { toast } from "sonner";
 import { ensurePlayer } from "@/lib/players";
@@ -487,7 +487,7 @@ export default function TournamentWizard() {
         const dbCats = await db.getTournamentCategories(String(tournamentId));
         for (const dbCat of dbCats as unknown as Array<{ id: string; name: string }>) {
           if (!categories.some((c) => c.label.trim().toLowerCase() === dbCat.name.toLowerCase())) {
-            await db.deleteTournamentCategory(dbCat.id).catch(() => undefined);
+            await db.deleteTournamentCategory(dbCat.id).catch((e) => toast.error((e as Error).message ?? "No se pudo borrar la categoría"));
           }
         }
         // Crear las nuevas (o actualizar el nombre de las existentes via create)
@@ -563,41 +563,20 @@ teams.forEach((t) => {
       byCat.get(k)!.push(t);
     });
 
-    const result: Group[] = [];
-    const takenNames = new Set<string>();
+    // Unificar con drawGroupsByCategory: pasar índices como ids para mantener compatibilidad con teamName
+    const drawnPairs: DrawablePair[] = [];
     for (const [catKey, catTeams] of byCat) {
       const catLabel = categories.find((c) => `${c.label}|${c.sex}` === catKey)?.label ?? "";
-      const multiCat = byCat.size > 1;
-      const gname = (letra: string) => {
-        const base = multiCat && catLabel ? `${catLabel} · Grupo ${letra}` : `Grupo ${letra}`;
-        return base;
-      };
-      // Los ya asignados a mano se quedan; los libres se barajan
-      const assigned = catTeams.filter((t) => t.group);
-      const free = catTeams.filter((t) => !t.group);
-      const shuffled = [...free].sort(() => Math.random() - 0.5);
-      const pool = [...assigned, ...shuffled];
-
-      // Grupos de la categoría: los que tengan asignados + suficientes para el resto
-      const usedGroupNames = new Set(assigned.map((t) => t.group!));
-      const extraNeeded = Math.max(0, Math.ceil(free.length / 4) - usedGroupNames.size);
-      const catGroupNames: string[] = [...usedGroupNames];
-      let li = 0;
-      while (catGroupNames.length < usedGroupNames.size + extraNeeded && li < GRUPO_LETRAS.length) {
-        const name = gname(GRUPO_LETRAS[li]);
-        if (!takenNames.has(name)) catGroupNames.push(name);
-        li++;
+      for (const t of catTeams) {
+        drawnPairs.push({
+          id: String(teams.indexOf(t)),
+          category_id: null,
+          categoryName: catLabel,
+          groupName: t.group || undefined,
+        });
       }
-      catGroupNames.forEach((n) => takenNames.add(n));
-
-      const catGroups: Group[] = catGroupNames.map((name) => ({ name, pairIds: [] }));
-      pool.forEach((t, i) => {
-        const targetName = t.group ?? catGroupNames[i % catGroupNames.length];
-        const g = catGroups.find((x) => x.name === targetName);
-        if (g) g.pairIds.push(String(teams.indexOf(t)));
-      });
-      result.push(...catGroups);
     }
+    const result = drawGroupsByCategory(drawnPairs, undefined, drawnPairs.some((d) => !!d.groupName));
 
     // Guardar estado actual en historial antes de crear draft
     if (groups.length > 0) {

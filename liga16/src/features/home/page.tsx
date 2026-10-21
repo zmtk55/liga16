@@ -287,41 +287,52 @@ setStats({ tournaments, teams, matches, news, sponsors });
 
 
             {featured && (
-              /* Sin la franja de color a la izquierda (era un adorno que
-                 duplicaba el borde del botón) y con el póster del torneo en
-                 miniatura: el nombre se lee de una vez y la imagen no le
-                 dispute el sitio al titular. */
-              <div className="mt-8 flex max-w-lg items-center gap-4 rounded-xl bg-white/[0.06] p-3 ring-1 ring-inset ring-white/10">
-                {featured.cover_url && (
-                  <img
-                    src={featured.cover_url}
-                    alt=""
-                    className="h-16 w-16 shrink-0 rounded-lg object-cover"
-                  />
-                )}
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{featured.name}</p>
-                  <p className="mt-0.5 truncate text-xs text-white/60">
-                    {statusLabel} · {featured.club_name ?? featured.city}
-                  </p>
+              /* La ficha del torneo, con su acción DENTRO.
+                 Antes el "Ver torneo" era un botón suelto veinte píxeles más
+                 abajo, lejos de la ficha que describía, y la ficha se quedaba
+                 en un póster de 64px con el nombre en 16px: dos elementos
+                 para una sola cosa. Ahora la ficha es el torneo —póster, nombre,
+                 estado, fechas— y su botón es la acción. El fondo baja a
+                 negro al 45%: sobre la foto el texto blanco necesita un suelo
+                 o no se lee. */
+              <div className="mt-8 max-w-xl rounded-2xl bg-black/45 p-4 ring-1 ring-inset ring-white/10 sm:p-5">
+                <div className="flex items-start gap-4">
+                  {featured.cover_url && (
+                    <img
+                      src={featured.cover_url}
+                      alt=""
+                      className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-white/10 sm:h-24 sm:w-24"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate font-headline text-xl uppercase leading-none tracking-[-0.02em] text-white sm:text-2xl">
+                      {featured.name}
+                    </h2>
+                    <p className="mt-2 truncate text-sm text-white/70">
+                      {statusLabel} · {featured.club_name ?? featured.city}
+                    </p>
+                    <p className="mt-1 truncate text-sm text-white/70">
+                      {formatDateRange(featured.start_date, featured.end_date)}
+                    </p>
+                    <Button
+                      asChild
+                      size="lg"
+                      className="mt-4 h-11 w-full rounded-none px-5 font-bold uppercase tracking-wide sm:w-auto"
+                    >
+                      <Link to={featured ? `/torneos/${featured.slug}` : "/torneos"}>
+                        {featuredIsOpen ? "Ver inscripción" : "Ver torneo"}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button
-                asChild
-                size="lg"
-                className="h-12 w-full rounded-none px-6 font-bold uppercase tracking-wide sm:w-auto"
-              >
-                <Link to={featured ? `/torneos/${featured.slug}` : "/torneos"}>
-                  {featuredIsOpen ? "Ver inscripción" : "Ver torneo"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
                 to="/torneos"
-                className="inline-flex h-12 items-center justify-center border-b border-white/25 text-sm font-semibold uppercase tracking-wide text-white/75 transition-colors hover:border-white hover:text-white sm:justify-start"
+                className="inline-flex h-11 items-center justify-center border-b border-white/25 text-sm font-semibold uppercase tracking-wide text-white/75 transition-colors hover:border-white hover:text-white sm:justify-start"
               >
                 Todos los torneos
               </Link>

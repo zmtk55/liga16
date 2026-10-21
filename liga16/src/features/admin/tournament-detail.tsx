@@ -501,6 +501,16 @@ export default function AdminTournamentDetail() {
   const [newPairCategory, setNewPairCategory] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  /**
+   * La disponibilidad de ESTE torneo: qué días hay juego, a qué horas y con
+   * qué canchas. Cada torneo juega distinto, así que vive en el torneo (columna
+   * `schedule_config`) y no en un valor único para toda la app.
+   *
+   * Antes de que el torneo tenga disponibilidad guardada, se deduce de lo que
+   * ya está agendado: los días y las horas donde hay partidos y las canchas en
+   * uso. Así el diálogo abre con lo que el torneo ya tiene, y no con los
+   * defaults de siempre.
+   */
   const [scheduleConfig, setScheduleConfig] = useState<AvailabilityConfig & { dayInput: string }>({
     days: [],
     hours: [9, 11, 13, 16, 18, 20],
@@ -760,16 +770,28 @@ export default function AdminTournamentDetail() {
         id: p.id,
         category_id: p.category_id ?? null,
         categoryName: p.category_id ? (catNameById.get(p.category_id) ?? "") : "",
+        groupName: p.group_name ?? undefined,
       })),
       groupsPerCat > 0
         ? (catPairs) => Math.min(groupsPerCat, Math.max(1, Math.ceil(catPairs.length / 4)))
         : undefined,
+      pairs.some((p) => !!p.group_name),
     );
     setGroups(drawn);
-    const categoriesInPlay = new Set(pairs.map((p) => p.category_id ?? "")).size;
-    toast.success(
-      `Sorteo listo: ${drawn.length} grupos${categoriesInPlay > 1 ? ` en ${categoriesInPlay} categorías` : ""}`,
+    // Persistir grupos en BD para que no se pierdan al recargar
+    const savePromises = drawn.flatMap((g) =>
+      g.pairIds.map((id) => db.updatePair(id, { group_name: g.name })),
     );
+    Promise.all(savePromises)
+      .then(() => {
+        const categoriesInPlay = new Set(pairs.map((p) => p.category_id ?? "")).size;
+        toast.success(
+          `Sorteo listo: ${drawn.length} grupos${categoriesInPlay > 1 ? ` en ${categoriesInPlay} categorías` : ""}`,
+        );
+      })
+      .catch((e) => {
+        toast.error((e as Error).message ?? "No se pudo guardar el sorteo");
+      });
   }
 
   function handleDragEnd(e: DragEndEvent) {
@@ -781,30 +803,44 @@ export default function AdminTournamentDetail() {
 
     const findGroupOf = (id: string) => groups.findIndex((g) => g.pairIds.includes(id));
 
+    let newGroupName: string | null | undefined = undefined;
     if (overId === "__pool__") {
       const from = findGroupOf(activeId);
       if (from === -1) return;
       setGroups((gs) =>
         gs.map((g, i) => (i === from ? { ...g, pairIds: g.pairIds.filter((x) => x !== activeId) } : g)),
       );
-      return;
+      // Sacada del grupo: la pareja queda sin grupo asignado.
+      newGroupName = null;
+    } else {
+      const from = findGroupOf(activeId);
+      const to = findGroupOf(overId);
+      if (from === -1 && to >= 0) {
+        setGroups((gs) => gs.map((g, i) => (i === to ? { ...g, pairIds: [...g.pairIds, activeId] } : g)));
+      } else if (from >= 0 && to >= 0 && from !== to) {
+        setGroups((gs) =>
+          gs.map((g, i) => {
+            if (i === from) return { ...g, pairIds: g.pairIds.filter((x) => x !== activeId) };
+            if (i === to) return { ...g, pairIds: [...g.pairIds, activeId] };
+            return g;
+          }),
+        );
+      } else if (from >= 0 && from === to) {
+        setGroups((gs) =>
+          gs.map((g, i) => (i === from ? { ...g, pairIds: arrayMove(g.pairIds, g.pairIds.indexOf(activeId), g.pairIds.indexOf(overId)) } : g)),
+        );
+        // Reordenación interna: no cambia el grupo, no necesita persistir
+        return;
+      } else {
+        return;
+      }
+      newGroupName = groups[to]?.name ?? null;
     }
 
-    const from = findGroupOf(activeId);
-    const to = findGroupOf(overId);
-    if (from === -1 && to >= 0) {
-      setGroups((gs) => gs.map((g, i) => (i === to ? { ...g, pairIds: [...g.pairIds, activeId] } : g)));
-    } else if (from >= 0 && to >= 0 && from !== to) {
-      setGroups((gs) =>
-        gs.map((g, i) => {
-          if (i === from) return { ...g, pairIds: g.pairIds.filter((x) => x !== activeId) };
-          if (i === to) return { ...g, pairIds: [...g.pairIds, activeId] };
-          return g;
-        }),
-      );
-    } else if (from >= 0 && from === to) {
-      setGroups((gs) =>
-        gs.map((g, i) => (i === from ? { ...g, pairIds: arrayMove(g.pairIds, g.pairIds.indexOf(activeId), g.pairIds.indexOf(overId)) } : g)),
+    // Persistir cambios de sorteo en BD
+    if (newGroupName !== undefined) {
+      db.updatePair(activeId, { group_name: newGroupName }).catch((e) =>
+        toast.error((e as Error).message ?? "Error al guardar grupo"),
       );
     }
   }
@@ -816,6 +852,11 @@ export default function AdminTournamentDetail() {
 
   function renameGroup(index: number, name: string) {
     setGroups((gs) => gs.map((g, i) => (i === index ? { ...g, name } : g)));
+    // Persistir renombrado para todos los equipos del grupo
+    const groupPairs = groups[index]?.pairIds ?? [];
+    groupPairs.forEach((id) => {
+      db.updatePair(id, { group_name: name }).catch((e) => toast.error((e as Error).message ?? "Error al renombrar grupo"));
+    });
   }
 
   async function handleAddPair() {
