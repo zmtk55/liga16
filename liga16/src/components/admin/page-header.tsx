@@ -23,7 +23,11 @@ export function AdminPageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-start sm:justify-between">
+    // `flex-wrap` + la franja de cifras con `basis-full`: la franja va en su
+    // propia línea, a todo el ancho. Antes competía con el título por el
+    // espacio y con cinco cifras las etiquetas se partían en dos líneas
+    // ("POR / CAPTURAR").
+    <header className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
       <div className="min-w-0">
         {backTo && (
           <Link
@@ -92,7 +96,7 @@ export function AdminStatStrip({
   return (
     <dl
       className={cn(
-        "-mb-5 grid w-full grid-cols-2 divide-x divide-y divide-border/60 rounded-lg border bg-card sm:grid-cols-4 sm:divide-y-0",
+        "-mb-5 grid w-full basis-full grid-cols-2 divide-x divide-y divide-border/60 rounded-lg border bg-card sm:grid-cols-4 sm:divide-y-0",
         className,
       )}
     >
