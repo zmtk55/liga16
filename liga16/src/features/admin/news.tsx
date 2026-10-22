@@ -192,7 +192,7 @@ export default function AdminNews() {
                   title="No hay noticias todavía"
                   description="Publica la primera novedad del circuito."
                   action={
-                    <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
                       Crear noticia
                     </Button>
                   }

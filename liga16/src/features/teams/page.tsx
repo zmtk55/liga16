@@ -13,6 +13,8 @@ import { TeamCrest } from "@/components/cards/card-image";
 import { PageHero } from "@/components/page-hero";
 import { FilterMenu } from "@/components/ui/filter-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ArrowRight, LayoutGrid, Rows3, Search, Table2, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -27,8 +29,6 @@ import {
   teamCategoryKey,
   teamCategoryLabel,
 } from "@/lib/categories";
-import { ArrowRight, LayoutGrid, Rows3, Table2, X } from "lucide-react";
-
 type View = "grid" | "compact" | "table";
 
 export default function TeamsPage() {
@@ -49,9 +49,10 @@ export default function TeamsPage() {
     else next.set(key, value);
     setParams(next, { replace: true });
   };
-  const setSex = (v: string) => setParam("sex", v);
   const navigate = useNavigate();
   const [view, setView] = useState<View>("grid");
+  const setSex = (v: string) => setParam("sex", v);
+  // view mantenido para futuras expansiones; sin control de vista visible por ahora
 
   /**
    * Limpia varios filtros de una vez.
@@ -148,7 +149,17 @@ export default function TeamsPage() {
           la sección —la categoría en la que compiten y la rama—, que no aplica a
           las demás. */}
       <div className="relative z-10 -mt-4 flex flex-col gap-3">
+        {/* Buscador visible + filtros claros */}
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1 sm:max-w-72">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setParam("q", e.target.value)}
+              placeholder="Buscar equipo o jugador…"
+              className="h-9 w-full pl-8"
+            />
+          </div>
           <FilterMenu
             label="Categoría"
             value={categoria}
@@ -165,19 +176,16 @@ export default function TeamsPage() {
             allLabel="Todas"
             showCount
           />
-          {(categoria !== "all" || sex !== "all") && (
+          {(categoria !== "all" || sex !== "all" || q) && (
             <Button
               variant="ghost"
               size="sm"
               className="text-muted-foreground"
-              onClick={() => clearParams("categoria", "sex")}
+              onClick={() => clearParams("q", "categoria", "sex")}
             >
               <X className="h-3.5 w-3.5" /> Limpiar
             </Button>
           )}
-          {/* Selector de vista, como en /jugadores y /ranking. Antes esta lista
-              solo tenía tarjetas: quien llegaba a comparar treinta parejas con
-              la tabla de su Excel no tenía dónde comparar. */}
           <ToggleGroup
             type="single"
             value={view}

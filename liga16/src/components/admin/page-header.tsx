@@ -69,7 +69,7 @@ export function AdminStat({
   className?: string;
 }) {
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1 px-4 py-3", className)}>
+    <div className={cn("flex min-w-0 flex-col gap-1 bg-card px-4 py-3", className)}>
       <span className={cn("text-stat tabular-nums", tone)}>{value}</span>
       <span className="flex items-center gap-1.5 text-muted-foreground">
         {icon}
@@ -94,9 +94,12 @@ export function AdminStatStrip({
   className?: string;
 }) {
   return (
+    // Los separadores son el hueco (1px) del grid, no `divide-x`: con
+    // divide-x la primera cifra de la segunda fila hereda un borde vertical
+    // que no separa nada. Con el hueco, cada línea cae donde toca.
     <dl
       className={cn(
-        "-mb-4 grid w-full basis-full grid-cols-2 divide-x divide-y divide-border/60 rounded-lg border bg-card sm:grid-cols-4 sm:divide-y-0",
+        "-mb-4 grid w-full basis-full grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-4",
         className,
       )}
     >

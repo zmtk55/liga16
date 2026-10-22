@@ -150,7 +150,7 @@ export default function AdminSponsors() {
                   title="No hay patrocinadores todavía"
                   description="Agrega el primero para que aparezca en la landing page."
                   action={
-                    <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
                       Agregar patrocinador
                     </Button>
                   }

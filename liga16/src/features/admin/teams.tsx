@@ -361,7 +361,7 @@ export default function AdminTeams() {
                 title="Sin parejas en este torneo"
                 description="Inscribe la primera pareja para empezar."
                 action={
-                  <Button size="sm" onClick={() => { openDialog(null); }}>
+                  <Button variant="outline" size="sm" onClick={() => { openDialog(null); }}>
                     Inscribir pareja
                   </Button>
                 }

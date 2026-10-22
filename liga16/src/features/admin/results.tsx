@@ -363,7 +363,7 @@ export default function AdminResults() {
                     </button>
 
                     {isOpen && (
-                      <div className="border-t bg-muted/30 divide-y divide-border/50">
+                      <div className="border-t-2 border-primary/20 bg-card/40 divide-y divide-border/50">
                         {pv.matches.map((m) => {
                           const state = matchState(m);
                           const capturado = state === "finished";
@@ -415,7 +415,7 @@ export default function AdminResults() {
                                 <span className="font-medium tabular-nums">{jornada}</span>
                               </div>
                               {m.sets.length > 0 && (
-                                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
                                   {m.sets.map((s, i) => {
                                     const aScore = isSideA ? (s.a ?? 0) : (s.b ?? 0);
                                     const bScore = isSideA ? (s.b ?? 0) : (s.a ?? 0);
@@ -423,9 +423,11 @@ export default function AdminResults() {
                                     const tb = isSideA ? s.tiebreak_a : s.tiebreak_b;
                                     const showTb = tb != null && (s.a ?? 0) === (s.b ?? 0);
                                     return (
-                                      <span key={i} className={`inline-flex items-center justify-center min-w-[2.25rem] h-6 px-1.5 rounded-xs text-xs font-bold tabular-nums ${won ? "bg-success/15 text-success" : "text-muted-foreground"}`}>
-                                        {aScore}{showTb && <span className="ml-0.5 text-xs opacity-70">({tb})</span>}
-                                      </span>
+                                      <div key={i} className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium border ${won ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800" : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"}`}>
+                                        <span className="tabular-nums font-bold">{aScore}-{bScore}</span>
+                                        <span className="text-[10px] opacity-80">{won ? "Ganó" : "Perdió"}</span>
+                                        {showTb && <span className="text-[10px] opacity-70">TB {tb}</span>}
+                                      </div>
                                     );
                                   })}
                                 </div>

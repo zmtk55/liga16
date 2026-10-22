@@ -428,9 +428,12 @@ export default function AdminParticipants() {
 
                 <div className="p-4">
                   {!sel ? (
-                    <div className="flex h-full min-h-48 items-center justify-center text-sm text-muted-foreground">
-                      Selecciona una pareja para ver su detalle.
-                    </div>
+                    <AdminEmptyState
+                      className="h-full border-0 py-10"
+                      icon={<UsersRound className="h-5 w-5" />}
+                      title="Ninguna pareja seleccionada"
+                      description="Elige una pareja de la lista para ver su ficha, su inscripción y su pago."
+                    />
                   ) : (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-3">

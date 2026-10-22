@@ -505,6 +505,7 @@ export default function AdminPlayers() {
                 action={
                   list.length === 0 ? (
                     <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setEditing(null);

@@ -152,7 +152,7 @@ function SortablePairCard({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`space-y-1 ${isDragging ? "opacity-60 shadow-lg z-10 relative" : ""}`}
     >
-      <div className="flex items-center gap-1 rounded-lg border bg-card px-2 py-2 text-sm">
+      <div className="flex items-center gap-1 rounded-sm border bg-card px-2 py-2 text-sm">
         <button
           type="button"
           className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
@@ -1199,7 +1199,7 @@ teams.forEach((t) => {
                   <CardContent className="space-y-3">
                     {hasDraft && (
                       <div className="flex flex-wrap gap-2">
-                        <Button onClick={applyDraft} className="bg-primary hover:bg-primary/90">
+                        <Button onClick={applyDraft}>
                           <Check className="h-4 w-4 me-1" /> Aplicar sorteo
                         </Button>
                         <Button variant="destructive" onClick={discardDraft}>
@@ -1265,7 +1265,7 @@ teams.forEach((t) => {
                   title="Sin grupos todavía"
                   description="Sortea al azar o crea grupos vacíos y arrastra los equipos a cada uno."
                   action={
-                    <Button type="button" onClick={handleDraw} disabled={teams.length < 2 || hasDraft}>
+                    <Button type="button" variant="outline" onClick={handleDraw} disabled={teams.length < 2 || hasDraft}>
                       <Dice5 className="h-4 w-4 ms-1" /> Sortear al azar
                     </Button>
                   }
@@ -1283,7 +1283,7 @@ teams.forEach((t) => {
                       const pool = teams.map((_, i) => String(i)).filter((i) => !assigned.has(i));
                       if (pool.length === 0) return null;
                       return (
-                        <div className="rounded-xl border border-dashed p-3">
+                        <div className="rounded-xl border border-dashed p-2">
                           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sin grupo ({pool.length}) — arrástralos a un grupo</p>
                           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                             {pool.map((idx) => (
@@ -1304,7 +1304,7 @@ teams.forEach((t) => {
 
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {groups.map((g, gi) => (
-                        <div key={g.name} className="rounded-xl border p-3">
+                        <div key={g.name} className="rounded-xl border p-2">
                           <p className="mb-2 flex items-center justify-between gap-2 text-sm font-semibold">
                             <Input
                               value={g.name}

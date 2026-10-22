@@ -111,15 +111,15 @@ function StatCard({
   accent?: boolean;
 }) {
   return (
-    <Card className="group transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-      <CardContent className="flex items-center gap-3 p-3">
+    <Card className="group transition-colors duration-150 ease-out hover:border-primary/40">
+      <CardContent className="flex items-center gap-2.5 p-2.5">
         <span
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 ease-out group-hover:scale-110",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-transform duration-150 ease-out group-hover:scale-105",
             accent ? "bg-primary/12 text-primary" : "bg-muted text-muted-foreground",
           )}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0">
           {/* La cifra entra dígito a dígito cuando cambia (transitions-dev). */}

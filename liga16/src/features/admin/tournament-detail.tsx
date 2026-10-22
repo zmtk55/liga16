@@ -112,7 +112,7 @@ function SortablePair({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm ${
+      className={`flex items-center gap-2 rounded-sm border bg-card px-3 py-2 text-sm ${
         isDragging ? "opacity-60 shadow-lg" : ""
       }`}
     >

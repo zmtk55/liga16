@@ -198,7 +198,7 @@ export default function AdminTournaments() {
               title="No hay torneos todavía"
               description="Crea el primero con el asistente de torneo."
               action={
-                <Button asChild size="sm">
+                <Button asChild variant="outline" size="sm">
                   <Link to="/admin/torneos/nuevo">Crear torneo</Link>
                 </Button>
               }

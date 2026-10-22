@@ -133,7 +133,7 @@ export default function SystemStatus() {
               {c.ok && !c.warn ? (
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
               ) : c.warn ? (
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-strong" />
               ) : (
                 <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
               )}
