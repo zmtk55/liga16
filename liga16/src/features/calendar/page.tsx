@@ -125,16 +125,27 @@ export default function CalendarPage() {
       .sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? ""));
   }, [matches]);
 
+  /** Un partido "contiene" la búsqueda si aparece en cualquiera de sus campos. */
+  const matchesQuery = (m: Match, q: string) =>
+    [m.side_a.pair_name, m.side_b.pair_name, m.tournament_name, m.category_name, m.round, m.court_name]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q));
+
   /** Lo que ya se jugó, para que la pantalla no quede vacía cuando el circuito
-   *  no tiene nada agendado: los últimos resultados, no todo el historial. */
+   *  no tiene nada agendado: los últimos resultados, no todo el historial.
+   *  Respeta la búsqueda: si el usuario busca un equipo, los resultados de
+   *  OTROS equipos no sirven de nada —salían todos y el filtro parecía no
+   *  funcionar. */
   const recent = useMemo(() => {
     if (!matches) return [];
+    const q = query.trim().toLowerCase();
     return matches
       .filter((m) => SHOW_STATUSES.has(m.status))
       .filter((m) => isPast(m) && !isLiveNow(m))
+      .filter((m) => !q || matchesQuery(m, q))
       .sort((a, b) => (b.scheduled_at ?? "").localeCompare(a.scheduled_at ?? ""))
       .slice(0, 5);
-  }, [matches]);
+  }, [matches, query]);
 
   const days = useMemo(() => [...new Set(agenda.map((m) => localDayKey(m.scheduled_at ?? "")).filter(Boolean))].sort(), [agenda]);
   const tournaments = useMemo(() => [...new Set(agenda.map((m) => m.tournament_name).filter(Boolean))].sort() as string[], [agenda]);
@@ -147,9 +158,7 @@ export default function CalendarPage() {
       if (category !== "all" && m.category_name !== category) return false;
       if (onlyMine && myPairIds && !(myPairIds.has(m.side_a.pair_id ?? "") || myPairIds.has(m.side_b.pair_id ?? ""))) return false;
       if (!q) return true;
-      return [m.side_a.pair_name, m.side_b.pair_name, m.tournament_name, m.category_name, m.round, m.court_name]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q));
+      return matchesQuery(m, q);
     });
   }, [agenda, query, tournament, category, onlyMine, myPairIds]);
 
@@ -311,14 +320,18 @@ export default function CalendarPage() {
             <CardContent className="py-10 text-center text-muted-foreground">
               <Calendar className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
               <p className="text-lg font-medium">
-                {days.length === 0
-                  ? "No hay partidos programados"
-                  : `Sin partidos ${day === todayKey() ? "hoy" : dayLabel(day)}`}
+                {query.trim()
+                  ? `Nada coincide con "${query.trim()}"`
+                  : days.length === 0
+                    ? "No hay partidos programados"
+                    : `Sin partidos ${day === todayKey() ? "hoy" : dayLabel(day)}`}
               </p>
               <p className="mt-1 text-sm">
-                {nextMatch
-                  ? `El próximo es ${dayLabel(localDayKey(nextMatch.scheduled_at ?? ""))} a las ${formatMatchTime(nextMatch.scheduled_at ?? "")}.`
-                  : "Revisa los torneos para ver las próximas fechas."}
+                {query.trim()
+                  ? "Prueba con otro nombre de pareja, torneo o sede, o quita los filtros."
+                  : nextMatch
+                    ? `El próximo es ${dayLabel(localDayKey(nextMatch.scheduled_at ?? ""))} a las ${formatMatchTime(nextMatch.scheduled_at ?? "")}.`
+                    : "Revisa los torneos para ver las próximas fechas."}
               </p>
               {canNext && (
                 <Button variant="outline" className="mt-4" onClick={() => setDay(days[dayIndex + 1])}>

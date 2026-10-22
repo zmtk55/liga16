@@ -345,7 +345,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
                       <span className="block truncate text-sm font-semibold">{team.name}</span>
                       <span className="text-2xs text-muted-foreground">{team.category_name ?? `División ${team.division}`}</span>
                     </div>
-                    <span className="text-right font-headline text-lg text-primary">{team.points}</span>
+                    <span className="text-right font-headline text-lg text-primary">{team.points}%</span>
                   </Link>
                 ))
             ) : <p className="text-sm text-muted-foreground">Cargando parejas…</p>}
@@ -432,7 +432,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
                         {team.position > 0 ? `#${team.position}` : "—"}
                       </span>
                       <span className="mt-0.5 block text-2xs text-muted-foreground">
-                        {team.points} pts · {team.played} PJ
+                        {team.points}% · {team.played} PJ
                       </span>
                     </span>
                   </Link>

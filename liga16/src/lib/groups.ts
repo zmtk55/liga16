@@ -284,8 +284,12 @@ export function computeStandings(
     lost: s.PJ - s.PG,
     setsFor: s.SETS_FAVOR,
     setsAgainst: s.SETS_CONTRA,
-    gamesFor: 0,
-    gamesAgainst: 0,
+    // Juegos ganados y perdidos: los del Excel (PUNTOS_A_FAVOR y lo que
+    // sobró del total). Antes venían en 0, así que en la tabla del admin la
+    // columna "%PTS" salía siempre "—" (dividía 0/0) y "Juegos G/P" siempre 0,
+    // y el orden del bracket se resolvía por nombre de pareja.
+    gamesFor: s.PUNTOS_A_FAVOR,
+    gamesAgainst: Math.max(s.PUNTOS_TOTALES - s.PUNTOS_A_FAVOR, 0),
     points: s.RENDIMIENTO_PTS ? Math.round(s.RENDIMIENTO_PTS * 1000) / 10 : 0,
     form: [], // El form requiere historial por partido; se conserva vacío si no se usa directamente
     pointsFor: s.PUNTOS_A_FAVOR,

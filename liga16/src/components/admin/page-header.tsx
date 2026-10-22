@@ -96,7 +96,7 @@ export function AdminStatStrip({
   return (
     <dl
       className={cn(
-        "-mb-5 grid w-full basis-full grid-cols-2 divide-x divide-y divide-border/60 rounded-lg border bg-card sm:grid-cols-4 sm:divide-y-0",
+        "-mb-4 grid w-full basis-full grid-cols-2 divide-x divide-y divide-border/60 rounded-lg border bg-card sm:grid-cols-4 sm:divide-y-0",
         className,
       )}
     >

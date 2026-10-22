@@ -15,6 +15,19 @@ import { formatDate, initials, sexLabel, winRate } from "@/lib/format";
 import { matchStatusKey } from "@/lib/match-state";
 import { teamCategoryLabel } from "@/lib/categories";
 
+function performanceWord(winRatePct: number): string {
+  if (winRatePct >= 70) return "en gran forma";
+  if (winRatePct >= 50) return "en buen momento";
+  if (winRatePct >= 30) return "necesita mejorar";
+  return "necesita trabajar";
+}
+function clampDiff(value: number): number {
+  return Math.max(0, Math.min(Math.abs(value), 999)) * Math.sign(value);
+}
+function clampAvg(value: number | null): number {
+  return value === null ? 0 : Math.max(0, Math.min(value, 99));
+}
+
 export default function TeamDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [team, setTeam] = useState<Team | null | undefined>(undefined);
@@ -224,11 +237,11 @@ export default function TeamDetailPage() {
                   <p className="text-xs text-white/50">{teamCategoryLabel(team)}</p>
                 </div>
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Puntos</p>
-                  <p className="text-2xl font-black tabular-nums">{team.points.toLocaleString("es-MX")}</p>
+                  <p className="text-xs text-white/50">% Puntos</p>
+                  <p className="text-2xl font-black tabular-nums">{team.points.toLocaleString("es-MX")}%</p>
                   <p className="text-xs flex items-center gap-1">
                     {winRatePct >= 50 ? <TrendingUp className="h-3 w-3 text-success" /> : winRatePct < 50 && team.played > 0 ? <TrendingDown className="h-3 w-3 text-destructive" /> : <Minus className="h-3 w-3" />}
-                    {winRatePct}% victorias
+                    {winRatePct}% victorias{team.played > 0 ? ` · ${performanceWord(winRatePct)}` : ""}
                   </p>
                 </div>
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
@@ -239,7 +252,7 @@ export default function TeamDetailPage() {
                 <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
                   <p className="text-xs text-white/50">Sets</p>
                   <p className="text-2xl font-black tabular-nums">{setStats.sf}–{setStats.sa}</p>
-                  <p className="text-xs text-white/50">Diferencia {setStats.diff >= 0 ? "+" : ""}{setStats.diff}</p>
+                  <p className="text-xs text-white/50">Diferencia {setStats.diff >= 0 ? "+" : ""}{clampDiff(setStats.diff)}</p>
                 </div>
               </div>
 
@@ -505,7 +518,7 @@ export default function TeamDetailPage() {
                 <div className="flex items-center justify-between border-t pt-3 text-xs">
                   <span className="text-muted-foreground">Diferencial de sets</span>
                   <span className={`font-bold tabular-nums ${setStats.diff > 0 ? "text-success" : setStats.diff < 0 ? "text-destructive" : ""}`}>
-                    {setStats.diff > 0 ? "+" : ""}{setStats.diff}
+                    {setStats.diff > 0 ? "+" : ""}{clampDiff(setStats.diff)}
                   </span>
                 </div>
 
@@ -514,15 +527,15 @@ export default function TeamDetailPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Juegos ganados por set</span>
                   <span className="font-bold tabular-nums">
-                    {setsWinAvg === null ? "—" : `${setsWinAvg} de media`}
+                    {setsWinAvg === null ? "—" : `${clampAvg(setsWinAvg)} de media`}
                   </span>
                 </div>
 
-                {/* Puntos y posición en la división: el objetivo de cada fecha. */}
+                {/* Rendimiento y posición en la división: el objetivo de cada fecha. */}
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Puntos / posición en la división</span>
+                  <span className="text-muted-foreground">% Puntos / posición en la división</span>
                   <span className="font-bold tabular-nums">
-                    {team.points ?? 0} pts · #{team.position || "—"}
+                    {team.points ?? 0}% · #{team.position || "—"}
                   </span>
                 </div>
 

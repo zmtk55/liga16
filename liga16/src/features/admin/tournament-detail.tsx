@@ -2386,10 +2386,10 @@ function GroupStandingsCard({
   // claro del admin (confianza 0.99). Mismo patrón que la leyenda de sets en
   // resultados.tsx: texto visible, no tooltip — en móvil no hay hover.
   const leyendaColumnas = expanded
-    ? "PJ partidos jugados · PG ganados · PP perdidos · Sets G/P ganados/perdidos · Juegos G/P ganados/perdidos · Dif diferencia a favor · Pts puntos · G/D en Forma = victoria/derrota"
+    ? "PJ partidos jugados · PG ganados · PP perdidos · Sets G/P ganados/perdidos · Juegos G/P ganados/perdidos · Dif diferencia a favor · %Pts porcentaje de puntos ganados sobre el total de puntos jugados · G/D en Forma = victoria/derrota"
     : isLiga16
       ? "PJ partidos jugados · PG ganados · %PG porcentaje de victorias · %PTS puntos ganados sobre el total de puntos jugados · Pos posición"
-      : "PJ partidos jugados · Sets ganados-perdidos · Pts puntos · G/D en Forma = victoria/derrota";
+      : "PJ partidos jugados · Sets ganados-perdidos · %Pts porcentaje de puntos ganados · G/D en Forma = victoria/derrota";
 
   let jornadaSummary: { JUEGOS_JUGADOS: number; TOTAL_JUEGOS: number; JUEGOS_FALTANTES: number } | null = null;
   if (isLiga16) {
@@ -2443,7 +2443,7 @@ function GroupStandingsCard({
                     <TableHead className="text-center w-28" title="Últimos partidos: G es victoria, D es derrota">Forma</TableHead>
                     <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
                     <TableHead className="text-end" title="Sets ganados - sets perdidos">Sets</TableHead>
-                    <TableHead className="text-end pe-4" title="Puntos acumulados">Pts</TableHead>
+                    <TableHead className="text-end pe-4" title="Porcentaje de puntos ganados sobre el total de puntos jugados">%Pts</TableHead>
                   </>
                 )
               )}
@@ -2459,7 +2459,7 @@ function GroupStandingsCard({
                   <TableHead className="text-end" title="Juegos ganados">Juegos G</TableHead>
                   <TableHead className="text-end" title="Juegos perdidos">Juegos P</TableHead>
                   <TableHead className="text-end" title="Diferencia de juegos a favor">Dif juegos</TableHead>
-                  <TableHead className="text-end pe-4" title="Puntos acumulados">Pts</TableHead>
+                  <TableHead className="text-end pe-4" title="Porcentaje de puntos ganados sobre el total de puntos jugados">%Pts</TableHead>
                 </>
               )}
             </TableRow>

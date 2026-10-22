@@ -112,11 +112,59 @@ export function FilterBar({
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  /**
+   * Texto del buscador: estado LOCAL, no el valor del padre.
+   *
+   * El padre guarda la búsqueda en la URL (?q=) y la reenvía como prop. Con el
+   * input atado a esa prop, cada tecla disparaba una navegación del router y
+   * el valor controlado volvía atrasado: al teclear rápido, el input se
+   * reiniciaba al valor viejo y las letras se perdían. Además, la página
+   * entera se re-renderizaba en cada pulsación.
+   *
+   * Ahora el input refleja lo que se escribe al instante (eco local) y el
+   * padre se entera con un debote corto: la URL se actualiza ~5 veces por
+   * segundo en vez de en cada tecla, y el input nunca se retrasa.
+   */
+  const [text, setText] = React.useState(search ?? "");
+  /** Último valor que ENVIAMOS al padre: sirve para reconocer su propio eco. */
+  const sentRef = React.useRef<string | null>(null);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cambio externo (botón "Limpiar", navegación, filtro que resetea la URL):
+  // el padre manda y el input se acomoda. Si lo que llega es nuestro propio
+  // eco, no se toca el texto: el usuario pudo seguir escribiendo.
+  React.useEffect(() => {
+    const incoming = search ?? "";
+    if (incoming === sentRef.current) return;
+    sentRef.current = incoming;
+    setText(incoming);
+  }, [search]);
+
+  // Al desmontar se cancela el debote pendiente: no queda un temporizador vivo.
+  React.useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
+  const handleSearch = React.useCallback(
+    (value: string) => {
+      setText(value);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        sentRef.current = value;
+        onSearch?.(value);
+      }, 180);
+    },
+    [onSearch],
+  );
+
   const collapsed = selects.length > MAX_INLINE;
   const inlineSelects = collapsed ? [] : selects;
   const panelSelects = collapsed ? selects : [];
   const active = selects.filter((s) => s.value !== "all" && s.value !== "");
-  const hasFilters = (search ?? "") !== "" || active.length > 0 || activeCount > 0;
+  const hasFilters = text !== "" || active.length > 0 || activeCount > 0;
   const meta = typeof resultCount === "number" && (
     <span aria-live="polite" className="shrink-0 text-xs tabular-nums text-muted-foreground">
       {resultCount} {resultCount === 1 ? resultLabel.replace(/s$/, "") : resultLabel}
@@ -143,8 +191,8 @@ export function FilterBar({
           <div className="relative min-w-0 flex-1 sm:max-w-60">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              value={search}
-              onChange={(e) => onSearch(e.target.value)}
+              value={text}
+              onChange={(e) => handleSearch(e.target.value)}
               placeholder={searchPlaceholder}
               className="h-9 w-full pl-8"
               aria-label={searchPlaceholder}

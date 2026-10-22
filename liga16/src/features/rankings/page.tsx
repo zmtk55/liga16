@@ -321,7 +321,7 @@ export default function RankingsPage() {
     <div className="animate-fade-in space-y-8">
       <PageHero
         title="Ranking"
-        subtitle="Parejas ordenadas por puntos dentro de su división y género. Gana partidos y sube. Criterio de desempate: diferencia de sets → PG → PJ."
+        subtitle="Parejas ordenadas por rendimiento: puntos ganados sobre el total de puntos jugados (%), dentro de su división y género. Criterio de desempate: diferencia de sets → PG → PJ."
         ghost="16"
       />
 
@@ -403,7 +403,7 @@ export default function RankingsPage() {
                     />
                   </div>
                   <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
-                    {t.points.toLocaleString("es-MX")}
+                    {t.points.toLocaleString("es-MX")}%
                   </span>
                 </button>
               );
@@ -445,7 +445,7 @@ export default function RankingsPage() {
               <CardFooterStrip
                 stats={
                   <>
-                    <CardStat value={t.points.toLocaleString("es-MX")} label="Puntos" />
+                    <CardStat value={t.points.toLocaleString("es-MX")} label="% Puntos" />
                     <CardStat value={`${t.won}–${Math.max(t.lost, 0)}`} label="Record" />
                     <CardStat value={`${winRate(t.played, t.won)}%`} label="Efect." />
                   </>
@@ -464,7 +464,7 @@ export default function RankingsPage() {
                   <TableHead className="flex items-center gap-2">
                     <Trophy className="h-4 w-4" /> Pareja
                   </TableHead>
-                  <TableHead className="text-right">Puntos</TableHead>
+                  <TableHead className="text-right" title="Puntos ganados sobre el total de puntos jugados (fórmula del Excel Liga16)">% Puntos</TableHead>
                   <TableHead className="text-right">Record</TableHead>
                   <TableHead className="text-right">División / Género</TableHead>
                 </TableRow>
