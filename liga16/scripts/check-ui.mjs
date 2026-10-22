@@ -125,10 +125,16 @@ for (const [file, specs] of specsOf) {
 const configText = CONFIG_FILES.map((f) =>
   fs.existsSync(path.join(root, f)) ? fs.readFileSync(path.join(root, f), "utf8") : "",
 ).join("\n");
+
+// Paquetes que los carga el runner de build, no el código de la app: PostCSS
+// es el motor que ejecuta el plugin de Tailwind, así que nadie lo importa
+// desde src/ pero sin él el build no arranca.
+const TOOLING_PACKAGES = new Set(["postcss"]);
 const unusedPackages = [...declared].filter(
   (d) =>
     !d.startsWith("@types/") &&
     !importedPackages.has(d) &&
+    !TOOLING_PACKAGES.has(d) &&
     !configText.includes(d),
 );
 

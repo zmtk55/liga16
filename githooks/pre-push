@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Gate de typecheck en pre-push — solo la rama master (la deployable).
+# Gate de calidad en pre-push — solo la rama master (la deployable).
 #
 # Protege el build de Vercel y el dev server compartido de los agentes.
 # Verifica EXACTAMENTE el árbol que se pushea (git archive del SHA), no el
-# working tree, así el WIP sin commitear de otros agentes no falsa el gate.
+# working tree, así el WIP sin commitear de otros agentes no falsea el gate.
+#
+# Tres verificaciones, las mismas que `npm run verify`:
+#   1. check:ui   — imports rotos, componentes muertos, texto < 12px
+#   2. lint       — ESLint (errores; los warnings no bloquean)
+#   3. typecheck  — tsc sobre tsconfig.app.json
 #
 # Omitir una vez:  git push --no-verify
 # Activar en un clone nuevo:  git config core.hooksPath githooks
@@ -25,6 +30,10 @@ link_node_modules() {
 }
 
 while read -r local_ref local_sha remote_ref remote_sha; do
+  # Git escribe las refs con LF, pero un pipe desde Windows puede dejar un CR
+  # pegado: sin esto, el SHA cero no compara y el gate se salta solo.
+  local_ref="${local_ref%$'\r'}"; local_sha="${local_sha%$'\r'}"
+  remote_ref="${remote_ref%$'\r'}"; remote_sha="${remote_sha%$'\r'}"
   # Solo bloquea pushes a master; el WIP en otras ramas fluye libre.
   [ "$remote_ref" = "refs/heads/master" ] || continue
   # Borrado de rama remota: nada que verificar.
@@ -35,7 +44,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
 
-  echo "pre-push: typecheck de ${local_sha:0:9} (árbol exacto del push)…"
+  echo "pre-push: verificaciones de ${local_sha:0:9} (árbol exacto del push)…"
 
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
@@ -46,20 +55,40 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   status=0
   (
     cd "$tmp/liga16" || exit 1
-    npx tsc --noEmit -p tsconfig.app.json 2>&1 | sed 's/^/  /'
-    exit "${PIPESTATUS[0]}"
+    fail=0
+
+    run_check() {
+      name="$1"
+      shift
+      echo "  · $name"
+      if "$@" >"$tmp/$name.log" 2>&1; then
+        tail -n 5 "$tmp/$name.log" | sed 's/^/      /'
+      else
+        fail=1
+        echo "      FALLÓ — salida:"
+        tail -n 40 "$tmp/$name.log" | sed 's/^/      /'
+      fi
+    }
+
+    # Se llama a node con la ruta directa al binario: en Windows los shims
+    # .cmd de node_modules/.bin no son ejecutables desde Git Bash.
+    run_check "check:ui"  node scripts/check-ui.mjs
+    run_check "lint"      node node_modules/eslint/bin/eslint.js .
+    run_check "typecheck" node node_modules/typescript/bin/tsc --noEmit -p tsconfig.app.json
+
+    exit $fail
   ) || status=1
 
   if [ "$status" -ne 0 ]; then
     {
       echo ""
-      echo "✖ pre-push BLOQUEADO: tsc encontró errores en los commits que intentas pushear."
+      echo "✖ pre-push BLOQUEADO: los commits que intentas pushear no pasan las verificaciones."
       echo "  El build de Vercel fallaría (o romperías el dev server compartido)."
       echo "  Arregla los errores y reintenta, o usa 'git push --no-verify' solo si es intencional."
     } >&2
     exit 1
   fi
-  echo "pre-push: OK (0 errores de typecheck)"
+  echo "pre-push: OK (check:ui, lint y typecheck sin errores)"
 done
 
 exit 0

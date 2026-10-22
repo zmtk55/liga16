@@ -22,7 +22,14 @@ npm run dev      # http://localhost:5173
 | `npm run dev` | Servidor de desarrollo (HMR)               |
 | `npm run build` | Typecheck + build de producción          |
 | `npm run lint`  | ESLint                                     |
+| `npm run typecheck` | TypeScript sin emitir                    |
+| `npm run check:ui` | Guardia de la capa de componentes        |
+| `npm run verify` | check:ui + lint + typecheck + build (gate) |
 | `npm run preview` | Sirve el build local                    |
+
+> `npm run verify` es el gate: es exactamente lo que corre el hook de `pre-push`
+> antes de dejar subir algo a `master`. Si un cambio rompe el build, ese script
+> lo dice en menos de un minuto.
 
 ## Estructura
 

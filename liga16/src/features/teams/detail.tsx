@@ -296,7 +296,7 @@ export default function TeamDetailPage() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-base font-bold leading-snug">{p?.name ?? "Pendiente"}</p>
-                    <p className="text-[11px] text-white/50">{p ? `Nivel ${p.level?.toFixed(1) ?? "—"}` : "Nivel —"} · {i === 0 ? "Jugador 1" : "Jugador 2"}</p>
+                    <p className="text-xs text-white/50">{p ? `Nivel ${p.level?.toFixed(1) ?? "—"}` : "Nivel —"} · {i === 0 ? "Jugador 1" : "Jugador 2"}</p>
                   </div>
                   {p && p.player_id && (
                     <Button asChild variant="outline" size="icon" className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white shrink-0 h-8 w-8" aria-label={`Abrir dashboard de ${p.name}`}>
@@ -583,14 +583,14 @@ function CompareBlock({
         <dl className="mt-3 grid grid-cols-3 gap-2 border-t pt-3 text-center">
           {a.stats.map((s) => (
             <div key={s.k} className="min-w-0">
-              <dt className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">{s.k}</dt>
+              <dt className="truncate text-caption uppercase text-muted-foreground">{s.k}</dt>
               <dd className="mt-0.5 text-sm font-black tabular-nums">{s.v}</dd>
             </div>
           ))}
         </dl>
       </div>
 
-      <span className="rounded-full border bg-card px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+      <span className="rounded-full border bg-card px-2.5 py-1 text-caption uppercase text-muted-foreground">
         vs
       </span>
 
@@ -605,7 +605,7 @@ function CompareBlock({
         <dl className="mt-3 grid grid-cols-3 gap-2 border-t pt-3 text-center">
           {b.stats.map((s) => (
             <div key={s.k} className="min-w-0">
-              <dt className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">{s.k}</dt>
+              <dt className="truncate text-caption uppercase text-muted-foreground">{s.k}</dt>
               <dd className="mt-0.5 text-sm font-black tabular-nums">{s.v}</dd>
             </div>
           ))}
