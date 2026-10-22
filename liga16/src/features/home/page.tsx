@@ -253,11 +253,11 @@ setStats({ tournaments, teams, matches, news, sponsors });
         <img
           src={HERO_IMAGE}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-[62%_center] opacity-70"
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-70"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/65 to-black/25" />
 
-        <div className="relative mx-auto flex min-h-[440px] md:min-h-[560px] max-w-7xl flex-col justify-between px-4 pt-4 pb-6 md:px-8 md:pt-8 md:pb-8">
+        <div className="relative mx-auto flex min-h-[440px] md:min-h-[480px] max-w-7xl flex-col justify-between px-4 pt-4 pb-6 md:px-8 md:pt-6 md:pb-6">
           {/* La sede aparece UNA vez, y solo cuando no hay partido en vivo:
               cuando lo hay, el eyebrow lo ocupa el estado, que es lo que la
               gente viene a mirar. Antes se repetía tres veces (aquí, en el

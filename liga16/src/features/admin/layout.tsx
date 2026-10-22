@@ -163,9 +163,9 @@ export default function AdminLayout() {
   const alertCount = adminAlerts.length;
 
   return (
-    <div className="min-h-dvh bg-muted/30">
-      <div className="lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-card lg:flex">
+    <div className="min-h-dvh bg-background">
+      <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-card/95 backdrop-blur lg:flex">
           <div className="flex h-16 shrink-0 items-center border-b px-5">
             <AdminBrand />
           </div>

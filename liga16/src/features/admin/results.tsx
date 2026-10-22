@@ -266,7 +266,7 @@ export default function AdminResults() {
   }, [list]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <AdminPageHeader
         title="Resultados"
         description="Captura sets, juegos y tie-breaks de cada partido."
@@ -306,7 +306,7 @@ export default function AdminResults() {
         </AdminStatStrip>
       </AdminPageHeader>
       <Card>
-        <CardHeader className="gap-3">
+        <CardHeader className="gap-4">
           <FilterBar
             search={query}
             onSearch={setQuery}
@@ -416,14 +416,14 @@ export default function AdminResults() {
           )}
 
           {filtered.length > 0 && (
-            <div className="space-y-6 p-4">
+            <div className="space-y-8 p-4">
               {categoryGroups.map(([categoria, ms], gi) => {
                 const pend = ms.filter((m) => matchBucket(m) === "pending").length;
                 const aMedias = ms.filter((m) => matchBucket(m) === "playing").length;
                 const hid = `categoria-${gi}`;
                 return (
-                  <section key={categoria} aria-labelledby={hid} className="space-y-3">
-                    <div className="sticky top-14 z-10 flex items-baseline justify-between gap-2 rounded-lg bg-card/95 py-1.5 backdrop-blur lg:top-0">
+                  <section key={categoria} aria-labelledby={hid} className="space-y-4">
+                    <div className="sticky top-14 z-10 flex items-baseline justify-between gap-2 rounded-lg bg-card/95 py-2 backdrop-blur lg:top-0">
                       <h2 id={hid} className="text-sm font-semibold">
                         {categoria}
                       </h2>

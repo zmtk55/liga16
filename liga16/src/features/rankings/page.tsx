@@ -549,7 +549,7 @@ export default function RankingsPage() {
                     })
                   }
                 >
-                  <SelectTrigger aria-label={`Pareja ${i + 1}`}>
+                  <SelectTrigger aria-label={`Pareja ${i + 1}`} className="rounded-md border border-border bg-card text-foreground focus:border-[#d97706] focus:ring-0 focus:outline-none">
                     <SelectValue placeholder={`Pareja ${i + 1}`} />
                   </SelectTrigger>
                   <SelectContent>
