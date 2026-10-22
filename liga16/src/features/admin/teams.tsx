@@ -39,15 +39,26 @@ import ImageUpload from "@/components/ui/image-upload";
 import { deleteStoredImage } from "@/lib/storage";
 import { PairAvatar, CardShell, CardIdentity } from "@/components/cards/card-kit";
 import { cn } from "@/lib/utils";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SIN_CATEGORIA } from "@/lib/format";
+
+/** Valor centinela del selector de torneo: "aún no hay torneo elegido". */
+const SIN_TORNEO = "__sin_torneo__";
 
 interface EquipoForm {
   name: string;
   category_id: string;
   player1_name: string;
   player2_name: string;
+  crest_url: string | null;
+}
+
+/** Fila de `pairs` tal y como la pinta el admin. */
+interface PairRow {
+  id: string;
+  name: string;
+  category_id: string | null;
   crest_url: string | null;
 }
 
@@ -60,10 +71,10 @@ export default function AdminTeams() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [tid, setTid] = useState<string>("");
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
-  const [pairs, setPairs] = useState<Array<{ id: string; name: string; category_id: string | null; crest_url: string | null }> | null>(null);
+  const [pairs, setPairs] = useState<PairRow[] | null>(null);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
-  const [editing, setEditing] = useState<{ id: string; name: string; category_id: string | null; crest_url: string | null } | null>(null);
+  const [editing, setEditing] = useState<PairRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // El buscador vive en el FilterBar de la página y escribe ?q= (estándar admin).
   const [params, setParams] = useSearchParams();
@@ -248,7 +259,17 @@ export default function AdminTeams() {
     }
   }
 
-  const dialogKey = editing?.id ?? "new";
+  // Cada apertura remonta el formulario (key cambia), para que el alta en
+  // blanco arranque con la categoría por defecto del torneo —las categorías
+  // llegan después del primer render— y para no arrastrar datos de la
+  // edición anterior.
+  const [formKey, setFormKey] = useState(0);
+  const openDialog = (pair: PairRow | null) => {
+    setEditing(pair);
+    setFormKey((k) => k + 1);
+    setOpenCreate(true);
+  };
+  const dialogKey = `${editing?.id ?? "new"}-${formKey}`;
 
   return (
     <div className="space-y-5">
@@ -256,7 +277,7 @@ export default function AdminTeams() {
         title="Equipos"
         description="Las parejas inscritas viven dentro de cada torneo."
         action={
-          <Button size="sm" disabled={!tid} onClick={() => { setEditing(null); setOpenCreate(true); }}>
+          <Button size="sm" disabled={!tid} onClick={() => { openDialog(null); }}>
             <Plus className="h-4 w-4" /> Inscribir pareja
           </Button>
         }
@@ -276,11 +297,12 @@ export default function AdminTeams() {
       {/* Cada torneo tiene sus propios equipos: el selector es contexto, no un filtro más. */}
       <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-center">
         <Trophy className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
-        <Select value={tid || undefined} onValueChange={setTid}>
+        <Select value={tid || SIN_TORNEO} onValueChange={(v) => { if (v !== SIN_TORNEO) setTid(v); }}>
           <SelectTrigger className="h-9 w-full sm:w-80" aria-label="Elegir torneo">
             <SelectValue placeholder="Elige un torneo" />
           </SelectTrigger>
           <SelectContent>
+            {tournaments.length === 0 && <SelectItem value={SIN_TORNEO}>Elige un torneo</SelectItem>}
             {tournaments.map((t) => (
               <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
             ))}
@@ -294,12 +316,11 @@ export default function AdminTeams() {
       {!tid ? (
         <Card>
           <CardContent className="p-0">
-            <Empty className="py-10">
-              <EmptyHeader>
-                <EmptyTitle>Elige un torneo</EmptyTitle>
-                <EmptyDescription>Cada torneo tiene sus propios equipos. Selecciona uno arriba.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              icon={<Trophy className="h-5 w-5" />}
+              title="Elige un torneo"
+              description="Cada torneo tiene sus propios equipos. Selecciona uno arriba."
+            />
           </CardContent>
         </Card>
       ) : (
@@ -335,31 +356,23 @@ export default function AdminTeams() {
             )}
 
             {pairs !== null && pairs.length === 0 && (
-              <Empty className="py-10">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Users className="h-5 w-5" />
-                  </EmptyMedia>
-                  <EmptyTitle className="text-base">Sin parejas en este torneo</EmptyTitle>
-                  <EmptyDescription>
-                    Inscribe la primera pareja para empezar.
-                  </EmptyDescription>
-                </EmptyHeader>
-                <Button size="sm" className="mt-4" onClick={() => { setEditing(null); setOpenCreate(true); }}>
-                  Inscribir pareja
-                </Button>
-              </Empty>
+              <AdminEmptyState
+                icon={<Users className="h-5 w-5" />}
+                title="Sin parejas en este torneo"
+                description="Inscribe la primera pareja para empezar."
+                action={
+                  <Button size="sm" onClick={() => { openDialog(null); }}>
+                    Inscribir pareja
+                  </Button>
+                }
+              />
             )}
 
             {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-              <Empty className="py-10">
-                <EmptyHeader>
-                  <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
-                  <EmptyDescription>
-                    Ninguna pareja coincide con la búsqueda o el filtro.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
+              <AdminEmptyState
+                title="Sin coincidencias"
+                description="Ninguna pareja coincide con la búsqueda o el filtro."
+              />
             )}
 
             {filtered.length > 0 && (() => {
@@ -422,7 +435,7 @@ export default function AdminTeams() {
                         </dl>
 
                         <div className="flex flex-wrap gap-2 border-t pt-3">
-                          <Button size="sm" variant="outline" onClick={() => { setEditing(sel); setOpenCreate(true); }}>
+                          <Button size="sm" variant="outline" onClick={() => { openDialog(sel); }}>
                             <Pencil className="h-4 w-4" /> Editar equipo
                           </Button>
                           <Button size="sm" variant="destructive" onClick={() => setDeleting(sel)}>
@@ -590,7 +603,7 @@ function EquipoDialog({
             <Select value={form.category_id || "__none__"} onValueChange={(v) => setForm((f) => ({ ...f, category_id: v === "__none__" ? "" : v }))}>
               <SelectTrigger id="categoria"><SelectValue placeholder={SIN_CATEGORIA} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">Sin categoría</SelectItem>
+                <SelectItem value="__none__">{SIN_CATEGORIA}</SelectItem>
                 {categories.map((c) => (
                   <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
