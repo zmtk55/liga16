@@ -36,7 +36,11 @@ module.exports = {
           foreground: "hsl(var(--success-foreground))",
         },
         warning: {
-          DEFAULT: "hsl(var(--warning))",
+          DEFAULT: "hsl(var(--warning) / <alpha-value>)",
+          strong: "hsl(var(--warning-strong) / <alpha-value>)",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info) / <alpha-value>)",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",

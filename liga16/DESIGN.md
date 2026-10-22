@@ -14,6 +14,8 @@ colors:
   success: "hsl(152 65% 32%)"
   success-foreground: "hsl(0 0% 100%)"
   warning: "hsl(38 92% 50%)"
+  warning-strong: "hsl(28 87% 38%)"
+  info: "hsl(200 98% 32%)"
   surface-inverse: "hsl(0 0% 8%)"
   surface-inverse-foreground: "hsl(0 0% 96%)"
   surface-inverse-border: "hsl(240 5% 18%)"
@@ -158,6 +160,11 @@ The palette is a **single-saturated-accent system**: orange primary over a neutr
 - **Ink** (hsl(24 100% 10%)): Primary body text — a dark orange-tinged near-black for warmth against white
 - **Muted Ink** (hsl(24 40% 36%)): Secondary text, labels, captions
 - **Border** (hsl(24 40% 88%)): Form fields, card edges, dividers
+
+### Semantic states
+- **Success** (`hsl(152 65% 32%)`):Aclara un resultado, una racha, un estado pagado.
+- **Warning** (`hsl(38 92% 50%)`): Rellenos y barras; `--warning-strong` (`hsl(28 87% 38%)`) es su versión de texto (el ámbar claro no llega a 4.5:1).
+- **Info** (`hsl(200 98% 32%)`): Estado informativo — torneo publicado, aviso de sistema.
 
 ### Inverted (dark poster surfaces)
 - **Surface Inverse** (hsl(0 0% 8%)): Hero sections, match cards, stat strips — dark in BOTH themes

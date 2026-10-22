@@ -4,7 +4,7 @@ import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDateRange, formatLabel, tournamentStatusLabel } from "@/lib/format";
+import { formatCity, formatDateRange, formatLabel, tournamentStatusLabel } from "@/lib/format";
 import { ExternalLink, Pencil, Plus, Trash2, Trophy, Check } from "lucide-react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
@@ -12,7 +12,7 @@ import { countActive } from "@/lib/filters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { CardShell, CardIdentity } from "@/components/cards/card-kit";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
@@ -193,25 +193,23 @@ export default function AdminTournaments() {
           )}
 
           {list !== null && list.length === 0 && (
-            <Empty className="border-0 py-10">
-              <EmptyHeader>
-                <EmptyMedia variant="icon"><Trophy className="h-5 w-5" /></EmptyMedia>
-                <EmptyTitle className="text-base">No hay torneos todavía</EmptyTitle>
-                <EmptyDescription>Crea el primero con el asistente de torneo.</EmptyDescription>
-              </EmptyHeader>
-              <Button asChild size="sm" className="mt-4">
-                <Link to="/admin/torneos/nuevo">Crear torneo</Link>
-              </Button>
-            </Empty>
+            <AdminEmptyState
+              icon={<Trophy className="h-5 w-5" />}
+              title="No hay torneos todavía"
+              description="Crea el primero con el asistente de torneo."
+              action={
+                <Button asChild size="sm">
+                  <Link to="/admin/torneos/nuevo">Crear torneo</Link>
+                </Button>
+              }
+            />
           )}
 
           {list !== null && list.length > 0 && filtered.length === 0 && (
-            <Empty className="border-0 py-10">
-              <EmptyHeader>
-                <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
-                <EmptyDescription>Ningún torneo coincide con la búsqueda o el filtro.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              title="Sin coincidencias"
+              description="Ningún torneo coincide con la búsqueda o el filtro."
+            />
           )}
 
           {filtered.length > 0 && (
@@ -262,7 +260,7 @@ export default function AdminTournaments() {
                           <CardIdentity
                             lead={<Trophy className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
                             titleLines={[
-                              t.club_name ?? t.city,
+                              t.club_name ?? formatCity(t.city),
                               `${formatDateRange(t.start_date, t.end_date)} · ${formatLabel[t.format] ?? t.format}`,
                             ]}
                           />

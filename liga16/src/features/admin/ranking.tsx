@@ -19,7 +19,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { AdminEmptyState } from "@/components/admin/empty-state";
 import { PairAvatars } from "@/components/cards/card-kit";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { sexLabel, winRate } from "@/lib/format";
@@ -191,17 +191,11 @@ export default function AdminRanking() {
           )}
 
           {teams !== null && filtered.length === 0 && (
-            <Empty className="border-0 py-10">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <BarChart3 className="h-5 w-5 text-muted-foreground" />
-                </EmptyMedia>
-                <EmptyTitle className="text-base">No hay parejas en este filtro</EmptyTitle>
-                <EmptyDescription>
-                  Las parejas se inscriben desde Equipos y sus resultados se capturan en Resultados.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              icon={<BarChart3 className="h-5 w-5 text-muted-foreground" />}
+              title="No hay parejas en este filtro"
+              description="Las parejas se inscriben desde Equipos y sus resultados se capturan en Resultados."
+            />
           )}
 
           {filtered.length > 0 && (

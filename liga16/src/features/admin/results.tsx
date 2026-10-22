@@ -31,12 +31,12 @@ import { DateTimePicker } from "@/components/ui/date-picker";
 import { MatchScoreboard } from "@/components/match-scoreboard";
 // MatchCard no longer used — pair rows use inline layout
 import { matchBucket, matchState, type MatchBucket } from "@/lib/match-state";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
-import { matchStatusLabel } from "@/lib/format";
+import { matchStatusLabel, SIN_CATEGORIA } from "@/lib/format";
 import { categoryFacetOfValues } from "@/lib/categories";
 import { jornadaKey, parseRound } from "@/lib/groups";
 import {
@@ -147,7 +147,7 @@ export default function AdminResults() {
             pairName: pair.pair_name,
             tournamentId: m.tournament_id,
             tournamentName: m.tournament_name ?? "Sin torneo",
-            categoryName: m.category_name ?? "Sin categoría",
+            categoryName: m.category_name ?? SIN_CATEGORIA,
             matches: [m],
           });
         }
@@ -307,25 +307,24 @@ export default function AdminResults() {
           )}
 
           {list !== null && list.length === 0 && (
-            <Empty className="border-0 py-10">
-              <EmptyHeader>
-                <EmptyMedia variant="icon"><Trophy className="h-5 w-5" /></EmptyMedia>
-                <EmptyTitle className="text-base">No hay resultados todavía</EmptyTitle>
-                <EmptyDescription>Los partidos se capturan desde la pestaña Jornada de cada torneo.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              icon={<Trophy className="h-5 w-5" />}
+              title="No hay resultados todavía"
+              description="Los partidos se capturan desde la pestaña Jornada de cada torneo."
+            />
           )}
 
           {list !== null && list.length > 0 && pairViews.length === 0 && (
-            <Empty className="border-0 py-10">
-              <EmptyHeader>
-                <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
-                <EmptyDescription>Ningún partido coincide con la búsqueda o el filtro.</EmptyDescription>
-                <Button variant="outline" size="sm" className="mt-4" onClick={() => { setQuery(""); setFStatus("all"); setFCategory("all"); setFRound("all"); setFTournament("all"); }}>
+            <AdminEmptyState
+              icon={<Trophy className="h-5 w-5" />}
+              title="Sin coincidencias"
+              description="Ningún partido coincide con la búsqueda o el filtro."
+              action={
+                <Button variant="outline" size="sm" onClick={() => { setQuery(""); setFStatus("all"); setFCategory("all"); setFRound("all"); setFTournament("all"); }}>
                   Quitar filtros
                 </Button>
-              </EmptyHeader>
-            </Empty>
+              }
+            />
           )}
 
           {pairViews.length > 0 && (
@@ -351,7 +350,7 @@ export default function AdminResults() {
                             <Trophy className="h-3 w-3" /> {pv.tournamentName}
                           </span>
                           <span className="flex items-center gap-1">
-                            <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{pv.categoryName}</span>
+                            <span className="px-1.5 py-0.5 rounded-xs bg-muted text-muted-foreground">{pv.categoryName}</span>
                           </span>
                         </div>
                       </div>
@@ -424,7 +423,7 @@ export default function AdminResults() {
                                     const tb = isSideA ? s.tiebreak_a : s.tiebreak_b;
                                     const showTb = tb != null && (s.a ?? 0) === (s.b ?? 0);
                                     return (
-                                      <span key={i} className={`inline-flex items-center justify-center min-w-[2.25rem] h-6 px-1.5 rounded text-xs font-bold tabular-nums ${won ? "bg-success/15 text-success" : "text-muted-foreground"}`}>
+                                      <span key={i} className={`inline-flex items-center justify-center min-w-[2.25rem] h-6 px-1.5 rounded-xs text-xs font-bold tabular-nums ${won ? "bg-success/15 text-success" : "text-muted-foreground"}`}>
                                         {aScore}{showTb && <span className="ml-0.5 text-xs opacity-70">({tb})</span>}
                                       </span>
                                     );
@@ -503,7 +502,7 @@ function MatchEditDialog({ match, tournament, open, onOpenChange, onSave, submit
             {setInputs.map((set, i) => (
               <div key={i} className="rounded-lg bg-muted/30 p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wide">Set {i + 1}{i >= 2 && <span className="ml-2 text-xs font-normal normal-case text-amber-600 dark:text-amber-400"> Super tie-break a 10 (dif. 2)</span>}</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide">Set {i + 1}{i >= 2 && <span className="ml-2 text-xs font-normal normal-case text-warning-strong"> Super tie-break a 10 (dif. 2)</span>}</span>
                   {setInputs.length > 1 && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSet(i)} aria-label={`Quitar set ${i + 1}`}><Trash2 className="h-3.5 w-3.5" /></Button>}
                 </div>
                 <div className="grid grid-cols-2 gap-2">

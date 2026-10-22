@@ -32,30 +32,31 @@ import { countActive } from "@/lib/filters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PairAvatar, CardShell, CardIdentity } from "@/components/cards/card-kit";
 import { cn } from "@/lib/utils";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
+import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
+import { formatMoney, registrationStatusLabel, SIN_CATEGORIA } from "@/lib/format";
 import { FolderInput, Trash2, UsersRound, UserPlus, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
 
-const AMBER = "text-amber-600 dark:text-amber-400";
+const AMBER = "text-warning-strong";
 
 /** Estado de pago de un registro, para el badge de la fila. */
 function paymentBadge(pair: AllPair) {
   const status = pair.registration_status;
   if (!status) return <Badge variant="outline" className="text-xs">Sin registro</Badge>;
-  if (status === "paid") return <Badge variant="default" className="gap-1 text-xs"><CheckCircle2 className="h-3 w-3" /> Pagado</Badge>;
-  if (status === "payment_review") return <Badge variant="secondary" className="gap-1 text-xs"><Clock className="h-3 w-3" /> En revision</Badge>;
-  if (status === "payment_pending") return <Badge variant="outline" className="gap-1 text-xs text-amber-600 border-amber-300"><AlertTriangle className="h-3 w-3" /> Pago pendiente</Badge>;
-  if (status === "cancelled" || status === "refunded") return <Badge variant="destructive" className="text-xs">Cancelado</Badge>;
-  return <Badge variant="secondary" className="text-xs">{status}</Badge>;
+  if (status === "paid") return <Badge variant="default" className="gap-1 text-xs"><CheckCircle2 className="h-3 w-3" /> {registrationStatusLabel.paid}</Badge>;
+  if (status === "payment_review") return <Badge variant="secondary" className="gap-1 text-xs"><Clock className="h-3 w-3" /> {registrationStatusLabel.payment_review}</Badge>;
+  if (status === "payment_pending") return <Badge variant="outline" className="gap-1 text-xs text-warning-strong border-warning/30"><AlertTriangle className="h-3 w-3" /> {registrationStatusLabel.payment_pending}</Badge>;
+  if (status === "cancelled" || status === "refunded") return <Badge variant="destructive" className="text-xs">{registrationStatusLabel.cancelled}</Badge>;
+  return <Badge variant="secondary" className="text-xs">{registrationStatusLabel[status] ?? status}</Badge>;
 }
 
 /** Categoría tal como el torneo la guardó. Nunca se le cambia el nombre. */
 function categoryDisplay(pair: AllPair): string {
-  return pair.category_name?.trim() || "Sin categoria";
+  return pair.category_name?.trim() || SIN_CATEGORIA;
 }
 export default function AdminParticipants() {
   const [pairs, setPairs] = useState<AllPair[] | null>(null);
@@ -370,26 +371,19 @@ export default function AdminParticipants() {
           )}
 
           {pairs !== null && pairs.length === 0 && (
-            <Empty className="border-0 py-10">
-              <EmptyHeader>
-                <EmptyMedia variant="icon"><UsersRound className="h-5 w-5" /></EmptyMedia>
-                <EmptyTitle className="text-base">No hay participantes todavía</EmptyTitle>
-                <EmptyDescription>
-                  Las parejas se inscriben desde el asistente de torneos o desde aquí.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              icon={<UsersRound className="h-5 w-5" />}
+              title="No hay participantes todavía"
+              description="Las parejas se inscriben desde el asistente de torneos o desde aquí."
+            />
           )}
 
           {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-            <Empty className="border-0 py-10">
-              <EmptyHeader>
-                <EmptyTitle className="text-base">Sin coincidencias</EmptyTitle>
-                <EmptyDescription>
-                  Ninguna pareja coincide con la búsqueda o el filtro.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              icon={<UsersRound className="h-5 w-5" />}
+              title="Sin coincidencias"
+              description="Ninguna pareja coincide con la búsqueda o el filtro."
+            />
           )}
 
           {filtered.length > 0 && (() => {
@@ -462,7 +456,7 @@ export default function AdminParticipants() {
                       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
                         <div><dt className="text-xs text-muted-foreground">Torneo</dt><dd className="truncate">{sel.tournament_name ?? "—"}</dd></div>
                         <div><dt className="text-xs text-muted-foreground">Categoría</dt><dd className="truncate">{categoryDisplay(sel)}</dd></div>
-                        <div><dt className="text-xs text-muted-foreground">Monto</dt><dd>{sel.amount_cents != null ? `$${(sel.amount_cents / 100).toLocaleString()}` : "—"}</dd></div>
+                        <div><dt className="text-xs text-muted-foreground">Monto</dt><dd>{sel.amount_cents != null ? formatMoney(sel.amount_cents, sel.currency) : "—"}</dd></div>
                         <div><dt className="text-xs text-muted-foreground">Método</dt><dd>{sel.payment_method ?? "—"}</dd></div>
                         <div><dt className="text-xs text-muted-foreground">Jugador 1</dt><dd className="truncate">{prof1?.display_name ?? selP1}</dd></div>
                         <div><dt className="text-xs text-muted-foreground">Jugador 2</dt><dd className="truncate">{prof2?.display_name ?? selP2 ?? "—"}</dd></div>
@@ -619,7 +613,7 @@ export default function AdminParticipants() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="payment_pending">Pendiente</SelectItem>
-                <SelectItem value="payment_review">En revisión</SelectItem>
+                <SelectItem value="payment_review">{registrationStatusLabel.payment_review}</SelectItem>
                 <SelectItem value="paid">Pagado</SelectItem>
                 <SelectItem value="cancelled">Cancelado</SelectItem>
                 <SelectItem value="refunded">Reembolsado</SelectItem>

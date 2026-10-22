@@ -147,7 +147,7 @@ export default function AdminNews() {
           <AdminStat
             value={resumen.conFoto}
             label="Con imagen"
-            tone={resumen.conFoto > 0 ? "text-success" : "text-amber-600 dark:text-amber-400"}
+            tone={resumen.conFoto > 0 ? "text-success" : "text-warning-strong"}
           />
         </AdminStatStrip>
       </AdminPageHeader>
@@ -227,9 +227,9 @@ export default function AdminNews() {
                   <TableCell>
                     <div className="flex min-w-0 items-center gap-3">
                       {n.image_url ? (
-                        <img src={n.image_url} alt="" className="h-10 w-16 shrink-0 rounded object-cover" />
+                        <img src={n.image_url} alt="" className="h-10 w-16 shrink-0 rounded-xs object-cover" />
                       ) : (
-                        <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded bg-muted text-xs font-bold text-muted-foreground">
+                        <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xs bg-muted text-xs font-bold text-muted-foreground">
                           SIN
                         </span>
                       )}

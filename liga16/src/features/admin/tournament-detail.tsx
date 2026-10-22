@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { AdminEmptyState } from "@/components/admin/empty-state";
 import { drawGroupsByCategory, parseRound, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
 import type { TournamentScoring } from "@/types";
 import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
@@ -85,7 +85,7 @@ import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
-import { formatDateRange, formatLabel, formatMatchTime, SIN_CATEGORIA, tournamentStatusLabel } from "@/lib/format";
+import { formatCity, formatDateRange, formatLabel, formatMatchTime, SIN_CATEGORIA, tournamentStatusLabel } from "@/lib/format";
 import { matchStatusKey } from "@/lib/match-state";
 import {
   findScheduleIssues,
@@ -346,7 +346,7 @@ function CategoryBracket({
                     return (
                       <div
                         className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                          m.played && e ? (gano ? "bg-emerald-500/5" : "") : ""
+                          m.played && e ? (gano ? "bg-success/10" : "") : ""
                         }`}
                       >
                         <span className="min-w-0 flex-1 truncate font-medium">{e?.name ?? "—"}</span>
@@ -359,7 +359,7 @@ function CategoryBracket({
                   return (
                     <div
                       key={m.id}
-                      className={`overflow-hidden rounded-lg border bg-card ${m.played ? "border-emerald-500/40" : ""}`}
+                      className={`overflow-hidden rounded-lg border bg-card ${m.played ? "border-success/40" : ""}`}
                     >
                       {linea(m.a, m.b)}
                       <div className="border-t">{linea(m.b, m.a)}</div>
@@ -419,12 +419,12 @@ function BracketPanel({
 
   if (pairs.length === 0) {
     return (
-      <Empty className="border bg-card py-10">
-        <EmptyHeader>
-          <EmptyTitle>Sin parejas en este torneo</EmptyTitle>
-          <EmptyDescription>Cuando inscribas parejas, aquí se genera el bracket.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <AdminEmptyState
+        className="border bg-card"
+        icon={<Trophy className="h-5 w-5" />}
+        title="Sin parejas en este torneo"
+        description="Cuando inscribas parejas, aquí se genera el bracket."
+      />
     );
   }
 
@@ -1150,7 +1150,7 @@ export default function AdminTournamentDetail() {
     <div className="space-y-5">
       <AdminPageHeader
         title={tournament.name}
-        description={`${club?.name ?? tournament.city} · ${formatDateRange(tournament.start_date, tournament.end_date)} · ${formatLabel[tournament.format] ?? tournament.format}`}
+        description={`${club?.name ?? formatCity(tournament.city)} · ${formatDateRange(tournament.start_date, tournament.end_date)} · ${formatLabel[tournament.format] ?? tournament.format}`}
         backTo="/admin/torneos"
         backLabel="Torneos"
         action={
@@ -1236,8 +1236,17 @@ export default function AdminTournamentDetail() {
             if (dayMatches.length === 0) {
               return (
                 <Card>
-                  <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                    Sin partidos este día. Genera el calendario en "Grupos y sorteo" o elige otra fecha.
+                  <CardContent className="p-0">
+                    <AdminEmptyState
+                      icon={<CalendarClock className="h-5 w-5" />}
+                      title="Sin partidos este día"
+                      description="Genera el calendario en «Grupos y sorteo» o elige otra fecha de la jornada."
+                      action={
+                        <Button variant="outline" size="sm" onClick={() => setTab("grupos")}>
+                          <Dice5 className="h-4 w-4" /> Ir a Grupos y sorteo
+                        </Button>
+                      }
+                    />
                   </CardContent>
                 </Card>
               );
@@ -1377,19 +1386,17 @@ return (
                   {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                 </div>
               ) : pairs.length === 0 ? (
-                <Empty className="py-10">
-                  <EmptyHeader>
-                    <EmptyTitle>Aún no hay equipos</EmptyTitle>
-                    <EmptyDescription>Registra el primero con el formulario de arriba.</EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <AdminEmptyState
+                  icon={<UserPlus className="h-5 w-5" />}
+                  title="Aún no hay equipos"
+                  description="Registra el primero con el formulario de arriba."
+                />
               ) : filteredPairs.length === 0 ? (
-                <Empty className="py-10">
-                  <EmptyHeader>
-                    <EmptyTitle>Sin coincidencias</EmptyTitle>
-                    <EmptyDescription>Ningún equipo coincide con la búsqueda.</EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <AdminEmptyState
+                  icon={<UserPlus className="h-5 w-5" />}
+                  title="Sin coincidencias"
+                  description="Ningún equipo coincide con la búsqueda."
+                />
               ) : (
                 <Table>
                   <TableHeader>
@@ -1498,15 +1505,24 @@ return (
           </Card>
 
           {pairs && pairs.length < 2 && (
-            <p className="text-sm text-amber-600 dark:text-amber-400">
+            <p className="text-sm text-warning-strong">
               Tienes {pairs.length} equipo{pairs.length === 1 ? "" : "s"} inscrito{pairs.length === 1 ? "" : "s"} — se necesitan al menos 2 para sortear o generar partidos. Regístralos en la pestaña Parejas.
             </p>
           )}
 
           {groups.length === 0 ? (
             <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Aún no hay grupos. Pulsa "Sortear grupos al azar" o añádelos a mano.
+              <CardContent className="p-0">
+                <AdminEmptyState
+                  icon={<Dice5 className="h-5 w-5" />}
+                  title="Aún no hay grupos"
+                  description="Pulsa «Sortear grupos al azar» para crearlos o añádelos a mano."
+                  action={
+                    <Button onClick={handleDraw} disabled={!pairs || pairs.length < 2}>
+                      <Dice5 className="h-4 w-4" /> Sortear grupos al azar
+                    </Button>
+                  }
+                />
               </CardContent>
             </Card>
           ) : (
@@ -1537,7 +1553,8 @@ return (
                       </Card>
                     ) : (
                       <Card>
-                        <CardContent className="py-6 text-center text-xs text-muted-foreground">
+                        <CardContent className="py-6 text-center text-sm text-success">
+                          <Check className="me-1 inline h-4 w-4 align-[-2px]" />
                           Todos los equipos están en un grupo.
                         </CardContent>
                       </Card>
@@ -1585,8 +1602,17 @@ return (
         <TabsContent value="posiciones" className="space-y-4 pt-2">
           {groups.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                Aún no hay grupos. Ve a "Grupos y sorteo" y sortea los equipos.
+              <CardContent className="p-0">
+                <AdminEmptyState
+                  icon={<Trophy className="h-5 w-5" />}
+                  title="Aún no hay grupos"
+                  description="Ve a «Grupos y sorteo» y sortea los equipos para ver las posiciones."
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => setTab("grupos")}>
+                      <Dice5 className="h-4 w-4" /> Ir a Grupos y sorteo
+                    </Button>
+                  }
+                />
               </CardContent>
             </Card>
           ) : (
@@ -1610,8 +1636,17 @@ return (
         <TabsContent value="calendario" className="space-y-4 pt-2">
           {matches.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                Sin partidos generados. Ve a la pestaña de grupos, sortea y pulsa "Generar calendario".
+              <CardContent className="p-0">
+                <AdminEmptyState
+                  icon={<CalendarClock className="h-5 w-5" />}
+                  title="Sin partidos generados"
+                  description="Ve a la pestaña de grupos, sortea y pulsa «Generar calendario»."
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => setTab("grupos")}>
+                      <Dice5 className="h-4 w-4" /> Ir a Grupos y sorteo
+                    </Button>
+                  }
+                />
               </CardContent>
             </Card>
           ) : (
@@ -1701,7 +1736,28 @@ return (
                   const days = matchDay !== "all" ? [matchDay] : matchDays;
                   const courtCols = matchCourt !== "all" ? [matchCourt] : matchCourtsList;
                   if (days.length === 0 || courtCols.length === 0) {
-                    return <p className="py-6 text-center text-sm text-muted-foreground">Sin partidos para este filtro.</p>;
+                    return (
+                      <AdminEmptyState
+                        icon={<CalendarClock className="h-5 w-5" />}
+                        title="Sin partidos para este filtro"
+                        description="Ningún partido cae en el día y la cancha que elegiste."
+                        action={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setMatchQuery("");
+                              setMatchCategory("all");
+                              setMatchDay("all");
+                              setMatchCourt("all");
+                              setMatchRound("all");
+                            }}
+                          >
+                            Quitar filtros
+                          </Button>
+                        }
+                      />
+                    );
                   }
                   return (
                     <div className="space-y-6">
@@ -1775,7 +1831,28 @@ return (
                   const plural = (n: number) => (n === 1 ? "partido" : "partidos");
                   return (
                     <div className="space-y-6">
-                      {groups.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Sin partidos para este filtro.</p>}
+                      {groups.length === 0 && (
+                        <AdminEmptyState
+                          icon={<CalendarClock className="h-5 w-5" />}
+                          title="Sin partidos para este filtro"
+                          description="Ningún partido cae en la categoría, el día o la jornada que elegiste."
+                          action={
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setMatchQuery("");
+                                setMatchCategory("all");
+                                setMatchDay("all");
+                                setMatchCourt("all");
+                                setMatchRound("all");
+                              }}
+                            >
+                              Quitar filtros
+                            </Button>
+                          }
+                        />
+                      )}
                       {groups.map((g) => (
                         <section key={g.key} className="space-y-2">
                           <p className="flex flex-wrap items-baseline gap-x-2 border-b pb-1.5 text-sm font-semibold">
@@ -2083,7 +2160,7 @@ return (
                     </label>
                   ))}
                   {scheduleConfig.courtNames.length === 0 && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">Sin canchas marcadas se usarán todas.</p>
+                    <p className="text-xs text-warning-strong">Sin canchas marcadas se usarán todas.</p>
                   )}
                 </div>
               )}
@@ -2500,7 +2577,7 @@ function GroupStandingsCard({
                             {row.form.map((f, fi) => (
                               <span
                                 key={fi}
-                                className={`flex h-4.5 w-4.5 items-center justify-center rounded text-xs font-bold text-white ${
+                                className={`flex h-4.5 w-4.5 items-center justify-center rounded-xs text-xs font-bold text-white ${
                                   f === "G" ? "bg-success" : "bg-destructive"
                                 }`}
                                 title={f === "G" ? "Victoria" : "Derrota"}
@@ -2524,7 +2601,7 @@ function GroupStandingsCard({
                           {row.form.map((f, fi) => (
                             <span
                               key={fi}
-                              className={`flex h-4.5 w-4.5 items-center justify-center rounded text-xs font-bold text-white ${
+                              className={`flex h-4.5 w-4.5 items-center justify-center rounded-xs text-xs font-bold text-white ${
                                 f === "G" ? "bg-success" : "bg-destructive"
                               }`}
                               title={f === "G" ? "Victoria" : "Derrota"}

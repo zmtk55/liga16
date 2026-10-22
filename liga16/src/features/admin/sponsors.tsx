@@ -122,7 +122,7 @@ export default function AdminSponsors() {
           <AdminStat
             value={resumen.conLogo}
             label="Con logo"
-            tone={resumen.conLogo > 0 ? "text-success" : "text-amber-600 dark:text-amber-400"}
+            tone={resumen.conLogo > 0 ? "text-success" : "text-warning-strong"}
           />
           <AdminStat value={resumen.principales} label="Principales" tone="text-primary" />
           <AdminStat value={resumen.conSitio} label="Con sitio web" />
@@ -160,9 +160,9 @@ export default function AdminSponsors() {
                 <TableRow key={s.id}>
                   <TableCell>
                     {s.logo_url ? (
-                      <img src={s.logo_url} alt={s.name} className="h-10 w-auto max-w-[120px] shrink-0 rounded object-contain" />
+                      <img src={s.logo_url} alt={s.name} className="h-10 w-auto max-w-[120px] shrink-0 rounded-xs object-contain" />
                     ) : (
-                      <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded bg-muted text-xs font-bold text-muted-foreground">
+                      <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xs bg-muted text-xs font-bold text-muted-foreground">
                         SIN
                       </span>
                     )}

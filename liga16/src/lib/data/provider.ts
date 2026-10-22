@@ -54,6 +54,8 @@ export interface AllPair {
   registration_status: RegistrationStatus | null;
   payment_method: PaymentMethod | null;
   amount_cents: number | null;
+  /** La moneda del torneo: el monto se muestra con ella, no suposición. */
+  currency: string;
 }
 
 export interface DataProvider {

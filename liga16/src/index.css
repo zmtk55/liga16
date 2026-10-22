@@ -46,6 +46,13 @@
 
     /* Semántico de aviso (tendencias neutras, barras de probabilidad) */
     --warning: 38 92% 50%;
+    /* Aviso legible: `--warning` es un ámbar claro pensado para barras y
+       rellenos; como texto de 12-14px no llega a 4.5:1. Este es su hermano
+       de texto (mismo papel que `--primary-strong` frente a `--primary`). */
+    --warning-strong: 28 87% 38%;
+    /* Semántico informativo: estado "publicado" y avisos de sistema. Azul
+       apagado, nunca el naranja de marca (One Voice Rule). */
+    --info: 200 98% 32%;
 
     /* Paleta de gráficas (convención shadcn: --chart-1..6).
        Las divisiones de una liga son la misma cosa: van en una rampa cálida
@@ -210,6 +217,8 @@
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 55%;
+    --warning-strong: 38 92% 68%;
+    --info: 199 90% 70%;
 
     /* Paleta de gráficas en oscuro: la rampa sube de luminosidad (sobre
        negro un tono apagado no se ve) y los estados se abren un poco para

@@ -37,7 +37,7 @@ export function AdminFacet({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <p className="w-20 shrink-0 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground sm:w-24">
+      <p className="w-20 shrink-0 text-caption uppercase text-muted-foreground sm:w-24">
         {label}
       </p>
       <FilterMenu

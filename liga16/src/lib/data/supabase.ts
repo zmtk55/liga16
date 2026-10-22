@@ -662,7 +662,7 @@ export const supabaseProvider: DataProvider = {
       .from('pairs')
       // `registrations` se embebe por su FK pair_id: una pareja del flujo
       // público trae su inscripción; una creada desde el admin, ninguna.
-      .select('id, name, tournament_id, category_id, player1_id, player2_id, created_at, tournament_categories(name), tournaments(id, name), registrations(id, status, payment_method, amount_cents, created_at)')
+      .select('id, name, tournament_id, category_id, player1_id, player2_id, created_at, tournament_categories(name), tournaments(id, name, currency), registrations(id, status, payment_method, amount_cents, created_at)')
       .order('created_at', { ascending: false });
     if (error) throw error;
 
@@ -687,6 +687,7 @@ export const supabaseProvider: DataProvider = {
         registration_status: reg?.status ?? null,
         payment_method: reg?.payment_method ?? null,
         amount_cents: reg?.amount_cents ?? null,
+        currency: (r.tournaments as { currency: string } | null)?.currency ?? "MXN",
       };
     });
   },

@@ -33,14 +33,14 @@ import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
 import { PopNumber } from "@/components/ui/transitions";
-import { formatDateRange } from "@/lib/format";
+import { formatCity, formatDateRange } from "@/lib/format";
 import { groupByDivision } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
@@ -126,7 +126,9 @@ function StatCard({
           <p className="text-stat leading-none">
             <PopNumber value={value} className={cn(accent && "text-primary")} />
           </p>
-          <p className="mt-0.5 truncate text-caption uppercase text-muted-foreground">{label}</p>
+          {/* La etiqueta envuelve en vez de truncarse: "PARTIDOS JUGADOS"
+              cortada dejaba una cifra sin significado. */}
+          <p className="mt-0.5 text-caption uppercase leading-tight text-muted-foreground">{label}</p>
         </div>
       </CardContent>
     </Card>
@@ -150,15 +152,12 @@ function ActivityChart({ matches }: { matches: Match[] }) {
   // con palabras.
   if (data.every((d) => d.partidos === 0)) {
     return (
-      <Empty className="border-0 py-8">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Activity className="h-5 w-5 text-muted-foreground" />
-          </EmptyMedia>
-          <EmptyTitle className="text-sm">Sin actividad esta semana</EmptyTitle>
-          <EmptyDescription>No se jugó ningún partido en los últimos 7 días.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <AdminEmptyState
+        className="py-8"
+        icon={<Activity className="h-5 w-5 text-muted-foreground" />}
+        title="Sin actividad esta semana"
+        description="No se jugó ningún partido en los últimos 7 días."
+      />
     );
   }
 
@@ -480,17 +479,12 @@ export default function AdminDashboard() {
         </h2>
         {tasks.length === 0 ? (
           <Card className="border-dashed">
-            <Empty className="border-0 py-6">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ShieldCheck className="h-5 w-5 text-success" />
-                </EmptyMedia>
-                <EmptyTitle className="text-base">Nada pendiente</EmptyTitle>
-                <EmptyDescription>
-                  No hay perfiles por verificar ni partidos por capturar.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              className="py-6"
+              icon={<ShieldCheck className="h-5 w-5 text-success" />}
+              title="Nada pendiente"
+              description="No hay perfiles por verificar ni partidos por capturar."
+            />
           </Card>
         ) : (
           <div className="space-y-2">
@@ -573,17 +567,12 @@ export default function AdminDashboard() {
         </div>
         {running.length === 0 ? (
           <Card className="border-dashed">
-            <Empty className="border-0 py-6">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Trophy className="h-5 w-5 text-muted-foreground" />
-                </EmptyMedia>
-                <EmptyTitle className="text-base">Sin torneos en juego</EmptyTitle>
-                <EmptyDescription>
-                  No hay torneos en juego ahora mismo.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              className="py-6"
+              icon={<Trophy className="h-5 w-5 text-muted-foreground" />}
+              title="Sin torneos en juego"
+              description="No hay torneos en juego ahora mismo."
+            />
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -597,7 +586,7 @@ export default function AdminDashboard() {
                     <div className="min-w-0">
                       <p className="truncate font-medium">{t.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatDateRange(t.start_date, t.end_date)} · {t.club_name ?? t.city}
+                        {formatDateRange(t.start_date, t.end_date)} · {t.club_name ?? formatCity(t.city)}
                       </p>
                     </div>
                     <TournamentStatusBadge status={t.status} />
@@ -629,17 +618,12 @@ export default function AdminDashboard() {
           </div>
           {lideres.length === 0 ? (
             <Card className="border-dashed">
-              <Empty className="border-0 py-6">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Target className="h-5 w-5 text-muted-foreground" />
-                  </EmptyMedia>
-                  <EmptyTitle className="text-base">Todavía no hay líderes</EmptyTitle>
-                  <EmptyDescription>
-                    Todavía no hay parejas con partidos jugados.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
+              <AdminEmptyState
+                className="py-6"
+                icon={<Target className="h-5 w-5 text-muted-foreground" />}
+                title="Todavía no hay líderes"
+                description="Todavía no hay parejas con partidos jugados."
+              />
             </Card>
           ) : (
             <div className="space-y-2">
@@ -712,17 +696,12 @@ export default function AdminDashboard() {
           </div>
           {openSignups.length === 0 ? (
             <Card className="border-dashed">
-              <Empty className="border-0 py-6">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                  </EmptyMedia>
-                  <EmptyTitle className="text-base">Sin inscripciones abiertas</EmptyTitle>
-                  <EmptyDescription>
-                    No hay torneos con inscripciones abiertas.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
+              <AdminEmptyState
+                className="py-6"
+                icon={<Users className="h-5 w-5 text-muted-foreground" />}
+                title="Sin inscripciones abiertas"
+                description="No hay torneos con inscripciones abiertas."
+              />
             </Card>
           ) : (
             <div className="space-y-2">

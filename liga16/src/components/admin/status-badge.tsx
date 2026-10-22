@@ -5,9 +5,9 @@ import type { MatchStatus, TournamentStatus } from "@/types";
 
 const tournamentTone: Record<TournamentStatus, string> = {
   draft: "border-border bg-muted text-muted-foreground",
-  published: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300",
+  published: "border-info/30 bg-info/10 text-info",
   registration_open: "border-success/30 bg-success/10 text-success",
-  registration_closed: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+  registration_closed: "border-warning/30 bg-warning/10 text-warning-strong",
   in_progress: "border-primary/30 bg-primary/10 text-primary-strong",
   finished: "border-border bg-secondary text-secondary-foreground",
   cancelled: "border-destructive/30 bg-destructive/10 text-destructive",
@@ -17,8 +17,8 @@ const matchTone: Record<MatchStatus, string> = {
   scheduled: "border-border bg-muted text-muted-foreground",
   live: "border-destructive/30 bg-destructive/10 text-destructive",
   finished: "border-success/30 bg-success/10 text-success",
-  walkover: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
-  disputed: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+  walkover: "border-warning/30 bg-warning/10 text-warning-strong",
+  disputed: "border-warning/30 bg-warning/10 text-warning-strong",
   cancelled: "border-destructive/30 bg-destructive/10 text-destructive",
 };
 

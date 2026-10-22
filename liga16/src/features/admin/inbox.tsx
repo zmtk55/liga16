@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
 
@@ -26,14 +26,14 @@ const severityLabel: Record<AlertSeverity, string> = {
 
 const severityTone: Record<AlertSeverity, string> = {
   critical: 'destructive',
-  warning: 'outline border-amber-200/50 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  warning: 'border-warning/30 bg-warning/10 text-warning-strong',
   info: 'secondary',
 };
 
 const severityIcon: Record<AlertSeverity, React.ReactNode> = {
   critical: <XCircle className="h-4 w-4 text-destructive" />,
-  warning: <AlertTriangleIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
-  info: <CheckCircle2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />,
+  warning: <AlertTriangleIcon className="h-4 w-4 text-warning-strong" />,
+  info: <CheckCircle2 className="h-4 w-4 text-info" />,
 };
 
 function AlertTriangleIcon(props: { className?: string }) {
@@ -144,30 +144,19 @@ export default function AdminInbox() {
         </div>
       ) : total === 0 ? (
         alerts.length === 0 ? (
-        <Empty className="border-0 py-16">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Inbox className="h-8 w-8 text-muted-foreground/50" />
-            </EmptyMedia>
-            <EmptyTitle>Todo al día</EmptyTitle>
-            <EmptyDescription>
-              No hay alertas en este momento. Aparecerán aquí cuando un jugador quede por verificar, un torneo
-              empiece o cierre inscripciones, o un partido se juegue o se marque en disputa.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <AdminEmptyState
+          className="py-16"
+          icon={<Inbox className="h-8 w-8 text-muted-foreground/50" />}
+          title="Todo al día"
+          description="No hay alertas en este momento. Aparecerán aquí cuando un jugador quede por verificar, un torneo empiece o cierre inscripciones, o un partido se juegue o se marque en disputa."
+        />
         ) : (
-          <Empty className="border-0 py-16">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Inbox className="h-8 w-8 text-muted-foreground/50" />
-              </EmptyMedia>
-              <EmptyTitle>Sin coincidencias</EmptyTitle>
-              <EmptyDescription>
-                Ninguna alerta coincide con la búsqueda.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <AdminEmptyState
+            className="py-16"
+            icon={<Inbox className="h-8 w-8 text-muted-foreground/50" />}
+            title="Sin coincidencias"
+            description="Ninguna alerta coincide con la búsqueda."
+          />
         )
       ) : (
         severityOrder.map((sev) => {

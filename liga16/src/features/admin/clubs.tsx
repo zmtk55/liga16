@@ -17,7 +17,8 @@ import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/p
 import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { AdminEmptyState } from "@/components/admin/empty-state";
+import { formatCity } from "@/lib/format";
 
 export default function AdminClubs() {
   const [club, setClub] = useState<Club | null>(null);
@@ -141,12 +142,12 @@ export default function AdminClubs() {
           <AdminStat
             value={club ? (club.phone ? "Sí" : "No") : "—"}
             label="Teléfono"
-            tone={club && !club.phone ? "text-amber-600 dark:text-amber-400" : undefined}
+            tone={club && !club.phone ? "text-warning-strong" : undefined}
           />
           <AdminStat
             value={club ? (club.city || club.address ? "Sí" : "No") : "—"}
             label="Ubicación"
-            tone={club && !(club.city || club.address) ? "text-amber-600 dark:text-amber-400" : undefined}
+            tone={club && !(club.city || club.address) ? "text-warning-strong" : undefined}
           />
           <AdminStat value={club ? (club.photo_url ? "Sí" : "No") : "—"} label="Foto" />
         </AdminStatStrip>
@@ -268,7 +269,7 @@ export default function AdminClubs() {
               <div>
                 <CardTitle className="text-2xl">{club.name}</CardTitle>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {club.city}, {club.state}</Badge>
+                  <Badge variant="secondary" className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {formatCity(club.city)}, {club.state}</Badge>
                   <Badge variant="outline" className="flex items-center gap-1"><Phone className="h-3 w-3" /> {club.phone ?? "Sin teléfono"}</Badge>
                   <Badge variant="default">Activo</Badge>
                 </div>
@@ -332,19 +333,19 @@ export default function AdminClubs() {
             </Button>
           </div>
           {courts.length === 0 ? (
-            <Empty className="border-0 py-8">
-              <EmptyHeader>
-                <EmptyTitle>Sin canchas registradas</EmptyTitle>
-                <EmptyDescription>Agrega la primera cancha con el campo de arriba.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              className="py-8"
+              icon={<MapPin className="h-5 w-5" />}
+              title="Sin canchas registradas"
+              description="Agrega la primera cancha con el campo de arriba."
+            />
           ) : visibleCourts.length === 0 ? (
-            <Empty className="border-0 py-8">
-              <EmptyHeader>
-                <EmptyTitle>Ninguna cancha coincide</EmptyTitle>
-                <EmptyDescription>Prueba con otro nombre o quita el filtro de superficie.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AdminEmptyState
+              className="py-8"
+              icon={<MapPin className="h-5 w-5" />}
+              title="Ninguna cancha coincide"
+              description="Prueba con otro nombre o quita el filtro de superficie."
+            />
           ) : (
             <ul className="divide-y rounded-lg border">
               {visibleCourts.map((c) => (

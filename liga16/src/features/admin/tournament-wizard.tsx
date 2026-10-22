@@ -65,6 +65,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminEmptyState } from "@/components/admin/empty-state";
 
 const FORMAT_OPTIONS = [
   { v: "groups_knockout", l: "Grupos + eliminación" },
@@ -1119,18 +1120,20 @@ teams.forEach((t) => {
               <div>
                 <p className="mb-2 text-sm font-semibold">Equipos inscritos ({teams.length})</p>
                 {teams.length === 0 ? (
-                  <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    Llena el formulario de arriba y presiona "Agregar a la lista". Puedes inscribir todos los que necesites seguidos.
-                  </p>
+                  <AdminEmptyState
+                    icon={<Users className="h-5 w-5" />}
+                    title="Todavía no hay equipos"
+                    description="Llena el formulario de arriba y pulsa «Agregar a la lista». Puedes inscribir todos los que necesites seguidos."
+                  />
                 ) : (
                   <ul className="divide-y rounded-lg border">
                     {teams.map((t, i) => (
                       <li key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
                         <span className="w-6 text-center text-xs tabular-nums text-muted-foreground">{i + 1}</span>
                         {t.logo ? (
-                          <img src={t.logo} alt="" className="h-7 w-7 rounded object-contain" />
+                          <img src={t.logo} alt="" className="h-7 w-7 rounded-xs object-contain" />
                         ) : (
-                          <span className="flex h-7 w-7 items-center justify-center rounded bg-muted text-xs font-bold text-muted-foreground">{initialsEquipo(t)}</span>
+                          <span className="flex h-7 w-7 items-center justify-center rounded-xs bg-muted text-xs font-bold text-muted-foreground">{initialsEquipo(t)}</span>
                         )}
                         <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
                         <Badge variant="outline" className="shrink-0">{t.division} · {sexLabel(t.sex)}</Badge>
@@ -1163,7 +1166,7 @@ teams.forEach((t) => {
 
               {/* Panel de Borrador + Historial */}
               {(hasDraft || history.length > 0) && (
-                <Card className={hasDraft ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-amber-200 bg-amber-50"}>
+                <Card className={hasDraft ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-warning/30 bg-warning/10"}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2 text-sm">
@@ -1175,7 +1178,7 @@ teams.forEach((t) => {
                           </>
                         ) : (
                           <>
-                            <History className="h-4 w-4 text-amber-600" />
+                            <History className="h-4 w-4 text-warning-strong" />
                             Historial de sorteos
                             <Badge variant="secondary">{history.length}</Badge>
                           </>
@@ -1211,10 +1214,10 @@ teams.forEach((t) => {
                             key={i}
                             variant="ghost"
                             size="sm"
-                            className="w-full justify-start gap-2 text-xs hover:bg-amber-50"
+                            className="w-full justify-start gap-2 text-xs hover:bg-warning/10"
                             onClick={() => restoreFromHistory(i)}
                           >
-                            <RotateCcw className="h-3 w-3 text-amber-600" />
+                            <RotateCcw className="h-3 w-3 text-warning-strong" />
                             <span>
                               Sorteo #{history.length - i} — {h.length} grupos, {h.reduce((a, g) => a + g.pairIds.length, 0)} equipos
                               {i === 0 && <span className="ms-2 text-xs text-success">(más reciente)</span>}
@@ -1251,15 +1254,22 @@ teams.forEach((t) => {
                   </Button>
                 )}
                 {teams.length < 2 && (
-                  <p className="self-center text-sm text-amber-600 dark:text-amber-400">Añade al menos 2 equipos para poder sortear.</p>
+                  <p className="self-center text-sm text-warning-strong">Añade al menos 2 equipos para poder sortear.</p>
                 )}
               </div>
 
               {/* Visualización de grupos */}
               {groups.length === 0 && !hasDraft ? (
-                <div className="rounded-lg border border-dashed p-6 text-center">
-                  <p className="text-sm text-muted-foreground">Sin grupos todavía: sortea o crea grupos vacíos y arrastra los equipos.</p>
-                </div>
+                <AdminEmptyState
+                  icon={<Dice5 className="h-5 w-5" />}
+                  title="Sin grupos todavía"
+                  description="Sortea al azar o crea grupos vacíos y arrastra los equipos a cada uno."
+                  action={
+                    <Button type="button" onClick={handleDraw} disabled={teams.length < 2 || hasDraft}>
+                      <Dice5 className="h-4 w-4 ms-1" /> Sortear al azar
+                    </Button>
+                  }
+                />
               ) : (
                 <DndContext sensors={wizardSensors} collisionDetection={closestCenter} onDragEnd={handleWizardDragEnd}>
                   {/* Pool + all groups in a single SortableContext for cross-group drag */}

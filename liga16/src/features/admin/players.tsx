@@ -40,6 +40,7 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { PlayerStatus } from "@/types";
@@ -62,6 +63,8 @@ import {
   AdminTableEmpty,
   AdminTableSkeleton,
 } from "@/components/admin/table-state";
+import { AdminEmptyState } from "@/components/admin/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   RowActionsMenu,
   RowContextMenu,
@@ -290,7 +293,7 @@ export default function AdminPlayers() {
             label="Por verificar"
             tone={
               pendingCount > 0
-                ? "text-amber-600 dark:text-amber-400"
+                ? "text-warning-strong"
                 : undefined
             }
           />
@@ -441,7 +444,7 @@ export default function AdminPlayers() {
                     <TableRow
                       className={
                         isPending
-                          ? "bg-amber-50/50 dark:bg-amber-950/20"
+                          ? "bg-warning/10"
                           : undefined
                       }
                     >
@@ -451,7 +454,7 @@ export default function AdminPlayers() {
                           {isPending && (
                             <Badge
                               variant="outline"
-                              className="border-amber-300 bg-amber-100 text-xs uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                              className="border-warning/30 bg-warning/10 text-xs uppercase tracking-wide text-warning-strong"
                             >
                               Por verificar
                             </Badge>
@@ -480,24 +483,51 @@ export default function AdminPlayers() {
         ) : (
           <CardContent className="p-4">
             {list === null && (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Cargando jugadores…
-              </p>
+              /* Skeleton con la forma final de la galería: la carga se ve
+                 como la pantalla que va a aparecer, no como un texto. */
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-40 w-full rounded-xl" />
+                ))}
+              </div>
             )}
             {list !== null && filtered.length === 0 && (
-              <div className="flex flex-col items-center py-8 text-center">
-                <Users className="h-5 w-5 text-muted-foreground" />
-                <p className="mt-2 text-sm font-medium">
-                  {list.length === 0
-                    ? "No hay jugadores todavía"
-                    : "Sin coincidencias"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {list.length === 0
+              <AdminEmptyState
+                icon={<Users className="h-5 w-5 text-muted-foreground" />}
+                title={
+                  list.length === 0 ? "No hay jugadores todavía" : "Sin coincidencias"
+                }
+                description={
+                  list.length === 0
                     ? "Agrega al primer jugador para empezar el directorio."
-                    : "Ningún jugador coincide con la búsqueda o el filtro."}
-                </p>
-              </div>
+                    : "Ningún jugador coincide con la búsqueda o el filtro."
+                }
+                action={
+                  list.length === 0 ? (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setEditing(null);
+                        setOpenCreate(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" /> Nuevo jugador
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setQuery("");
+                        setTid("all");
+                        setVerification("all");
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5" /> Limpiar filtros
+                    </Button>
+                  )
+                }
+              />
             )}
             {filtered.length > 0 && (
               <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

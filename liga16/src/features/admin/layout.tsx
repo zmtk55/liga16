@@ -232,7 +232,7 @@ export default function AdminLayout() {
                     role="status"
                     className="mb-6 flex items-start gap-2.5 rounded-lg border bg-card px-3.5 py-2.5 text-sm text-muted-foreground"
                   >
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
                     <p>
                       Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY para
                       que los datos se guarden en Supabase de forma permanente.
