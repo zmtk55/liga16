@@ -28,7 +28,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -86,10 +86,10 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
     <Card
       onClick={toggleFlip}
       className={cn(
-        "group relative h-72 w-full max-w-xs overflow-hidden py-0 gap-0",
+        "group relative h-80 w-full max-w-xs overflow-hidden py-0 gap-0",
         "rounded-xl border-none bg-muted shadow-lg outline-none",
         "transition-all duration-500 ease-out [perspective:1200px]",
-        "hover:-translate-y-1 hover:shadow-xl",
+        "hover:-translate-y-1 hover:shadow-xl hover:border-primary/30 hover:ring-offset-2",
         "focus-visible:ring-2 focus-visible:ring-ring",
         flipped
           ? "z-30 scale-110 shadow-2xl ring-2 ring-foreground/40"
@@ -195,7 +195,7 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
               panel al 75% dejaba los números peleándose con la imagen (la
               "%" se perdía sobre un poster). Los datos mandan; la foto sigue
               siendo la identidad de la card, no su contenido. */}
-          <div className="relative z-10 mx-3 mb-3 mt-auto rounded-xl border border-foreground/15 bg-background/90 p-2.5 backdrop-blur-md dark:bg-background/80">
+          <div className="relative z-10 mx-3 mb-3 mt-auto rounded-xl border border-foreground/15 bg-background/90 p-3 backdrop-blur-md dark:bg-background/80">
             <h3 className="text-sm leading-tight font-bold text-foreground">
               {lines.map((l, i) => (
                 <span key={i} className="block truncate">
@@ -286,9 +286,17 @@ export function TeamCard({ team, className }: { team: Team; className?: string }
                   <ArrowUpRight className="ml-1.5 h-3.5 w-4" />
                 </Link>
               </Button>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Toca para voltear
-              </p>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 shrink-0 rounded-full px-2.5 font-semibold text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFlip();
+                }}
+              >
+                <ChevronLeft className="mr-1 h-3.5 w-3.5" /> Volver
+              </Button>
             </div>
           </div>
         </div>
@@ -312,9 +320,9 @@ function StatCell({ value, label }: { value: ReactNode; label: string }) {
 
 function BigStat({ value, label }: { value: ReactNode; label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg bg-muted py-3">
-      <span className="font-headline text-xl font-extrabold tabular-nums">{value}</span>
-      <span className="mt-1 text-caption uppercase text-muted-foreground">{label}</span>
+    <div className="flex flex-col items-center justify-center rounded-xl bg-gradient-to-br from-muted to-card/80 border border-border/20 py-4 shadow-sm">
+      <span className="font-headline text-xl font-extrabold tabular-nums text-foreground">{value}</span>
+      <span className="mt-1.5 text-caption uppercase tracking-wide text-muted-foreground">{label}</span>
     </div>
   );
 }

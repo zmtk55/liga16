@@ -229,7 +229,7 @@ export default function TeamsPage() {
            en vez de estirar el diseño. El enlace al detalle va dentro de la card
            —envolverla con un Link haría que el click fuera siempre navegación y
            nunca un flip. */
-        <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 justify-items-center gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((team) => (
             <TeamCard key={team.slug} team={team} />
           ))}
