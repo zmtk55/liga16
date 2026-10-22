@@ -1,6 +1,5 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -59,16 +58,20 @@ const BUCKET_LABEL: Record<MatchBucket, string> = {
   cancelled: "Cancelado",
 };
 
-
-
-
+interface PairMatchView {
+  pairName: string;
+  tournamentId: string;
+  tournamentName: string;
+  categoryName: string;
+  matches: Match[];
+}
 
 export default function AdminResults() {
   const [list, setList] = useState<Match[] | null>(null);
   const [tournaments, setTournaments] = useState<Record<string, Tournament>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
+  const [expandedPairs, setExpandedPairs] = useState<Record<string, boolean>>({});
 
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
@@ -129,30 +132,41 @@ export default function AdminResults() {
     return { estadoOptions, categoriaOptions: categorias, rondaOptions, torneoOptions };
   }, [list, tournaments]);
 
-  /**
-   * Un partido, una entrada.
-   *
-   * Antes se agrupaba por pareja (side_a y side_b por separado), así que
-   * "Julian / Pesqueira vs Leon / Baez" salía DOS veces: una bajo cada
-   * equipo. El organizer terminaba capturando el mismo resultado en los dos
-   * lados, y el que no lo hacía veía un partido "por capturar" que ya estaba
-   * capturado. Acá cada match es una fila sola, con los dos equipos a la vista.
-   */
-  const matchViews = useMemo(() => {
-    const result = filtered.map((m) => ({
-      match: m,
-      tournamentId: m.tournament_id,
-      tournamentName: m.tournament_name ?? "Sin torneo",
-      categoryName: m.category_name ?? "Sin categoría",
-    }));
-    // Primero lo que falta capturar, después por jornada y fecha.
+  /** Agrupa matches por PAREJA única (side_a o side_b) dentro del filtro */
+  const pairViews = useMemo((): PairMatchView[] => {
+    const map = new Map<string, PairMatchView>();
+    for (const m of filtered) {
+      for (const side of ["a", "b"] as const) {
+        const pair = side === "a" ? m.side_a : m.side_b;
+        const key = `${m.tournament_id}::${pair.pair_name}`;
+        const existing = map.get(key);
+        if (existing) {
+          existing.matches.push(m);
+        } else {
+          map.set(key, {
+            pairName: pair.pair_name,
+            tournamentId: m.tournament_id,
+            tournamentName: m.tournament_name ?? "Sin torneo",
+            categoryName: m.category_name ?? "Sin categoría",
+            matches: [m],
+          });
+        }
+      }
+    }
+    const result = Array.from(map.values());
+    // Ordenar cada lista de matches por ronda/fecha
+    for (const pv of result) {
+      pv.matches.sort((a, b) => {
+        const ja = parseRound(a.round ?? "").jornada ?? 0;
+        const jb = parseRound(b.round ?? "").jornada ?? 0;
+        return ja - jb || String(a.scheduled_at ?? "").localeCompare(String(b.scheduled_at ?? ""));
+      });
+    }
+    // Ordenar parejas: primero las que tienen partidos por capturar
     result.sort((a, b) => {
-      const aPending = matchBucket(a.match) === "pending" ? 0 : 1;
-      const bPending = matchBucket(b.match) === "pending" ? 0 : 1;
-      if (aPending !== bPending) return aPending - bPending;
-      const ja = parseRound(a.match.round ?? "").jornada ?? 0;
-      const jb = parseRound(b.match.round ?? "").jornada ?? 0;
-      return ja - jb || String(a.match.scheduled_at ?? "").localeCompare(String(b.match.scheduled_at ?? ""));
+      const aPend = a.matches.filter((m) => matchBucket(m) === "pending").length;
+      const bPend = b.matches.filter((m) => matchBucket(m) === "pending").length;
+      return bPend - aPend || a.pairName.localeCompare(b.pairName);
     });
     return result;
   }, [filtered]);
@@ -218,9 +232,11 @@ export default function AdminResults() {
     };
   }, [list]);
 
+  const togglePair = (key: string) => {
+    setExpandedPairs((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
-
-
+  const getPairKey = (pv: PairMatchView) => `${pv.tournamentId}::${pv.pairName}`;
 
   return (
     <div className="space-y-8">
@@ -312,65 +328,114 @@ export default function AdminResults() {
             </Empty>
           )}
 
-          {matchViews.length > 0 && (
+          {pairViews.length > 0 && (
             <div className="space-y-2 p-4">
-              {matchViews.map((mv) => {
-                const m = mv.match;
-                const state = matchState(m);
-                const capturado = state === "finished";
-                const roundLabel = parseRound(m.round ?? "");
-                const jornada = roundLabel.jornada ? `J${roundLabel.jornada}` : m.round;
+              {pairViews.map((pv) => {
+                const key = getPairKey(pv);
+                const isOpen = expandedPairs[key] ?? false;
+                const pendingCount = pv.matches.filter((m) => matchBucket(m) === "pending").length;
+                const playingCount = pv.matches.filter((m) => matchBucket(m) === "playing").length;
+                const finishedCount = pv.matches.filter((m) => matchBucket(m) === "finished").length;
 
                 return (
-                  <div key={m.id} className="bg-card border rounded-xl overflow-hidden transition-shadow hover:shadow-md">
-                    <div className="p-4">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-sm font-medium truncate">{m.side_a.pair_name} vs {m.side_b.pair_name}</span>
-                          <Badge variant="outline" className="text-xs">{m.category_name} · J{m.round}</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant={state === "live" ? "destructive" : state === "playing" ? "default" : "outline"} className={state === "finished" ? "bg-success text-success-foreground text-xs" : "text-xs"}>
-                            {state === "finished" ? "Terminado" : state === "live" ? "En vivo" : state === "playing" ? "En curso" : "Por capturar"}
-                          </Badge>
-                          <Button
-                            variant={capturado ? "ghost" : "default"}
-                            size="sm"
-                            className="h-7 shrink-0 gap-1.5 rounded-full px-3 text-xs"
-                            onClick={() => setEditingId(m.id)}
-                            aria-label={`${capturado ? "Ver" : "Capturar"} resultado`}
-                          >
-                            {capturado ? <Eye className="h-3.5 w-3.5" /> : <ClipboardList className="h-3.5 w-3.5" />}
-                            {capturado ? "Ver" : "Capturar"}
-                          </Button>
-                          {editingId === m.id && <Badge variant="default" className="ml-1 animate-pulse text-[10px]">EDITANDO ↗</Badge>}
+                  <div key={key} className="bg-card border rounded-xl overflow-hidden transition-shadow hover:shadow-md">
+                    <button
+                      onClick={() => togglePair(key)}
+                      className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      aria-expanded={isOpen}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold truncate">{pv.pairName}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Trophy className="h-3 w-3" /> {pv.tournamentName}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{pv.categoryName}</span>
+                          </span>
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
-                        {m.scheduled_at && (
-                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(m.scheduled_at).toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
-                        )}
-                        {m.court_name && (
-                          <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{m.court_name}</span>
-                        )}
-                        <span className="font-medium tabular-nums">{jornada}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {pendingCount > 0 && <Badge variant="default" className="text-xs">{pendingCount} por capturar</Badge>}
+                        {playingCount > 0 && <Badge variant="secondary" className="text-xs">{playingCount} en curso</Badge>}
+                        {finishedCount > 0 && <Badge variant="outline" className="text-xs">{finishedCount} finalizados</Badge>}
+                        {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                       </div>
-                      {m.sets.length > 0 && (
-                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                          {m.sets.map((s, i) => {
-                            const aScore = s.a ?? 0;
-                            const bScore = s.b ?? 0;
-                            const won = aScore > bScore;
-                            const tb = s.tiebreak_a != null && (s.a ?? 0) === (s.b ?? 0) ? s.tiebreak_a : null;
-                            return (
-                              <span key={i} className={`inline-flex items-center justify-center min-w-[2.25rem] h-6 px-1.5 rounded text-xs font-bold tabular-nums ${won ? "bg-success/15 text-success" : "text-muted-foreground"}`}>
-                                {aScore}{tb != null && <span className="ml-0.5 text-[10px] opacity-70">({tb})</span>}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="border-t bg-muted/30 divide-y divide-border/50">
+                        {pv.matches.map((m) => {
+                          const state = matchState(m);
+                          const capturado = state === "finished";
+                          const isSideA = m.side_a.pair_name === pv.pairName;
+                          const opponent = isSideA ? m.side_b.pair_name : m.side_a.pair_name;
+                          const roundLabel = parseRound(m.round ?? "");
+                          const jornada = roundLabel.jornada ? `J${roundLabel.jornada}` : m.round;
+
+                          return (
+                            <div key={m.id} className="p-3 hover:bg-card transition-colors" style={{ minWidth: 0 }}>
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <span className="text-sm font-medium truncate">{opponent}</span>
+                                  <Badge
+                                    variant={state === "live" ? "destructive" : state === "playing" ? "default" : "outline"}
+                                    className={
+                                      state === "finished"
+                                        ? "bg-success text-success-foreground text-xs shrink-0"
+                                        : "text-xs shrink-0"
+                                    }
+                                  >
+                                    {state === "finished" ? "Finalizado" : state === "live" ? "En vivo" : state === "playing" ? "En curso" : "Por jugar"}
+                                  </Badge>
+                                </div>
+                                <Button
+                                  variant={capturado ? "ghost" : "default"}
+                                  size="sm"
+                                  className="h-7 shrink-0 gap-1.5 rounded-full px-3 text-xs"
+                                  onClick={() => setEditingId(m.id)}
+                                  aria-label={`${capturado ? "Ver" : "Capturar"} resultado vs ${opponent}`}
+                                >
+                                  {capturado ? <Eye className="h-3.5 w-3.5" /> : <ClipboardList className="h-3.5 w-3.5" />}
+                                  {capturado ? "Ver" : "Capturar"}
+                                </Button>
+                                {editingId === m.id && <Badge variant="default" className="ml-1 animate-pulse text-xs">EDITANDO ↗</Badge>}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                {m.scheduled_at && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    {new Date(m.scheduled_at).toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "2-digit" })}
+                                  </span>
+                                )}
+                                {m.court_name && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" /> {m.court_name}
+                                  </span>
+                                )}
+                                <span className="font-medium tabular-nums">{jornada}</span>
+                              </div>
+                              {m.sets.length > 0 && (
+                                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                  {m.sets.map((s, i) => {
+                                    const aScore = isSideA ? (s.a ?? 0) : (s.b ?? 0);
+                                    const bScore = isSideA ? (s.b ?? 0) : (s.a ?? 0);
+                                    const won = aScore > bScore;
+                                    const tb = isSideA ? s.tiebreak_a : s.tiebreak_b;
+                                    const showTb = tb != null && (s.a ?? 0) === (s.b ?? 0);
+                                    return (
+                                      <span key={i} className={`inline-flex items-center justify-center min-w-[2.25rem] h-6 px-1.5 rounded text-xs font-bold tabular-nums ${won ? "bg-success/15 text-success" : "text-muted-foreground"}`}>
+                                        {aScore}{showTb && <span className="ml-0.5 text-xs opacity-70">({tb})</span>}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
