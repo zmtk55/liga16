@@ -257,7 +257,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/65 to-black/25" />
 
-        <div className="relative mx-auto flex min-h-[560px] max-w-7xl flex-col justify-between px-4 pb-8 pt-8 md:px-8 md:pb-10 md:pt-12">
+        <div className="relative mx-auto flex min-h-[440px] md:min-h-[560px] max-w-7xl flex-col justify-between px-4 pt-4 pb-6 md:px-8 md:pt-8 md:pb-8">
           {/* La sede aparece UNA vez, y solo cuando no hay partido en vivo:
               cuando lo hay, el eyebrow lo ocupa el estado, que es lo que la
               gente viene a mirar. Antes se repetía tres veces (aquí, en el
@@ -269,7 +269,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
               : `Circuito de pádel · ${sedeLabel}`}
           </p>
 
-          <div className="max-w-3xl py-14 sm:py-16">
+          <div className="max-w-3xl py-6 sm:py-10 md:py-14">
 
             {/* PRUEBA DE FUENTE: solo este titular usa la display nueva
                 (token `poster` = Barlow Condensed). El resto de la app

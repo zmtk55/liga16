@@ -88,13 +88,14 @@ module.exports = {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
       },
       fontFamily: {
-        display: ["Anton", "Impact", "sans-serif"],
+        /* La prueba Anton → Barlow Condensed quedó cerrada: Barlow es la
+           display del sistema (DESIGN.md, sección 3). Anton sale del proyecto
+           — no queda ni en las fuentes ni en las clases. */
+        display: ["Barlow Condensed", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         /* Alias semántico: jerarquía editorial (títulos de sección).
            Todo lo demás — cards, popups, datos — usa sans. */
-        headline: ["Anton", "Impact", "sans-serif"],
-        /* La display que se está probando (token `poster`). Va en el hero de
-           la home mientras se decide; si se aprueba, `display` y `headline`
-           pasan a apuntar aquí y Anton sale del proyecto. */
+        headline: ["Barlow Condensed", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        /* Alias histórico de la display del hero. Misma familia que `display`. */
         poster: ["Barlow Condensed", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
