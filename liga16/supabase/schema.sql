@@ -744,10 +744,21 @@ create trigger trigger_auth_user_created
 
 -- Sincroniza role de raw_user_meta_data a raw_app_meta_data para RLS seguro
 -- Tras signup, el role viaja en raw_user_meta_data pero RLS lo lee de raw_app_meta_data
+--
+-- OJO con el alcance: raw_user_meta_data lo escribe el usuario (va en el body
+-- del signup, en {data:{role:"admin"}}). Copiarlo tal cual hacia app_metadata
+-- deja que cualquiera se auto-asigne admin/organizer al registrarse: el trigger
+-- deshace la ventaja de leer app_metadata en RLS.
+--
+-- Por eso SOLO se sincronizan los roles que no dan privilegio. 'admin' y
+-- 'organizer' se conceden a mano (Dashboard o service_role), escribiendo en
+-- app_metadata, nunca en user_metadata. Ver supabase/grant-admin.sql.
 create or replace function public.sync_role_app_metadata()
 returns trigger as $$
 begin
-  if new.raw_user_meta_data ? 'role' then
+  if new.raw_user_meta_data ? 'role'
+     and new.raw_user_meta_data->>'role' = any (array['player','captain','club','sponsor'])
+     and coalesce(new.raw_app_meta_data->>'role','') not in ('admin','organizer') then
     new.raw_app_meta_data := jsonb_set(
       coalesce(new.raw_app_meta_data, '{}'::jsonb),
       '{role}',
@@ -766,7 +777,9 @@ create trigger trigger_sync_role_app_metadata
 create or replace function public.sync_role_on_update()
 returns trigger as $$
 begin
-  if new.raw_user_meta_data ->> 'role' is distinct from old.raw_user_meta_data ->> 'role' then
+  if new.raw_user_meta_data ->> 'role' is distinct from old.raw_user_meta_data ->> 'role'
+     and new.raw_user_meta_data->>'role' = any (array['player','captain','club','sponsor'])
+     and coalesce(new.raw_app_meta_data->>'role','') not in ('admin','organizer') then
     new.raw_app_meta_data := jsonb_set(
       coalesce(new.raw_app_meta_data, '{}'::jsonb),
       '{role}',

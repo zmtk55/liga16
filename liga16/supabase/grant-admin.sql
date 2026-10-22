@@ -1,0 +1,47 @@
+-- ============================================================================
+-- Conceder o quitar el rol de admin/organizer.
+--
+-- Por qué este archivo existe:
+--
+-- Las políticas RLS leen el rol de raw_app_meta_data, que el usuario NO puede
+-- editar. Pero el trigger sync_role_app_metadata copiaba el rol desde
+-- raw_user_meta_data (que el usuario sí controla al registrarse) hacia
+-- app_metadata. Con esa cadena, cualquiera podía pedir {data:{role:"admin"}}
+-- en el signup y quedarse con permisos de escritura sobre toda la base.
+-- El trigger ya está corregido en schema.sql: solo sincroniza roles sin
+-- privilegio (player, captain, club, sponsor).
+--
+-- Por eso admin y organizer se conceden AQUÍ, escribiendo directo en
+-- app_metadata, que es el campo que RLS lee.
+--
+-- Uso (Supabase → SQL Editor):
+--   1. Buscar el id del usuario:
+--        select id, email, raw_app_meta_data from auth.users where email = '...';
+--   2. Sustituir el id y ejecutar el bloque de abajo.
+-- ============================================================================
+
+-- ── Conceder admin ──────────────────────────────────────────────────────────
+-- UPDATE auth.users
+-- SET raw_app_meta_data = jsonb_set(
+--       coalesce(raw_app_meta_data, '{}'::jsonb), '{role}', '"admin"'
+--     )
+-- WHERE email = 'julian.blackflag@gmail.com';
+
+-- ── Conceder organizer (mismo poder de escritura en el panel) ───────────────
+-- UPDATE auth.users
+-- SET raw_app_meta_data = jsonb_set(
+--       coalesce(raw_app_meta_data, '{}'::jsonb), '{role}', '"organizer"'
+--     )
+-- WHERE email = 'alguien@ejemplo.com';
+
+-- ── Quitar el rol (deja al usuario como 'player') ──────────────────────────
+-- UPDATE auth.users
+-- SET raw_app_meta_data = jsonb_set(
+--       coalesce(raw_app_meta_data, '{}'::jsonb), '{role}', '"player"'
+--     )
+-- WHERE email = 'alguien@ejemplo.com';
+
+-- ── Ver quién es admin ahora mismo ─────────────────────────────────────────
+-- SELECT email, raw_app_meta_data->>'role' AS role
+-- FROM auth.users
+-- WHERE raw_app_meta_data->>'role' IN ('admin','organizer');
