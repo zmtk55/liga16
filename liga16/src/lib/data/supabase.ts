@@ -236,6 +236,37 @@ function matchFromRow(row: Record<string, unknown>): Match {
   };
 }
 
+/**
+ * Los partidos guardan un SNAPSHOT del nombre de cada lado. Al renombrar una
+ * pareja, ese snapshot queda viejo: el calendario del torneo seguía
+ * mostrando "Imeyra / Valeria Coronado" para una pareja que ya se llamaba
+ * "Jovelyn U / Ale Olguin", mientras el buscador de resultados sí mostraba el
+ * nombre bueno. Dos pantallas, dos verdades.
+ *
+ * Aquí el nombre se resuelve contra `pairs` ACTUAL: por pair_id y, de
+ * respaldo, por nombre (partidos sin id). Todas las pantallas que listan
+ * partidos pasan por aquí, así que cuentan lo mismo.
+ */
+async function resolveMatchPairNames(rows: Array<Record<string, unknown>>): Promise<Match[]> {
+  const { data: pairsData } = await client()
+    .from('pairs').select('id, name');
+  const nameById = new Map((pairsData ?? []).map((r: Record<string, unknown>) => [r.id as string, r.name as string]));
+  const nameByLower = new Map((pairsData ?? []).map((r: Record<string, unknown>) => [(r.name as string).trim().toLowerCase(), r.name as string]));
+  const resolveName = (pairId: string | null, pairName: string | null) => {
+    if (pairId && nameById.has(pairId)) return nameById.get(pairId)!;
+    const byName = nameByLower.get((pairName ?? "").trim().toLowerCase());
+    return byName ?? pairName ?? "";
+  };
+  return rows.map((r) => {
+    const m = matchFromRow(r);
+    return {
+      ...m,
+      side_a: { ...m.side_a, pair_name: resolveName(m.side_a.pair_id, m.side_a.pair_name) },
+      side_b: { ...m.side_b, pair_name: resolveName(m.side_b.pair_id, m.side_b.pair_name) },
+    };
+  });
+}
+
 export const supabaseProvider: DataProvider = {
   // Torneos
   async listTournaments(filters?: Omit<TournamentFilters, 'city'>) {
@@ -389,7 +420,7 @@ export const supabaseProvider: DataProvider = {
     const { data, error } = await client()
       .from('matches').select('*').eq('tournament_id', tournamentId);
     if (error) throw error;
-    return (data ?? []).map((r: Record<string, unknown>) => matchFromRow(r)) as never;
+    return (await resolveMatchPairNames(data ?? [])) as never;
   },
 
   async deleteMatchById(id: string) {
@@ -632,17 +663,15 @@ export const supabaseProvider: DataProvider = {
       player2_id: (r.player2_id as string) ?? '',
     })) as unknown as Pair[];
 
-    const matches = ((matchesRes.data ?? []) as Array<Record<string, unknown>>).map((m) => ({
-      id: m.id as string,
+    // Mismo nombre vigente que el resto de pantallas: se resuelve contra
+    // `pairs` actual, no contra el snapshot guardado en el partido.
+    const matches = (await resolveMatchPairNames(
+      (matchesRes.data ?? []) as Array<Record<string, unknown>>,
+    )).map((m) => ({
+      ...m,
       tournament_id: '',
       round: '',
       court_name: null,
-      scheduled_at: (m.scheduled_at as string) ?? null,
-      status: m.status as Match['status'],
-      winner: (m.winner as Match['winner']) ?? null,
-      side_a: { pair_id: (m.side_a_pair_id as string) ?? null, pair_name: (m.side_a_name as string) ?? '' },
-      side_b: { pair_id: (m.side_b_pair_id as string) ?? null, pair_name: (m.side_b_name as string) ?? '' },
-      sets: (m.sets as Match['sets']) ?? [],
     })) as unknown as Match[];
 
     const names = ((namesRes.data ?? []) as Array<Record<string, unknown>>).map((p) => ({
@@ -786,27 +815,11 @@ export const supabaseProvider: DataProvider = {
       .from('matches').select('*');
     if (error) throw error;
     const orderKeys: string[] = ['live', 'scheduled', 'disputed', 'finished', 'walkover', 'cancelled'];
-    // Los nombres de los lados se resuelven contra `pairs` ACTUAL: un partido
-    // guarda un snapshot del nombre y, al renombrar la pareja, el buscador de
-    // resultados no encontraba el nuevo nombre. Con el lookup siempre sale el
-    // nombre de hoy, por pair_id y, de respaldo, por nombre (partidos sin id).
-    const { data: pairsData } = await client()
-      .from('pairs').select('id, name');
-    const nameById = new Map((pairsData ?? []).map((r: Record<string, unknown>) => [r.id as string, r.name as string]));
-    const nameByLower = new Map((pairsData ?? []).map((r: Record<string, unknown>) => [(r.name as string).trim().toLowerCase(), r.name as string]));
-    const resolveName = (pairId: string | null, pairName: string | null) => {
-      if (pairId && nameById.has(pairId)) return nameById.get(pairId)!;
-      const byName = nameByLower.get((pairName ?? "").trim().toLowerCase());
-      return byName ?? pairName ?? "";
-    };
-    const rows = (data ?? []).map((r: Record<string, unknown>) => {
-      const m = matchFromRow(r);
-      return {
-        ...m,
-        side_a: { ...m.side_a, pair_name: resolveName(m.side_a.pair_id, m.side_a.pair_name) },
-        side_b: { ...m.side_b, pair_name: resolveName(m.side_b.pair_id, m.side_b.pair_name) },
-      };
-    });
+    // Los nombres de los lados se resuelven contra `pairs` ACTUAL (ver
+    // resolveMatchPairNames): un partido guarda un snapshot del nombre y, al
+    // renombrar la pareja, el buscador de resultados no encontraba el nombre
+    // bueno. Misma regla que el calendario del torneo.
+    const rows = await resolveMatchPairNames(data ?? []);
     return rows.sort((a, b) => {
       const sa = orderKeys.indexOf(a.status);
       const sb = orderKeys.indexOf(b.status);
