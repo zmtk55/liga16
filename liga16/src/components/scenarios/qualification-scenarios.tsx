@@ -481,7 +481,7 @@ export default function ScenarioPanel({
             return (
               <li
                 key={s.label}
-                className="grid gap-x-4 gap-y-1 sm:grid-cols-[7.5rem_minmax(0,1fr)]"
+                className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[7.5rem_minmax(0,1fr)]"
               >
                 <div className="flex items-center gap-2">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-foreground/75">
@@ -528,7 +528,7 @@ export default function ScenarioPanel({
             id="clasificacion-pregunta"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Pregunta lo que quieras de tu pase…"
+            placeholder="Pregunta por tu pase…"
             className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 sm:text-base"
             autoComplete="off"
           />
