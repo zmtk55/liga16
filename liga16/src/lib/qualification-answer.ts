@@ -61,7 +61,7 @@ function teamsMentioned(prompt: string, rows: StandingLike[]): StandingLike[] {
     if (score > 0) hits.push({ row, at, score });
   }
 
-  hits.sort((a, b) => b.score - a.score || a.at - b.at);
+  hits.sort((a, b) => a.at - b.at || b.score - a.score);
   return hits
     .slice(0, 2)
     .sort((a, b) => a.at - b.at)
@@ -128,15 +128,28 @@ export function answerQualification({
     reading?.intent && reading.intent !== "otra" ? reading.intent : localIntent();
 
   /* ---------- 1. La pregunta nombra a dos parejas: se simula ese cruce ---------- */
-  const named =
-    reading?.winnerId && reading?.loserId
-      ? [rows.find((r) => r.pairId === reading.winnerId), rows.find((r) => r.pairId === reading.loserId)]
-      : teamsMentioned(prompt, rows);
-  const teams = named.filter(Boolean) as StandingLike[];
+  const mentions = teamsMentioned(prompt, rows);
+  const byPair = (pairId?: string) =>
+    pairId ? rows.find((r) => r.pairId === pairId) : undefined;
+
+  const unique = (list: Array<StandingLike | undefined>) => {
+    const seen = new Set<string>();
+    return list.filter((r): r is StandingLike => {
+      if (!r || seen.has(r.pairId)) return false;
+      seen.add(r.pairId);
+      return true;
+    });
+  };
+
+  // JEV gana cuando el texto es ambiguo ("julian" puede ser dos parejas), pero
+  // solo si devolvió dos parejas DISTINTAS. Si no, manda el orden del texto:
+  // el sujeto de "le gana a" aparece primero.
+  const jevPair = unique([byPair(reading?.winnerId), byPair(reading?.loserId)]);
+  const teams = jevPair.length === 2 ? jevPair : unique(mentions);
   const asksAboutResult =
     intent === "cruzar_resultado" ||
     /gan|vence|derrot|pierd|le gana/.test(p) ||
-    teams.length === 2;
+    mentions.length === 2;
 
   if (teams.length === 2 && asksAboutResult) {
     const [winner, loser] = teams;
@@ -169,6 +182,10 @@ export function answerQualification({
       `Si ${winner.name} le gana a ${loser.name}:`,
       `${short(loser.name)} se queda en ${fmt(loser.points)} puntos (perder no resta) y ${short(winner.name)} sube a ${fmt(winner.points + pointsPerWin)}. ${effect}`,
       tail.trim(),
+      // Si pidió un número, se da el estimado y se dice que es estimado.
+      /porcentaje|probabilidad|posibilidades/.test(p)
+        ? `Mi estimación con esta tabla: ${Math.round(q.semifinalProbability)}% de pasar. Es una estimación, no un resultado.`
+        : "",
     ]
       .filter(Boolean)
       .join("\n\n");

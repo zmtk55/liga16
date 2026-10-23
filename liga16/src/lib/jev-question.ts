@@ -145,14 +145,10 @@ export async function readQuestion(args: {
         ? answers.ganador.choice
         : undefined;
 
-    // JEV duda entre "ninguna" y la pareja cuando el verbo va en subjuntivo
-    // ("que Julián gane a…"). En ese caso vale la pareja con más probabilidad
-    // que no sea la perdedora: la intención de cruce ya la confirmó.
-    if (
-      intent === "cruzar_resultado" &&
-      loserId &&
-      (!winnerId || winnerId === loserId)
-    ) {
+    // Un cruce siempre tiene dos parejas distintas. Si JEV devuelve la misma
+    // como ganadora y perdedora (pasa cuando el Sujeto es ambiguo), se corrige
+    // aquí, sin depender de la intención que haya elegido.
+    if (winnerId && loserId && winnerId === loserId) {
       winnerId = Object.entries(answers.ganador?.probabilities ?? {})
         .filter(([id]) => id !== "ninguna" && id !== loserId)
         .sort((a, b) => b[1] - a[1])[0]?.[0];
