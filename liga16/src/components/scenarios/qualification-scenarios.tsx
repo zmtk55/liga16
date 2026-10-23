@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
 import { qualificationFor } from "@/lib/qualification";
+import { answerQualification } from "@/lib/qualification-answer";
 
 interface Props {
   standings: StandingLike[];
@@ -121,82 +122,114 @@ export default function ScenarioPanel({
     label: string;
     when: string;
     then: string;
-  }> = q.inCut
-    ? [
-        {
-          tone: "pass",
-          label: "Pasas",
-          when: left > 0 ? `Ganas 1 de los ${left}` : "Terminas entre los primeros",
-          then:
-            left > 0
-              ? `Llegas a ${oneWinPoints} pts y sigues entre los ${slots} que van a semifinales.`
-              : `Estás ${q.position}° con ${myPoints} pts y la última plaza quedó en ${lastPlacePoints}.`,
-        },
-        {
-          tone: "depends",
-          label: "Depende",
-          when: chaser
-            ? `Pierdes y ${chaser.name} gana`
-            : "Pierdes y alguien de abajo suma",
-          then: chaser
-            ? `Caes a ${q.position + 1}° y ${chaser.name} te empata con ${chaser.points} pts: tu pase queda en manos del promedio de sets.`
-            : `Caes a ${q.position + 1}° y se te acercan: tu pase queda en manos del promedio de sets.`,
-        },
-        {
-          tone: "out",
-          label: "Riesgo",
-          when:
-            left > 1
-              ? `Pierdes 2 seguidos y ${chaser?.name ?? "el de abajo"} gana`
-              : `Pierdes y ${chaser?.name ?? "el de abajo"} gana`,
-          then: `${chaser ? `Quedas ${q.position + 2}° y ${chaser.name} sube al ${q.position}°.` : `Quedas ${q.position + 2}° y quedas fuera de semifinales.`} Aun así, si EL RIVAL PIERDE, te mantienes.`,
-        },
-      ]
-    : [
-        {
-          tone: "pass",
-          label: "Pasas",
-          when:
-            left > 0
-              ? `Ganas tus ${left} partido${left === 1 ? "" : "s"} y ${rival?.name ?? "el rival"} pierde`
-              : "El rival pierde",
-          then:
-            left > 0
-              ? `Sumas ${winAllPoints} pts y la última plaza va en ${lastPlacePoints}. ${
-                  winAllPoints > lastPlacePoints
-                    ? "Con eso alcanza, sin contar lo que sumen los demás."
-                    : `Aun ganando todo te faltan ${Math.max(0, lastPlacePoints - winAllPoints + 1)} pts: necesitas que arriba no sumen.`
+  }> = left === 0
+    ? q.inCut
+      ? [
+          {
+            tone: "pass",
+            label: "Pasas",
+            when: "La tabla no se mueve",
+            then: `Terminas ${q.position}° con ${myPoints} pts y la última plaza quedó en ${lastPlacePoints}.`,
+          },
+          {
+            tone: "depends",
+            label: "Depende",
+            when: chaser ? `${chaser.name} gana lo suyo` : "Alguien de abajo suma",
+            then: chaser
+              ? `${chaser.name} se te pone a tiro con ${chaser.points + pw} pts: tu lugar queda en manos del promedio de sets.`
+              : "El de abajo suma y el promedio de sets decide.",
+          },
+          {
+            tone: "out",
+            label: "Riesgo",
+            when: "Dos de abajo suman",
+            then: `Caes al ${q.position + 2}° y quedas fuera de semifinales.`,
+          },
+        ]
+      : [
+          {
+            tone: "pass",
+            label: "Pasas",
+            when: "El desempate te favorece",
+            then: rival
+              ? `Estás empatado en ${myPoints} pts con ${rival.name}: si el promedio de sets te deja arriba, entras.`
+              : "Solo si el desempate te deja arriba.",
+          },
+          {
+            tone: "depends",
+            label: "Depende",
+            when: "El desempate te deja abajo",
+            then: `Con los mismos ${myPoints} pts quedas ${q.position}°: necesitas que el torneo ajuste la tabla.`,
+          },
+          {
+            tone: "out",
+            label: "Riesgo",
+            when: rival ? `${rival.name} gana lo que le queda` : "Los de arriba suman",
+            then: rival
+              ? `Se va a ${rival.points + pw} pts y la diferencia ya no se remonta.`
+              : "La diferencia ya no se remonta.",
+          },
+        ]
+    : q.inCut
+      ? [
+          {
+            tone: "pass",
+            label: "Pasas",
+            when: `Ganas 1 de los ${left}`,
+            then: `Llegas a ${oneWinPoints} pts y sigues entre los ${slots} que van a semifinales.`,
+          },
+          {
+            tone: "depends",
+            label: "Depende",
+            when: chaser ? `Pierdes y ${chaser.name} gana` : "Pierdes y alguien de abajo suma",
+            then: chaser
+              ? `Caes a ${q.position + 1}° y ${chaser.name} te empata con ${chaser.points} pts: tu pase queda en manos del promedio de sets.`
+              : `Caes a ${q.position + 1}° y se te acercan: tu pase queda en manos del promedio de sets.`,
+          },
+          {
+            tone: "out",
+            label: "Riesgo",
+            when:
+              left > 1
+                ? `Pierdes 2 seguidos y ${chaser?.name ?? "el de abajo"} gana`
+                : `Pierdes y ${chaser?.name ?? "el de abajo"} gana`,
+            then: `${chaser ? `Quedas ${q.position + 2}° y ${chaser.name} sube al ${q.position}°.` : `Quedas ${q.position + 2}° y quedas fuera de semifinales.`} Aun así, si EL RIVAL PIERDE, te mantienes.`,
+          },
+        ]
+      : [
+          {
+            tone: "pass",
+            label: "Pasas",
+            when: `Ganas tus ${left} partido${left === 1 ? "" : "s"} y ${rival?.name ?? "el rival"} pierde`,
+            then: `Sumas ${winAllPoints} pts y la última plaza va en ${lastPlacePoints}. ${
+              winAllPoints > lastPlacePoints
+                ? "Con eso alcanza, sin contar lo que sumen los demás."
+                : `Aun ganando todo te faltan ${Math.max(0, lastPlacePoints - winAllPoints + 1)} pts: necesitas que arriba no sumen.`
+            }`,
+          },
+          {
+            tone: "depends",
+            label: "Depende",
+            when: "Ganas 1 y el rival no gana",
+            then: rival
+              ? `Tú llegas a ${oneWinPoints} pts y ${rival.name} sigue en ${rival.points}: ${
+                  oneWinPoints > rival.points
+                    ? `le pasas por ${oneWinPoints - rival.points}.`
+                    : `te faltan ${rival.points - oneWinPoints + 1} pts para pasarle.`
                 }`
-              : rival
-                ? `${rival.name} se queda en ${rival.points} pts y tú en ${myPoints}: ${myPoints > rival.points ? "pasas" : "no alcanza"}.`
-                : `Dependes de que los de arriba no sumen.`,
-        },
-        {
-          tone: "depends",
-          label: "Depende",
-          when: left > 0 ? "Ganas 1 y el rival no gana" : "El rival no gana",
-          then: rival
-            ? `Tú llegas a ${oneWinPoints} pts y ${rival.name} sigue en ${rival.points}: ${
-                oneWinPoints > rival.points
-                  ? `le pasas por ${oneWinPoints - rival.points}.`
-                  : `te faltan ${rival.points - oneWinPoints + 1} pts para pasarle.`
-              }`
-            : `Con ${oneWinPoints} pts te acercas a la última plaza (${lastPlacePoints} pts).`,
-        },
-        {
-          tone: "out",
-          label: "Riesgo",
-          when: left > 0 ? "Pierdes" : "Ganas pero el rival también",
-          then:
-            left > 0
-              ? `Te quedas en ${myPoints} pts y bajas a ${q.position + 1}°. ${
-                  left > 1
-                    ? `Todavía te quedaría${left === 2 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para recuperar.`
-                    : "Sería el último partido del rol."
-                }`
-              : `Con ${myPoints} pts no entras a semifinales: tu pase ya no depende de ti.`,
-        },
-      ];
+              : `Con ${oneWinPoints} pts te acercas a la última plaza (${lastPlacePoints} pts).`,
+          },
+          {
+            tone: "out",
+            label: "Riesgo",
+            when: "Pierdes",
+            then: `Te quedas en ${myPoints} pts y bajas a ${q.position + 1}°. ${
+              left > 1
+                ? `Todavía te quedaría${left === 2 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para recuperar.`
+                : "Sería el último partido del rol."
+            }`,
+          },
+        ];
 
   /* ---------------- tabla alrededor de la línea de semifinales ---------------- */
   const rail = useMemo(() => {
@@ -213,141 +246,21 @@ export default function ScenarioPanel({
     };
   }, [rows, me.pairId, slots]);
 
-  /* ---------------- respuestas con las cifras del equipo ---------------- */
-  const buildAnswer = (prompt: string): string => {
-    const p = prompt.toLowerCase();
-    // Dentro de semifinales, "mi rival" es el que viene abajo.
-    const other = q.inCut ? chaser : rival;
-    const rivalText = other
-      ? `${other.name} (${other.position}°, ${other.points} pts)`
-      : null;
-    const head = q.inCut
-      ? `Vas ${q.position}° con ${myPoints} pts y pasan ${slots} a semifinales.`
-      : `Vas ${q.position}° con ${myPoints} pts, a ${missing} de la última plaza (${lastPlacePoints}).`;
-
-    if (p.includes("rival") || p.includes("no pase")) {
-      if (!other) {
-        return `${head} No tienes rival directo ${q.inCut ? "abajo" : "arriba"}: si ganas lo que te queda, la tabla se mueve a tu favor.`;
-      }
-      const gap = other.points - myPoints;
-      if (gap < 0) {
-        return `${head} A ${rivalText} ya le sacas ${Math.abs(gap)} pts, así que el que debe ganar es ${other.name}, no tú. Si ${other.name} pierde y tú ganas, la distancia crece y el pase se le aleja.`;
-      }
-      const relation =
-        gap === 0
-          ? `está empatado contigo en ${other.points} pts`
-          : `te lleva ${gap} pt${gap === 1 ? "" : "s"} (${other.points} pts)`;
-      return `${head} ${other.name} ${relation}, en ${other.position}°. Ganas tú y ${other.name} pierde: te pones ${oneWinPoints > other.points ? `arriba por ${oneWinPoints - other.points}` : `a ${other.points - oneWinPoints + 1} de pasarle`}. Si ${other.name} gana, la ventaja se abre a ${gap + pw} y necesitas ${Math.ceil((gap + pw + 1) / pw)} victoria${Math.ceil((gap + pw + 1) / pw) === 1 ? "" : "s"}.`;
-    }
-
-    if (
-      p.includes("no tengo") ||
-      p.includes("sin partido") ||
-      p.includes("ya no") ||
-      p.includes("acab")
-    ) {
-      return left === 0
-        ? `${head} Ya no te quedan partidos, así que tu posición es la final: ${q.inCut ? `estás en semifinales salvo que alguien sume por debajo` : `quedaste fuera por ${missing} pt${missing === 1 ? "" : "s"} y solo entras si ${rival?.name ?? "el de arriba"} pierde lo suyo`}.`
-        : `Todavía te queda${left === 1 ? "" : "n"} ${left} partido${left === 1 ? "" : "s"}. ${head}`;
-    }
-
-    if (
-      p.includes("perder") ||
-      p.includes("pierdo") ||
-      p.includes("elimin") ||
-      p.includes("riesgo")
-    ) {
-      if (left === 0) {
-        return `${head} Sin partidos por jugar no hay nada que perder: el resultado ya está escrito y ${q.inCut ? "te favorece" : "te deja fuera"}.`;
-      }
-      return q.inCut
-        ? `${head} Si pierdes te quedas en ${myPoints} pts y bajas a ${q.position + 1}°, pero sigues vivo: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} más recuperas si ganas. Y si ${rival?.name ?? "el rival"} pierde, el golpe no te saca de semifinales.`
-        : `${head} Si pierdes te quedas en ${myPoints} pts y la última plaza se te va: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} por jugar, la derrota te deja sin margen.`;
-    }
-
-    if (
-      p.includes("ganar") ||
-      p.includes("gano") ||
-      p.includes("paso") ||
-      p.includes("clasific") ||
-      p.includes("semifinal") ||
-      p.includes("próximo") ||
-      p.includes("proximo")
-    ) {
-      if (left === 0) {
-        return `${head} Ya no hay próximo partido: ${q.inCut ? "estás en semifinales" : `no alcanza con ${myPoints} pts, necesitas que el de arriba pierda`}.`;
-      }
-      if (q.inCut) {
-        return `${head} Si ganas el próximo llegas a ${oneWinPoints} pts: sigues dentro de los ${slots} y te queda${left - 1 === 1 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para pelear el primer lugar del grupo.`;
-      }
-      return `${head} Si ganas el próximo llegas a ${oneWinPoints} pts: ${oneWinPoints > lastPlacePoints ? `entras a semifinales (última plaza: ${lastPlacePoints} pts)` : `todavía te faltan ${lastPlacePoints - oneWinPoints + 1} para la última plaza`}. Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${rival?.name ?? "el de arriba"} no gane todo.`;
-    }
-
-    return `${head} ${
-      q.inCut
-        ? `Con ${left} partido${left === 1 ? "" : "s"} por jugar, tu trabajo es no regalar el promedio: gana uno y sigues en semifinales.`
-        : `Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${rival?.name ?? "el de arriba"} pierda al menos uno.`
-    }`;
-  };
+  // Respuestas: ver lib/qualification-answer.ts (simula el cruce que preguntes).
+  const buildAnswer = (prompt: string) =>
+    answerQualification({ prompt, rows, me, q, slots, pointsPerWin: pw, remainingMatches: left });
 
   const generate = async (prompt: string) => {
     const clean = prompt.trim();
     if (!clean) return;
     setLoading(true);
     setAnswer(null);
-
-    try {
-      const key = (import.meta.env.VITE_JEV_API_KEY as string | undefined) || undefined;
-      if (key) {
-        // Sin timeout, si la API no responde el jugador se queda en "Analizando…".
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 8000);
-        try {
-          const res = await fetch("https://api.jev.ai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${key}`,
-              "Content-Type": "application/json",
-            },
-            signal: controller.signal,
-            body: JSON.stringify({
-              model: "jev-analysis",
-              messages: [
-                {
-                  role: "system",
-                  content:
-                    "Eres analista de Liga16 (pádel). Responde en 2 o 3 frases naturales, en español, con las cifras exactas del contexto. No digas 'corte': di semifinales o última plaza. Nada de listas.",
-                },
-                {
-                  role: "user",
-                  content: `Datos: posición ${q.position} de ${rows.length}; pasan ${slots} a semifinales; última plaza ${lastPlacePoints} pts; yo ${myPoints} pts; faltan ${missing}; partidos restantes ${left}; puntos por victoria ${pw}; rival ${rival ? `${rival.name} ${rival.points} pts (${rival.position}°)` : "ninguno"}. Pregunta: ${clean}`,
-                },
-              ],
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const txt =
-              data?.choices?.[0]?.message?.content ??
-              data?.response ??
-              data?.text ??
-              "";
-            if (typeof txt === "string" && txt.trim().length > 8) {
-              setAnswer(txt.trim());
-              return;
-            }
-          }
-        } finally {
-          clearTimeout(timer);
-        }
-      }
-    } catch {
-      // API caída o sin red: sigue el analizador local, que también calcula.
-    } finally {
-      setLoading(false);
-    }
-
+    // Una pausa mínima para que el cambio de estado se lea; el cálculo es
+    // instantáneo y no hay red de por medio (el endpoint que se usaba ya no
+    // existe: api.jev.ai no resuelve).
+    await new Promise((r) => setTimeout(r, 250));
     setAnswer(buildAnswer(clean));
+    setLoading(false);
   };
 
   const ask = (text: string) => {
@@ -573,7 +486,8 @@ export default function ScenarioPanel({
 
             {!loading && !answer && (
               <p className="text-xs text-muted-foreground">
-                Respuestas con tus números, no con la tabla genérica.
+                Nombra dos parejas y simulo el cruce: «¿y si Julián le gana a
+                Víctor Orozco?»
               </p>
             )}
           </div>
