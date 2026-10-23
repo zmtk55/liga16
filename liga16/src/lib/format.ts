@@ -173,6 +173,19 @@ export function initials(name: string): string {
 }
 
 /**
+ * Puntos con un decimal como máximo.
+ *
+ * Los puntos del circuito son fraccionarios (47.2) y se suman de tres en tres:
+ * 3.6 + 3 daba 6.600000000000001 en pantalla. Se redondea a un decimal y se
+ * quita el ".0" para que un entero se lea entero.
+ */
+export function formatPoints(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+/**
  * La ciudad viene de la captura del admin y llega como la escribió quien
  * escribió: "caborca", "CABORCA", "Caborca". La app la muestra en la ficha de
  * torneo, en la de sede y en los metadatos, y cada vez que se normalizaba era

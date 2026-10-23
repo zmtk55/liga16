@@ -13,7 +13,7 @@ import { ArrowLeft, ChevronDown, TrendingUp, TrendingDown, Minus, Target, Activi
 import ScenarioPanel from "@/components/scenarios/qualification-scenarios";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
 import { MatchCard } from "@/components/cards/card-kit";
-import { initials, sexLabel, winRate } from "@/lib/format";
+import { formatPoints, initials, sexLabel, winRate } from "@/lib/format";
 import { matchStatusKey } from "@/lib/match-state";
 import { teamCategoryLabel } from "@/lib/categories";
 
@@ -248,7 +248,7 @@ export default function TeamDetailPage() {
                 <div className="py-3 pe-3">
                   <dt className="text-caption uppercase tracking-[0.12em] text-white/50">% Puntos</dt>
                   <dd className="mt-1 text-2xl font-black leading-none tabular-nums">
-                    {team.points.toLocaleString("es-MX")}%
+                    {formatPoints(team.points)}%
                   </dd>
                   <p className="mt-1 flex items-center gap-1 text-xs text-white/50">
                     {winRatePct >= 50 ? (
@@ -571,7 +571,7 @@ export default function TeamDetailPage() {
                       #{team.position || "—"}
                     </dd>
                     <p className="mt-0.5 text-caption leading-tight text-muted-foreground">
-                      {team.points ?? 0}% de puntos
+                      {formatPoints(team.points)}% de puntos
                     </p>
                   </div>
                 </dl>

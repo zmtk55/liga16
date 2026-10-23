@@ -70,17 +70,19 @@ export default function ScenarioPanel({
   /* ---------------- cifras que sostienen todo el panel ---------------- */
   const pw = ctx.pointsPerWin > 0 ? ctx.pointsPerWin : 3;
   const slots = Math.max(1, ctx.slots);
+  // Puntos a un decimal: sumar 3 a 3.6 daba 6.600000000000001 en pantalla.
+  const round1 = (n: number) => Math.round(n * 10) / 10;
   const myLine = rows.find((r) => r.pairId === me.pairId);
-  const myPoints = myLine?.points ?? 0;
+  const myPoints = round1(myLine?.points ?? 0);
   const lastPlace = rows[slots - 1];
-  const lastPlacePoints = lastPlace?.points ?? 0;
+  const lastPlacePoints = round1(lastPlace?.points ?? 0);
   // Quien está justo arriba (a quien hay que alcanzar) y justo abajo (el que
   // puede sacarte). Dentro de semifinales el peligro es el de abajo.
   const rival = q.mustBeat[q.mustBeat.length - 1] ?? null;
   const chaser = rows.find((r) => r.position === q.position + 1) ?? rows[slots] ?? null;
   const left = Math.max(0, remainingMatches);
-  const winAllPoints = myPoints + pw * left;
-  const oneWinPoints = myPoints + pw * Math.min(1, left);
+  const winAllPoints = round1(myPoints + pw * left);
+  const oneWinPoints = round1(myPoints + pw * Math.min(1, left));
 
   const missing = q.inCut ? 0 : q.pointsNeeded;
   const winsNeeded = Math.max(0, Math.ceil(missing / pw));
@@ -136,7 +138,7 @@ export default function ScenarioPanel({
             label: "Depende",
             when: chaser ? `${chaser.name} gana lo suyo` : "Alguien de abajo suma",
             then: chaser
-              ? `${chaser.name} se te pone a tiro con ${chaser.points + pw} pts: tu lugar queda en manos del promedio de sets.`
+              ? `${chaser.name} se te pone a tiro con ${round1(chaser.points + pw)} pts: tu lugar queda en manos del promedio de sets.`
               : "El de abajo suma y el promedio de sets decide.",
           },
           {
@@ -166,7 +168,7 @@ export default function ScenarioPanel({
             label: "Riesgo",
             when: rival ? `${rival.name} gana lo que le queda` : "Los de arriba suman",
             then: rival
-              ? `Se va a ${rival.points + pw} pts y la diferencia ya no se remonta.`
+              ? `Se va a ${round1(rival.points + pw)} pts y la diferencia ya no se remonta.`
               : "La diferencia ya no se remonta.",
           },
         ]
@@ -183,7 +185,7 @@ export default function ScenarioPanel({
             label: "Depende",
             when: chaser ? `Pierdes y ${chaser.name} gana` : "Pierdes y alguien de abajo suma",
             then: chaser
-              ? `Caes a ${q.position + 1}° y ${chaser.name} te empata con ${chaser.points} pts: tu pase queda en manos del promedio de sets.`
+              ? `Caes a ${q.position + 1}° y ${chaser.name} te empata con ${round1(chaser.points)} pts: tu pase queda en manos del promedio de sets.`
               : `Caes a ${q.position + 1}° y se te acercan: tu pase queda en manos del promedio de sets.`,
           },
           {
@@ -212,7 +214,7 @@ export default function ScenarioPanel({
             label: "Depende",
             when: "Ganas 1 y el rival no gana",
             then: rival
-              ? `Tú llegas a ${oneWinPoints} pts y ${rival.name} sigue en ${rival.points}: ${
+              ? `Tú llegas a ${oneWinPoints} pts y ${rival.name} sigue en ${round1(rival.points)}: ${
                   oneWinPoints > rival.points
                     ? `le pasas por ${oneWinPoints - rival.points}.`
                     : `te faltan ${rival.points - oneWinPoints + 1} pts para pasarle.`
@@ -360,7 +362,7 @@ export default function ScenarioPanel({
                     )}
                   </span>
                   <span className="shrink-0 font-bold text-base tabular-nums">
-                    {r.points} pts
+                    {round1(r.points)} pts
                   </span>
                 </div>
                 {isLastPlace && (
