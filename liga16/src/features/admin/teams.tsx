@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { PlayerProfile, Tournament, TournamentCategory } from "@/types";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -294,24 +294,38 @@ export default function AdminTeams() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      {/* Cada torneo tiene sus propios equipos: el selector es contexto, no un filtro más. */}
-      <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-center">
-        <Trophy className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
-        <Select value={tid || SIN_TORNEO} onValueChange={(v) => { if (v !== SIN_TORNEO) setTid(v); }}>
-          <SelectTrigger className="h-9 w-full sm:w-80" aria-label="Elegir torneo">
-            <SelectValue placeholder="Elige un torneo" />
-          </SelectTrigger>
-          <SelectContent>
-            {tournaments.length === 0 && <SelectItem value={SIN_TORNEO}>Elige un torneo</SelectItem>}
-            {tournaments.map((t) => (
-              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {tournaments.length === 0 && (
-          <p className="text-sm text-muted-foreground">Crea un torneo para poder inscribir parejas.</p>
-        )}
-      </div>
+      {/* Contexto de torneo: separado claramente del contenido; no compite con el filtro. */}
+      <section aria-label="Torneo seleccionado" className="rounded-xl border bg-card p-3 sm:flex sm:items-center sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Trophy className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight">Torneo activo</p>
+            <div className="mt-1 flex items-center gap-2">
+              <Select value={tid || SIN_TORNEO} onValueChange={(v) => { if (v !== SIN_TORNEO) setTid(v); }}>
+                <SelectTrigger className="h-7 w-full sm:w-72 text-xs" aria-label="Elegir torneo">
+                  <SelectValue placeholder="Elige un torneo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tournaments.length === 0 && <SelectItem value={SIN_TORNEO}>Elige un torneo</SelectItem>}
+                  {tournaments.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {tid && (
+                <span className="text-xs text-muted-foreground">· {categories.length} categorías · {pairs?.length ?? 0} parejas</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="mt-2 sm:mt-0 sm:ml-auto">
+          <Button size="sm" disabled={!tid} onClick={() => { openDialog(null); }}>
+            <Plus className="h-3.5 w-3.5" /> Inscribir pareja
+          </Button>
+        </div>
+      </section>
 
       {!tid ? (
         <Card>
@@ -325,7 +339,7 @@ export default function AdminTeams() {
         </Card>
       ) : (
         <Card>
-          <CardHeader className="gap-3">
+          <div className="border-b bg-muted/50 px-4 py-3">
             <FilterBar
               search={query}
               onSearch={setQuery}
@@ -345,7 +359,7 @@ export default function AdminTeams() {
                 />
               </AdminFacets>
             </FilterBar>
-          </CardHeader>
+          </div>
           <CardContent className="p-0">
             {pairs === null && (
               <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -408,37 +422,43 @@ export default function AdminTeams() {
                       );
                     })}</div>
 
-                  <div className="p-4">
+                  <div className="p-4 lg:ps-0 lg:pe-8">
                     {!sel ? (
                       <div className="flex h-full min-h-48 items-center justify-center text-sm text-muted-foreground">
                         Selecciona una pareja para ver su detalle.
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
+                      <div className="space-y-5">
+                        <div className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm">
                           {sel.crest_url ? (
-                            <img src={sel.crest_url} alt="" className="h-14 w-14 rounded-full object-cover" />
+                            <img src={sel.crest_url} alt="" className="h-16 w-16 rounded-full object-cover" />
                           ) : (
-                            <PairAvatar p1={sp1} p2={sp2} className="h-14 w-14 text-lg" />
+                            <PairAvatar p1={sp1} p2={sp2} className="h-16 w-16 text-lg" />
                           )}
-                          <div>
-                            <h3 className="text-base font-semibold">{sp1} / {sp2 || "—"}</h3>
-                            <p className="text-xs text-muted-foreground">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-lg font-semibold leading-tight truncate">{sp1} / {sp2 || "—"}</h3>
+                            <p className="text-sm text-muted-foreground mt-0.5 truncate">
                               {categoryOf(sel.category_id)}
                             </p>
                           </div>
                         </div>
 
-                        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                          <div><dt className="text-xs text-muted-foreground">Categoría</dt><dd>{categoryOf(sel.category_id)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">Escudo</dt><dd>{sel.crest_url ? "Sí" : "No"}</dd></div>
-                        </dl>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div className="rounded-lg border bg-card p-4 shadow-sm">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Categoría</p>
+                            <p className="text-sm font-semibold">{categoryOf(sel.category_id)}</p>
+                          </div>
+                          <div className="rounded-lg border bg-card p-4 shadow-sm">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Escudo</p>
+                            <p className="text-sm font-semibold">{sel.crest_url ? "Sí" : "No"}</p>
+                          </div>
+                        </div>
 
-                        <div className="flex flex-wrap gap-2 border-t pt-3">
-                          <Button size="sm" variant="outline" onClick={() => { openDialog(sel); }}>
+                        <div className="flex flex-wrap gap-3 pt-2">
+                          <Button size="sm" variant="outline" className="h-9" onClick={() => { openDialog(sel); }}>
                             <Pencil className="h-4 w-4" /> Editar equipo
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => setDeleting(sel)}>
+                          <Button size="sm" variant="destructive" className="h-9" onClick={() => setDeleting(sel)}>
                             <Trash2 className="h-4 w-4" /> Eliminar
                           </Button>
                         </div>
