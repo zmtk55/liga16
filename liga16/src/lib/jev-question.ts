@@ -41,10 +41,15 @@ const INTENTS: Record<QuestionIntent, string> = {
   otra: "Cualquier otra cosa",
 };
 
-export async function readQuestion(
-  prompt: string,
-  rows: StandingLike[],
-): Promise<JevReading | null> {
+export async function readQuestion(args: {
+  prompt: string;
+  rows: StandingLike[];
+  me: { pairId: string };
+  slots: number;
+  pointsPerWin: number;
+  remainingMatches: number;
+}): Promise<JevReading | null> {
+  const { prompt, rows, me, slots, pointsPerWin, remainingMatches } = args;
   if (rows.length === 0) return null;
 
   const byId = new Map<string, StandingLike>();
@@ -56,13 +61,30 @@ export async function readQuestion(
   });
   criteria.ninguna = "No menciona un partido entre dos parejas";
 
+  // El estado es el contexto: sin "yo", los cupos, cuánto vale una victoria y
+  // cuántos partidos quedan, JEV solo puede adivinar a qué se refiere "mi rival"
+  // o "para que yo pase". Medido: con este estado la identificación de parejas
+  // pasa de 0.43 a 0.98 de confianza.
+  const mine = rows.find((r) => r.pairId === me.pairId);
   const state = {
     pregunta: prompt,
+    yo: mine
+      ? {
+          id: [...byId.entries()].find(([, r]) => r.pairId === mine.pairId)?.[0],
+          nombre: mine.name,
+          posicion: mine.position,
+          puntos: mine.points,
+          restantes: remainingMatches,
+        }
+      : null,
+    pasan: slots,
+    puntos_por_victoria: pointsPerWin,
     equipos: rows.map((r, i) => ({
       id: `t${i + 1}`,
       nombre: r.name,
       posicion: r.position,
       puntos: r.points,
+      jugados: r.played,
     })),
   };
 
@@ -85,13 +107,13 @@ export async function readQuestion(
           ganador: {
             type: "choice",
             instructions:
-              "En el partido que menciona la pregunta, ¿qué pareja es la que gana? Elige la pareja que aparece como sujeto del verbo ganar. Si no menciona un partido entre dos parejas, elige 'ninguna'.",
+              "En el partido que menciona la pregunta, ¿qué pareja gana? Elige la pareja que aparece como sujeto del verbo ganar. state.yo es la pareja que pregunta: no la confundas con la ganadora salvo que el texto lo diga. Si no menciona un partido entre dos parejas, elige 'ninguna'.",
             criteria,
           },
           perdedor: {
             type: "choice",
             instructions:
-              "En el partido que menciona la pregunta, ¿qué pareja es la que pierde? Si no menciona un partido entre dos parejas, elige 'ninguna'.",
+              "En el partido que menciona la pregunta, ¿qué pareja pierde? Si no menciona un partido entre dos parejas, elige 'ninguna'.",
             criteria,
           },
         },

@@ -192,9 +192,13 @@ export function answerQualification({
           : `está ${fmt(Math.abs(gap))} punto${Math.abs(gap) === 1 ? "" : "s"} por detrás (${fmt(other.points)})`;
 
     const how =
-      gap <= 0
-        ? `El que necesita ganar es ${other.name}, no tú: si pierde, se le aleja el pase.`
-        : `Para pasarlo tienes que ganar (llegarías a ${fmt(winOne)}) y que él no sume; si él gana también, la distancia se abre a ${fmt(gap + pointsPerWin)}.`;
+      gap < 0
+        ? `El que necesita ganar es ${other.name}, no tú: si pierde, no suma y el pase se le aleja.`
+        : gap === 0
+          ? left === 0
+            ? `Está empatado contigo y tú ya no juegas: si ${other.name} gana, se va a ${fmt(other.points + pointsPerWin)} y el pase se le queda; si pierde, sigue en ${fmt(other.points)} y el lugar lo decide el desempate.`
+            : `Están empatados: si ${other.name} pierde y tú ganas, te pones arriba con ${fmt(winOne)}.`
+          : `Para pasarlo tienes que ganar (llegarías a ${fmt(winOne)}) y que él no sume; si él gana también, la distancia se abre a ${fmt(gap + pointsPerWin)}.`;
 
     return `${other.name} (${other.position}°) ${relation}. ${how} Ahora mismo ${standing}.`;
   }

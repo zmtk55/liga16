@@ -262,7 +262,7 @@ export default function ScenarioPanel({
     setAnswer(null);
     // JEV entiende la pregunta (acentos, subjuntivo, a quién nombra); el texto
     // y las cifras los arma el código. Si falla, el analizador local responde.
-    const reading = await readQuestion(clean, rows);
+    const reading = await readQuestion({ prompt: clean, rows, me, slots, pointsPerWin: pw, remainingMatches: left });
     setSource(reading ? "jev" : "local");
     setAnswer(buildAnswer(clean, reading));
     setLoading(false);
