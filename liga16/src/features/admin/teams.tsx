@@ -288,7 +288,7 @@ export default function AdminTeams() {
       </AdminPageHeader>
 
       {/* Contexto de torneo: sección dedicada, no compite con el contenido. */}
-      <section aria-label="Contexto del torneo" className="rounded-xl bg-card p-3 sm:px-6 lg:px-8">
+      <section aria-label="Contexto del torneo" className="rounded-lg border bg-card p-4">
         <div className="flex flex-col sm:flex-row items-center gap-3 sm:items-center sm:gap-4">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Trophy className="h-4 w-4" />
@@ -333,164 +333,45 @@ export default function AdminTeams() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="group transition-colors duration-150 ease-out hover:border-primary/40">
-          <CardContent className="p-0">
-            {/* Toolbar propia: filtros flotan sobre el contenido, separados por border-b bg-muted/50 */}
-            <div className="border-b bg-muted/50 px-4 py-3">
-              <FilterBar
-                search={query}
-                onSearch={setQuery}
-                searchPlaceholder="Buscar pareja…"
-                resultCount={filtered.length}
-                resultLabel="parejas"
-                activeCount={countActive(cat)}
-                onClear={() => { setQuery(""); setCat("all"); }}
-              >
-                <AdminFacets>
-                  <AdminFacet
-                    label="Categoría"
-                    value={cat}
-                    onChange={setCat}
-                    options={categories.map(c => ({ key: c.id, label: c.name }))}
-                    allLabel="Todas"
-                  />
-                </AdminFacets>
-              </FilterBar>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Lista de parejas filtradas */}
-              <div className="col-span-1 col-span-2 sm:col-span-2 lg:col-span-3 overflow-y-auto space-y-4">
-                {pairs === null && (
-                  <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <Skeleton key={i} className="h-16 rounded-xl" />
-                    ))}
-                  </div>
-                )}
-
-                {pairs !== null && pairs.length === 0 && (
-                  <AdminEmptyState
-                    icon={<Users className="h-5 w-5" />}
-                    title="Sin parejas en este torneo"
-                    description="Inscribe la primera pareja para empezar."
-                    action={
-                      <Button variant="outline" size="sm" onClick={() => { openDialog(null); }}>
-                        Inscribir pareja
-                      </Button>
-                    }
-                  />
-                )}
-
-                {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-                  <AdminEmptyState
-                    title="Sin coincidencias"
-                    description="Ninguna pareja coincide con la búsqueda o el filtro."
-                  />
-                )}
-
-                {filtered.length > 0 && (() => {
-                  const sel = filtered.find((p) => p.id === selectedId) ?? null;
-                  const [sp1, sp2] = (sel?.name ?? " / ").split(" / ");
-                  return (
-                    <div className="space-y-6">
-                      {/* Listado de parejas */}
-                      <div className="grid divide-y lg:grid-cols-[minmax(260px,320px)_1fr] lg:divide-x lg:divide-y-0">
-                        {filtered.map((p) => {
-                          const [p1, p2] = p.name.split(" / ");
-                          const active = p.id === selectedId;
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => setSelectedId(p.id)}
-                              className={cn(
-                                "w-full text-left transition-colors hover:bg-muted/50",
-                                active && "accent-rectangle"
-                              )}
-                            >
-                              <CardShell
-                                className={cn(
-                                  "h-24 rounded-xl border bg-muted/50 p-3 transition-colors hover:bg-muted/60",
-                                  active && "ring-2 ring-primary/40"
-                                )}
-                                accent={active}
-                              >
-                                <CardIdentity
-                                  lead={<PairAvatar p1={p1} p2={p2} />}
-                                  title={`${p1} / ${p2 ?? "—"}`}
-                                  meta={categoryOf(p.category_id)}
-                                />
-                              </CardShell>
-                            </button>
-                          );
-                        })}</div>
-
-                      {/* Panel de detalle de la pareja seleccionada */}
-                      <div className="p-6 lg:ps-8 lg:pe-8">
-                        {!sel ? (
-                          <div className="flex h-full min-h-48 items-center justify-center text-sm text-muted-foreground">
-                            Selecciona una pareja para ver su detalle.
-                          </div>
-                        ) : (
-                          <div className="space-y-6">
-                            {/* Identidad del equipo */}
-                            <div className="rounded-xl bg-card p-4 shadow-sm group-hover:shadow-md transition-shadow">
-                              {sel.crest_url ? (
-                                <img
-                                  src={sel.crest_url}
-                                  alt=""
-                                  className="h-20 w-20 rounded-full object-cover"
-                                />
-                              ) : (
-                                <PairAvatar p1={sp1} p2={sp2} className="h-20 w-20 text-2xl" />
-                              )}
-                              <div className="mt-3">
-                                <h3 className="text-base font-semibold leading-tight truncate">{sp1} / {sp2 || "—"}</h3>
-                                <p className="text-sm text-muted-foreground truncate">
-                                  {categoryOf(sel.category_id)}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Ficha de datos: categoría + escudo */}
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                              <div className="rounded-xl bg-card p-3 shadow-sm">
-                                <p className="text-xs font-medium text-muted-foreground mb-1">Categoría</p>
-                                <p className="text-sm font-semibold">{categoryOf(sel.category_id)}</p>
-                              </div>
-                              <div className="rounded-xl bg-card p-3 shadow-sm">
-                                <p className="text-xs font-medium text-muted-foreground mb-1">Escudo</p>
-                                <p className="text-sm font-semibold">{sel.crest_url ? "Sí" : "No"}</p>
-                              </div>
-                            </div>
-
-                            {/* Acciones */}
-                            <div className="flex flex-wrap gap-3">
-                              <Button size="sm" variant="outline" onClick={() => { openDialog(sel); }}>
-                                <Pencil className="h-3.5 w-3.5" /> Editar equipo
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => setDeleting(sel)}>
-                                <Trash2 className="h-3.5 w-3.5" /> Eliminar
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
+        <div className="space-y-6">
+          <section aria-label="Equipos del torneo" className="grid gap-6 lg:grid-cols-[320px_1fr]">
+            <aside className="flex flex-col gap-6">
+              <div className="rounded-lg border bg-card p-4">
+                <h3 className="text-sm font-semibold mb-3">Filtros</h3>
+                <FilterBar search={query} onSearch={setQuery} searchPlaceholder="Buscar pareja…" resultCount={filtered.length} resultLabel="parejas" activeCount={countActive(cat)} onClear={() => { setQuery(""); setCat("all"); }}>
+                  <AdminFacets>
+                    <AdminFacet label="Categoría" value={cat} onChange={setCat} options={categories.map(c => ({ key: c.id, label: c.name }))} allLabel="Todas" />
+                  </AdminFacets>
+                </FilterBar>
               </div>
+              <div className="rounded-lg border bg-card p-0 flex-1">
+                <div className="p-4">
+                  <h4 className="text-sm font-semibold mb-3">Detalle del equipo</h4>
+                  {!selectedId ? <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">Selecciona un equipo de la lista.</div> : (() => {
+                    const sel = filtered.find(p => p.id === selectedId) ?? null;
+                    if (!sel) return null;
+                    const [sp1, sp2] = sel.name.split(" / ");
+                    return <div className="space-y-4"><div className="flex items-center gap-4 rounded-lg bg-muted/50 p-4">{sel.crest_url ? <img src={sel.crest_url} alt="" className="h-16 w-16 rounded-full object-cover" /> : <PairAvatar p1={sp1} p2={sp2} className="h-16 w-16 text-xl" />}<div className="min-w-0"><h3 className="font-semibold leading-tight truncate">{sp1} / {sp2 || "—"}</h3><p className="text-sm text-muted-foreground truncate">{categoryOf(sel.category_id)}</p></div></div><div className="grid grid-cols-2 gap-3"><div className="rounded-lg bg-card border p-3"><p className="text-xs font-medium text-muted-foreground mb-1">Categoría</p><p className="text-sm font-semibold">{categoryOf(sel.category_id)}</p></div><div className="rounded-lg bg-card border p-3"><p className="text-xs font-medium text-muted-foreground mb-1">Escudo</p><p className="text-sm font-semibold">{sel.crest_url ? "Sí" : "No"}</p></div></div><div className="flex flex-wrap gap-3 pt-1"><Button size="sm" variant="outline" className="h-9" onClick={() => openDialog(sel)}><Pencil className="h-3.5 w-3.5" /> Editar</Button><Button size="sm" variant="destructive" className="h-9" onClick={() => setDeleting(sel)}><Trash2 className="h-3.5 w-3.5" /> Eliminar</Button></div></div>;
+                  })()}
+                </div>
+              </div>
+              <div className="rounded-xl border bg-card p-4">
+                <h4 className="text-xs font-semibold mb-3">Rol de juegos</h4>
+                <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+                  Sección pendiente — CRUD de roles.
+                </div>
+              </div>
+            </aside>
+            <div className="flex flex-col gap-6">
+              <div className="rounded-lg border bg-card p-4">
+                <div className="flex items-baseline justify-between gap-4 mb-3"><h3 className="text-sm font-semibold">Listado de equipos</h3><Button size="sm" disabled={!tid} onClick={() => openDialog(null)}><Plus className="h-3.5 w-3.5" /> Inscribir pareja</Button></div>
+                <div className="flex items-center gap-3"><Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar pareja…" className="h-9 flex-1" /><div className="flex-1 min-w-0"><Select value={cat} onValueChange={setCat}><SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger><SelectContent><SelectItem value="all">Todas</SelectItem>{categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div></div>
+                <div className="mt-2 text-xs text-muted-foreground">{filtered.length} parejas encontradas</div>
+              </div>
+              <Card className="group flex-1 transition-colors duration-150 ease-out hover:border-primary/40"><CardContent className="p-0"><div className="overflow-y-auto space-y-3 p-4">{pairs === null && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>}{pairs !== null && pairs.length === 0 && <AdminEmptyState icon={<Users className="h-5 w-5" />} title="Sin parejas" description="Inscribe la primera pareja para empezar." action={<Button variant="outline" size="sm" onClick={() => openDialog(null)}>Inscribir pareja</Button>} />}{pairs !== null && pairs.length > 0 && filtered.length === 0 && <AdminEmptyState title="Sin coincidencias" description="Ninguna pareja coincide con la búsqueda o filtro." />}{filtered.length > 0 && <div className="space-y-3">{filtered.map(p => { const [p1, p2] = p.name.split(" / "); const active = p.id === selectedId; return <button key={p.id} type="button" onClick={() => setSelectedId(p.id)} className={cn("w-full text-left transition-colors duration-200 ease-out", active && "accent ring-2 ring-primary/40")}><CardShell className={cn("h-24 rounded-lg border bg-muted/50 p-3 transition-colors hover:bg-muted/60", active && "ring-2 ring-primary/40")} accent={active}><CardIdentity lead={<PairAvatar p1={p1} p2={p2} />} title={`${p1} / ${p2 ?? "—"}`} meta={categoryOf(p.category_id)} /></CardShell></button>; })}</div>}</div></CardContent><CardFooter className="pt-3 border-t"><div className="flex items-center gap-2 text-xs text-muted-foreground"><span>Total parejas: {resumen.parejas}</span><span>·</span><span>Con rival: {resumen.completas}</span></div></CardFooter></Card>
             </div>
-          </CardContent>
-          {/* Footer de card: mantener consistencia con AdminStatStrip u otras secciones */}
-          <CardFooter className="pt-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Total parejas: {resumen.parejas}</span>
-              <span>·</span>
-              <span>Con rival: {resumen.completas}</span>
-            </div>
-          </CardFooter>
-        </Card>
+          </section>
+        </div>
       )}
 
       <ConfirmDialog
