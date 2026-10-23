@@ -482,7 +482,7 @@ export default function ScenarioPanel({
                     {answer}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {q.position}° · {myPoints} pts · pasan {slots} · {left} partido
+                    {q.position}° · {fmtPct(myPoints)}% · pasan {slots} · {left} partido
                     {left === 1 ? "" : "s"} por jugar ·{" "}
                     {source === "jev" ? "lectura JEV" : "cálculo local"}
                   </p>
