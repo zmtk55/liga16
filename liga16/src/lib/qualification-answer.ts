@@ -31,6 +31,9 @@ const norm = (s: string) =>
 const fmt = (n: number) =>
   Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, "");
 
+/** "Victor Armando / Victor Orozco" → "Victor Armando" (para no repetir la pareja entera). */
+const short = (name: string) => name.split("/")[0].trim();
+
 /** Parejas nombradas en la pregunta, en el orden en que aparecen. */
 function teamsMentioned(prompt: string, rows: StandingLike[]): StandingLike[] {
   const p = norm(prompt);
@@ -142,9 +145,6 @@ export function answerQualification({
     const posAfter = mineAfter?.position ?? q.position;
     const inCutAfter = posAfter <= slots;
 
-    const loserStays = `${loser.name} se queda en ${fmt(loser.points)} puntos (perder no resta)`;
-    const winnerRises = `${winner.name} sube a ${fmt(winner.points + pointsPerWin)}`;
-
     let effect: string;
     if (!q.inCut && inCutAfter) {
       effect = `Con ese resultado entras: pasas al ${posAfter}°.`;
@@ -158,14 +158,20 @@ export function answerQualification({
 
     const isMyRival = other && loser.pairId === other.pairId;
     const tail = isMyRival && left === 0
-      ? ` ${loser.name} es justo el que tienes delante y ya no te quedan partidos: con ${fmt(myPoints)} puntos empatados, el lugar lo decide el desempate, no un resultado.`
+      ? `${short(loser.name)} es justo el que tienes delante y ya no te quedan partidos: con ${fmt(myPoints)} puntos empatados, el lugar lo decide el desempate, no un resultado.`
       : isMyRival
-        ? ` ${loser.name} es justo el que tienes delante: para dejarlo atrás necesitas que él no sume y ganar tú, que te pondría en ${fmt(winOne)}.`
+        ? `${short(loser.name)} es justo el que tienes delante: para dejarlo atrás necesitas que él no sume y ganar tú, que te pondría en ${fmt(winOne)}.`
         : left === 0
-          ? " Como ya no te quedan partidos, ese cruce no cambia tu lugar: tu pase depende del desempate, no de ese resultado."
-          : ` Te quedan ${left} partido${left === 1 ? "" : "s"}: gana${left === 1 ? "" : "s"} y ${loser.name.split("/")[0].trim()} no suma y te metes.`;
+          ? "Como ya no te quedan partidos, ese cruce no cambia tu lugar: tu pase depende del desempate, no de ese resultado."
+          : `Te quedan ${left} partido${left === 1 ? "" : "s"}: gana${left === 1 ? "" : "s"} y ${short(loser.name)} no suma y te metes.`;
 
-    return `Si ${winner.name} le gana a ${loser.name}, ${loserStays} y ${winnerRises}. ${effect}${tail}`;
+    return [
+      `Si ${winner.name} le gana a ${loser.name}:`,
+      `${short(loser.name)} se queda en ${fmt(loser.points)} puntos (perder no resta) y ${short(winner.name)} sube a ${fmt(winner.points + pointsPerWin)}. ${effect}`,
+      tail.trim(),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   /* ---------- 2. Pregunta por "posibilidades" / probabilidad ---------- */
@@ -193,14 +199,14 @@ export function answerQualification({
 
     const how =
       gap < 0
-        ? `El que necesita ganar es ${other.name}, no tú: si pierde, no suma y el pase se le aleja.`
+        ? `El que necesita ganar es ${short(other.name)}, no tú: si pierde, no suma y el pase se le aleja.`
         : gap === 0
           ? left === 0
-            ? `Está empatado contigo y tú ya no juegas: si ${other.name} gana, se va a ${fmt(other.points + pointsPerWin)} y el pase se le queda; si pierde, sigue en ${fmt(other.points)} y el lugar lo decide el desempate.`
+            ? `Está empatado contigo y tú ya no juegas: si ${short(other.name)} gana, se va a ${fmt(other.points + pointsPerWin)} y el pase se le queda; si pierde, sigue en ${fmt(other.points)} y el lugar lo decide el desempate.`
             : `Están empatados: si ${other.name} pierde y tú ganas, te pones arriba con ${fmt(winOne)}.`
           : `Para pasarlo tienes que ganar (llegarías a ${fmt(winOne)}) y que él no sume; si él gana también, la distancia se abre a ${fmt(gap + pointsPerWin)}.`;
 
-    return `${other.name} (${other.position}°) ${relation}. ${how} Ahora mismo ${standing}.`;
+    return [`${other.name} (${other.position}°) ${relation}.`, how, `Ahora mismo ${standing}.`].join("\n\n");
   }
 
   /* ---------- 4. Ya no hay partidos ---------- */
@@ -226,12 +232,21 @@ export function answerQualification({
       return `Ya no hay próximo partido: ${standing}.`;
     }
     return q.inCut
-      ? `Si ganas el próximo llegas a ${fmt(winOne)} y sigues dentro (${q.position}°). Te queda${left - 1 === 1 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para pelear el orden.`
-      : `Si ganas el próximo llegas a ${fmt(winOne)}: ${winOne > lastPoints ? `entras, porque la última plaza está en ${fmt(lastPoints)}` : `aún te faltan ${fmt(lastPoints - winOne + 1)} para la última plaza (${fmt(lastPoints)})`}. Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${other?.name ?? "el de arriba"} no gane todo.`;
+      ? [
+          `Si ganas el próximo llegas a ${fmt(winOne)} y sigues dentro (${q.position}°).`,
+          `Te queda${left - 1 === 1 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para pelear el orden del grupo.`,
+        ].join("\n\n")
+      : [
+          `Si ganas el próximo llegas a ${fmt(winOne)}: ${winOne > lastPoints ? `entras, porque la última plaza está en ${fmt(lastPoints)}` : `aún te faltan ${fmt(lastPoints - winOne + 1)} para la última plaza (${fmt(lastPoints)})`}.`,
+          `Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${other ? short(other.name) : "el de arriba"} no gane todo.`,
+        ].join("\n\n");
   }
 
   /* ---------- 7. Sin intención clara ---------- */
   return q.inCut
-    ? `${standing}. Con ${left} partido${left === 1 ? "" : "s"} por jugar, gana uno y no regalas el promedio.`
-    : `${standing}. Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${other?.name ?? "el de arriba"} pierda al menos una. Si quieres, dime dos parejas y simulo el cruce.`;
+    ? [`${standing}.`, `Con ${left} partido${left === 1 ? "" : "s"} por jugar, gana uno y no regalas el promedio.`].join("\n\n")
+    : [
+        `${standing}.`,
+        `Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${other ? short(other.name) : "el de arriba"} pierda al menos una. Si quieres, dime dos parejas y simulo el cruce.`,
+      ].join("\n\n");
 }

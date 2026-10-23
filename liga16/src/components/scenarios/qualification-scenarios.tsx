@@ -388,18 +388,22 @@ export default function ScenarioPanel({
         </ol>
       </div>
 
-      {/* Los tres finales: icono + dos líneas. Sin colores de fondo. */}
-      <div>
-        <p className="mb-3 text-caption uppercase tracking-[0.14em] text-muted-foreground">
-          Los tres finales posibles
-        </p>
-        <ul className="space-y-5">
+      {/* Los tres finales: una superficie con filas separadas, no texto suelto. */}
+      <div className="overflow-hidden rounded-[var(--radius)] border bg-card">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b px-4 py-3">
+          <h3 className="text-caption uppercase tracking-[0.14em] text-muted-foreground">
+            Los tres finales posibles
+          </h3>
+          <span className="text-xs text-muted-foreground">con la tabla de hoy</span>
+        </div>
+
+        <ul className="divide-y">
           {scenarios.map((s) => {
             const Icon = TONE_ICON[s.tone];
             return (
               <li
                 key={s.label}
-                className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[7.5rem_minmax(0,1fr)]"
+                className="grid gap-x-5 gap-y-1.5 px-4 py-4 sm:grid-cols-[7.5rem_minmax(0,1fr)]"
               >
                 <div className="flex items-center gap-2">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-foreground/75">
@@ -409,7 +413,7 @@ export default function ScenarioPanel({
                 </div>
                 <div className="min-w-0 sm:pt-1">
                   <p className="text-sm font-medium">{s.when}</p>
-                  <p className="mt-0.5 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
+                  <p className="mt-1 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
                     {s.then}
                   </p>
                 </div>
@@ -417,7 +421,8 @@ export default function ScenarioPanel({
             );
           })}
         </ul>
-        <p className="mt-4 max-w-[68ch] text-xs leading-relaxed text-muted-foreground">
+
+        <p className="border-t px-4 py-3 text-xs leading-relaxed text-muted-foreground">
           Los escenarios asumen que los demás no suman entre sí; la tabla se
           recalcula con cada resultado guardado.
         </p>
@@ -480,7 +485,9 @@ export default function ScenarioPanel({
                   aria-hidden
                 />
                 <div className="min-w-0">
-                  <p className="max-w-[72ch] text-sm leading-relaxed">{answer}</p>
+                  <p className="max-w-[72ch] whitespace-pre-line text-sm leading-relaxed">
+                    {answer}
+                  </p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     {q.position}° · {myPoints} pts · pasan {slots} · {left} partido
                     {left === 1 ? "" : "s"} por jugar ·{" "}
