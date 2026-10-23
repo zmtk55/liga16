@@ -13,6 +13,7 @@ import {
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
 import { qualificationFor } from "@/lib/qualification";
 import { answerQualification } from "@/lib/qualification-answer";
+import { readQuestion } from "@/lib/jev-question";
 
 interface Props {
   standings: StandingLike[];
@@ -66,6 +67,8 @@ export default function ScenarioPanel({
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Quién interpretó la última pregunta: JEV (TypeSafe) o el analizador local. */
+  const [source, setSource] = useState<"jev" | "local" | null>(null);
 
   /* ---------------- cifras que sostienen todo el panel ---------------- */
   const pw = ctx.pointsPerWin > 0 ? ctx.pointsPerWin : 3;
@@ -111,10 +114,10 @@ export default function ScenarioPanel({
         : {
             tone: "out",
             word: "Sin partidos",
-            sentence: `Ya no te quedan partidos. Quedaste ${q.position}° de ${rows.length} y pasan ${slots}: ${
-              rival
-                ? `solo entras si ${rival.name} pierde lo suyo.`
-                : "depende de resultados de otras canchas."
+            sentence: `Ya no te quedan partidos: quedaste ${q.position}° de ${rows.length} y pasan ${slots}. ${
+              myPoints === lastPlacePoints
+                ? `Estás empatado en ${myPoints} puntos con la última plaza, así que el lugar lo decide el desempate.`
+                : `Te faltan ${missing} punto${missing === 1 ? "" : "s"} para la última plaza (${lastPlacePoints}) y ya no puedes sumar.`
             }`,
           };
 
@@ -249,19 +252,19 @@ export default function ScenarioPanel({
   }, [rows, me.pairId, slots]);
 
   // Respuestas: ver lib/qualification-answer.ts (simula el cruce que preguntes).
-  const buildAnswer = (prompt: string) =>
-    answerQualification({ prompt, rows, me, q, slots, pointsPerWin: pw, remainingMatches: left });
+  const buildAnswer = (prompt: string, reading: Awaited<ReturnType<typeof readQuestion>>) =>
+    answerQualification({ prompt, rows, me, q, slots, pointsPerWin: pw, remainingMatches: left, reading });
 
   const generate = async (prompt: string) => {
     const clean = prompt.trim();
     if (!clean) return;
     setLoading(true);
     setAnswer(null);
-    // Una pausa mínima para que el cambio de estado se lea; el cálculo es
-    // instantáneo y no hay red de por medio (el endpoint que se usaba ya no
-    // existe: api.jev.ai no resuelve).
-    await new Promise((r) => setTimeout(r, 250));
-    setAnswer(buildAnswer(clean));
+    // JEV entiende la pregunta (acentos, subjuntivo, a quién nombra); el texto
+    // y las cifras los arma el código. Si falla, el analizador local responde.
+    const reading = await readQuestion(clean, rows);
+    setSource(reading ? "jev" : "local");
+    setAnswer(buildAnswer(clean, reading));
     setLoading(false);
   };
 
@@ -480,7 +483,8 @@ export default function ScenarioPanel({
                   <p className="max-w-[72ch] text-sm leading-relaxed">{answer}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     {q.position}° · {myPoints} pts · pasan {slots} · {left} partido
-                    {left === 1 ? "" : "s"} por jugar
+                    {left === 1 ? "" : "s"} por jugar ·{" "}
+                    {source === "jev" ? "lectura JEV" : "cálculo local"}
                   </p>
                 </div>
               </div>

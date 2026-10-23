@@ -7,6 +7,7 @@
  * se suman los puntos del ganador, se reordena y se dice qué pasa contigo.
  */
 import type { QualificationView, StandingLike } from "@/lib/qualification";
+import type { JevReading, QuestionIntent } from "@/lib/jev-question";
 
 interface Args {
   prompt: string;
@@ -16,6 +17,8 @@ interface Args {
   slots: number;
   pointsPerWin: number;
   remainingMatches: number;
+  /** Lectura semántica de JEV; si falta, se usan las palabras clave. */
+  reading?: JevReading | null;
 }
 
 /** Sin acentos ni mayúsculas: "Julián" y "julian" son la misma persona. */
@@ -84,6 +87,7 @@ export function answerQualification({
   slots,
   pointsPerWin,
   remainingMatches,
+  reading,
 }: Args): string {
   const p = norm(prompt);
   const myPoints = rows.find((r) => r.pairId === me.pairId)?.points ?? 0;
@@ -107,10 +111,29 @@ export function answerQualification({
   const winOne = myPoints + pointsPerWin;
   const winAll = myPoints + pointsPerWin * left;
 
+  /* ---------- 0. Qué quiso preguntar: JEV si respondió, si no las palabras ---------- */
+  const localIntent = (): QuestionIntent => {
+    if (/no tengo|sin partido|ya no|acab|termin/.test(p)) return "sin_partidos";
+    if (/rival|no pase|delante|arriba/.test(p)) return "rival";
+    if (/posibilidad|probabilidad|chance/.test(p)) return "probabilidad";
+    if (/perder|pierdo|pierd|elimin|riesgo/.test(p)) return "perder";
+    if (/gan|vence|derrot|paso|clasific|semifinal|pr[oó]ximo|siguiente/.test(p))
+      return "ganar";
+    return "otra";
+  };
+  const intent: QuestionIntent =
+    reading?.intent && reading.intent !== "otra" ? reading.intent : localIntent();
+
   /* ---------- 1. La pregunta nombra a dos parejas: se simula ese cruce ---------- */
-  const teams = teamsMentioned(prompt, rows);
+  const named =
+    reading?.winnerId && reading?.loserId
+      ? [rows.find((r) => r.pairId === reading.winnerId), rows.find((r) => r.pairId === reading.loserId)]
+      : teamsMentioned(prompt, rows);
+  const teams = named.filter(Boolean) as StandingLike[];
   const asksAboutResult =
-    /gan|vence|derrot|pierd|le gana/.test(p) || teams.length === 2;
+    intent === "cruzar_resultado" ||
+    /gan|vence|derrot|pierd|le gana/.test(p) ||
+    teams.length === 2;
 
   if (teams.length === 2 && asksAboutResult) {
     const [winner, loser] = teams;
@@ -146,7 +169,7 @@ export function answerQualification({
   }
 
   /* ---------- 2. Pregunta por "posibilidades" / probabilidad ---------- */
-  if (/posibilidad|probabilidad|chance|qu[eé] tan cerca/.test(p)) {
+  if (intent === "probabilidad" || /posibilidad|probabilidad|chance|qu[eé] tan cerca/.test(p)) {
     if (left === 0) {
       return `Sin partidos por jugar no hay nada que calcular: ${standing}. Tu lugar ya está escrito y solo lo mueve el desempate.`;
     }
@@ -156,7 +179,7 @@ export function answerQualification({
   }
 
   /* ---------- 3. Pregunta por el rival ---------- */
-  if (/rival|no pase|delante|arriba/.test(p)) {
+  if (intent === "rival" || /rival|no pase|delante|arriba/.test(p)) {
     if (!other) {
       return `No tienes a nadie pegado en la tabla: ${standing}. Gana lo que te queda y el pase se resuelve solo.`;
     }
@@ -177,14 +200,14 @@ export function answerQualification({
   }
 
   /* ---------- 4. Ya no hay partidos ---------- */
-  if (/no tengo|sin partido|ya no|acab|termin/.test(p)) {
+  if (intent === "sin_partidos" || /no tengo|sin partido|ya no|acab|termin/.test(p)) {
     return left === 0
       ? `Ya no juegas, así que no depende de ti: ${standing}. Lo único que puede moverte es el desempate o que el torneo ajuste la tabla.`
       : `Todavía te queda${left === 1 ? "" : "n"} ${left} partido${left === 1 ? "" : "s"}. ${standing}.`;
   }
 
   /* ---------- 5. Si pierdo ---------- */
-  if (/perder|pierdo|pierd|elimin|riesgo/.test(p)) {
+  if (intent === "perder" || /perder|pierdo|pierd|elimin|riesgo/.test(p)) {
     if (left === 0) {
       return `No te queda ningún partido que perder: ${standing}.`;
     }
@@ -194,7 +217,7 @@ export function answerQualification({
   }
 
   /* ---------- 6. Si gano ---------- */
-  if (/gan|paso|clasific|semifinal|pr[oó]ximo|siguiente/.test(p)) {
+  if (intent === "ganar" || /gan|paso|clasific|semifinal|pr[oó]ximo|siguiente/.test(p)) {
     if (left === 0) {
       return `Ya no hay próximo partido: ${standing}.`;
     }
