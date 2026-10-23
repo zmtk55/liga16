@@ -710,7 +710,7 @@ function CompareBlock({ a, b }: { a: CmpSide; b: CmpSide }) {
                   <p className="text-caption uppercase tracking-[0.1em] text-muted-foreground">
                     {r.label}
                   </p>
-                  <p className="mt-0.5 text-caption leading-tight text-muted-foreground/70">
+                  <p className="mt-0.5 text-caption leading-tight text-muted-foreground">
                     {r.help}
                   </p>
                 </div>

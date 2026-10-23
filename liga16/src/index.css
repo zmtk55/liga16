@@ -396,21 +396,21 @@
 
 /* 1. Surface system ------------------------------------------------------- */
 .liga16-surface {
-  --surface: var(--card);
+  --surface: hsl(var(--card));
   background-color: var(--surface);
-  color: var(--card-foreground);
+  color: hsl(var(--card-foreground));
   border: 1px solid hsl(var(--border));
 }
 .liga16-surface--poster {
-  --surface: var(--surface-inverse);
+  --surface: hsl(var(--surface-inverse));
   background-color: var(--surface);
-  color: var(--surface-inverse-foreground);
-  border: 1px solid var(--surface-inverse-border);
+  color: hsl(var(--surface-inverse-foreground));
+  border: 1px solid hsl(var(--surface-inverse-border));
 }
 .liga16-surface--light {
-  --surface: var(--card);
+  --surface: hsl(var(--card));
   background-color: var(--surface);
-  color: var(--card-foreground);
+  color: hsl(var(--card-foreground));
   border: 1px solid hsl(var(--border));
 }
 

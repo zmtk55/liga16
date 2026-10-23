@@ -316,7 +316,7 @@ export default function ScenarioPanel({
             {[
               { l: "Posición", v: `${q.position}°` },
               { l: "Pasan", v: `${slots}` },
-              { l: "Faltan", v: q.inCut ? "0 pts" : `${missing} pts` },
+              { l: "Faltan", v: q.inCut ? "0 pts" : myPoints === lastPlacePoints ? "empate" : `${missing} ${missing === 1 ? "pt" : "pts"}` },
               { l: "Quedan", v: `${left} PJ` },
             ].map((s) => (
               <div key={s.l} className="px-3 py-2 first:ps-0">
@@ -359,7 +359,7 @@ export default function ScenarioPanel({
                   >
                     {r.name}
                     {isMe && (
-                      <span className="ms-2 rounded-full bg-primary/15 px-1.5 py-0.5 text-caption uppercase tracking-wide text-primary">
+                      <span className="ms-2 rounded-full bg-primary/15 px-1.5 py-0.5 text-caption uppercase tracking-wide text-primary-strong dark:text-primary">
                         tú
                       </span>
                     )}
@@ -454,7 +454,7 @@ export default function ScenarioPanel({
           <Button
             type="submit"
             size="sm"
-            className="h-9 w-9 shrink-0 bg-foreground p-0 text-background hover:bg-foreground/90 sm:h-10 sm:w-auto sm:px-3"
+            className="h-9 w-9 shrink-0 bg-foreground p-0 text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 sm:h-10 sm:w-auto sm:px-3"
             disabled={loading || !question.trim()}
             aria-label="Preguntar a la IA"
           >
