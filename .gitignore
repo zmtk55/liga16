@@ -19,3 +19,4 @@ liga16/dist/
 # ShipStudio metadata
 .shipstudio/
 .vercel
+.env*
