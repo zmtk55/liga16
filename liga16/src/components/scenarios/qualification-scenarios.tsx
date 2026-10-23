@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  HelpCircle,
+  ArrowUpRight,
   MessageSquare,
   Send,
   ShieldAlert,
+  Sparkles,
   TrendingUp,
   Trophy,
 } from "lucide-react";
@@ -25,13 +26,19 @@ const FREQUENT = [
   "¿Ya no tengo más partidos: estoy adentro o fuera?",
 ];
 
-/** Un solo acento de color: un punto de 6px. El texto va en neutro. */
+/** Tono del veredicto. El color nunca es el mensaje: lo lleva el icono. */
 type Tone = "pass" | "depends" | "out";
 
-const TONE_DOT: Record<Tone, string> = {
-  pass: "bg-emerald-500",
-  depends: "bg-amber-500",
-  out: "bg-rose-500",
+const TONE_ICON: Record<Tone, typeof Trophy> = {
+  pass: Trophy,
+  depends: TrendingUp,
+  out: ShieldAlert,
+};
+
+const TONE_LABEL: Record<Tone, string> = {
+  pass: "Pasa",
+  depends: "Depende",
+  out: "Riesgo",
 };
 
 export default function ScenarioPanel({
@@ -40,9 +47,8 @@ export default function ScenarioPanel({
   ctx,
   remainingMatches = 0,
 }: Props) {
-  // La tabla que llega puede traer al equipo repetido (se arma con `[team,
-  // ...resto]`). Duplicado, "5° de 6" mentía y el rail mostraba la misma pareja
-  // dos veces: se deduplica antes de calcular.
+  // La tabla llega con el equipo repetido (`[team, ...resto]`); duplicado,
+  // "5° de 6" mentía y el rail mostraba la misma pareja dos veces.
   const rows = useMemo(() => {
     const seen = new Set<string>();
     return standings
@@ -65,15 +71,12 @@ export default function ScenarioPanel({
   const slots = Math.max(1, ctx.slots);
   const myLine = rows.find((r) => r.pairId === me.pairId);
   const myPoints = myLine?.points ?? 0;
-  const cutLine = rows[slots - 1];
-  const cutPoints = cutLine?.points ?? 0;
-  // Quien está justo arriba (a quien hay que alcanzar) y quien está justo
-  // abajo (el que te puede sacar). Dentro del corte el peligro es el de abajo:
-  // antes se nombraba al de arriba y el escenario decía cosas sin sentido.
+  const lastPlace = rows[slots - 1];
+  const lastPlacePoints = lastPlace?.points ?? 0;
+  // Quien está justo arriba (a quien hay que alcanzar) y justo abajo (el que
+  // puede sacarte). Dentro de semifinales el peligro es el de abajo.
   const rival = q.mustBeat[q.mustBeat.length - 1] ?? null;
-  const chaser =
-    rows.find((r) => r.position === q.position + 1) ??
-    (q.inCut ? null : (rows[slots] ?? null));
+  const chaser = rows.find((r) => r.position === q.position + 1) ?? rows[slots] ?? null;
   const left = Math.max(0, remainingMatches);
   const winAllPoints = myPoints + pw * left;
   const oneWinPoints = myPoints + pw * Math.min(1, left);
@@ -87,35 +90,34 @@ export default function ScenarioPanel({
         word: "Estás dentro",
         sentence:
           left > 0
-            ? `Vas ${q.position}° de ${rows.length} y el corte son ${slots}. Te quedan ${left} partido${left === 1 ? "" : "s"}: una victoria te mantiene arriba.`
-            : `Vas ${q.position}° de ${rows.length} y el corte son ${slots}. Ya jugaste todo: si nadie te alcanza, estás en semifinales.`,
+            ? `Vas ${q.position}° de ${rows.length} y pasan ${slots} a semifinales. Te quedan ${left} partido${left === 1 ? "" : "s"}: una victoria te mantiene arriba.`
+            : `Vas ${q.position}° de ${rows.length} y pasan ${slots} a semifinales. Ya jugaste todo: si nadie te alcanza, estás en semifinales.`,
       }
     : missing <= pw && left > 0
       ? {
           tone: "depends",
           word: "Depende de ti",
-          sentence: `Vas ${q.position}° de ${rows.length}. Te falta${missing === 1 ? "" : "n"} ${missing} punto${missing === 1 ? "" : "s"} para el corte y te queda${left === 1 ? "" : "n"} ${left} partido${left === 1 ? "" : "s"}: ganar uno te mete.`,
+          sentence: `Vas ${q.position}° de ${rows.length}. Te falta${missing === 1 ? "" : "n"} ${missing} punto${missing === 1 ? "" : "s"} para entrar a semifinales y te queda${left === 1 ? "" : "n"} ${left} partido${left === 1 ? "" : "s"}: ganar uno te mete.`,
         }
       : left > 0
         ? {
             tone: "out",
             word: "Fuera por ahora",
-            sentence: `Vas ${q.position}° de ${rows.length} y el corte son ${slots}. Te faltan ${missing} puntos con ${left} partido${left === 1 ? "" : "s"} por jugar: necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} y que ${rival?.name ?? "el de arriba"} no sume.`,
+            sentence: `Vas ${q.position}° de ${rows.length} y pasan ${slots} a semifinales. Te faltan ${missing} puntos con ${left} partido${left === 1 ? "" : "s"} por jugar: necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} y que ${rival?.name ?? "el de arriba"} no sume.`,
           }
         : {
             tone: "out",
             word: "Sin partidos",
-            sentence: `Ya no te quedan partidos. Quedaste ${q.position}° de ${rows.length} y el corte son ${slots}: ${
+            sentence: `Ya no te quedan partidos. Quedaste ${q.position}° de ${rows.length} y pasan ${slots}: ${
               rival
                 ? `solo entras si ${rival.name} pierde lo suyo.`
                 : "depende de resultados de otras canchas."
             }`,
           };
 
-  /* ---------------- los tres escenarios, con números ---------------- */
+  /* ---------------- los tres finales, con números ---------------- */
   const scenarios: Array<{
     tone: Tone;
-    icon: typeof Trophy;
     label: string;
     when: string;
     then: string;
@@ -123,40 +125,36 @@ export default function ScenarioPanel({
     ? [
         {
           tone: "pass",
-          icon: Trophy,
           label: "Pasas",
-          when: left > 0 ? `Ganas 1 de los ${left}` : "Terminas en el corte",
+          when: left > 0 ? `Ganas 1 de los ${left}` : "Terminas entre los primeros",
           then:
             left > 0
-              ? `Llegas a ${oneWinPoints} pts y sigues entre los ${slots} primeros.`
-              : `Estás ${q.position}° con ${myPoints} pts y el corte quedó en ${cutPoints}.`,
+              ? `Llegas a ${oneWinPoints} pts y sigues entre los ${slots} que van a semifinales.`
+              : `Estás ${q.position}° con ${myPoints} pts y la última plaza quedó en ${lastPlacePoints}.`,
         },
         {
           tone: "depends",
-          icon: TrendingUp,
           label: "Depende",
           when: chaser
             ? `Pierdes y ${chaser.name} gana`
             : "Pierdes y alguien de abajo suma",
           then: chaser
-            ? `Caes a ${q.position + 1}° y ${chaser.name} te empata con ${chaser.points} pts: el corte pasa a depender del promedio de sets.`
-            : `Caes a ${q.position + 1}° y el corte se te acerca: tu pase queda en manos del promedio de sets.`,
+            ? `Caes a ${q.position + 1}° y ${chaser.name} te empata con ${chaser.points} pts: tu pase queda en manos del promedio de sets.`
+            : `Caes a ${q.position + 1}° y se te acercan: tu pase queda en manos del promedio de sets.`,
         },
         {
           tone: "out",
-          icon: ShieldAlert,
           label: "Riesgo",
           when:
             left > 1
               ? `Pierdes 2 seguidos y ${chaser?.name ?? "el de abajo"} gana`
               : `Pierdes y ${chaser?.name ?? "el de abajo"} gana`,
-          then: `${chaser ? `Quedas ${q.position + 2}° y ${chaser.name} sube al ${q.position}°.` : `Quedas ${q.position + 2}° y sales del corte.`} Aun así, si EL RIVAL PIERDE, te mantienes.`,
+          then: `${chaser ? `Quedas ${q.position + 2}° y ${chaser.name} sube al ${q.position}°.` : `Quedas ${q.position + 2}° y quedas fuera de semifinales.`} Aun así, si EL RIVAL PIERDE, te mantienes.`,
         },
       ]
     : [
         {
           tone: "pass",
-          icon: Trophy,
           label: "Pasas",
           when:
             left > 0
@@ -164,10 +162,10 @@ export default function ScenarioPanel({
               : "El rival pierde",
           then:
             left > 0
-              ? `Sumas ${winAllPoints} pts (corte en ${cutPoints}). ${
-                  winAllPoints > cutPoints
+              ? `Sumas ${winAllPoints} pts y la última plaza va en ${lastPlacePoints}. ${
+                  winAllPoints > lastPlacePoints
                     ? "Con eso alcanza, sin contar lo que sumen los demás."
-                    : `Aun ganando todo te faltan ${Math.max(0, cutPoints - winAllPoints + 1)} pts: necesitas que arriba no sumen.`
+                    : `Aun ganando todo te faltan ${Math.max(0, lastPlacePoints - winAllPoints + 1)} pts: necesitas que arriba no sumen.`
                 }`
               : rival
                 ? `${rival.name} se queda en ${rival.points} pts y tú en ${myPoints}: ${myPoints > rival.points ? "pasas" : "no alcanza"}.`
@@ -175,20 +173,18 @@ export default function ScenarioPanel({
         },
         {
           tone: "depends",
-          icon: TrendingUp,
           label: "Depende",
-          when: left > 0 ? `Ganas 1 y el rival no gana` : "El rival no gana",
+          when: left > 0 ? "Ganas 1 y el rival no gana" : "El rival no gana",
           then: rival
             ? `Tú llegas a ${oneWinPoints} pts y ${rival.name} sigue en ${rival.points}: ${
                 oneWinPoints > rival.points
                   ? `le pasas por ${oneWinPoints - rival.points}.`
                   : `te faltan ${rival.points - oneWinPoints + 1} pts para pasarle.`
               }`
-            : `Con ${oneWinPoints} pts te acercas al corte de ${cutPoints}.`,
+            : `Con ${oneWinPoints} pts te acercas a la última plaza (${lastPlacePoints} pts).`,
         },
         {
           tone: "out",
-          icon: ShieldAlert,
           label: "Riesgo",
           when: left > 0 ? "Pierdes" : "Ganas pero el rival también",
           then:
@@ -198,11 +194,11 @@ export default function ScenarioPanel({
                     ? `Todavía te quedaría${left === 2 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para recuperar.`
                     : "Sería el último partido del rol."
                 }`
-              : `Con ${myPoints} pts no alcanzas el corte de ${cutPoints}: tu pase ya no depende de ti.`,
+              : `Con ${myPoints} pts no entras a semifinales: tu pase ya no depende de ti.`,
         },
       ];
 
-  /* ---------------- rail de posiciones alrededor del corte ---------------- */
+  /* ---------------- tabla alrededor de la línea de semifinales ---------------- */
   const rail = useMemo(() => {
     const idxMe = rows.findIndex((r) => r.pairId === me.pairId);
     const start = Math.max(0, Math.min(idxMe === -1 ? 0 : idxMe, slots - 1) - 1);
@@ -217,21 +213,21 @@ export default function ScenarioPanel({
     };
   }, [rows, me.pairId, slots]);
 
-  /* ---------------- respuestas: contexto real, no plantilla fija ---------------- */
+  /* ---------------- respuestas con las cifras del equipo ---------------- */
   const buildAnswer = (prompt: string): string => {
     const p = prompt.toLowerCase();
-    // Con el equipo dentro del corte, "mi rival" es el que viene abajo.
+    // Dentro de semifinales, "mi rival" es el que viene abajo.
     const other = q.inCut ? chaser : rival;
     const rivalText = other
       ? `${other.name} (${other.position}°, ${other.points} pts)`
       : null;
     const head = q.inCut
-      ? `Vas ${q.position}° con ${myPoints} pts y el corte son ${slots} cupos.`
-      : `Vas ${q.position}° con ${myPoints} pts, a ${missing} del corte de ${cutPoints}.`;
+      ? `Vas ${q.position}° con ${myPoints} pts y pasan ${slots} a semifinales.`
+      : `Vas ${q.position}° con ${myPoints} pts, a ${missing} de la última plaza (${lastPlacePoints}).`;
 
     if (p.includes("rival") || p.includes("no pase")) {
       if (!other) {
-        return `${head} No tienes rival directo ${q.inCut ? "abajo" : "arriba"}: si ganas lo que te queda, el corte se mueve a tu favor.`;
+        return `${head} No tienes rival directo ${q.inCut ? "abajo" : "arriba"}: si ganas lo que te queda, la tabla se mueve a tu favor.`;
       }
       const gap = other.points - myPoints;
       if (gap < 0) {
@@ -244,34 +240,52 @@ export default function ScenarioPanel({
       return `${head} ${other.name} ${relation}, en ${other.position}°. Ganas tú y ${other.name} pierde: te pones ${oneWinPoints > other.points ? `arriba por ${oneWinPoints - other.points}` : `a ${other.points - oneWinPoints + 1} de pasarle`}. Si ${other.name} gana, la ventaja se abre a ${gap + pw} y necesitas ${Math.ceil((gap + pw + 1) / pw)} victoria${Math.ceil((gap + pw + 1) / pw) === 1 ? "" : "s"}.`;
     }
 
-    if (p.includes("no tengo") || p.includes("sin partido") || p.includes("ya no") || p.includes("acab")) {
+    if (
+      p.includes("no tengo") ||
+      p.includes("sin partido") ||
+      p.includes("ya no") ||
+      p.includes("acab")
+    ) {
       return left === 0
-        ? `${head} Ya no te quedan partidos, así que tu posición es la final: ${q.inCut ? "estás dentro de semifinales salvo que alguien sume por debajo" : `quedaste fuera por ${missing} pt${missing === 1 ? "" : "s"} y solo entras si ${rival?.name ?? "el de arriba"} pierde lo suyo`}.`
+        ? `${head} Ya no te quedan partidos, así que tu posición es la final: ${q.inCut ? `estás en semifinales salvo que alguien sume por debajo` : `quedaste fuera por ${missing} pt${missing === 1 ? "" : "s"} y solo entras si ${rival?.name ?? "el de arriba"} pierde lo suyo`}.`
         : `Todavía te queda${left === 1 ? "" : "n"} ${left} partido${left === 1 ? "" : "s"}. ${head}`;
     }
 
-    if (p.includes("perder") || p.includes("pierdo") || p.includes("elimin") || p.includes("riesgo")) {
+    if (
+      p.includes("perder") ||
+      p.includes("pierdo") ||
+      p.includes("elimin") ||
+      p.includes("riesgo")
+    ) {
       if (left === 0) {
         return `${head} Sin partidos por jugar no hay nada que perder: el resultado ya está escrito y ${q.inCut ? "te favorece" : "te deja fuera"}.`;
       }
       return q.inCut
-        ? `${head} Si pierdes te quedas en ${myPoints} pts y bajas a ${q.position + 1}°, pero sigues vivo: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} más recuperas si ganas. Y si ${rival?.name ?? "el rival"} pierde, el golpe no te saca del corte.`
-        : `${head} Si pierdes te quedas en ${myPoints} pts y el corte se te va a ${cutPoints + (q.position <= slots ? 0 : pw)}: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} por jugar, la derrota te deja sin margen.`;
+        ? `${head} Si pierdes te quedas en ${myPoints} pts y bajas a ${q.position + 1}°, pero sigues vivo: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} más recuperas si ganas. Y si ${rival?.name ?? "el rival"} pierde, el golpe no te saca de semifinales.`
+        : `${head} Si pierdes te quedas en ${myPoints} pts y la última plaza se te va: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} por jugar, la derrota te deja sin margen.`;
     }
 
-    if (p.includes("ganar") || p.includes("gano") || p.includes("paso") || p.includes("clasific") || p.includes("semifinal") || p.includes("próximo") || p.includes("proximo")) {
+    if (
+      p.includes("ganar") ||
+      p.includes("gano") ||
+      p.includes("paso") ||
+      p.includes("clasific") ||
+      p.includes("semifinal") ||
+      p.includes("próximo") ||
+      p.includes("proximo")
+    ) {
       if (left === 0) {
-        return `${head} Ya no hay próximo partido: ${q.inCut ? "estás clasificado" : `no alcanza con ${myPoints} pts, necesitas que el de arriba pierda`}.`;
+        return `${head} Ya no hay próximo partido: ${q.inCut ? "estás en semifinales" : `no alcanza con ${myPoints} pts, necesitas que el de arriba pierda`}.`;
       }
       if (q.inCut) {
-        return `${head} Si ganas el próximo llegas a ${oneWinPoints} pts: sigues dentro y con ${left - 1} partido${left - 1 === 1 ? "" : "s"} para asegurar el primer lugar del grupo.`;
+        return `${head} Si ganas el próximo llegas a ${oneWinPoints} pts: sigues dentro de los ${slots} y te queda${left - 1 === 1 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para pelear el primer lugar del grupo.`;
       }
-      return `${head} Si ganas el próximo llegas a ${oneWinPoints} pts: ${oneWinPoints > cutPoints ? `entras al corte (${cutPoints} pts)` : `todavía te faltan ${cutPoints - oneWinPoints + 1} para el corte`}. Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${rival?.name ?? "el de arriba"} no gane todo.`;
+      return `${head} Si ganas el próximo llegas a ${oneWinPoints} pts: ${oneWinPoints > lastPlacePoints ? `entras a semifinales (última plaza: ${lastPlacePoints} pts)` : `todavía te faltan ${lastPlacePoints - oneWinPoints + 1} para la última plaza`}. Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${rival?.name ?? "el de arriba"} no gane todo.`;
     }
 
     return `${head} ${
       q.inCut
-        ? `Con ${left} partido${left === 1 ? "" : "s"} por jugar, tu trabajo es no regalar el promedio: gana uno y el corte queda a tu favor.`
+        ? `Con ${left} partido${left === 1 ? "" : "s"} por jugar, tu trabajo es no regalar el promedio: gana uno y sigues en semifinales.`
         : `Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${rival?.name ?? "el de arriba"} pierda al menos uno.`
     }`;
   };
@@ -285,8 +299,7 @@ export default function ScenarioPanel({
     try {
       const key = (import.meta.env.VITE_JEV_API_KEY as string | undefined) || undefined;
       if (key) {
-        // Sin timeout, si la API no responde el jugador se queda mirando
-        // "Analizando…" para siempre. 8 s y cae al analizador local.
+        // Sin timeout, si la API no responde el jugador se queda en "Analizando…".
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 8000);
         try {
@@ -303,11 +316,11 @@ export default function ScenarioPanel({
                 {
                   role: "system",
                   content:
-                    "Eres analista de Liga16 (pádel). Responde en 2 o 3 frases naturales, en español, con las cifras exactas del contexto. Nada de listas ni de repetir los datos en bruto.",
+                    "Eres analista de Liga16 (pádel). Responde en 2 o 3 frases naturales, en español, con las cifras exactas del contexto. No digas 'corte': di semifinales o última plaza. Nada de listas.",
                 },
                 {
                   role: "user",
-                  content: `Datos: posición ${q.position} de ${rows.length}; corte ${slots} cupos en ${cutPoints} pts; yo ${myPoints} pts; faltan ${missing}; partidos restantes ${left}; puntos por victoria ${pw}; rival ${rival ? `${rival.name} ${rival.points} pts (${rival.position}°)` : "ninguno"}. Pregunta: ${clean}`,
+                  content: `Datos: posición ${q.position} de ${rows.length}; pasan ${slots} a semifinales; última plaza ${lastPlacePoints} pts; yo ${myPoints} pts; faltan ${missing}; partidos restantes ${left}; puntos por victoria ${pw}; rival ${rival ? `${rival.name} ${rival.points} pts (${rival.position}°)` : "ninguno"}. Pregunta: ${clean}`,
                 },
               ],
             }),
@@ -342,6 +355,8 @@ export default function ScenarioPanel({
     void generate(text);
   };
 
+  const VerdictIcon = TONE_ICON[verdict.tone];
+
   return (
     <section
       aria-labelledby="escenarios-title"
@@ -350,7 +365,7 @@ export default function ScenarioPanel({
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <p className="text-caption uppercase tracking-[0.14em] text-muted-foreground">
-            Clasificación · {slots} cupos a semifinales
+            Semifinales · {slots} lugares
           </p>
           <h2
             id="escenarios-title"
@@ -359,9 +374,7 @@ export default function ScenarioPanel({
             Qué necesitas para pasar
           </h2>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Con la tabla real del torneo
-        </p>
+        <p className="text-xs text-muted-foreground">Con la tabla real del torneo</p>
       </div>
 
       {/* Veredicto: superficie póster de la casa (oscura en ambos temas). */}
@@ -370,15 +383,8 @@ export default function ScenarioPanel({
         <div className="grid gap-5 p-4 pt-5 sm:p-5 md:grid-cols-[1.15fr_1fr] md:items-end">
           <div className="space-y-3">
             <span className="inline-flex items-center gap-2 text-caption uppercase tracking-[0.14em] text-white/65">
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${TONE_DOT[verdict.tone]}`}
-                aria-hidden
-              />
-              {verdict.tone === "pass"
-                ? "Pasa"
-                : verdict.tone === "depends"
-                  ? "Depende"
-                  : "Riesgo"}
+              <VerdictIcon className="h-4 w-4" aria-hidden />
+              {TONE_LABEL[verdict.tone]}
             </span>
             <p className="font-black text-3xl uppercase leading-none tracking-[-0.04em] sm:text-4xl">
               {verdict.word}
@@ -391,27 +397,25 @@ export default function ScenarioPanel({
           <dl className="grid grid-cols-2 divide-x divide-white/10 border-t border-white/10 sm:grid-cols-4">
             {[
               { l: "Posición", v: `${q.position}°` },
-              { l: "Corte", v: `${slots}°` },
+              { l: "Pasan", v: `${slots}` },
               { l: "Faltan", v: q.inCut ? "0 pts" : `${missing} pts` },
               { l: "Quedan", v: `${left} PJ` },
             ].map((s) => (
-              <div key={s.l} className="px-3 py-2 first:pl-0">
+              <div key={s.l} className="px-3 py-2 first:ps-0">
                 <dt className="text-caption uppercase tracking-[0.12em] text-white/55">
                   {s.l}
                 </dt>
-                <dd className="font-bold text-xl leading-none tabular-nums">
-                  {s.v}
-                </dd>
+                <dd className="font-bold text-xl leading-none tabular-nums">{s.v}</dd>
               </div>
             ))}
           </dl>
         </div>
       </div>
 
-      {/* Rail de posiciones: dónde está el corte, dónde estás tú. */}
+      {/* Tabla alrededor de la línea de semifinales. */}
       <div>
         <p className="mb-2 text-caption uppercase tracking-[0.14em] text-muted-foreground">
-          Tabla alrededor del corte
+          Tabla hacia semifinales
         </p>
         <ol className="overflow-hidden rounded-[var(--radius)] border bg-card">
           {rail.hiddenAbove > 0 && (
@@ -421,7 +425,7 @@ export default function ScenarioPanel({
           )}
           {rail.items.map((r) => {
             const isMe = r.pairId === me.pairId;
-            const isCutRow = r.position === slots;
+            const isLastPlace = r.position === slots;
             return (
               <li key={r.pairId}>
                 <div
@@ -446,11 +450,11 @@ export default function ScenarioPanel({
                     {r.points} pts
                   </span>
                 </div>
-                {isCutRow && (
+                {isLastPlace && (
                   <div className="flex items-center gap-2 px-3">
                     <span className="h-px flex-1 bg-border" aria-hidden />
                     <span className="py-1 text-caption uppercase tracking-[0.14em] text-muted-foreground">
-                      corte · {slots} cupos
+                      semifinales · {slots} lugares
                     </span>
                     <span className="h-px flex-1 bg-border" aria-hidden />
                   </div>
@@ -466,113 +470,130 @@ export default function ScenarioPanel({
         </ol>
       </div>
 
-      {/* Los tres finales: lista en dos columnas, sin cajas ni colores de fondo. */}
+      {/* Los tres finales: icono + dos líneas. Sin colores de fondo. */}
       <div>
         <p className="mb-3 text-caption uppercase tracking-[0.14em] text-muted-foreground">
           Los tres finales posibles
         </p>
         <ul className="space-y-5">
-          {scenarios.map((s) => (
-            <li
-              key={s.label}
-              className="grid gap-x-5 gap-y-1 sm:grid-cols-[6.5rem_minmax(0,1fr)]"
-            >
-              <div className="flex items-start gap-2 sm:pt-0.5">
-                <span
-                  className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[s.tone]}`}
-                  aria-hidden
-                />
-                <span className="text-sm font-semibold">{s.label}</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{s.when}</p>
-                <p className="mt-0.5 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
-                  {s.then}
-                </p>
-              </div>
-            </li>
-          ))}
+          {scenarios.map((s) => {
+            const Icon = TONE_ICON[s.tone];
+            return (
+              <li
+                key={s.label}
+                className="grid gap-x-4 gap-y-1 sm:grid-cols-[7.5rem_minmax(0,1fr)]"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-foreground/75">
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="text-sm font-semibold">{s.label}</span>
+                </div>
+                <div className="min-w-0 sm:pt-1">
+                  <p className="text-sm font-medium">{s.when}</p>
+                  <p className="mt-0.5 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
+                    {s.then}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
         </ul>
         <p className="mt-4 max-w-[68ch] text-xs leading-relaxed text-muted-foreground">
-          Los escenarios asumen que los demás no suman entre sí; el corte se
+          Los escenarios asumen que los demás no suman entre sí; la tabla se
           recalcula con cada resultado guardado.
         </p>
       </div>
 
-      {/* Preguntas: pide el caso concreto, responde con tus cifras. */}
-      <div className="rounded-[var(--radius)] border bg-card">
-        <div className="flex items-center gap-2 border-b px-3 py-2.5">
-          <MessageSquare className="h-4 w-4 text-primary-strong" aria-hidden />
-          <h3 className="text-sm font-semibold">Pregúntale a tu clasificación</h3>
-          <span className="ml-auto text-caption uppercase tracking-[0.12em] text-muted-foreground">
-            IA
-          </span>
-        </div>
-
-        <div className="space-y-3 p-3">
-          <div className="flex flex-wrap gap-2">
-            {FREQUENT.map((f) => (
-              <Button
-                key={f}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-auto whitespace-normal py-1.5 text-left text-xs"
-                onClick={() => ask(f)}
-                disabled={loading}
-              >
-                <HelpCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                {f}
-              </Button>
-            ))}
-          </div>
-
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              ask(question);
-            }}
+      {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
+      <div className="overflow-hidden rounded-[var(--radius)] border bg-card">
+        <form
+          className="flex items-center gap-3 p-3 sm:p-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask(question);
+          }}
+        >
+          <span
+            className="liga16-ai-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background sm:h-10 sm:w-10"
+            aria-hidden
           >
-            <label htmlFor="clasificacion-pregunta" className="sr-only">
-              Escribe tu pregunta sobre la clasificación
-            </label>
-            <Input
-              id="clasificacion-pregunta"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ej: si gano 2–0 el viernes, ¿paso?"
-              className="h-9 min-w-0 flex-1"
-              autoComplete="off"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              className="h-9 shrink-0"
-              disabled={loading || !question.trim()}
-            >
-              <Send className="mr-1.5 h-4 w-4" aria-hidden />
-              {loading ? "Analizando…" : "Preguntar"}
-            </Button>
-          </form>
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+          </span>
 
+          <label htmlFor="clasificacion-pregunta" className="sr-only">
+            Pregunta sobre tu clasificación a semifinales
+          </label>
+          <Input
+            id="clasificacion-pregunta"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Pregunta lo que quieras de tu pase…"
+            className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 sm:text-base"
+            autoComplete="off"
+          />
+
+          <Button
+            type="submit"
+            size="sm"
+            className="h-9 w-9 shrink-0 bg-foreground p-0 text-background hover:bg-foreground/90 sm:h-10 sm:w-auto sm:px-3"
+            disabled={loading || !question.trim()}
+            aria-label="Preguntar a la IA"
+          >
+            <Send className="h-4 w-4 sm:me-1.5" aria-hidden />
+            <span className="hidden sm:inline">{loading ? "Analizando…" : "Preguntar"}</span>
+          </Button>
+        </form>
+
+        <div className="border-t px-3 py-2.5 sm:px-4">
           <div aria-live="polite" aria-busy={loading}>
             {loading && (
-              <div className="space-y-1.5 rounded-lg border bg-muted/40 p-3">
+              <div className="space-y-1.5 py-1">
                 <span className="sr-only">Analizando tu situación…</span>
                 <span className="block h-3 w-4/5 animate-pulse rounded bg-muted-foreground/20" />
                 <span className="block h-3 w-3/5 animate-pulse rounded bg-muted-foreground/20" />
               </div>
             )}
+
             {!loading && answer && (
-              <div className="animate-fade-in rounded-lg border bg-muted/40 p-3">
-                <p className="max-w-[72ch] text-sm leading-relaxed">{answer}</p>
-                <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
-                  Con tu tabla: {q.position}° · {myPoints} pts · corte {cutPoints}{" "}
-                  pts · {left} partido{left === 1 ? "" : "s"} por jugar
-                </p>
+              <div className="animate-fade-in flex items-start gap-3 py-1">
+                <MessageSquare
+                  className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+                  aria-hidden
+                />
+                <div className="min-w-0">
+                  <p className="max-w-[72ch] text-sm leading-relaxed">{answer}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {q.position}° · {myPoints} pts · pasan {slots} · {left} partido
+                    {left === 1 ? "" : "s"} por jugar
+                  </p>
+                </div>
               </div>
             )}
+
+            {!loading && !answer && (
+              <p className="text-xs text-muted-foreground">
+                Respuestas con tus números, no con la tabla genérica.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {FREQUENT.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => ask(f)}
+                disabled={loading}
+                className="group inline-flex items-center gap-1 text-left text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50"
+              >
+                {f}
+                <ArrowUpRight
+                  className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-hidden
+                />
+              </button>
+            ))}
           </div>
         </div>
       </div>

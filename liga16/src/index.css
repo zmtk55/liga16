@@ -554,6 +554,19 @@
     filter    var(--panel-open-dur) var(--panel-ease);
 }
 
+/* === Marca de IA del panel de clasificación (monocroma, con aliento) ===
+   Un solo gesto: el cuadrado respira. Nada de brillos ni degradados. */
+@keyframes liga16-ai-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.92; }
+  50%      { transform: scale(1.06); opacity: 1; }
+}
+.liga16-ai-mark {
+  animation: liga16-ai-breathe 3.6s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .liga16-ai-mark { animation: none; }
+}
+
 /* === Glowing wave background (player dashboard cover) === */
 @keyframes glow-wave {
   0%   { background-position: 0% 50%; }

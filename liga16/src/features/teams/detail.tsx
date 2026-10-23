@@ -214,16 +214,18 @@ export default function TeamDetailPage() {
                 <div>
                   <p className="text-sm tracking-widest text-white/60 uppercase">{teamCategoryLabel(team)} · Liga16</p>
                   <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">{team.name}</h1>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge variant="default" className="bg-white text-black hover:bg-white/90">#{team.position || "—"} de la categoría</Badge>
-                    <Badge variant="outline" className="border-white/20 text-white">{team.division} · {sexLabel(team.sex)}</Badge>
-                    {streak && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs backdrop-blur">
-                        <span className={`h-2 w-2 animate-pulse rounded-full ${streak.won ? "bg-success" : "bg-destructive"}`} />
-                        {streak.count} {streak.won ? "victorias" : "derrotas"} seguidas
-                      </span>
-                    )}
-                  </div>
+                  {/* Identidad en una sola línea: los tres pills competían entre sí. */}
+                  <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-white/55">
+                    <span className="font-semibold text-white">#{team.position || "—"} de la categoría</span>
+                    <span aria-hidden>·</span>
+                    <span>{team.division} · {sexLabel(team.sex)}</span>
+                  </p>
+                  {streak && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-white/55">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white/60" aria-hidden />
+                      {streak.count} {streak.won ? "victorias" : "derrotas"} seguidas
+                    </p>
+                  )}
                 </div>
                 <div className="ml-auto hidden items-center gap-2 md:flex">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black font-black">16</div>
@@ -231,32 +233,43 @@ export default function TeamDetailPage() {
                 </div>
               </div>
 
-              {/* Scoreboard del equipo */}
-              <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Posición</p>
-                  <p className="text-2xl font-black tabular-nums">#{team.position || "—"}</p>
-                  <p className="text-xs text-white/50">{teamCategoryLabel(team)}</p>
-                </div>
-                <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">% Puntos</p>
-                  <p className="text-2xl font-black tabular-nums">{team.points.toLocaleString("es-MX")}%</p>
-                  <p className="text-xs flex items-center gap-1">
-                    {winRatePct >= 50 ? <TrendingUp className="h-3 w-3 text-success" /> : winRatePct < 50 && team.played > 0 ? <TrendingDown className="h-3 w-3 text-destructive" /> : <Minus className="h-3 w-3" />}
+              {/* Cifras del equipo: una franja con divisores, no cuatro tarjetas.
+                  La posición ya está en el badge y en el numeral del fondo. */}
+              <dl className="grid grid-cols-3 divide-x divide-white/10 border-y border-white/10">
+                <div className="py-3 pe-3">
+                  <dt className="text-caption uppercase tracking-[0.12em] text-white/50">% Puntos</dt>
+                  <dd className="mt-1 text-2xl font-black leading-none tabular-nums">
+                    {team.points.toLocaleString("es-MX")}%
+                  </dd>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-white/50">
+                    {winRatePct >= 50 ? (
+                      <TrendingUp className="h-3 w-3" aria-hidden />
+                    ) : winRatePct < 50 && team.played > 0 ? (
+                      <TrendingDown className="h-3 w-3" aria-hidden />
+                    ) : (
+                      <Minus className="h-3 w-3" aria-hidden />
+                    )}
                     {winRatePct}% victorias{team.played > 0 ? ` · ${performanceWord(winRatePct)}` : ""}
                   </p>
                 </div>
-                <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Récord</p>
-                  <p className="text-lg font-black tabular-nums">{team.won} – {team.lost} <span className="text-xs font-normal text-white/60">/ {team.played} PJ</span></p>
-                  <p className="text-xs text-white/50">{winRatePct}% de efectividad</p>
+                <div className="px-3 py-3">
+                  <dt className="text-caption uppercase tracking-[0.12em] text-white/50">Récord</dt>
+                  <dd className="mt-1 text-2xl font-black leading-none tabular-nums">
+                    {team.won}–{team.lost}
+                  </dd>
+                  <p className="mt-1 text-xs text-white/50">{team.played} PJ · {winRatePct}% efectividad</p>
                 </div>
-                <div className="rounded-xl bg-white/5 p-3 backdrop-blur border border-white/10">
-                  <p className="text-xs text-white/50">Sets</p>
-                  <p className="text-2xl font-black tabular-nums">{setStats.sf}–{setStats.sa}</p>
-                  <p className="text-xs text-white/50">Diferencia {setStats.diff >= 0 ? "+" : ""}{clampDiff(setStats.diff)}</p>
+                <div className="ps-3 py-3">
+                  <dt className="text-caption uppercase tracking-[0.12em] text-white/50">Sets</dt>
+                  <dd className="mt-1 text-2xl font-black leading-none tabular-nums">
+                    {setStats.sf}–{setStats.sa}
+                  </dd>
+                  <p className="mt-1 text-xs text-white/50">
+                    Diferencia {setStats.diff >= 0 ? "+" : ""}
+                    {clampDiff(setStats.diff)}
+                  </p>
                 </div>
-              </div>
+              </dl>
 
               {/* Forma reciente */}
               {formGlyphs.length > 0 && (
@@ -276,34 +289,31 @@ export default function TeamDetailPage() {
               )}
             </div>
 
-            {/* Tarjetas de la pareja — con link directo al dashboard de cada jugador */}
-            <div className="relative flex flex-col gap-3 lg:justify-end">
+            {/* Pareja: dos filas compactas con enlace al dashboard del jugador. */}
+            <div className="flex flex-col gap-2 lg:items-end">
               {[team.player1, team.player2].map((p, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 transition-colors hover:border-white/20 hover:bg-white/10"
+                  className="flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 transition-colors hover:border-white/20 hover:bg-white/10 lg:max-w-xs"
                 >
-                  {p?.player_id ? (
-                    <Link to={`/jugadores/${p.player_id}`} className="shrink-0" aria-label={`Ver dashboard de ${p.name}`}>
-                      <Avatar className="h-12 w-12 border-2 border-white/20">
-                        <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(p.name ?? "")}`} />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">{initials(p.name)}</AvatarFallback>
-                      </Avatar>
-                    </Link>
-                  ) : (
-                    <Avatar className="h-12 w-12 border-2 border-white/20 shrink-0">
-                      <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(p?.name ?? "Jugador")}`} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">{p ? initials(p.name) : "?"}</AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-base font-bold leading-snug">{p?.name ?? "Pendiente"}</p>
-                    <p className="text-xs text-white/50">{p ? `Nivel ${p.level?.toFixed(1) ?? "—"}` : "Nivel —"} · {i === 0 ? "Jugador 1" : "Jugador 2"}</p>
+                  <Avatar className="h-9 w-9 shrink-0 border border-white/20">
+                    <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(p?.name ?? "Jugador")}`} />
+                    <AvatarFallback className="bg-white/15 text-xs text-white">{p ? initials(p.name) : "?"}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1 leading-tight">
+                    <p className="truncate text-sm font-bold">{p?.name ?? "Pendiente"}</p>
+                    <p className="mt-0.5 text-xs text-white/50">
+                      {p ? `Nivel ${p.level?.toFixed(1) ?? "—"}` : "Nivel —"} · Jugador {i + 1}
+                    </p>
                   </div>
-                  {p && p.player_id && (
-                    <Button asChild variant="outline" size="icon" className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white shrink-0 h-8 w-8" aria-label={`Abrir dashboard de ${p.name}`}>
-                      <Link to={`/jugadores/${p.player_id}`}><ExternalLink className="h-3.5 w-3.5" /></Link>
-                    </Button>
+                  {p?.player_id && (
+                    <Link
+                      to={`/jugadores/${p.player_id}`}
+                      aria-label={`Abrir dashboard de ${p.name}`}
+                      className="shrink-0 rounded-md p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                      <ExternalLink className="h-4 w-4" aria-hidden />
+                    </Link>
                   )}
                 </div>
               ))}
