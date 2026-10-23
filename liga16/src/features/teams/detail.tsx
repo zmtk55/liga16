@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ChevronDown, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
+import { ArrowLeft, ChevronDown, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays, X } from "lucide-react";
 import ScenarioPanel from "@/components/scenarios/qualification-scenarios";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
 import { MatchCard } from "@/components/cards/card-kit";
@@ -47,8 +47,9 @@ export default function TeamDetailPage() {
         const t = list.find((x) => x.slug === slug) ?? null;
         setTeam(t);
         // Solo rivales de la MISMA categoría (división + género), sin el propio
-        // equipo. Se ordenan por cercanía en la tabla y se elige el más cercano
-        // por defecto: la comparación arranca con datos útiles en vez de vacía.
+        // equipo, ordenados por cercanía en la tabla para que el selector
+        // ofrezca primero al rival directo. No se elige ninguno solo: la
+        // comparación se abre cuando el usuario la pide.
         const rivals = list
           .filter((x) => x.slug !== slug && x.division === t?.division && x.sex === t?.sex)
           .sort(
@@ -57,7 +58,7 @@ export default function TeamDetailPage() {
               Math.abs((b.position || 99) - (t?.position || 99)),
           );
         setAllTeams(rivals);
-        setCompareName(rivals[0]?.name ?? "");
+        setCompareName("");
         // Partidos donde participa la pareja (por nombre del lado A o B)
         setMatches(
           allMatches.filter(
@@ -385,18 +386,31 @@ export default function TeamDetailPage() {
       {/* ====== NUEVA: Comparador destacado ====== */}
       <section className="mx-auto max-w-7xl px-4 md:px-6">
         <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Comparar con otro equipo</CardTitle>
-            <Select value={compareName} onValueChange={setCompareName}>
-              <SelectTrigger className="h-8 w-44 max-w-[240px] text-xs truncate"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
-              <SelectContent>
-                {allTeams.map((t) => (
-                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-1">
+              <Select value={compareName} onValueChange={setCompareName}>
+                <SelectTrigger className="h-8 w-44 max-w-[240px] text-xs truncate"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
+                <SelectContent>
+                  {allTeams.map((t) => (
+                    <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {compareName && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => setCompareName("")}
+                  aria-label="Cerrar comparación"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </Button>
+              )}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className={compareTeam ? "" : "pb-4 pt-0"}>
             {compareTeam ? (
               <CompareBlock
                 a={{
@@ -422,7 +436,7 @@ export default function TeamDetailPage() {
               <p className="text-sm text-muted-foreground">
                 {allTeams.length === 0
                   ? "No hay otros equipos en tu categoría todavía."
-                  : "Elige un equipo de tu categoría para comparar."}
+                  : "Elige una pareja y verás seis métricas enfrentadas con barras."}
               </p>
             )}
           </CardContent>
