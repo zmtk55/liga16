@@ -70,25 +70,24 @@ export default function ScenarioPanel({
   /** Quién interpretó la última pregunta: JEV (TypeSafe) o el analizador local. */
   const [source, setSource] = useState<"jev" | "local" | null>(null);
 
-  /* ---------------- cifras que sostienen todo el panel ---------------- */
-  const pw = ctx.pointsPerWin > 0 ? ctx.pointsPerWin : 3;
+  /* ---------------- cifras que sostienen todo el panel ----------------
+     `team.points` NO son puntos de partido: es el porcentaje de rendimiento
+     (RENDIMIENTO_PTS, el del Excel de la liga). Por eso aquí no se suma "3 por
+     victoria": se habla de posiciones y de puntos porcentuales. */
   const slots = Math.max(1, ctx.slots);
-  // Puntos a un decimal: sumar 3 a 3.6 daba 6.600000000000001 en pantalla.
   const round1 = (n: number) => Math.round(n * 10) / 10;
+  const fmtPct = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
   const myLine = rows.find((r) => r.pairId === me.pairId);
   const myPoints = round1(myLine?.points ?? 0);
   const lastPlace = rows[slots - 1];
   const lastPlacePoints = round1(lastPlace?.points ?? 0);
+  const gapPct = q.inCut ? 0 : Math.max(0, round1(lastPlacePoints - myPoints));
+  const tiedAtCut = !q.inCut && gapPct === 0;
   // Quien está justo arriba (a quien hay que alcanzar) y justo abajo (el que
   // puede sacarte). Dentro de semifinales el peligro es el de abajo.
   const rival = q.mustBeat[q.mustBeat.length - 1] ?? null;
   const chaser = rows.find((r) => r.position === q.position + 1) ?? rows[slots] ?? null;
   const left = Math.max(0, remainingMatches);
-  const winAllPoints = round1(myPoints + pw * left);
-  const oneWinPoints = round1(myPoints + pw * Math.min(1, left));
-
-  const missing = q.inCut ? 0 : q.pointsNeeded;
-  const winsNeeded = Math.max(0, Math.ceil(missing / pw));
 
   const verdict: { tone: Tone; word: string; sentence: string } = q.inCut
     ? {
@@ -96,32 +95,34 @@ export default function ScenarioPanel({
         word: "Estás dentro",
         sentence:
           left > 0
-            ? `Vas ${q.position}° de ${rows.length} y pasan ${slots} a semifinales. Te quedan ${left} partido${left === 1 ? "" : "s"}: una victoria te mantiene arriba.`
-            : `Vas ${q.position}° de ${rows.length} y pasan ${slots} a semifinales. Ya jugaste todo: si nadie te alcanza, estás en semifinales.`,
+            ? `Vas ${q.position}° de ${rows.length} con ${fmtPct(myPoints)}% de rendimiento y pasan ${slots}. Te quedan ${left} partido${left === 1 ? "" : "s"}: ganar sube tu porcentaje y te mantiene arriba.`
+            : `Vas ${q.position}° de ${rows.length} con ${fmtPct(myPoints)}% de rendimiento y pasan ${slots}. Ya jugaste todo: si nadie sube por debajo, sigues en semifinales.`,
       }
-    : missing <= pw && left > 0
+    : gapPct <= 1 && left > 0
       ? {
           tone: "depends",
           word: "Depende de ti",
-          sentence: `Vas ${q.position}° de ${rows.length}. Te falta${missing === 1 ? "" : "n"} ${missing} punto${missing === 1 ? "" : "s"} para entrar a semifinales y te queda${left === 1 ? "" : "n"} ${left} partido${left === 1 ? "" : "s"}: ganar uno te mete.`,
+          sentence: `Vas ${q.position}° con ${fmtPct(myPoints)}%: la última plaza está en ${fmtPct(lastPlacePoints)}%. Te queda${left === 1 ? "" : "n"} ${left} partido${left === 1 ? "" : "s"} y ganar sube tu porcentaje.`,
         }
       : left > 0
         ? {
             tone: "out",
             word: "Fuera por ahora",
-            sentence: `Vas ${q.position}° de ${rows.length} y pasan ${slots} a semifinales. Te faltan ${missing} puntos con ${left} partido${left === 1 ? "" : "s"} por jugar: necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} y que ${rival?.name ?? "el de arriba"} no sume.`,
+            sentence: `Vas ${q.position}° de ${rows.length} y pasan ${slots}. Te separan ${fmtPct(gapPct)} puntos porcentuales de la última plaza (${fmtPct(lastPlacePoints)}%) con ${left} partido${left === 1 ? "" : "s"} por jugar: necesitas ganar y que ${rival ? rival.name.split("/")[0].trim() : "el de arriba"} no sume.`,
           }
         : {
             tone: "out",
             word: "Sin partidos",
             sentence: `Ya no te quedan partidos: quedaste ${q.position}° de ${rows.length} y pasan ${slots}. ${
-              myPoints === lastPlacePoints
-                ? `Estás empatado en ${myPoints} puntos con la última plaza, así que el lugar lo decide el desempate.`
-                : `Te faltan ${missing} punto${missing === 1 ? "" : "s"} para la última plaza (${lastPlacePoints}) y ya no puedes sumar.`
+              tiedAtCut
+                ? `Estás empatado en ${fmtPct(myPoints)}% con la última plaza, así que el lugar lo decide el desempate.`
+                : `Te separan ${fmtPct(gapPct)} puntos porcentuales de la última plaza (${fmtPct(lastPlacePoints)}%) y ya no puedes sumar.`
             }`,
           };
 
-  /* ---------------- los tres finales, con números ---------------- */
+  /* ---------------- los tres finales ----------------
+     Sin totales inventados: ganar sube el porcentaje, pero cuánto depende de
+     los juegos de cada partido. */
   const scenarios: Array<{
     tone: Tone;
     label: string;
@@ -134,21 +135,21 @@ export default function ScenarioPanel({
             tone: "pass",
             label: "Pasas",
             when: "La tabla no se mueve",
-            then: `Terminas ${q.position}° con ${myPoints} pts y la última plaza quedó en ${lastPlacePoints}.`,
+            then: `Terminas ${q.position}° con ${fmtPct(myPoints)}%; la última plaza quedó en ${fmtPct(lastPlacePoints)}%.`,
           },
           {
             tone: "depends",
             label: "Depende",
             when: chaser ? `${chaser.name} gana lo suyo` : "Alguien de abajo suma",
             then: chaser
-              ? `${chaser.name} se te pone a tiro con ${round1(chaser.points + pw)} pts: tu lugar queda en manos del promedio de sets.`
-              : "El de abajo suma y el promedio de sets decide.",
+              ? `${chaser.name} sube su ${fmtPct(round1(chaser.points))}% y te puede alcanzar: el lugar queda en manos del desempate.`
+              : "El de abajo suma y el desempate decide.",
           },
           {
             tone: "out",
             label: "Riesgo",
             when: "Dos de abajo suman",
-            then: `Caes al ${q.position + 2}° y quedas fuera de semifinales.`,
+            then: `Puedes caer al ${q.position + 2}° y quedar fuera de semifinales.`,
           },
         ]
       : [
@@ -157,21 +158,21 @@ export default function ScenarioPanel({
             label: "Pasas",
             when: "El desempate te favorece",
             then: rival
-              ? `Estás empatado en ${myPoints} pts con ${rival.name}: si el promedio de sets te deja arriba, entras.`
+              ? `Estás empatado en ${fmtPct(myPoints)}% con ${rival.name}: si el desempate te deja arriba, entras.`
               : "Solo si el desempate te deja arriba.",
           },
           {
             tone: "depends",
             label: "Depende",
             when: "El desempate te deja abajo",
-            then: `Con los mismos ${myPoints} pts quedas ${q.position}°: necesitas que el torneo ajuste la tabla.`,
+            then: `Con el mismo ${fmtPct(myPoints)}% quedas ${q.position}°: necesitas que el torneo ajuste la tabla.`,
           },
           {
             tone: "out",
             label: "Riesgo",
             when: rival ? `${rival.name} gana lo que le queda` : "Los de arriba suman",
             then: rival
-              ? `Se va a ${round1(rival.points + pw)} pts y la diferencia ya no se remonta.`
+              ? `${rival.name.split("/")[0].trim()} gana y su ${fmtPct(round1(rival.points))}% sube: la diferencia ya no se remonta.`
               : "La diferencia ya no se remonta.",
           },
         ]
@@ -181,15 +182,15 @@ export default function ScenarioPanel({
             tone: "pass",
             label: "Pasas",
             when: `Ganas 1 de los ${left}`,
-            then: `Llegas a ${oneWinPoints} pts y sigues entre los ${slots} que van a semifinales.`,
+            then: `Tu ${fmtPct(myPoints)}% sube y sigues entre los ${slots} que van a semifinales.`,
           },
           {
             tone: "depends",
             label: "Depende",
             when: chaser ? `Pierdes y ${chaser.name} gana` : "Pierdes y alguien de abajo suma",
             then: chaser
-              ? `Caes a ${q.position + 1}° y ${chaser.name} te empata con ${round1(chaser.points)} pts: tu pase queda en manos del promedio de sets.`
-              : `Caes a ${q.position + 1}° y se te acercan: tu pase queda en manos del promedio de sets.`,
+              ? `Caes a ${q.position + 1}° y ${chaser.name} te puede empatar con su ${fmtPct(round1(chaser.points))}%: decide el desempate.`
+              : `Caes a ${q.position + 1}° y se te acercan: decide el desempate.`,
           },
           {
             tone: "out",
@@ -205,30 +206,22 @@ export default function ScenarioPanel({
           {
             tone: "pass",
             label: "Pasas",
-            when: `Ganas tus ${left} partido${left === 1 ? "" : "s"} y ${rival?.name ?? "el rival"} pierde`,
-            then: `Sumas ${winAllPoints} pts y la última plaza va en ${lastPlacePoints}. ${
-              winAllPoints > lastPlacePoints
-                ? "Con eso alcanza, sin contar lo que sumen los demás."
-                : `Aun ganando todo te faltan ${Math.max(0, lastPlacePoints - winAllPoints + 1)} pts: necesitas que arriba no sumen.`
-            }`,
+            when: `Ganas tus ${left} partido${left === 1 ? "" : "s"} y ${rival?.name ?? "el rival"} no suma`,
+            then: `Tu ${fmtPct(myPoints)}% sube con cada victoria y ${rival ? rival.name.split("/")[0].trim() : "el de arriba"} se queda con el suyo: recortas los ${fmtPct(gapPct)} puntos porcentuales.`,
           },
           {
             tone: "depends",
             label: "Depende",
             when: "Ganas 1 y el rival no gana",
             then: rival
-              ? `Tú llegas a ${oneWinPoints} pts y ${rival.name} sigue en ${round1(rival.points)}: ${
-                  oneWinPoints > rival.points
-                    ? `le pasas por ${oneWinPoints - rival.points}.`
-                    : `te faltan ${rival.points - oneWinPoints + 1} pts para pasarle.`
-                }`
-              : `Con ${oneWinPoints} pts te acercas a la última plaza (${lastPlacePoints} pts).`,
+              ? `${rival.name} se queda en ${fmtPct(round1(rival.points))}% y tú acercas tu ${fmtPct(myPoints)}%: cuánto recortas depende de los juegos de tu partido.`
+              : `Te acercas a la última plaza (${fmtPct(lastPlacePoints)}%).`,
           },
           {
             tone: "out",
             label: "Riesgo",
             when: "Pierdes",
-            then: `Te quedas en ${myPoints} pts y bajas a ${q.position + 1}°. ${
+            then: `No sumas y te quedas con ${fmtPct(myPoints)}%, así que bajas a ${q.position + 1}°. ${
               left > 1
                 ? `Todavía te quedaría${left === 2 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para recuperar.`
                 : "Sería el último partido del rol."
@@ -253,7 +246,7 @@ export default function ScenarioPanel({
 
   // Respuestas: ver lib/qualification-answer.ts (simula el cruce que preguntes).
   const buildAnswer = (prompt: string, reading: Awaited<ReturnType<typeof readQuestion>>) =>
-    answerQualification({ prompt, rows, me, q, slots, pointsPerWin: pw, remainingMatches: left, reading });
+    answerQualification({ prompt, rows, me, q, slots, remainingMatches: left, reading });
 
   const generate = async (prompt: string) => {
     const clean = prompt.trim();
@@ -262,7 +255,7 @@ export default function ScenarioPanel({
     setAnswer(null);
     // JEV entiende la pregunta (acentos, subjuntivo, a quién nombra); el texto
     // y las cifras los arma el código. Si falla, el analizador local responde.
-    const reading = await readQuestion({ prompt: clean, rows, me, slots, pointsPerWin: pw, remainingMatches: left });
+    const reading = await readQuestion({ prompt: clean, rows, me, slots, remainingMatches: left });
     setSource(reading ? "jev" : "local");
     setAnswer(buildAnswer(clean, reading));
     setLoading(false);
@@ -316,7 +309,7 @@ export default function ScenarioPanel({
             {[
               { l: "Posición", v: `${q.position}°` },
               { l: "Pasan", v: `${slots}` },
-              { l: "Faltan", v: q.inCut ? "0 pts" : myPoints === lastPlacePoints ? "empate" : `${missing} ${missing === 1 ? "pt" : "pts"}` },
+              { l: "Diferencia", v: q.inCut ? "0" : tiedAtCut ? "empate" : `${fmtPct(gapPct)} p.p.` },
               { l: "Quedan", v: `${left} PJ` },
             ].map((s) => (
               <div key={s.l} className="px-3 py-2 first:ps-0">

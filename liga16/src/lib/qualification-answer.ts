@@ -1,10 +1,14 @@
 /**
  * Respuestas de clasificación, escritas a partir de la tabla real.
  *
- * No hay LLM detrás (el endpoint que se usaba no existe), así que la calidad
- * sale de dos cosas: entender a quién nombra la pregunta y simular ese
- * resultado sobre la tabla. Si preguntas "¿y si Julián le gana a Víctor?",
- * se suman los puntos del ganador, se reordena y se dice qué pasa contigo.
+ * OJO con las cifras: en Liga16 `points` NO son puntos de partido, es el
+ * porcentaje de rendimiento (`RENDIMIENTO_PTS`, el del Excel). Por eso aquí no
+ * se suman "3 puntos por victoria" ni se inventan totales: se habla de
+ * posiciones y de puntos porcentuales, y el efecto de ganar se explica en
+ * palabras (el porcentaje exacto depende de los juegos de cada partido).
+ *
+ * JEV aporta la lectura de la pregunta (intención y qué parejas nombra); el
+ * texto y las cifras los arma este archivo.
  */
 import type { QualificationView, StandingLike } from "@/lib/qualification";
 import type { JevReading, QuestionIntent } from "@/lib/jev-question";
@@ -15,7 +19,6 @@ interface Args {
   me: { pairId: string };
   q: QualificationView;
   slots: number;
-  pointsPerWin: number;
   remainingMatches: number;
   /** Lectura semántica de JEV; si falta, se usan las palabras clave. */
   reading?: JevReading | null;
@@ -31,7 +34,7 @@ const norm = (s: string) =>
 const fmt = (n: number) =>
   Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, "");
 
-/** "Victor Armando / Victor Orozco" → "Victor Armando" (para no repetir la pareja entera). */
+/** "Victor Armando / Victor Orozco" → "Victor Armando". */
 const short = (name: string) => name.split("/")[0].trim();
 
 /** Parejas nombradas en la pregunta, en el orden en que aparecen. */
@@ -64,22 +67,7 @@ function teamsMentioned(prompt: string, rows: StandingLike[]): StandingLike[] {
   hits.sort((a, b) => a.at - b.at || b.score - a.score);
   return hits
     .slice(0, 2)
-    .sort((a, b) => a.at - b.at)
     .map((h) => h.row);
-}
-
-/** Aplica una victoria (puntos al ganador) y devuelve la tabla reordenada. */
-function simulateWin(
-  rows: StandingLike[],
-  winner: StandingLike,
-  pointsPerWin: number,
-) {
-  return rows
-    .map((r) =>
-      r.pairId === winner.pairId ? { ...r, points: r.points + pointsPerWin } : r,
-    )
-    .sort((a, b) => b.points - a.points || a.position - b.position)
-    .map((r, i) => ({ ...r, position: i + 1 }));
 }
 
 export function answerQualification({
@@ -88,7 +76,6 @@ export function answerQualification({
   me,
   q,
   slots,
-  pointsPerWin,
   remainingMatches,
   reading,
 }: Args): string {
@@ -101,20 +88,17 @@ export function answerQualification({
     rows.find((r) => r.position === q.position + 1) ?? rows[slots] ?? null;
   const other = q.inCut ? chaser : rival;
   const left = remainingMatches;
-  const missing = q.inCut ? 0 : q.pointsNeeded;
-  const winsNeeded = Math.max(0, Math.ceil(missing / pointsPerWin));
+  /** Diferencia en PUNTOS PORCENTUALES con la última plaza (no puntos de partido). */
+  const gapPct = Math.max(0, Math.round((lastPoints - myPoints) * 10) / 10);
+  const tied = !q.inCut && gapPct === 0;
 
-  /** Cómo estás respecto de la última plaza, sin el "a 1" que mentía en empates. */
+  /** Cómo estás, sin inventar puntos. */
   const standing = q.inCut
-    ? `estás ${q.position}° y entras a semifinales`
-    : myPoints === lastPoints
-      ? `estás ${q.position}° empatado en ${fmt(myPoints)} puntos con la última plaza, pero por debajo en el desempate`
-      : `estás ${q.position}° a ${missing} punto${missing === 1 ? "" : "s"} de la última plaza (${fmt(lastPoints)})`;
+    ? `estás ${q.position}° con ${fmt(myPoints)}% de rendimiento y entras a semifinales`
+    : tied
+      ? `estás ${q.position}° con ${fmt(myPoints)}%, empatado con la última plaza, pero por debajo en el desempate`
+      : `estás ${q.position}° con ${fmt(myPoints)}%, a ${fmt(gapPct)} puntos porcentuales de la última plaza (${fmt(lastPoints)}%)`;
 
-  const winOne = myPoints + pointsPerWin;
-  const winAll = myPoints + pointsPerWin * left;
-
-  /* ---------- 0. Qué quiso preguntar: JEV si respondió, si no las palabras ---------- */
   const localIntent = (): QuestionIntent => {
     if (/no tengo|sin partido|ya no|acab|termin/.test(p)) return "sin_partidos";
     if (/rival|no pase|delante|arriba/.test(p)) return "rival";
@@ -127,7 +111,7 @@ export function answerQualification({
   const intent: QuestionIntent =
     reading?.intent && reading.intent !== "otra" ? reading.intent : localIntent();
 
-  /* ---------- 1. La pregunta nombra a dos parejas: se simula ese cruce ---------- */
+  /* ---------- 1. Cruce entre dos parejas ---------- */
   const mentions = teamsMentioned(prompt, rows);
   const byPair = (pairId?: string) =>
     pairId ? rows.find((r) => r.pairId === pairId) : undefined;
@@ -141,9 +125,6 @@ export function answerQualification({
     });
   };
 
-  // JEV gana cuando el texto es ambiguo ("julian" puede ser dos parejas), pero
-  // solo si devolvió dos parejas DISTINTAS. Si no, manda el orden del texto:
-  // el sujeto de "le gana a" aparece primero.
   const jevPair = unique([byPair(reading?.winnerId), byPair(reading?.loserId)]);
   const teams = jevPair.length === 2 ? jevPair : unique(mentions);
   const asksAboutResult =
@@ -153,36 +134,27 @@ export function answerQualification({
 
   if (teams.length === 2 && asksAboutResult) {
     const [winner, loser] = teams;
-    const after = simulateWin(rows, winner, pointsPerWin);
-    const mineAfter = after.find((r) => r.pairId === me.pairId);
-    const posAfter = mineAfter?.position ?? q.position;
-    const inCutAfter = posAfter <= slots;
 
-    let effect: string;
-    if (!q.inCut && inCutAfter) {
-      effect = `Con ese resultado entras: pasas al ${posAfter}°.`;
-    } else if (q.inCut && !inCutAfter) {
-      effect = `Ojo: con eso caes al ${posAfter}° y quedas fuera.`;
-    } else if (inCutAfter) {
-      effect = `Sigues dentro, en ${posAfter}°.`;
+    const first = `Si ${winner.name} le gana a ${loser.name}:`;
+    const second = `Perder no resta: ${short(loser.name)} se queda con su ${fmt(loser.points)}% de rendimiento. ${short(winner.name)} sí suma y sube el suyo, pero cuánto depende de los juegos de ese partido.`;
+
+    let mine: string;
+    if (q.inCut) {
+      mine = `Tu lugar no depende de ese cruce: estás ${q.position}° y sigues dentro con ${fmt(myPoints)}%.`;
+    } else if (loser.pairId === other?.pairId && tied) {
+      mine = `Ese partido no te mete: estás empatado en ${fmt(myPoints)}% con ${short(loser.name)} y el lugar lo decide el desempate, no un resultado de él.`;
+    } else if (loser.pairId === other?.pairId) {
+      mine = `${short(loser.name)} es el que tienes delante: si no suma, sigue a ${fmt(loser.points)}% y tú necesitas ganar para acercarte a esos ${fmt(gapPct)} puntos porcentuales.`;
+    } else if (left === 0) {
+      mine = `Ya no te quedan partidos: ese cruce no mueve tu ${fmt(myPoints)}%, así que tu pase depende del desempate o de que el de arriba no sume.`;
     } else {
-      effect = `No te mueve: sigues ${posAfter}°, fuera de semifinales.`;
+      mine = `A ti te sirve de poco mientras no ganes: te quedan ${left} partido${left === 1 ? "" : "s"} y necesitas subir tu ${fmt(myPoints)}%.`;
     }
 
-    const isMyRival = other && loser.pairId === other.pairId;
-    const tail = isMyRival && left === 0
-      ? `${short(loser.name)} es justo el que tienes delante y ya no te quedan partidos: con ${fmt(myPoints)} puntos empatados, el lugar lo decide el desempate, no un resultado.`
-      : isMyRival
-        ? `${short(loser.name)} es justo el que tienes delante: para dejarlo atrás necesitas que él no sume y ganar tú, que te pondría en ${fmt(winOne)}.`
-        : left === 0
-          ? "Como ya no te quedan partidos, ese cruce no cambia tu lugar: tu pase depende del desempate, no de ese resultado."
-          : `Te quedan ${left} partido${left === 1 ? "" : "s"}: gana${left === 1 ? "" : "s"} y ${short(loser.name)} no suma y te metes.`;
-
     return [
-      `Si ${winner.name} le gana a ${loser.name}:`,
-      `${short(loser.name)} se queda en ${fmt(loser.points)} puntos (perder no resta) y ${short(winner.name)} sube a ${fmt(winner.points + pointsPerWin)}. ${effect}`,
-      tail.trim(),
-      // Si pidió un número, se da el estimado y se dice que es estimado.
+      first,
+      second,
+      mine,
       /porcentaje|probabilidad|posibilidades/.test(p)
         ? `Mi estimación con esta tabla: ${Math.round(q.semifinalProbability)}% de pasar. Es una estimación, no un resultado.`
         : "",
@@ -191,37 +163,35 @@ export function answerQualification({
       .join("\n\n");
   }
 
-  /* ---------- 2. Pregunta por "posibilidades" / probabilidad ---------- */
-  if (intent === "probabilidad" || /posibilidad|probabilidad|chance|qu[eé] tan cerca/.test(p)) {
+  /* ---------- 2. Posibilidades ---------- */
+  if (intent === "probabilidad" || /posibilidad|probabilidad|chance/.test(p)) {
     if (left === 0) {
       return `Sin partidos por jugar no hay nada que calcular: ${standing}. Tu lugar ya está escrito y solo lo mueve el desempate.`;
     }
     return q.inCut
-      ? `Hoy ${standing} con ${left} partido${left === 1 ? "" : "s"} por jugar. Con una victoria llegas a ${fmt(winOne)} y el pase queda prácticamente asegurado.`
-      : `Hoy ${standing}. Te quedan ${left} partido${left === 1 ? "" : "s"}: necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} para llegar a ${fmt(winAll)} puntos y que ${other?.name ?? "el de arriba"} no sume.`;
+      ? `Hoy ${standing}, con ${left} partido${left === 1 ? "" : "s"} por jugar. Ganar sube tu porcentaje y te mantiene arriba.`
+      : `Hoy ${standing}. Te quedan ${left} partido${left === 1 ? "" : "s"}: necesitas ganar y que ${other ? short(other.name) : "el de arriba"} no sume para recortar esos ${fmt(gapPct)} puntos porcentuales.`;
   }
 
-  /* ---------- 3. Pregunta por el rival ---------- */
+  /* ---------- 3. El rival ---------- */
   if (intent === "rival" || /rival|no pase|delante|arriba/.test(p)) {
     if (!other) {
       return `No tienes a nadie pegado en la tabla: ${standing}. Gana lo que te queda y el pase se resuelve solo.`;
     }
-    const gap = other.points - myPoints;
+    const diff = Math.round((other.points - myPoints) * 10) / 10;
     const relation =
-      gap === 0
-        ? `está empatado contigo en ${fmt(other.points)} puntos`
-        : gap > 0
-          ? `te lleva ${fmt(gap)} punto${gap === 1 ? "" : "s"} (${fmt(other.points)})`
-          : `está ${fmt(Math.abs(gap))} punto${Math.abs(gap) === 1 ? "" : "s"} por detrás (${fmt(other.points)})`;
+      diff === 0
+        ? `está empatado contigo en ${fmt(other.points)}%`
+        : diff > 0
+          ? `te lleva ${fmt(diff)} puntos porcentuales (${fmt(other.points)}%)`
+          : `está ${fmt(Math.abs(diff))} puntos porcentuales por detrás (${fmt(other.points)}%)`;
 
     const how =
-      gap < 0
-        ? `El que necesita ganar es ${short(other.name)}, no tú: si pierde, no suma y el pase se le aleja.`
-        : gap === 0
-          ? left === 0
-            ? `Está empatado contigo y tú ya no juegas: si ${short(other.name)} gana, se va a ${fmt(other.points + pointsPerWin)} y el pase se le queda; si pierde, sigue en ${fmt(other.points)} y el lugar lo decide el desempate.`
-            : `Están empatados: si ${other.name} pierde y tú ganas, te pones arriba con ${fmt(winOne)}.`
-          : `Para pasarlo tienes que ganar (llegarías a ${fmt(winOne)}) y que él no sume; si él gana también, la distancia se abre a ${fmt(gap + pointsPerWin)}.`;
+      diff <= 0
+        ? `El que necesita sumar es ${short(other.name)}, no tú: si pierde, se queda con su porcentaje y no te alcanza.`
+        : tied
+          ? `Si ${short(other.name)} pierde, no sube y sigue empatado contigo: ahí decide el desempate.`
+          : `Para pasarlo tienes que ganar y subir tu porcentaje, y que ${short(other.name)} no sume; si él también gana, la diferencia se mantiene o crece.`;
 
     return [`${other.name} (${other.position}°) ${relation}.`, how, `Ahora mismo ${standing}.`].join("\n\n");
   }
@@ -235,27 +205,23 @@ export function answerQualification({
 
   /* ---------- 5. Si pierdo ---------- */
   if (intent === "perder" || /perder|pierdo|pierd|elimin|riesgo/.test(p)) {
-    if (left === 0) {
-      return `No te queda ningún partido que perder: ${standing}.`;
-    }
+    if (left === 0) return `No te queda ningún partido que perder: ${standing}.`;
     return q.inCut
-      ? `Si pierdes te quedas en ${fmt(myPoints)} y bajas al ${q.position + 1}°, pero sigues vivo: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} más lo recuperas, y si ${other?.name ?? "el rival"} pierde no te saca.`
-      : `Si pierdes te quedas en ${fmt(myPoints)} y se te va el margen: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} por jugar y ${missing} puntos de diferencia, la derrota te deja casi fuera.`;
+      ? `Si pierdes no sumas y tu ${fmt(myPoints)}% se queda igual, pero el de abajo puede acercarse: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} más lo recuperas.`
+      : `Si pierdes no sumas y sigues con ${fmt(myPoints)}%: con ${left - 1} partido${left - 1 === 1 ? "" : "s"} por jugar y ${fmt(gapPct)} puntos porcentuales de diferencia, te queda poco margen.`;
   }
 
   /* ---------- 6. Si gano ---------- */
   if (intent === "ganar" || /gan|paso|clasific|semifinal|pr[oó]ximo|siguiente/.test(p)) {
-    if (left === 0) {
-      return `Ya no hay próximo partido: ${standing}.`;
-    }
+    if (left === 0) return `Ya no hay próximo partido: ${standing}.`;
     return q.inCut
       ? [
-          `Si ganas el próximo llegas a ${fmt(winOne)} y sigues dentro (${q.position}°).`,
+          `Si ganas el próximo subes tu ${fmt(myPoints)}% de rendimiento y sigues dentro (${q.position}°).`,
           `Te queda${left - 1 === 1 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para pelear el orden del grupo.`,
         ].join("\n\n")
       : [
-          `Si ganas el próximo llegas a ${fmt(winOne)}: ${winOne > lastPoints ? `entras, porque la última plaza está en ${fmt(lastPoints)}` : `aún te faltan ${fmt(lastPoints - winOne + 1)} para la última plaza (${fmt(lastPoints)})`}.`,
-          `Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${other ? short(other.name) : "el de arriba"} no gane todo.`,
+          `Si ganas el próximo subes tu ${fmt(myPoints)}% de rendimiento, pero cuánto sube depende de los juegos de ese partido.`,
+          `Necesitas recortar ${fmt(gapPct)} puntos porcentuales a la última plaza (${fmt(lastPoints)}%) y que ${other ? short(other.name) : "el de arriba"} no sume.`,
         ].join("\n\n");
   }
 
@@ -264,6 +230,6 @@ export function answerQualification({
     ? [`${standing}.`, `Con ${left} partido${left === 1 ? "" : "s"} por jugar, gana uno y no regalas el promedio.`].join("\n\n")
     : [
         `${standing}.`,
-        `Necesitas ${winsNeeded} victoria${winsNeeded === 1 ? "" : "s"} de ${left} y que ${other ? short(other.name) : "el de arriba"} pierda al menos una. Si quieres, dime dos parejas y simulo el cruce.`,
+        `Necesitas ganar y que ${other ? short(other.name) : "el de arriba"} no sume. Si quieres, dime dos parejas y te explico ese cruce.`,
       ].join("\n\n");
 }

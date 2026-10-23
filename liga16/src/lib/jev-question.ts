@@ -46,10 +46,9 @@ export async function readQuestion(args: {
   rows: StandingLike[];
   me: { pairId: string };
   slots: number;
-  pointsPerWin: number;
   remainingMatches: number;
 }): Promise<JevReading | null> {
-  const { prompt, rows, me, slots, pointsPerWin, remainingMatches } = args;
+  const { prompt, rows, me, slots, remainingMatches } = args;
   if (rows.length === 0) return null;
 
   const byId = new Map<string, StandingLike>();
@@ -78,7 +77,6 @@ export async function readQuestion(args: {
         }
       : null,
     pasan: slots,
-    puntos_por_victoria: pointsPerWin,
     equipos: rows.map((r, i) => ({
       id: `t${i + 1}`,
       nombre: r.name,
