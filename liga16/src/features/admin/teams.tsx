@@ -5,17 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { PlayerProfile, Tournament, TournamentCategory } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -106,20 +104,26 @@ export default function AdminTeams() {
     setPairs(null);
     db.getTournamentCategories(tid).then(setCategories).catch(() => setCategories([]));
     db.getTournamentPairs(tid)
-      .then((ps) => setPairs(ps as unknown as Array<{ id: string; name: string; category_id: string | null; crest_url: string | null }>))
+      .then((ps) =>
+        setPairs(
+          ps as unknown as Array<{ id: string; name: string; category_id: string | null; crest_url: string | null }>
+        )
+      )
       .catch(() => setPairs([]));
   }, [tid]);
 
   const load = () => {
     db.getTournamentPairs(tid)
-      .then((ps) => setPairs(ps as unknown as Array<{ id: string; name: string; category_id: string | null; crest_url: string | null }>))
+      .then(
+        (ps) =>
+          setPairs(
+            ps as unknown as Array<{ id: string; name: string; category_id: string | null; crest_url: string | null }>
+          )
+      )
       .catch(() => setPairs([]));
   };
 
   const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
-  // Un solo lugar que decide qué se muestra cuando la pareja no tiene categoría.
-  // Estaba repetido tres veces con un ternario que además sobraba: `Map.get` ya
-  // devuelve undefined para una clave ausente.
   const categoryOf = (id: string | null): string =>
     (id ? catNameById.get(id) : undefined) ?? SIN_CATEGORIA;
 
@@ -130,23 +134,10 @@ export default function AdminTeams() {
     return true;
   });
 
-  /**
-   * Las categorías del torneo con la cuenta de parejas de cada una. Antes era
-   * un desplegable con los nombres de las categorías: para saber si el
-   * torneo tenía "Suma 9" había que abrirlo y mirarlo.
-   */
-  const catOptions = useMemo(() => {
-    const all = pairs ?? [];
-    return categories
-      .map((c) => ({ key: c.id, label: c.name, n: all.filter((p) => p.category_id === c.id).length }))
-      .filter((o) => o.n > 0);
-  }, [categories, pairs]);
-
-  /**
-   * Cifras de cabecera. Una categoría es una competencia cerrada —las parejas de
-   * 4tas no juegan con las de 5tas—, así que el reparto se cuenta por categoría
-   * y no como un total quemezcla divisiones.
-   */
+  /** Cifras de cabecera. Una categoría es una competencia cerrada —las parejas de
+    * 4tas no juegan con las de 5tas—, así que el reparto se cuenta por categoría
+    * y no como un total que mezcla divisiones.
+    */
   const resumen = useMemo(() => {
     const all = pairs ?? [];
     const porCategoria = new Map<string, number>();
@@ -178,8 +169,6 @@ export default function AdminTeams() {
       ];
       for (const r of roster) {
         if (r.profile && r.profile.sex !== "X" && r.profile.sex !== pairCat.sex) {
-          // "Femenil"/"Varonil" son las ramas, no adjetivos: "jugadora femenina"
-          // metía una palabra que no existe en el vocabulario del circuito.
           toast.error(`"${r.name}" juega en rama ${ramaLabel(r.profile.sex)} y esta categoría es ${ramaLabel(pairCat.sex)}`);
           return;
         }
@@ -197,42 +186,46 @@ export default function AdminTeams() {
     }
     setSubmitting(true);
     try {
-      // Los jugadores se registran/reutilizan en el directorio global
       const [prof1, prof2] = await Promise.all([
         ensurePlayer(p1).catch(() => null),
         ensurePlayer(p2).catch(() => null),
       ]);
       const name = form.name.trim() || autoName(form);
       const originalCrest = editing?.crest_url ?? null;
-       if (editing) {
-         const oldName = editing.name;
-         await db.updatePair(editing.id, { name, category_id: form.category_id || null, crest_url: form.crest_url });
-         // El calendario ya guardó side_a/side_b con pair_name anterior: se
-         // actualizan aquí para que Resultados y el perfil del equipo sigan
-         // mostrando el equipo renombrado.
-         if (oldName !== name) {
-           const matches = await db.listMatchesByTournament(tid).catch(() => []);
-           for (const m of matches) {
-             let touched = false;
-             const side_a = m.side_a?.pair_id === editing.id || m.side_a?.pair_name === oldName
-               ? { ...m.side_a, pair_name: name }
-               : m.side_a;
-             const side_b = m.side_b?.pair_id === editing.id || m.side_b?.pair_name === oldName
-               ? { ...m.side_b, pair_name: name }
-               : m.side_b;
-             touched = side_a !== m.side_a || side_b !== m.side_b;
-             if (touched) {
-               try { await db.updateMatch(m.id, { side_a, side_b }); } catch { /* non-fatal */ }
-             }
-           }
-       }
-         // La foto reemplazada o quitada ya no se usa: borra el objeto de storage
-         if (originalCrest && form.crest_url !== originalCrest) {
-           void deleteStoredImage(originalCrest, "team-crests");
-         }
-         toast.success(`Equipo "${name}" actualizado`);
-       } else {
-        await db.createPair({ tournament_id: tid, category_id: form.category_id || null, name, player1_id: prof1?.id ?? null, player2_id: prof2?.id ?? null, crest_url: form.crest_url });
+      if (editing) {
+        const oldName = editing.name;
+        await db.updatePair(editing.id, { name, category_id: form.category_id || null, crest_url: form.crest_url });
+        // El calendario ya guardó side_a/side_b con pair_name anterior: se actualizan aquí para que Resultados y el perfil del equipo sigan mostrando el equipo renombrado.
+        if (oldName !== name) {
+          const matches = await db.listMatchesByTournament(tid).catch(() => []);
+          for (const m of matches) {
+            let touched = false;
+            const side_a = m.side_a?.pair_id === editing.id || m.side_a?.pair_name === oldName
+              ? { ...m.side_a, pair_name: name }
+              : m.side_a;
+            const side_b = m.side_b?.pair_id === editing.id || m.side_b?.pair_name === oldName
+              ? { ...m.side_b, pair_name: name }
+              : m.side_b;
+            touched = side_a !== m.side_a || side_b !== m.side_b;
+            if (touched) {
+              try { await db.updateMatch(m.id, { side_a, side_b }); } catch { /* non-fatal */ }
+            }
+          }
+        }
+        // La foto reemplazada o quitada ya no se usa: borra el objeto de storage
+        if (originalCrest && form.crest_url !== originalCrest) {
+          void deleteStoredImage(originalCrest, "team-crests");
+        }
+        toast.success(`Equipo "${name}" actualizado`);
+      } else {
+        await db.createPair({
+          tournament_id: tid,
+          category_id: form.category_id || null,
+          name,
+          player1_id: prof1?.id ?? null,
+          player2_id: prof2?.id ?? null,
+          crest_url: form.crest_url,
+        });
         toast.success(`Equipo "${name}" inscrito en el torneo`);
       }
       setOpenCreate(false);
@@ -272,13 +265,13 @@ export default function AdminTeams() {
   const dialogKey = `${editing?.id ?? "new"}-${formKey}`;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <AdminPageHeader
         title="Equipos"
         description="Las parejas inscritas viven dentro de cada torneo."
         action={
           <Button size="sm" disabled={!tid} onClick={() => { openDialog(null); }}>
-            <Plus className="h-4 w-4" /> Inscribir pareja
+            <Plus className="h-3.5 w-3.5" /> Inscribir pareja
           </Button>
         }
       >
@@ -294,13 +287,13 @@ export default function AdminTeams() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      {/* Contexto de torneo: separado claramente del contenido; no compite con el filtro. */}
-      <section aria-label="Torneo seleccionado" className="rounded-xl border bg-card p-3 sm:flex sm:items-center sm:gap-4">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      {/* Contexto de torneo: sección dedicada, no compite con el contenido. */}
+      <section aria-label="Contexto del torneo" className="rounded-xl bg-card p-3 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:items-center sm:gap-4">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Trophy className="h-4 w-4" />
           </span>
-          <div className="min-w-0">
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold leading-tight">Torneo activo</p>
             <div className="mt-1 flex items-center gap-2">
               <Select value={tid || SIN_TORNEO} onValueChange={(v) => { if (v !== SIN_TORNEO) setTid(v); }}>
@@ -319,11 +312,13 @@ export default function AdminTeams() {
               )}
             </div>
           </div>
-        </div>
-        <div className="mt-2 sm:mt-0 sm:ml-auto">
-          <Button size="sm" disabled={!tid} onClick={() => { openDialog(null); }}>
-            <Plus className="h-3.5 w-3.5" /> Inscribir pareja
-          </Button>
+          {tid ? (
+            <Button size="sm" disabled={!tid} onClick={() => { openDialog(null); }}>
+              <Plus className="h-3.5 w-3.5" /> Inscribir pareja
+            </Button>
+          ) : (
+            <p className="text-sm text-muted-foreground">Crea un torneo para poder inscribir parejas.</p>
+          )}
         </div>
       </section>
 
@@ -338,137 +333,163 @@ export default function AdminTeams() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <div className="border-b bg-muted/50 px-4 py-3">
-            <FilterBar
-              search={query}
-              onSearch={setQuery}
-              searchPlaceholder="Buscar pareja…"
-              resultCount={filtered.length}
-              resultLabel="parejas"
-              activeCount={countActive(cat)}
-              onClear={() => { setQuery(""); setCat("all"); }}
-            >
-              <AdminFacets>
-                <AdminFacet
-                  label="Categoría"
-                  value={cat}
-                  onChange={setCat}
-                  options={catOptions}
-                  allLabel="Todas"
-                />
-              </AdminFacets>
-            </FilterBar>
-          </div>
+        <Card className="group transition-colors duration-150 ease-out hover:border-primary/40">
           <CardContent className="p-0">
-            {pairs === null && (
-              <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 rounded-xl" />
-                ))}
-              </div>
-            )}
-
-            {pairs !== null && pairs.length === 0 && (
-              <AdminEmptyState
-                icon={<Users className="h-5 w-5" />}
-                title="Sin parejas en este torneo"
-                description="Inscribe la primera pareja para empezar."
-                action={
-                  <Button variant="outline" size="sm" onClick={() => { openDialog(null); }}>
-                    Inscribir pareja
-                  </Button>
-                }
-              />
-            )}
-
-            {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-              <AdminEmptyState
-                title="Sin coincidencias"
-                description="Ninguna pareja coincide con la búsqueda o el filtro."
-              />
-            )}
-
-            {filtered.length > 0 && (() => {
-              const sel = filtered.find((p) => p.id === selectedId) ?? null;
-              const [sp1, sp2] = (sel?.name ?? " / ").split(" / ");
-              return (
-                <div className="grid divide-y lg:grid-cols-[minmax(260px,320px)_1fr] lg:divide-x lg:divide-y-0">
-                  <div className="max-h-[70vh] overflow-y-auto p-2 space-y-2">
-                    {filtered.map((p) => {
-                      const [p1, p2] = p.name.split(" / ");
-                      const active = p.id === selectedId;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setSelectedId(p.id)}
-                          className="w-full text-left"
-                        >
-                          <CardShell
-                            className={cn(
-                              "h-24 rounded-xl border bg-muted/50 p-3 transition-colors hover:bg-muted/60",
-                              active && "accent ring-2 ring-primary/40"
-                            )}
-                            accent={active}
-                          >
-                            <CardIdentity
-                              lead={<PairAvatar p1={p1} p2={p2} />}
-                              title={`${p1} / ${p2 ?? "—"}`}
-                              meta={categoryOf(p.category_id)}
-                            />
-                          </CardShell>
-                        </button>
-                      );
-                    })}</div>
-
-                  <div className="p-4 lg:ps-0 lg:pe-8">
-                    {!sel ? (
-                      <div className="flex h-full min-h-48 items-center justify-center text-sm text-muted-foreground">
-                        Selecciona una pareja para ver su detalle.
-                      </div>
-                    ) : (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm">
-                          {sel.crest_url ? (
-                            <img src={sel.crest_url} alt="" className="h-16 w-16 rounded-full object-cover" />
-                          ) : (
-                            <PairAvatar p1={sp1} p2={sp2} className="h-16 w-16 text-lg" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <h3 className="text-lg font-semibold leading-tight truncate">{sp1} / {sp2 || "—"}</h3>
-                            <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                              {categoryOf(sel.category_id)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <div className="rounded-lg border bg-card p-4 shadow-sm">
-                            <p className="text-xs font-medium text-muted-foreground mb-1">Categoría</p>
-                            <p className="text-sm font-semibold">{categoryOf(sel.category_id)}</p>
-                          </div>
-                          <div className="rounded-lg border bg-card p-4 shadow-sm">
-                            <p className="text-xs font-medium text-muted-foreground mb-1">Escudo</p>
-                            <p className="text-sm font-semibold">{sel.crest_url ? "Sí" : "No"}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-3 pt-2">
-                          <Button size="sm" variant="outline" className="h-9" onClick={() => { openDialog(sel); }}>
-                            <Pencil className="h-4 w-4" /> Editar equipo
-                          </Button>
-                          <Button size="sm" variant="destructive" className="h-9" onClick={() => setDeleting(sel)}>
-                            <Trash2 className="h-4 w-4" /> Eliminar
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+            {/* Toolbar propia: filtros flotan sobre el contenido, separados por border-b bg-muted/50 */}
+            <div className="border-b bg-muted/50 px-4 py-3">
+              <FilterBar
+                search={query}
+                onSearch={setQuery}
+                searchPlaceholder="Buscar pareja…"
+                resultCount={filtered.length}
+                resultLabel="parejas"
+                activeCount={countActive(cat)}
+                onClear={() => { setQuery(""); setCat("all"); }}
+              >
+                <AdminFacets>
+                  <AdminFacet
+                    label="Categoría"
+                    value={cat}
+                    onChange={setCat}
+                    options={categories.map(c => ({ key: c.id, label: c.name }))}
+                    allLabel="Todas"
+                  />
+                </AdminFacets>
+              </FilterBar>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Lista de parejas filtradas */}
+              <div className="col-span-1 col-span-2 sm:col-span-2 lg:col-span-3 overflow-y-auto space-y-4">
+                {pairs === null && (
+                  <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <Skeleton key={i} className="h-16 rounded-xl" />
+                    ))}
                   </div>
-                </div>
-              );
-            })()}
+                )}
+
+                {pairs !== null && pairs.length === 0 && (
+                  <AdminEmptyState
+                    icon={<Users className="h-5 w-5" />}
+                    title="Sin parejas en este torneo"
+                    description="Inscribe la primera pareja para empezar."
+                    action={
+                      <Button variant="outline" size="sm" onClick={() => { openDialog(null); }}>
+                        Inscribir pareja
+                      </Button>
+                    }
+                  />
+                )}
+
+                {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
+                  <AdminEmptyState
+                    title="Sin coincidencias"
+                    description="Ninguna pareja coincide con la búsqueda o el filtro."
+                  />
+                )}
+
+                {filtered.length > 0 && (() => {
+                  const sel = filtered.find((p) => p.id === selectedId) ?? null;
+                  const [sp1, sp2] = (sel?.name ?? " / ").split(" / ");
+                  return (
+                    <div className="space-y-6">
+                      {/* Listado de parejas */}
+                      <div className="grid divide-y lg:grid-cols-[minmax(260px,320px)_1fr] lg:divide-x lg:divide-y-0">
+                        {filtered.map((p) => {
+                          const [p1, p2] = p.name.split(" / ");
+                          const active = p.id === selectedId;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setSelectedId(p.id)}
+                              className={cn(
+                                "w-full text-left transition-colors hover:bg-muted/50",
+                                active && "accent-rectangle"
+                              )}
+                            >
+                              <CardShell
+                                className={cn(
+                                  "h-24 rounded-xl border bg-muted/50 p-3 transition-colors hover:bg-muted/60",
+                                  active && "ring-2 ring-primary/40"
+                                )}
+                                accent={active}
+                              >
+                                <CardIdentity
+                                  lead={<PairAvatar p1={p1} p2={p2} />}
+                                  title={`${p1} / ${p2 ?? "—"}`}
+                                  meta={categoryOf(p.category_id)}
+                                />
+                              </CardShell>
+                            </button>
+                          );
+                        })}</div>
+
+                      {/* Panel de detalle de la pareja seleccionada */}
+                      <div className="p-6 lg:ps-8 lg:pe-8">
+                        {!sel ? (
+                          <div className="flex h-full min-h-48 items-center justify-center text-sm text-muted-foreground">
+                            Selecciona una pareja para ver su detalle.
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {/* Identidad del equipo */}
+                            <div className="rounded-xl bg-card p-4 shadow-sm group-hover:shadow-md transition-shadow">
+                              {sel.crest_url ? (
+                                <img
+                                  src={sel.crest_url}
+                                  alt=""
+                                  className="h-20 w-20 rounded-full object-cover"
+                                />
+                              ) : (
+                                <PairAvatar p1={sp1} p2={sp2} className="h-20 w-20 text-2xl" />
+                              )}
+                              <div className="mt-3">
+                                <h3 className="text-base font-semibold leading-tight truncate">{sp1} / {sp2 || "—"}</h3>
+                                <p className="text-sm text-muted-foreground truncate">
+                                  {categoryOf(sel.category_id)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Ficha de datos: categoría + escudo */}
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              <div className="rounded-xl bg-card p-3 shadow-sm">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">Categoría</p>
+                                <p className="text-sm font-semibold">{categoryOf(sel.category_id)}</p>
+                              </div>
+                              <div className="rounded-xl bg-card p-3 shadow-sm">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">Escudo</p>
+                                <p className="text-sm font-semibold">{sel.crest_url ? "Sí" : "No"}</p>
+                              </div>
+                            </div>
+
+                            {/* Acciones */}
+                            <div className="flex flex-wrap gap-3">
+                              <Button size="sm" variant="outline" onClick={() => { openDialog(sel); }}>
+                                <Pencil className="h-3.5 w-3.5" /> Editar equipo
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={() => setDeleting(sel)}>
+                                <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           </CardContent>
+          {/* Footer de card: mantener consistencia con AdminStatStrip u otras secciones */}
+          <CardFooter className="pt-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Total parejas: {resumen.parejas}</span>
+              <span>·</span>
+              <span>Con rival: {resumen.completas}</span>
+            </div>
+          </CardFooter>
         </Card>
       )}
 
