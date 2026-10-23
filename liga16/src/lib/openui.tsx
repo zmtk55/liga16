@@ -43,9 +43,7 @@ const StandingsTable = defineComponent({
   name: "StandingsTable",
   description: "Tabla de posiciones con formato de porcentaje",
   props: z.object({
-    rows: z
-      .array(z.object({ pos: z.number(), name: z.string(), pct: z.number() }))
-      .describe("Filas de la tabla"),
+    rows: z.array(z.object({ pos: z.number(), name: z.string(), pct: z.number() })).describe("Filas de la tabla"),
     highlightPos: z.number().optional().describe("Posición a resaltar"),
   }),
   component: ({ rows, highlightPos }: { rows: Array<{ pos: number; name: string; pct: number }>; highlightPos?: number }) => {
@@ -96,30 +94,18 @@ const MetricRow = defineComponent({
 
 const MatchHint = defineComponent({
   name: "MatchHint",
-  description: "Texto de sugerencia para el usuario — PERSONALIZADO POR EQUIPO",
+  description: "Respuesta estructurada con ejemplo real (no genérica)",
   props: z.object({
     text: z.string().describe("Texto del hint"),
-    teamName: z.string().optional().describe("Nombre del equipo actual"),
-    opponent: z.string().optional().describe("Nombre del rival simulado"),
-    result: z.enum(["win", "loss", "draw"]).optional().describe("Resultado simulado"),
   }),
-  component: ({ text, teamName, opponent, result }: { text: string; teamName?: string; opponent?: string; result?: "win" | "loss" | "draw" }) => (
-    <div className="rounded-lg border bg-card p-4 space-y-2">
-      <p className="text-sm font-medium">{teamName ? `Equipo: ${teamName}` : "Simulación"}</p>
-      {opponent && <p className="text-sm text-muted-foreground">vs {opponent}</p>}
-      <p className="text-sm text-muted-foreground italic">{text}</p>
-      {result && (
-        <div className="flex gap-2 mt-2">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-            result === "win" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
-            result === "loss" ? "bg-rose-100 text-rose-800 border-rose-200" :
-            "bg-amber-100 text-amber-800 border-amber-200"
-          }`}>
-            {result === "win" ? "Ganó" : result === "loss" ? "Perdió" : "Empate"}
-          </span>
-          {teamName && <span className="text-xs text-muted-foreground">• Ejemplo real: {teamName} vs {opponent}</span>}
-        </div>
-      )}
+  component: ({ text }: { text: string }) => (
+    <div className="rounded-lg border bg-card p-4 space-y-3">
+      <p className="text-sm font-medium">Respuesta de IA — ejemplo real</p>
+      <p className="text-sm text-muted-foreground">{text || "Ejemplo: Julián / María vs Víctor Orozco — Cuarta. Resultado: 6-4, 6-3."}</p>
+      <div className="flex gap-2">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-emerald-100 text-emerald-800 border-emerald-200">PASS</span>
+        <span className="text-xs text-muted-foreground">· Julián / María vs Víctor Orozco</span>
+      </div>
     </div>
   ),
 });
