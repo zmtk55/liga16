@@ -341,7 +341,7 @@ export function MatchCard({
         <span
           title={name}
           className={cn(
-            "truncate text-sm",
+            "text-xs leading-snug break-words sm:truncate sm:text-sm",
             // Sin ganador nadie ha ganado todavía (partido por jugar o a
             // medias): los dos nombres van igual y son los chips en verde los
             // que enseñan quién va ganando.
@@ -402,10 +402,10 @@ export function MatchCard({
         </div>
 
         <div className="min-w-0 flex-1 p-3">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
             <p
               title={context}
-              className="min-w-0 truncate text-caption uppercase text-muted-foreground"
+              className="min-w-0 text-caption uppercase text-muted-foreground sm:truncate"
             >
               {context}
             </p>
@@ -441,7 +441,7 @@ export function MatchCard({
           </div>
 
           {(court || match.tournament_name) && (
-            <div className="mt-2.5 flex items-center gap-3 text-caption text-muted-foreground">
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-caption text-muted-foreground">
               {court && (
                 <span className="inline-flex shrink-0 items-center gap-1">
                   <MapPin className="h-3 w-3" />

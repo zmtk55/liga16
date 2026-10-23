@@ -18,7 +18,7 @@
 // ofrecía 2da y 5ta aunque el circuito no las tenga, y no ofrecía "Suma 9" ni
 // "Mixtos", que sí existen—. Armar el filtro con los datos es trabajo de la
 // página, que es quien los carga: ver `FilterNav` y `categoryFacet`.
-import { useLocation, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { Search as SearchIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -41,13 +41,25 @@ const SEARCH_PLACEHOLDER: Record<string, string> = {
 
 export function SectionControl({ className }: { className?: string }) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const type = navbarTypeFor(pathname);
   const sectionRoot = sectionRootFor(pathname);
   const query = params.get("q") ?? "";
+  // En una ficha (equipo, torneo, jugador) el `?q=` no lo lee nadie: escribir
+  // ahí no filtraba nada y el buscador parecía roto. Desde una ficha, buscar
+  // lleva a la lista de la sección con el término ya aplicado.
+  const onSectionRoot =
+    pathname === sectionRoot || pathname === `${sectionRoot}/`;
 
   /** Escribe en la URL: el filtro sobrevive la navegación y se puede compartir. */
   function setParam(key: string, value: string) {
+    if (key === "q" && !onSectionRoot) {
+      navigate(value ? `${sectionRoot}?q=${encodeURIComponent(value)}` : sectionRoot, {
+        replace: true,
+      });
+      return;
+    }
     const next = new URLSearchParams(params);
     if (!value || value === "all") next.delete(key);
     else next.set(key, value);

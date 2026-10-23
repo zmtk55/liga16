@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
+import { ArrowLeft, ChevronDown, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays } from "lucide-react";
 import ScenarioPanel from "@/components/scenarios/qualification-scenarios";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
 import { MatchCard } from "@/components/cards/card-kit";
@@ -46,11 +46,18 @@ export default function TeamDetailPage() {
         if (!active) return;
         const t = list.find((x) => x.slug === slug) ?? null;
         setTeam(t);
-        // Solo rivales de la MISMA categoría (división + género), sin el propio equipo
-        setAllTeams(
-          list.filter((x) => x.slug !== slug && x.division === t?.division && x.sex === t?.sex),
-        );
-        setCompareName("");
+        // Solo rivales de la MISMA categoría (división + género), sin el propio
+        // equipo. Se ordenan por cercanía en la tabla y se elige el más cercano
+        // por defecto: la comparación arranca con datos útiles en vez de vacía.
+        const rivals = list
+          .filter((x) => x.slug !== slug && x.division === t?.division && x.sex === t?.sex)
+          .sort(
+            (a, b) =>
+              Math.abs((a.position || 99) - (t?.position || 99)) -
+              Math.abs((b.position || 99) - (t?.position || 99)),
+          );
+        setAllTeams(rivals);
+        setCompareName(rivals[0]?.name ?? "");
         // Partidos donde participa la pareja (por nombre del lado A o B)
         setMatches(
           allMatches.filter(
@@ -181,6 +188,7 @@ export default function TeamDetailPage() {
   }
 
   const winRatePct = winRate(team.played, team.won);
+  const setsPct = winRate(setStats.sf + setStats.sa, setStats.sf);
   const formGlyphs = form.map((f) => (f.won ? "G" : "P"));
   const streak = (() => {
     if (formGlyphs.length === 0) return null;
@@ -394,20 +402,20 @@ export default function TeamDetailPage() {
                 a={{
                   name: team.name,
                   seed: team.player1?.name ?? team.name,
-                  stats: [
-                    { k: "Win%", v: `${winRatePct}%` },
-                    { k: "PJ", v: String(team.played) },
-                    { k: "Puntos", v: team.points.toLocaleString("es-MX") },
-                  ],
+                  points: team.points ?? 0,
+                  played: team.played,
+                  won: team.won,
+                  lost: team.lost,
+                  position: team.position,
                 }}
                 b={{
                   name: compareTeam.name,
                   seed: compareTeam.player1?.name ?? compareTeam.name,
-                  stats: [
-                    { k: "Win%", v: `${winRate(compareTeam.played, compareTeam.won)}%` },
-                    { k: "PJ", v: String(compareTeam.played) },
-                    { k: "Puntos", v: compareTeam.points.toLocaleString("es-MX") },
-                  ],
+                  points: compareTeam.points ?? 0,
+                  played: compareTeam.played,
+                  won: compareTeam.won,
+                  lost: compareTeam.lost,
+                  position: compareTeam.position,
                 }}
               />
             ) : (
@@ -443,11 +451,15 @@ export default function TeamDetailPage() {
                     />
                   ))}
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
+                    className="w-full gap-1.5 text-xs font-semibold"
                     onClick={() => setRolExpanded((v) => !v)}
                   >
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform ${rolExpanded ? "rotate-180" : ""}`}
+                      aria-hidden
+                    />
                     {rolExpanded ? "Ver menos" : `Ver todo (${rol.length} partidos)`}
                   </Button>
                 </>
@@ -455,53 +467,105 @@ export default function TeamDetailPage() {
             </CardContent>
           </Card>
 
-            {/* Rendimiento con gráfica comparativa */}
+            {/* Rendimiento: cada cifra con su lectura en palabras. */}
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Rendimiento</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <div className="mb-1 flex items-center justify-between text-xs"><span className="text-muted-foreground">Victorias (PG) / partidos jugados (PJ)</span><span className="font-bold tabular-nums">{winRatePct}%</span></div>
-                  <Progress value={winRatePct} className="h-2 transition-all duration-700 ease-out" />
-                </div>
-                <div>
-                  <div className="mb-1 flex items-center justify-between text-xs"><span className="text-muted-foreground">Sets ganados / totales</span><span className="font-bold tabular-nums">{winRate(setStats.sf + setStats.sa, setStats.sf)}%</span></div>
-                  <Progress value={winRate(setStats.sf + setStats.sa, setStats.sf)} className="h-2 transition-all duration-700 ease-out" />
-                </div>
+              <CardContent className="space-y-4">
+                {[
+                  {
+                    label: "Efectividad",
+                    value: winRatePct,
+                    detail:
+                      team.played > 0
+                        ? `${team.won} de ${team.played} partidos ganados`
+                        : "Todavía no jugó partidos",
+                    note:
+                      team.played === 0
+                        ? "Sin partidos no hay efectividad que medir."
+                        : winRatePct >= 60
+                          ? "Gana la mayoría de sus partidos."
+                          : winRatePct >= 40
+                            ? "Gana y pierde en proporción parecida."
+                            : "Pierde más de la mitad de sus partidos.",
+                  },
+                  {
+                    label: "Sets",
+                    value: setsPct,
+                    detail: `${setStats.sf} sets ganados de ${setStats.sf + setStats.sa}`,
+                    note:
+                      setStats.sf + setStats.sa === 0
+                        ? "Sin sets registrados."
+                        : setsPct >= 60
+                          ? "Domina la mayoría de los sets."
+                          : setsPct >= 40
+                            ? "Reparte sets: los gana y los pierde."
+                            : "Pierde más sets de los que gana.",
+                  },
+                ].map((m) => (
+                  <div key={m.label}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-caption uppercase tracking-[0.1em] text-muted-foreground">
+                        {m.label}
+                      </span>
+                      <span className="text-lg font-black leading-none tabular-nums">
+                        {m.value}%
+                      </span>
+                    </div>
+                    <Progress value={m.value} className="mt-1.5 h-1.5" />
+                    <p className="mt-1 text-xs text-muted-foreground">{m.detail}</p>
+                    <p className="text-xs text-foreground/70">{m.note}</p>
+                  </div>
+                ))}
 
-                {/* Diferencial de sets: cuántos sets ganó de más la pareja.
-                    El % de arriba puede decir 60% y el diferencial −2: gana
-                    muchos pero pierde más sets de los que gana. */}
-                <div className="flex items-center justify-between border-t pt-3 text-xs">
-                  <span className="text-muted-foreground">Diferencial de sets</span>
-                  <span className={`font-bold tabular-nums ${setStats.diff > 0 ? "text-success" : setStats.diff < 0 ? "text-destructive" : ""}`}>
-                    {setStats.diff > 0 ? "+" : ""}{clampDiff(setStats.diff)}
-                  </span>
-                </div>
-
-                {/* Promedio de juegos ganados por set: si ganan 6-2 o 6-0.
-                    Dice si el Dominio es de fondo o de deceptive. */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Juegos ganados por set</span>
-                  <span className="font-bold tabular-nums">
-                    {setsWinAvg === null ? "—" : `${clampAvg(setsWinAvg)} de media`}
-                  </span>
-                </div>
-
-                {/* Rendimiento y posición en la división: el objetivo de cada fecha. */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">% Puntos / posición en la división</span>
-                  <span className="font-bold tabular-nums">
-                    {team.points ?? 0}% · #{team.position || "—"}
-                  </span>
-                </div>
+                {/* Tres hechos, cada uno con lo que significa. */}
+                <dl className="grid grid-cols-3 divide-x border-y py-2.5 text-center">
+                  <div className="px-2">
+                    <dt className="text-caption uppercase tracking-[0.08em] text-muted-foreground">
+                      Dif. sets
+                    </dt>
+                    <dd
+                      className={`mt-0.5 text-base font-black tabular-nums ${
+                        setStats.diff < 0 ? "text-destructive" : ""
+                      }`}
+                    >
+                      {setStats.diff > 0 ? "+" : ""}
+                      {clampDiff(setStats.diff)}
+                    </dd>
+                    <p className="mt-0.5 text-caption leading-tight text-muted-foreground">
+                      ganados − perdidos
+                    </p>
+                  </div>
+                  <div className="px-2">
+                    <dt className="text-caption uppercase tracking-[0.08em] text-muted-foreground">
+                      Juegos/set
+                    </dt>
+                    <dd className="mt-0.5 text-base font-black tabular-nums">
+                      {setsWinAvg === null ? "—" : clampAvg(setsWinAvg)}
+                    </dd>
+                    <p className="mt-0.5 text-caption leading-tight text-muted-foreground">
+                      6 gana el set
+                    </p>
+                  </div>
+                  <div className="px-2">
+                    <dt className="text-caption uppercase tracking-[0.08em] text-muted-foreground">
+                      Posición
+                    </dt>
+                    <dd className="mt-0.5 text-base font-black tabular-nums">
+                      #{team.position || "—"}
+                    </dd>
+                    <p className="mt-0.5 text-caption leading-tight text-muted-foreground">
+                      {team.points ?? 0}% de puntos
+                    </p>
+                  </div>
+                </dl>
 
                 {/* Rival directo: contra quién gana la pareja. */}
                 {rivalDir && rivalDirWon !== null && (
-                  <div className="flex items-center justify-between border-t pt-3 text-xs">
-                    <span className="min-w-0 truncate pr-2 text-muted-foreground">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="min-w-0 truncate pe-2 text-muted-foreground">
                       vs {rivalDir}
                     </span>
                     <span className="shrink-0 font-bold tabular-nums">
@@ -519,56 +583,151 @@ export default function TeamDetailPage() {
   );
 }
 
-// Comparativa compacta: dos tarjetas enfrentadas (VS) con avatar, nombre y
-// las tres cifras clave. Reemplaza a la tabla larga, que ocupaba más espacio
-// del que aportaba.
-function CompareBlock({
-  a,
-  b,
-}: {
-  a: { name: string; seed: string; stats: { k: string; v: string }[] };
-  b: { name: string; seed: string; stats: { k: string; v: string }[] };
-}) {
+// Comparador métrica por métrica: dos cifras y una barra enfrentada por fila.
+// Antes eran dos tarjetas con tres números sueltos: no decía quién estaba mejor
+// ni cuánto, y en móvil las dos tarjetas no cabían. Las filas se leen igual a
+// 343px que a 1200px.
+type CmpSide = {
+  name: string;
+  seed: string;
+  points: number;
+  played: number;
+  won: number;
+  lost: number;
+  position: number;
+};
+
+const pct = (part: number, total: number) =>
+  total > 0 ? Math.round((part / total) * 100) : 0;
+
+function CompareBlock({ a, b }: { a: CmpSide; b: CmpSide }) {
+  const rows: Array<{
+    label: string;
+    a: number;
+    b: number;
+    fmt: (v: number) => string;
+    /** Menos es mejor (posiciones, derrotas). */
+    lowerBetter?: boolean;
+    help: string;
+  }> = [
+    {
+      label: "Puntos",
+      a: a.points,
+      b: b.points,
+      fmt: (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1)),
+      help: "% de puntos del torneo",
+    },
+    {
+      label: "Efectividad",
+      a: pct(a.won, a.played),
+      b: pct(b.won, b.played),
+      fmt: (v) => `${v}%`,
+      help: "partidos ganados / jugados",
+    },
+    {
+      label: "Jugados",
+      a: a.played,
+      b: b.played,
+      fmt: String,
+      help: "partidos en el rol",
+    },
+    { label: "Ganados", a: a.won, b: b.won, fmt: String, help: "victorias" },
+    {
+      label: "Perdidos",
+      a: a.lost,
+      b: b.lost,
+      fmt: String,
+      lowerBetter: true,
+      help: "derrotas",
+    },
+    {
+      label: "Posición",
+      a: a.position,
+      b: b.position,
+      fmt: (v) => `#${v || "—"}`,
+      lowerBetter: true,
+      help: "lugar en la categoría",
+    },
+  ];
+
+  const headerSide = (side: CmpSide, align: "start" | "end") => (
+    <div
+      className={`flex min-w-0 items-center gap-2 ${
+        align === "end" ? "flex-row-reverse text-end" : ""
+      }`}
+    >
+      <Avatar className="h-7 w-7 shrink-0 border border-border">
+        <AvatarImage
+          src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(side.seed)}`}
+        />
+        <AvatarFallback className="bg-muted text-caption text-muted-foreground">
+          {initials(side.name)}
+        </AvatarFallback>
+      </Avatar>
+      <p className="min-w-0 truncate text-xs font-semibold sm:text-sm">{side.name}</p>
+    </div>
+  );
+
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
-      <div className="rounded-xl border bg-muted/30 p-3 sm:p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 shrink-0 border border-border">
-            <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(a.seed)}`} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials(a.name)}</AvatarFallback>
-          </Avatar>
-          <p className="min-w-0 truncate text-sm font-bold">{a.name}</p>
-        </div>
-        <dl className="mt-3 grid grid-cols-3 gap-2 border-t pt-3 text-center">
-          {a.stats.map((s) => (
-            <div key={s.k} className="min-w-0">
-              <dt className="truncate text-caption uppercase text-muted-foreground">{s.k}</dt>
-              <dd className="mt-0.5 text-sm font-black tabular-nums">{s.v}</dd>
-            </div>
-          ))}
-        </dl>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 items-center gap-3">
+        {headerSide(a, "start")}
+        {headerSide(b, "end")}
       </div>
 
-      <span className="rounded-full border bg-card px-2.5 py-1 text-caption uppercase text-muted-foreground">
-        vs
-      </span>
+      <div className="divide-y">
+        {rows.map((r) => {
+          const total = r.a + r.b;
+          const aShare = total > 0 ? (r.a / total) * 100 : 50;
+          const aBetter = r.lowerBetter ? r.a < r.b : r.a > r.b;
+          const bBetter = r.lowerBetter ? r.b < r.a : r.b > r.a;
+          return (
+            <div key={r.label} className="py-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span
+                  className={`w-14 shrink-0 text-sm tabular-nums ${
+                    aBetter ? "font-black text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {r.fmt(r.a)}
+                </span>
 
-      <div className="rounded-xl border bg-muted/30 p-3 sm:p-4">
-        <div className="flex items-center gap-3 sm:flex-row-reverse sm:text-right">
-          <Avatar className="h-10 w-10 shrink-0 border border-border">
-            <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(b.seed)}`} />
-            <AvatarFallback className="bg-muted text-muted-foreground text-xs">{initials(b.name)}</AvatarFallback>
-          </Avatar>
-          <p className="min-w-0 truncate text-sm font-bold">{b.name}</p>
-        </div>
-        <dl className="mt-3 grid grid-cols-3 gap-2 border-t pt-3 text-center">
-          {b.stats.map((s) => (
-            <div key={s.k} className="min-w-0">
-              <dt className="truncate text-caption uppercase text-muted-foreground">{s.k}</dt>
-              <dd className="mt-0.5 text-sm font-black tabular-nums">{s.v}</dd>
+                <div className="min-w-0 flex-1 text-center">
+                  <p className="text-caption uppercase tracking-[0.1em] text-muted-foreground">
+                    {r.label}
+                  </p>
+                  <p className="mt-0.5 text-caption leading-tight text-muted-foreground/70">
+                    {r.help}
+                  </p>
+                </div>
+
+                <span
+                  className={`w-14 shrink-0 text-end text-sm tabular-nums ${
+                    bBetter ? "font-black text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {r.fmt(r.b)}
+                </span>
+              </div>
+
+              {/* Barra enfrentada: se llena hacia el centro de cada lado. */}
+              <div className="mt-1.5 flex items-center gap-1" aria-hidden>
+                <div className="flex h-1.5 flex-1 justify-end overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
+                    style={{ width: `${aShare}%` }}
+                  />
+                </div>
+                <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-muted-foreground/45 transition-[width] duration-500 ease-out"
+                    style={{ width: `${100 - aShare}%` }}
+                  />
+                </div>
+              </div>
             </div>
-          ))}
-        </dl>
+          );
+        })}
       </div>
     </div>
   );
