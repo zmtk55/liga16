@@ -425,8 +425,8 @@ export default function AdminResults() {
                                     return (
                                       <div key={i} className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium border ${won ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800" : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"}`}>
                                         <span className="tabular-nums font-bold">{aScore}-{bScore}</span>
-                                        <span className="text-[10px] opacity-80">{won ? "Ganó" : "Perdió"}</span>
-                                        {showTb && <span className="text-[10px] opacity-70">TB {tb}</span>}
+                                        <span className="text-caption opacity-80">{won ? "Ganó" : "Perdió"}</span>
+                                        {showTb && <span className="text-caption opacity-70">TB {tb}</span>}
                                       </div>
                                     );
                                   })}
