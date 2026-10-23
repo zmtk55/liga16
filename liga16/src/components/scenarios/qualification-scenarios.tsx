@@ -349,6 +349,7 @@ export default function ScenarioPanel({
                   </span>
                   <span
                     className={`min-w-0 flex-1 truncate ${isMe ? "font-semibold" : ""}`}
+                    title={r.name}
                   >
                     {r.name}
                     {isMe && (
@@ -358,7 +359,7 @@ export default function ScenarioPanel({
                     )}
                   </span>
                   <span className="shrink-0 font-bold text-base tabular-nums">
-                    {round1(r.points)} pts
+                    {round1(r.points)}%
                   </span>
                 </div>
                 {isLastPlace && (
@@ -477,11 +478,13 @@ export default function ScenarioPanel({
                   className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
                   aria-hidden
                 />
-                <div className="min-w-0">
-                  <p className="max-w-[72ch] whitespace-pre-line text-sm leading-relaxed">
-                    {answer}
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
+                <div className="min-w-0 space-y-3">
+                  {answer.split("\n\n").map((para, i) => (
+                    <p key={i} className="max-w-[72ch] text-sm leading-relaxed">
+                      {para.charAt(0).toUpperCase() + para.slice(1)}
+                    </p>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
                     {q.position}° · {fmtPct(myPoints)}% · pasan {slots} · {left} partido
                     {left === 1 ? "" : "s"} por jugar ·{" "}
                     {source === "jev" ? "lectura JEV" : "cálculo local"}
@@ -505,7 +508,7 @@ export default function ScenarioPanel({
                 type="button"
                 onClick={() => ask(f)}
                 disabled={loading}
-                className="group inline-flex items-center gap-1 text-left text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50"
+                className="group inline-flex items-center gap-1 text-left text-sm leading-snug text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50"
               >
                 {f}
                 <ArrowUpRight

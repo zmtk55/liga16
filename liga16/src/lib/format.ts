@@ -185,6 +185,13 @@ export function formatPoints(value: number | null | undefined): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+/** Rendimiento con un decimal como máximo, siempre con "%": 47.2% o 50%. */
+export function fmtPct(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const rounded = Math.round(value * 10) / 10;
+  return `${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)}%`;
+}
+
 /**
  * La ciudad viene de la captura del admin y llega como la escribió quien
  * escribió: "caborca", "CABORCA", "Caborca". La app la muestra en la ficha de

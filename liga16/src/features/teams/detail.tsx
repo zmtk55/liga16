@@ -571,7 +571,7 @@ export default function TeamDetailPage() {
                       #{team.position || "—"}
                     </dd>
                     <p className="mt-0.5 text-caption leading-tight text-muted-foreground">
-                      {formatPoints(team.points)}% de puntos
+                      {formatPoints(team.points)}% de rendimiento
                     </p>
                   </div>
                 </dl>
