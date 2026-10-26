@@ -19,8 +19,8 @@ import { matchStatusKey } from "@/lib/match-state";
 /**
  * Bracket de UNA categoría: siembra por puntos, con el primero plantado arriba.
  *
- * No guarda nada: se deriva de los resultados que el admin ya capturó, así que
- * mover una semilla o corregir un partido lo recalcula solo. Los partidos que
+ * Congela la siembra al crear cruces y deriva avances de resultados por nodo.
+ * Antes de crear, el admin puede mover semillas. Los partidos que
  * alimentan los ganadores se filtran a los de la categoría —una 4ta nunca puede
  * avanzar por un partido que jugó una 5ta.
  */
@@ -96,7 +96,7 @@ function CategoryBracket({
       const all = await db.listMatchesByTournament(tournamentId);
       const ids = new Set(pairs.map((p) => p.id));
       const current = all.filter((m) => ids.has(m.side_a.pair_id ?? "") && ids.has(m.side_b.pair_id ?? ""));
-      if (!current.filter((m) => !isKnockoutRound(m.round)).every((m) => !!m.winner && ["finished", "walkover"].includes(m.status))) throw new Error("Termina la fase de grupos antes de generar eliminatorias");
+      if (!current.some((m) => !isKnockoutRound(m.round)) || !current.filter((m) => !isKnockoutRound(m.round)).every((m) => !!m.winner && ["finished", "walkover"].includes(m.status))) throw new Error("Termina la fase de grupos antes de generar eliminatorias");
       const ko = current.filter((m) => isKnockoutRound(m.round));
       const desired = knockoutDrafts(clasificadas, ko, tournamentId, categoryName);
       const plan = reconcileMatches(ko, desired);
