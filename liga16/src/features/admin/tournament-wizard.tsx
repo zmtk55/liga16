@@ -47,7 +47,7 @@ import { scheduleRounds, turnsUsed, drawGroupsByCategory, type Group, type Drawa
 import { sexLabel } from "@/lib/format";
 import { toast } from "sonner";
 import { syncWizard } from "@/lib/wizard-sync";
-import { ensurePlayer } from "@/lib/players";
+import { ensurePlayer, normalizePlayerName } from "@/lib/players";
 import {
   Building2,
   Check,
@@ -374,6 +374,7 @@ export default function TournamentWizard() {
           const profile = await db.getPlayer(id);
           if (profile) directory.push(profile);
         }
+        setPlayers(directory);
         const rows: CategoryValue[] = cats.map((c) => ({ id: c.id, persistedId: c.id, label: c.name,
           sex: c.sex, division: c.category, max_pairs: c.max_pairs }));
         setCategories(rows);
@@ -504,7 +505,9 @@ export default function TournamentWizard() {
       if (target >= 3 && tournamentId) {
         try {
           await syncWizard(db, tournamentId, categories, teams, target >= 4,
-            Math.round(tournament.price_mxn * 100), ensurePlayer, uploadCrest);
+            Math.round(tournament.price_mxn * 100),
+            async (name, division) => players.find((p) => normalizePlayerName(p.display_name) === normalizePlayerName(name)) ?? ensurePlayer(name, division),
+            uploadCrest);
         } finally {
           // Keep successful IDs even when a later write failed. Retrying cannot duplicate them.
           setCategories([...categories]);
@@ -1548,4 +1551,4 @@ function CoverUpload({
       )}
     </div>
   );
-        }
+                          }
