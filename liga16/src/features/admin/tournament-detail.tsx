@@ -5,6 +5,7 @@ import type { Pair, Match, Tournament, TournamentCategory, Club } from "@/types"
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BentoCard as Card } from "@/components/admin/bento-card";
 import { BracketPanel } from "@/features/admin/tournament-bracket";
+import { DrawPanel } from "@/features/admin/tournament-draw";
 import { MatchResultDialog, GroupStandingsCard } from "@/features/admin/tournament-results";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, Dice5, GripVertical, Pencil, Plus, Trash2, CalendarClock, RotateCcw, UserPlus, Trophy, Check } from "lucide-react";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
+import { ChevronDown, Dice5, Pencil, Plus, Trash2, CalendarClock, UserPlus, Trophy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminEmptyState } from "@/components/admin/empty-state";
@@ -38,45 +38,6 @@ import { findScheduleIssues, isSlotFree, localDayKey, localTimeHHMM, rescheduleT
 
 const TAB_LIST = "h-auto w-full flex-wrap justify-start gap-1 rounded-3xl border bg-card p-1.5";
 const TAB_TRIGGER = "h-9 flex-none rounded-full px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none";
-
-function SortablePair({
-  id,
-  name,
-  onRemove,
-}: {
-  id: string;
-  name: string;
-  onRemove?: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2 rounded-sm border bg-card px-3 py-2 text-sm ${
-        isDragging ? "opacity-60 shadow-lg" : ""
-      }`}
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 cursor-grab touch-none text-muted-foreground hover:text-foreground"
-        aria-label="Arrastrar para mover"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-4 w-4" />
-      </Button>
-      <span className="flex-1 truncate">{name}</span>
-      {onRemove && (
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove} aria-label="Quitar equipo">
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      )}
-    </div>
-  );
-}
 
 export default function AdminTournamentDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -174,7 +135,6 @@ export default function AdminTournamentDetail() {
   const [matchQuery, setMatchQuery] = useState("");
   const [matchRound, setMatchRound] = useState("all");
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
     if (!slug) return;
@@ -1039,166 +999,32 @@ return (
 
         {/* ============ GRUPOS ============ */}
         <TabsContent value="grupos" className="space-y-4 pt-2">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Sorteo</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={handleDraw} disabled={!pairs || pairs.length < 2}>
-                  <Dice5 className="h-4 w-4 ms-1" /> Sortear grupos al azar
-                </Button>
-                <Button variant="outline" onClick={addGroup} disabled={groups.length >= 10}>
-                  <Plus className="h-4 w-4 ms-1" /> Añadir grupo
-                </Button>
-                {groups.length > 0 && (
-                  <Button variant="outline" onClick={() => setGroups([])}>
-                    <RotateCcw className="h-4 w-4 ms-1" /> Vaciar grupos
-                  </Button>
-                )}
-                {groups.length > 0 && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      // Al abrir se marcan los días donde YA hay partidos: es la
-                      // disponibilidad real del torneo y deja la casilla vacía
-                      // fuera de la ecuación. Si no hay partidos todavía, se
-                      // marcan los días del torneo.
-                      setScheduleConfig((c) => ({
-                        ...c,
-                        days:
-                          c.days.length > 0
-                            ? c.days
-                            : matchDays.length > 0
-                              ? matchDays
-                              : tournamentDays(tournament),
-                      }));
-                      setScheduleOpen(true);
-                    }}
-                    disabled={saving}
-                  >
-                    <CalendarClock className="h-4 w-4 ms-1" /> Repartir calendario
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Grupos por categoría:</span>
-                  <div className="flex items-center gap-1" role="group" aria-label="Grupos por categoría">
-                    {[0, 1, 2, 3, 4].map((n) => (
-                      <Button
-                        key={n}
-                        type="button"
-                        size="sm"
-                        variant={groupsPerCat === n ? "secondary" : "ghost"}
-                        className="h-7 w-9 tabular-nums"
-                        onClick={() => setGroupsPerCat(n)}
-                        title={n === 0 ? "Auto (1 grupo por cada 4 parejas)" : `${n} grupo${n === 1 ? "" : "s"}`}
-                      >
-                        {n === 0 ? "Auto" : n}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Las categorías no se mezclan: 4tas y 5tas nunca caen en el mismo grupo. Con 16 parejas de 4ta, "Auto" hace 4 grupos de 4.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {pairs && pairs.length < 2 && (
-            <p className="text-sm text-warning-strong">
-              Tienes {pairs.length} equipo{pairs.length === 1 ? "" : "s"} inscrito{pairs.length === 1 ? "" : "s"} — se necesitan al menos 2 para sortear o generar partidos. Regístralos en la pestaña Parejas.
-            </p>
-          )}
-
-          {groups.length === 0 ? (
-            <Card>
-              <CardContent className="p-0">
-                <AdminEmptyState
-                  icon={<Dice5 className="h-5 w-5" />}
-                  title="Aún no hay grupos"
-                  description="Pulsa «Sortear grupos al azar» para crearlos o añádelos a mano."
-                  action={
-                    <Button onClick={handleDraw} disabled={!pairs || pairs.length < 2}>
-                      <Dice5 className="h-4 w-4" /> Sortear grupos al azar
-                    </Button>
-                  }
-                />
-              </CardContent>
-            </Card>
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext
-                items={[
-                  ...unassigned.map((p) => p.id),
-                  ...groups.flatMap((g) => g.pairIds),
-                ]}
-                strategy={verticalListSortingStrategy}
-              >
-                {/* Pool a la izquierda, grupos a la derecha: dos columnas fijas
-                    evitaban que el admin tuviera que scrollear para ver todos los
-                    grupos, y el pool quedaba oculto cuando había muchos. Con un
-                    grid de 2 columnas el pool siempre está a la vista. */}
-                <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-                  <div className="space-y-4">
-                    {unassigned.length > 0 ? (
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Equipos sin grupo ({unassigned.length})</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          {unassigned.map((p) => (
-                            <SortablePair key={p.id} id={p.id} name={p.name} onRemove={() => handleRemovePair(p.id)} />
-                          ))}
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <Card>
-                        <CardContent className="py-6 text-center text-sm text-success">
-                          <Check className="me-1 inline h-4 w-4 align-[-2px]" />
-                          Todos los equipos están en un grupo.
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {groups.map((g, gi) => (
-                      <Card key={g.name}>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm flex items-center justify-between gap-2">
-                            <Input
-                              value={g.name}
-                              onChange={(e) => renameGroup(gi, e.target.value)}
-                              className="h-7 border-none bg-transparent px-1 font-semibold shadow-none focus-visible:ring-1"
-                              aria-label={`Nombre del grupo ${gi + 1}`}
-                            />
-                            <Badge variant="outline">{g.pairIds.length}</Badge>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-2 min-h-16">
-                            {g.pairIds.length === 0 && (
-                              <p className="text-xs text-muted-foreground py-2">Arrastra equipos aquí</p>
-                            )}
-                            {g.pairIds.map((id) => (
-                              <SortablePair
-                                key={id}
-                                id={id}
-                                name={nameById[id] ?? id}
-                                onRemove={() => handleRemovePair(id)}
-                              />
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              </SortableContext>
-            </DndContext>
-          )}
+          <DrawPanel
+            pairs={pairs}
+            categories={categories}
+            groups={groups}
+            unassigned={unassigned}
+            nameById={nameById}
+            groupsPerCat={groupsPerCat}
+            setGroupsPerCat={setGroupsPerCat}
+            saving={saving}
+            onDraw={handleDraw}
+            onAddGroup={addGroup}
+            onClear={() => setGroups([])}
+            onSchedule={() => {
+              // Al abrir se marcan los días donde YA hay partidos: es la
+              // disponibilidad real del torneo. Si no hay partidos todavía, se
+              // marcan los días del torneo.
+              setScheduleConfig((c) => ({
+                ...c,
+                days: c.days.length > 0 ? c.days : matchDays.length > 0 ? matchDays : tournamentDays(tournament),
+              }));
+              setScheduleOpen(true);
+            }}
+            onRename={renameGroup}
+            onRemovePair={handleRemovePair}
+            onDragEnd={handleDragEnd}
+          />
         </TabsContent>
 
         {/* ============ TABLAS DE POSICIONES ============ */}
@@ -1871,4 +1697,4 @@ return (
       />
     </div>
   );
-                                    }
+                      }
