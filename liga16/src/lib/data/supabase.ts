@@ -848,6 +848,7 @@ export const supabaseProvider: DataProvider = {
     // en el update y se perdía en silencio. El toast decía "guardado" y la caja
     // volvía al valor viejo al reabrir.
     if (updates.round !== undefined) row.round = updates.round;
+    if (updates.category_name !== undefined) row.category_name = updates.category_name;
     // Capturar el marcador en Resultados guardaba `sets` + `winner` pero dejaba
     // el estado en "scheduled", y el ranking y las fichas exigían partido
     // cerrado: el resultado se veía en el diálogo y no movía nada. Si llega un
