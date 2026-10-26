@@ -102,7 +102,7 @@ const MatchHint = defineComponent({
     text: z.string().describe("Respuesta calculada, sin ejemplos inventados"),
   }),
   component: ({ props: { text } }) => (
-    <div className="space-y-3 break-words">
+    <div className="space-y-2 break-words">
       {text.split("\n\n").filter(Boolean).map((paragraph, index) => (
         <p key={index} className="max-w-[72ch] text-sm leading-relaxed">
           {paragraph.charAt(0).toUpperCase() + paragraph.slice(1)}
