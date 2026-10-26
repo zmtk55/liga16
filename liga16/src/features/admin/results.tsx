@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -175,6 +176,8 @@ export default function AdminResults() {
     load();
   }, []);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   async function load() {
     try {
       const [matches, tList] = await Promise.all([db.listRecentMatches(), db.listTournaments()]);
@@ -182,8 +185,9 @@ export default function AdminResults() {
       const map: Record<string, Tournament> = {};
       for (const t of tList) map[t.id] = t;
       setTournaments(map);
-    } catch {
-      toast.error("No se pudo cargar resultados");
+      setLoadError(null);
+    } catch (e) {
+      setLoadError((e as Error)?.message || "Error al cargar los partidos");
     }
   }
 
@@ -238,27 +242,25 @@ export default function AdminResults() {
 
   const getPairKey = (pv: PairMatchView) => `${pv.tournamentId}::${pv.pairName}`;
 
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Resultados"
+        description="Captura sets, juegos y tie-breaks de cada partido."
+        what="los partidos"
+        message={loadError}
+        onRetry={() => { load(); }}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <AdminPageHeader
         title="Resultados"
         description="Captura sets, juegos y tie-breaks de cada partido."
-        action={
-          resumen.porCapturar > 0 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              aria-pressed={fStatus === "pending"}
-              className={fStatus === "pending" ? "border-primary bg-primary text-primary-foreground hover:bg-primary-strong hover:text-primary-foreground" : undefined}
-              onClick={() => setFStatus((s) => (s === "pending" ? "all" : "pending"))}
-            >
-              <ClipboardList className="h-4 w-4" />
-              {resumen.porCapturar} por capturar
-            </Button>
-          ) : undefined
-        }
       >
-        <AdminStatStrip className="sm:grid-cols-5">
+        <AdminStatStrip loading={list === null}>
           <AdminStat value={resumen.total} label="Partidos" />
           <AdminStat value={resumen.porCapturar} label="Por capturar" tone={resumen.porCapturar > 0 ? "text-primary" : undefined} />
           <AdminStat value={resumen.aMedias} label="En curso" tone={resumen.aMedias > 0 ? "text-primary-strong" : undefined} />
@@ -267,8 +269,8 @@ export default function AdminResults() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      <Card>
-        <CardHeader className="gap-3">
+      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+        <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}
             onSearch={setQuery}
@@ -328,7 +330,7 @@ export default function AdminResults() {
           )}
 
           {pairViews.length > 0 && (
-            <div className="space-y-2 p-4">
+            <div className="grid items-start gap-4 p-0 xl:grid-cols-2">
               {pairViews.map((pv) => {
                 const key = getPairKey(pv);
                 const isOpen = expandedPairs[key] ?? false;
@@ -337,14 +339,14 @@ export default function AdminResults() {
                 const finishedCount = pv.matches.filter((m) => matchBucket(m) === "finished").length;
 
                 return (
-                  <div key={key} className="bg-card border rounded-xl overflow-hidden transition-shadow hover:shadow-md">
+                  <div key={key} className="bg-card border rounded-3xl overflow-hidden transition-shadow hover:shadow-md">
                     <button
                       onClick={() => togglePair(key)}
-                      className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      className="w-full flex flex-col items-start justify-between gap-4 p-6 sm:flex-row text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       aria-expanded={isOpen}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold truncate">{pv.pairName}</p>
+                        <p className="font-display text-xl font-semibold break-words">{pv.pairName}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Trophy className="h-3 w-3" /> {pv.tournamentName}
@@ -354,7 +356,7 @@ export default function AdminResults() {
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
                         {pendingCount > 0 && <Badge variant="default" className="text-xs">{pendingCount} por capturar</Badge>}
                         {playingCount > 0 && <Badge variant="secondary" className="text-xs">{playingCount} en curso</Badge>}
                         {finishedCount > 0 && <Badge variant="outline" className="text-xs">{finishedCount} finalizados</Badge>}
