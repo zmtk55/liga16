@@ -1,9 +1,14 @@
 "use client";
 
+import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
+import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { Sponsor } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,13 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreHorizontal, Pencil, Plus, Trash2, ImagePlus, X } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Pencil, Plus, Trash2, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -57,11 +56,33 @@ export default function AdminSponsors() {
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<Sponsor | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [fTier, setFTier] = useState("all");
+
+  const load = () =>
+    db.listSponsors()
+      .then((l) => { setList(l); setLoadError(null); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar los patrocinadores"));
+
   useEffect(() => {
-    db.listSponsors().then(setList);
+    load();
   }, []);
 
-  const load = () => db.listSponsors().then(setList);
+  const tierOptions = useMemo(() => {
+    const all = list ?? [];
+    const tiers = Array.from(new Set(all.map((s) => s.tier)));
+    return tiers
+      .map((t) => ({ key: t, label: t.charAt(0).toUpperCase() + t.slice(1), n: all.filter((s) => s.tier === t).length }))
+      .sort((a, b) => b.n - a.n);
+  }, [list]);
+
+  const filtered = (list ?? []).filter((s) => {
+    const q = query.trim().toLowerCase();
+    if (q && !s.name.toLowerCase().includes(q)) return false;
+    if (fTier !== "all" && s.tier !== fTier) return false;
+    return true;
+  });
 
   /** Cifras de cabecera: el patrocinio que se publica y el que todavia no. */
   const resumen = useMemo(() => {
@@ -106,11 +127,22 @@ export default function AdminSponsors() {
 
   const dialogKey = editing?.id ?? "new";
 
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Patrocinadores"
+        what="los patrocinadores"
+        message={loadError}
+        onRetry={load}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
         title="Patrocinadores"
-        description="Los logos que subís acá giran en el banner rotativo de la landing page. Subí PNG con fondo transparente para que se vea prolijo."
+        description="Los logos que subes aquí giran en el banner rotativo de la landing page. Sube PNG con fondo transparente para que se vea prolijo."
         action={
           <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
             <Plus className="h-4 w-4" /> Nuevo patrocinador
@@ -130,6 +162,21 @@ export default function AdminSponsors() {
       </AdminPageHeader>
 
       <Card>
+        <CardHeader className="gap-3">
+          <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar patrocinador…"
+            resultCount={filtered.length}
+            resultLabel="patrocinadores"
+            activeCount={countActive(fTier)}
+            onClear={() => { setQuery(""); setFTier("all"); }}
+          >
+            <AdminFacets>
+              <AdminFacet label="Nivel" value={fTier} onChange={setFTier} options={tierOptions} allLabel="Todos" />
+            </AdminFacets>
+          </FilterBar>
+        </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
@@ -156,8 +203,21 @@ export default function AdminSponsors() {
                   }
                 />
               )}
-              {list?.map((s) => (
-                <TableRow key={s.id}>
+              {list !== null && list.length > 0 && filtered.length === 0 && (
+                <AdminTableEmpty
+                  colSpan={5}
+                  title="Sin coincidencias"
+                  description="Ningún patrocinador coincide con la búsqueda."
+                />
+              )}
+              {filtered.map((s) => {
+                const actions: RowAction[] = [
+                  { label: "Editar", icon: <Pencil className="h-4 w-4" />, onSelect: () => { setEditing(s); setOpenCreate(true); } },
+                  { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting(s), destructive: true, separator: true },
+                ];
+                return (
+                <RowContextMenu key={s.id} actions={actions}>
+                <TableRow>
                   <TableCell>
                     {s.logo_url ? (
                       <img src={s.logo_url} alt={s.name} className="h-10 w-auto max-w-[120px] shrink-0 rounded-xs object-contain" />
@@ -183,27 +243,12 @@ export default function AdminSponsors() {
                     )}
                   </TableCell>
                   <TableCell className="pr-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${s.name}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditing(s); setOpenCreate(true); }}>
-                          <Pencil className="h-4 w-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setDeleting(s)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" /> Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RowActionsMenu actions={actions} label={`Acciones para ${s.name}`} />
                   </TableCell>
                 </TableRow>
-              ))}
+                </RowContextMenu>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
