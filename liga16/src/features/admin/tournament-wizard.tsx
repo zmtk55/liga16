@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card as BaseCard, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DndContext,
   closestCenter,
@@ -65,7 +65,14 @@ import {
   X,
 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/page-header";
+import { BENTO_CARD, BENTO_DARK, BENTO_METRIC_MD } from "@/components/admin/bento";
+import { cn } from "@/lib/utils";
 import { AdminEmptyState } from "@/components/admin/empty-state";
+
+/** Tarjeta bento: esquinas grandes y sin sombra, igual que el resto del admin. */
+function Card({ className, ...props }: React.ComponentProps<typeof BaseCard>) {
+  return <BaseCard className={cn("rounded-3xl shadow-none", className)} {...props} />;
+}
 
 const FORMAT_OPTIONS = [
   { v: "groups_knockout", l: "Grupos + eliminación" },
@@ -774,33 +781,39 @@ teams.forEach((t) => {
         backLabel="Torneos"
       />
 
-      {/* Progreso: los números ganan lugar porque el flujo sí es una secuencia. */}
-      <div className="space-y-2">
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="text-sm font-medium">
-            Paso {step + 1} de {STEPS.length}
-          </p>
-          <p className="text-xs text-muted-foreground">{STEPS[step].label}</p>
+      {/* Progreso: tarjeta oscura con la cifra del paso y una pastilla por paso. */}
+      <div className={`${BENTO_CARD} ${BENTO_DARK} space-y-5`}>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-caption uppercase opacity-65">Paso</p>
+            <p className={BENTO_METRIC_MD}>
+              {step + 1}
+              <span className="opacity-50"> / {STEPS.length}</span>
+            </p>
+          </div>
+          <p className="text-right font-display text-lg font-semibold">{STEPS[step].label}</p>
         </div>
-        <ol className="flex items-center gap-1.5 text-xs">
-          {STEPS.map((s, i) => (
-            <li key={s.id} className="flex flex-1 items-center gap-1.5">
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                  i < step
-                    ? "bg-success text-success-foreground"
-                    : i === step
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                }`}
+        <ol className="flex flex-wrap items-center gap-2 text-xs">
+          {STEPS.map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <li
+                key={s.id}
+                className={cn(
+                  "flex h-9 items-center gap-1.5 rounded-full px-3.5 font-medium",
+                  i < step && "bg-success text-success-foreground",
+                  i === step && "bg-primary text-primary-foreground",
+                  i > step && "bg-white/10 text-current opacity-70",
+                )}
                 aria-current={i === step ? "step" : undefined}
                 aria-label={`Paso ${i + 1}: ${s.label}`}
               >
-                {i < step ? <Check className="h-3 w-3" /> : i + 1}
-              </span>
-              {i < STEPS.length - 1 && <span className="h-px flex-1 bg-border" />}
-            </li>
-          ))}
+                {i < step ? <Check className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">{s.label}</span>
+                <span className="sm:hidden">{i + 1}</span>
+              </li>
+            );
+          })}
         </ol>
       </div>
 
@@ -1524,4 +1537,4 @@ function CoverUpload({
       )}
     </div>
   );
-}
+              }
