@@ -7,9 +7,13 @@ import { BENTO_CARD, BENTO_DARK, BENTO_LIGHT, BENTO_METRIC_MD } from "@/componen
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { computeStandings, isKnockoutRound } from "@/lib/groups";
 import type { TournamentScoring } from "@/types";
-import { buildBracket, moveSeed, resolveBracket, type BracketEntry, type BracketMatch } from "@/lib/bracket";
+import { moveSeed, type BracketEntry, type BracketMatch } from "@/lib/bracket";
 import { tournamentProgress } from "@/lib/tournament-progress";
 import { SIN_CATEGORIA } from "@/lib/format";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { db } from "@/lib/data";
+import { toast } from "sonner";
+import { hasMatchActivity, knockoutDrafts, knockoutLabel, knockoutRoundName, reconcileMatches, resolvedKnockout } from "@/lib/tournament-flow";
 import { matchStatusKey } from "@/lib/match-state";
 
 /**
@@ -25,12 +29,20 @@ function CategoryBracket({
   matches,
   scoring,
   slots,
+  tournamentId, onReload, onEditMatch, categoryName,
 }: {
   pairs: Pair[];
   matches: Match[];
   scoring?: TournamentScoring | null;
   slots: number;
+  categoryName: string;
+  tournamentId: string;
+  onReload: () => Promise<void>;
+  onEditMatch: (id: string) => void;
 }) {
+  const [confirmStart, setConfirmStart] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const locked = matches.some((m) => isKnockoutRound(m.round));
   const [ordenManual, setOrdenManual] = useState<BracketEntry[] | null>(null);
 
   const table = useMemo(() => {
@@ -61,31 +73,44 @@ function CategoryBracket({
         points: row.points,
       };
     });
+    if (locked) return pairs.filter((p) => p.seed != null).sort((a, b) => a.seed! - b.seed!).map((p) => ({
+      pairId: p.id, name: p.name, seed: p.seed!, points: table.find((r) => r.pairId === p.id)?.points ?? 0,
+    }));
     if (!ordenManual) return base.map((e, i) => ({ ...e, seed: i + 1 }));
     // Se re-siembra por posición para respetar lo que movió el admin.
     return base.map((e, i) => ({ ...(ordenManual[i] ?? e), seed: i + 1 }));
-  }, [table, pairs, slots, ordenManual]);
+  }, [table, pairs, slots, ordenManual, locked]);
 
-  const base = useMemo(() => buildBracket(clasificadas), [clasificadas]);
-  const bracket = useMemo(() => {
-    // El ganador de cada cruce sale de los resultados que el admin ya capturó.
-    // Solo cuentan los partidos de eliminatoria: un resultado de la fase de
-    // grupos entre las mismas dos parejas no decide semifinal ni final.
-    const terminado = matches.filter((m) => isKnockoutRound(m.round) && matchStatusKey(m) === "finished" && m.winner);
-    return {
-      ...base,
-      matches: resolveBracket(base, (a, b) => {
-        const partido = terminado.find(
-          (m) =>
-            (m.side_a.pair_id === a.pairId && m.side_b.pair_id === b.pairId) ||
-            (m.side_a.pair_id === b.pairId && m.side_b.pair_id === a.pairId),
-        );
-        if (!partido) return null;
-        const ganador = partido.winner === "a" ? partido.side_a.pair_id : partido.side_b.pair_id;
-        return ganador ?? null;
-      }),
-    };
-  }, [base, matches]);
+  const bracket = useMemo(() => resolvedKnockout(clasificadas, matches), [clasificadas, matches]);
+  const legacy = locked && (clasificadas.length < 2 || matches.some((m) => isKnockoutRound(m.round) && !/ · r\d+-m\d+$/.test(m.round)));
+  const groupGames = matches.filter((m) => !isKnockoutRound(m.round));
+  const groupsReady = groupGames.length > 0 && groupGames.every((m) => !!m.winner && ["finished", "walkover"].includes(m.status));
+  const readyMatches = bracket.matches.filter((m) => m.a && m.b && !m.bye);
+  const savedNode = (m: BracketMatch) => matches.find((x) => x.round === knockoutLabel(m, bracket.rounds) &&
+    ((x.side_a.pair_id === m.a?.pairId && x.side_b.pair_id === m.b?.pairId) || (x.side_b.pair_id === m.a?.pairId && x.side_a.pair_id === m.b?.pairId)));
+
+  async function generate() {
+    if (busy || legacy || !groupsReady) return;
+    setBusy(true);
+    try {
+      const all = await db.listMatchesByTournament(tournamentId);
+      const ids = new Set(pairs.map((p) => p.id));
+      const current = all.filter((m) => ids.has(m.side_a.pair_id ?? "") && ids.has(m.side_b.pair_id ?? ""));
+      if (!current.filter((m) => !isKnockoutRound(m.round)).every((m) => !!m.winner && ["finished", "walkover"].includes(m.status))) throw new Error("Termina la fase de grupos antes de generar eliminatorias");
+      const ko = current.filter((m) => isKnockoutRound(m.round));
+      const desired = knockoutDrafts(clasificadas, ko, tournamentId, categoryName);
+      const plan = reconcileMatches(ko, desired);
+      if (!locked) {
+        // Freeze qualification and manual seeding across reloads and score edits.
+        for (const p of pairs) await db.updatePair(p.id, { seed: clasificadas.find((e) => e.pairId === p.id)?.seed ?? null });
+      }
+      if (plan.create.length) await db.createMatches(plan.create);
+      for (const m of plan.remove) await db.deleteMatchById(m.id);
+      await onReload();
+      toast.success(plan.create.length ? `${plan.create.length} cruces creados. Captura los resultados para habilitar la siguiente ronda.` : "Eliminatorias al día");
+    } catch (e) { toast.error((e as Error).message); await onReload(); }
+    finally { setBusy(false); }
+  }
 
   function mover(pairId: string, delta: number) {
     setOrdenManual((prev) => {
@@ -105,18 +130,7 @@ function CategoryBracket({
     played: matches.filter((m) => matchStatusKey(m) === "finished").length,
     total: matches.length,
   });
-  const rondaNombre = (n: number) => {
-    const faltan = bracket.rounds - n;
-    return faltan === 0
-      ? "Final"
-      : faltan === 1
-        ? "Semifinales"
-        : faltan === 2
-          ? "Cuartos de final"
-          : faltan === 3
-            ? "Octavos de final"
-            : `Ronda ${n}`;
-  };
+  const rondaNombre = (n: number) => knockoutRoundName(n, bracket.rounds);
   const jugados = matches.filter((m) => matchStatusKey(m) === "finished").length;
   const finalistas = prog ? prog.finalists.filter(Boolean) : [];
 
@@ -175,7 +189,7 @@ function CategoryBracket({
               La 1 se enfrenta a la última; la 1 y la 2 solo se cruzan en la final.
             </p>
           </div>
-          <Button variant="outline" size="sm" className="rounded-full" onClick={() => setOrdenManual(null)}>
+          <Button variant="outline" size="sm" className="rounded-full" disabled={locked || busy} onClick={() => setOrdenManual(null)}>
             <RotateCcw className="h-4 w-4" /> Orden por puntos
           </Button>
         </div>
@@ -195,7 +209,7 @@ function CategoryBracket({
                   size="icon"
                   className="h-8 w-8 rounded-full"
                   onClick={() => mover(p.pairId, -1)}
-                  disabled={i === 0}
+                  disabled={locked || busy || i === 0}
                   aria-label={`Subir a ${p.name} en la siembra`}
                 >
                   <ChevronDown className="h-4 w-4 rotate-180" />
@@ -205,7 +219,7 @@ function CategoryBracket({
                   size="icon"
                   className="h-8 w-8 rounded-full"
                   onClick={() => mover(p.pairId, 1)}
-                  disabled={i === clasificadas.length - 1}
+                  disabled={locked || busy || i === clasificadas.length - 1}
                   aria-label={`Bajar a ${p.name} en la siembra`}
                 >
                   <ChevronDown className="h-4 w-4" />
@@ -216,6 +230,22 @@ function CategoryBracket({
         </ol>
       </div>
 
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <p className="text-sm text-muted-foreground">{legacy ? "Eliminatorias antiguas sin siembra o identificador de cruce. Revisa estos partidos antes de continuar; no se cambiarán automáticamente." :
+          !groupsReady ? "Termina todos los partidos de grupos antes de crear eliminatorias." : locked ? "Siembra fijada. Captura los cruces y pulsa Generar siguiente ronda. Los pases libres avanzan sin partido." :
+          "Al crear eliminatorias se fijan los clasificados y la siembra. Los pases libres avanzan sin partido."}</p>
+        <Button disabled={busy || legacy || !groupsReady || clasificadas.length < 2} onClick={() => locked ? void generate() : setConfirmStart(true)}>{busy ? "Generando…" : locked ? "Generar siguiente ronda" : "Crear eliminatorias"}</Button>
+        {readyMatches.map((m) => {
+          const saved = savedNode(m);
+          return <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+            <p className="text-sm">{rondaNombre(m.round)}: {m.a!.name} vs {m.b!.name}</p>
+            {saved ? <Button size="sm" variant="outline" onClick={() => onEditMatch(saved.id)}>{hasMatchActivity(saved) ? "Ver / editar resultado" : "Capturar resultado"}</Button> : <span className="text-xs text-muted-foreground">Genera esta ronda para capturar</span>}
+          </div>;
+        })}
+      </div>
+      <ConfirmDialog open={confirmStart} onOpenChange={setConfirmStart} title="¿Crear eliminatorias y fijar la siembra?"
+        description="Se usarán los clasificados y el orden mostrado. Después no se podrá volver a sortear ni mover semillas."
+        confirmLabel="Crear eliminatorias" onConfirm={() => void generate()} />
       {/* El árbol: las rondas fluyen de izquierda a derecha hasta la final. */}
       <div className={cn(BENTO_CARD, BENTO_LIGHT, "p-4 sm:p-6")}>
         <div className="overflow-x-auto pb-2">
@@ -323,12 +353,16 @@ export function BracketPanel({
   categories,
   scoring,
   slots,
+  tournamentId, onReload, onEditMatch,
 }: {
   pairs: Pair[];
   matches: Match[];
   categories: TournamentCategory[];
   scoring?: TournamentScoring | null;
   slots: number;
+  tournamentId: string;
+  onReload: () => Promise<void>;
+  onEditMatch: (id: string) => void;
 }) {
   const nameByCatId = useMemo(
     () => new Map(categories.map((c) => [c.id, c.name])),
@@ -383,7 +417,7 @@ export function BracketPanel({
           (s?.pair_name ?? "").trim().toLowerCase();
         const namesInCat = new Set(catPairs.map((p) => p.name.trim().toLowerCase()));
         const inCat = (s: { pair_id: string | null; pair_name: string } | null) =>
-          !!s && (ids.has(s.pair_id ?? "") || namesInCat.has(pairNameKey(s)));
+          !!s && (s.pair_id ? ids.has(s.pair_id) : namesInCat.has(pairNameKey(s)));
         const catMatches = matches.filter((m) => inCat(m.side_a) && inCat(m.side_b));
         const name = nameByCatId.get(categoryId) ?? (categoryId ? "" : SIN_CATEGORIA);
         return (
@@ -401,6 +435,7 @@ export function BracketPanel({
               matches={catMatches}
               scoring={scoring}
               slots={slots}
+              tournamentId={tournamentId} onReload={onReload} onEditMatch={onEditMatch} categoryName={name}
             />
           </div>
         );
