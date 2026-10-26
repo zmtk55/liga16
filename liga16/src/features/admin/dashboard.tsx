@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   Activity,
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ClipboardList,
   Radio,
+  Search,
   ShieldCheck,
   Target,
   Trophy,
@@ -173,6 +174,130 @@ function SoftEmpty({ icon: Icon, title, description, dark }: { icon: React.Eleme
       <Icon className={cn("mb-1 h-5 w-5", dark ? "text-white/50" : "text-muted-foreground")} aria-hidden />
       <p className="text-sm font-semibold">{title}</p>
       <p className={cn("max-w-xs text-xs", dark ? "text-white/60" : "text-muted-foreground")}>{description}</p>
+    </div>
+  );
+}
+
+/**
+ * Búsqueda global del admin (arriba a la derecha, como en la referencia).
+ * Busca en jugadores, parejas y torneos que el panel ya cargó; cada resultado
+ * lleva a su sección con ?q= para que ahí la lista llegue filtrada.
+ */
+function AdminGlobalSearch({ data }: { data: DashboardData }) {
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const norm = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const term = norm(q.trim());
+
+  const groups = useMemo(() => {
+    if (term.length < 2) return [];
+    const hit = (v?: string | null) => !!v && norm(v).includes(term);
+    return [
+      {
+        key: "jugadores",
+        label: "Jugadores",
+        icon: Users,
+        more: "/admin/jugadores",
+        items: data.players
+          .filter((p) => hit(p.display_name) || hit(p.username))
+          .map((p) => ({ id: p.id, name: p.display_name, hint: p.city, to: `/admin/jugadores?q=${encodeURIComponent(p.display_name)}` })),
+      },
+      {
+        key: "equipos",
+        label: "Equipos",
+        icon: Target,
+        more: "/admin/equipos",
+        items: data.teams
+          .filter((t) => hit(t.name))
+          .map((t) => ({ id: t.id, name: t.name, hint: `${t.division}`, to: `/admin/equipos?q=${encodeURIComponent(t.name)}` })),
+      },
+      {
+        key: "torneos",
+        label: "Torneos",
+        icon: Trophy,
+        more: "/admin/torneos",
+        items: data.tournaments
+          .filter((t) => hit(t.name))
+          .map((t) => ({ id: t.id, name: t.name, hint: formatCity(t.city), to: `/admin/torneos/${t.slug}` })),
+      },
+    ].filter((g) => g.items.length > 0);
+  }, [data, term]);
+
+  const first = groups[0]?.items[0];
+  const close = () => {
+    setOpen(false);
+    setQ("");
+  };
+
+  return (
+    <div className="relative w-full sm:w-80 lg:w-96">
+      <form
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (first) {
+            navigate(first.to);
+            close();
+          }
+        }}
+        className="flex h-11 items-center gap-2.5 rounded-full border bg-card px-4 transition-colors focus-within:border-foreground/40"
+      >
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") close();
+          }}
+          placeholder="Buscar jugador, pareja o torneo…"
+          aria-label="Buscar en el admin"
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+        />
+      </form>
+      {open && term.length >= 2 && (
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-[70vh] overflow-auto rounded-2xl border bg-card p-2 shadow-lg">
+          {groups.length === 0 ? (
+            <p className="px-3 py-4 text-center text-sm text-muted-foreground">Sin resultados para “{q.trim()}”.</p>
+          ) : (
+            groups.map((g) => (
+              <div key={g.key} className="py-1">
+                <p className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-caption uppercase text-muted-foreground">
+                  <g.icon className="h-3 w-3" aria-hidden />
+                  {g.label}
+                  <span className="ml-auto tabular-nums">{g.items.length}</span>
+                </p>
+                {g.items.slice(0, 4).map((it) => (
+                  <Link
+                    key={it.id}
+                    to={it.to}
+                    onClick={close}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="min-w-0 flex-1 truncate font-medium">{it.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{it.hint}</span>
+                  </Link>
+                ))}
+                {g.items.length > 4 && (
+                  <Link
+                    to={`${g.more}?q=${encodeURIComponent(q.trim())}`}
+                    onClick={close}
+                    className="block px-3 py-1.5 text-xs font-medium text-primary-strong hover:underline"
+                  >
+                    Ver los {g.items.length} en {g.label.toLowerCase()}
+                  </Link>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -542,6 +667,7 @@ export default function AdminDashboard() {
       <AdminPageHeader
         title="Panel de control"
         description="Resumen general del circuito: actividad, torneos y tareas pendientes."
+        action={<AdminGlobalSearch data={data} />}
       />
 
       {/* Fila 1: la semana en una gráfica oscura y, al lado, lo que pide atención hoy. */}
