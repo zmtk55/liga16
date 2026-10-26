@@ -101,6 +101,18 @@ export function parseRound(round: string): { group: string; jornada: number | nu
 }
 
 /**
+ * ¿El partido es de eliminatoria (cuartos, semifinal, final…)? Los de fase de
+ * grupos llevan "Grupo X · Jn" y nunca cuentan como cruce de bracket: dos
+ * parejas pueden haberse enfrentado en grupos y volver a verse en semifinal.
+ */
+export function isKnockoutRound(round: string | null | undefined): boolean {
+  const r = (round ?? "").trim();
+  if (!r) return false;
+  if (parseRound(r).jornada !== null || /\bgrupo\b/i.test(r)) return false;
+  return /\b(octavos|cuartos|semifinal(?:es)?|final|eliminatoria|play-?offs?|tercer lugar|3er lugar)\b/i.test(r);
+}
+
+/**
  * La jornada de un partido como clave de filtro: "J1", "J2"… o "all" si el
  * round no trae número de jornada.
  *
@@ -154,9 +166,11 @@ export function scheduleRounds(
   startDate: string,
   minutesPerMatch: number,
   startHour: number,
+  /** Turno inicial: permite que varios grupos compartan canchas sin pisarse. */
+  startSlot = 0,
 ): Array<Array<{ a: UUID; b: UUID; court: number; scheduled_at: string }>> {
   const rounds = roundRobinRounds(pairIds);
-  let slot = 0;
+  let slot = startSlot;
   return rounds.map((round) => {
     const matches = round.map(([a, b], i) => {
       const courtCount = Math.max(1, courts);
@@ -170,6 +184,12 @@ export function scheduleRounds(
     slot += Math.max(1, usedTurns);
     return matches;
   });
+}
+
+/** Turnos (franjas de `minutesPerMatch`) que ocupa un calendario de `scheduleRounds`. */
+export function turnsUsed(rounds: Array<Array<unknown>>, courts: number): number {
+  const c = Math.max(1, courts);
+  return rounds.reduce((acc, r) => acc + Math.max(1, Math.ceil(r.length / c)), 0);
 }
 
 export function matchIsBetween(m: Match, a: UUID, b: UUID) {

@@ -5,7 +5,7 @@ import { Check, ChevronDown, Crown, RotateCcw, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BENTO_CARD, BENTO_DARK, BENTO_LIGHT, BENTO_METRIC_MD } from "@/components/admin/bento";
 import { AdminEmptyState } from "@/components/admin/empty-state";
-import { computeStandings } from "@/lib/groups";
+import { computeStandings, isKnockoutRound } from "@/lib/groups";
 import type { TournamentScoring } from "@/types";
 import { buildBracket, moveSeed, resolveBracket, type BracketEntry, type BracketMatch } from "@/lib/bracket";
 import { tournamentProgress } from "@/lib/tournament-progress";
@@ -38,7 +38,7 @@ function CategoryBracket({
     const names = Object.fromEntries(pairs.map((p) => [p.id, p.name]));
     // computeStandings no numera posiciones: el orden lo hacemos aqui, con los
     // mismos criterios que usa la tabla de posiciones (puntos, sets, juegos).
-    return computeStandings(ids, matches, names, scoring ?? undefined)
+    return computeStandings(ids, matches.filter((m) => !isKnockoutRound(m.round)), names, scoring ?? undefined)
       .slice()
       .sort(
         (a, b) =>
@@ -69,7 +69,9 @@ function CategoryBracket({
   const base = useMemo(() => buildBracket(clasificadas), [clasificadas]);
   const bracket = useMemo(() => {
     // El ganador de cada cruce sale de los resultados que el admin ya capturó.
-    const terminado = matches.filter((m) => matchStatusKey(m) === "finished" && m.winner);
+    // Solo cuentan los partidos de eliminatoria: un resultado de la fase de
+    // grupos entre las mismas dos parejas no decide semifinal ni final.
+    const terminado = matches.filter((m) => isKnockoutRound(m.round) && matchStatusKey(m) === "finished" && m.winner);
     return {
       ...base,
       matches: resolveBracket(base, (a, b) => {
@@ -279,7 +281,7 @@ function MatchCard({ m, ronda, esFinal }: { m: BracketMatch; ronda: number; esFi
       >
         <span
           className={cn(
-            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums",
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums",
             gano ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
           )}
         >
