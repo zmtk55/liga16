@@ -1,0 +1,23 @@
+/* La clasificación comparte la display y el acento del admin. Tintas neutras
+   locales: el naranja señala la posición, no colorea cada línea de lectura. */
+.qualification-panel {
+  --foreground: 240 6% 12%;
+  --card-foreground: 240 6% 12%;
+  --muted: 40 9% 94%;
+  --muted-foreground: 240 3% 42%;
+  --border: 40 6% 85%;
+  color: hsl(var(--foreground));
+}
+.dark .qualification-panel {
+  --foreground: 40 10% 94%;
+  --card-foreground: 40 10% 94%;
+  --muted: 240 4% 12%;
+  --muted-foreground: 240 4% 65%;
+  --border: 240 4% 25%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qualification-panel *, .qualification-panel *::before, .qualification-panel *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
