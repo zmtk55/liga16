@@ -2,6 +2,7 @@
 // Categorias como se registran (5ta, 4ta, Suma 9...), jugadores visibles y
 // gestion de pagos desde aqui. Nada se renombra: lo que el torneo guardó es
 // lo que se muestra.
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -92,15 +93,17 @@ export default function AdminParticipants() {
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   async function load() {
     try {
       const [allPairs, ts, ps] = await Promise.all([db.listAllPairs(), db.listTournaments(), db.listPlayers()]);
       setPairs(allPairs);
       setTournaments(ts);
       setPlayers(ps);
+      setLoadError(null);
     } catch (e) {
-      toast.error((e as Error).message ?? "Error cargando participantes");
-      setPairs([]);
+      setLoadError((e as Error)?.message || "Error al cargar las parejas");
     }
   }
 
@@ -295,6 +298,18 @@ export default function AdminParticipants() {
     }
   }
 
+  if (loadError && pairs === null) {
+    return (
+      <AdminLoadFailed
+        title="Participantes"
+        description="Todas las parejas de todos los torneos, en una sola vista."
+        what="las parejas"
+        message={loadError}
+        onRetry={() => { load(); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -306,7 +321,7 @@ export default function AdminParticipants() {
           </Button>
         }
       >
-        <AdminStatStrip>
+        <AdminStatStrip loading={pairs === null}>
           <AdminStat value={resumen.parejas} label="Parejas" />
           <AdminStat value={resumen.torneos} label="Torneos" />
           <AdminStat
@@ -332,8 +347,8 @@ export default function AdminParticipants() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      <Card>
-        <CardHeader className="gap-3">
+      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+        <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}
             onSearch={setQuery}
@@ -393,8 +408,8 @@ export default function AdminParticipants() {
             const prof1 = sel ? players.find((pl) => pl.id === sel.player1_id) : undefined;
             const prof2 = sel ? players.find((pl) => pl.id === sel.player2_id) : undefined;
             return (
-              <div className="grid divide-y lg:grid-cols-[minmax(260px,320px)_1fr] lg:divide-x lg:divide-y-0">
-                <div className="max-h-[70vh] overflow-y-auto p-2">
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(260px,360px)_1fr]">
+                <div className="max-h-[80vh] space-y-3 overflow-y-auto p-1">
                   {filtered.map((p) => {
                     const [p1, p2] = p.name.split(" / ");
                     const active = p.id === selectedId;
@@ -407,7 +422,7 @@ export default function AdminParticipants() {
                       >
                         <CardShell
                           className={cn(
-                            "h-20 rounded-xl border bg-muted/50 p-3 transition-colors hover:bg-muted/60",
+                            "min-h-36 rounded-3xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40",
                             active && "accent ring-2 ring-primary/40"
                           )}
                           accent={active}
@@ -655,4 +670,3 @@ export default function AdminParticipants() {
     </div>
   );
 }
-
