@@ -55,6 +55,9 @@ import {
   RowContextMenu,
   type RowAction,
 } from "@/components/admin/row-actions";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AdminTableSkeleton, AdminTableEmpty } from "@/components/admin/table-state";
+import { AdminViewToggle, useAdminView } from "@/components/admin/view-toggle";
 
 const SEX_OPTIONS = SEX_BRANCHES;
 
@@ -91,6 +94,20 @@ export default function AdminPlayers() {
     new Set(),
   );
   const [verification, setVerification] = useState("all");
+  // Vista del directorio: cards o tabla. La elección se recuerda por sección.
+  const [view, setView] = useAdminView("jugadores", ["cards", "tabla"]);
+
+  /** Acciones de un jugador, compartidas por la vista de cards y la de tabla. */
+  function actionsFor(p: PlayerProfile): RowAction[] {
+    const isPending = (p.status ?? "verificado") === "pendiente";
+    return [
+      ...(isPending
+        ? [{ label: "Verificar perfil", icon: <ShieldCheck className="h-4 w-4" />, onSelect: () => { setApproving(p); } } as RowAction]
+        : []),
+      { label: "Editar", icon: <Pencil className="h-4 w-4" />, onSelect: () => { setEditing(p); setOpenCreate(true); } },
+      { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting(p), destructive: true, separator: true },
+    ];
+  }
 
   const statusOf = (p: PlayerProfile) => p.status ?? "verificado";
   const pendingCount = (list ?? []).filter(
@@ -335,42 +352,67 @@ export default function AdminPlayers() {
               />
             </AdminFacets>
           </FilterBar>
+          <div className="flex justify-end">
+            <AdminViewToggle value={view} onChange={setView} views={["cards", "tabla"]} />
+          </div>
         </CardHeader>
-        {(
+        {view === "tabla" ? (
+        <CardContent className="overflow-x-auto p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="ps-4">Jugador</TableHead>
+                <TableHead>Ciudad</TableHead>
+                <TableHead>Rama</TableHead>
+                <TableHead className="text-end">Nivel</TableHead>
+                <TableHead>Récord</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="pe-4 text-end"><span className="sr-only">Acciones</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list === null && <AdminTableSkeleton columns={7} rows={6} />}
+              {list !== null && filtered.length === 0 && (
+                <AdminTableEmpty
+                  colSpan={7}
+                  icon={<Users className="h-5 w-5" />}
+                  title={list.length ? "Sin coincidencias" : "No hay jugadores todavía"}
+                  description="Agrega un jugador o ajusta los filtros para ver el directorio."
+                />
+              )}
+              {filtered.map((p) => {
+                const status = (p.status ?? "verificado") as PlayerStatus;
+                const isPending = status === "pendiente";
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="ps-4">
+                      <span className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-950 text-xs font-bold text-primary">
+                          {p.photo_url ? <img src={p.photo_url} alt="" className="h-full w-full object-cover" /> : p.display_name.split(" ").map(n => n[0]).slice(0, 2).join("")}
+                        </span>
+                        <span className="font-medium">{p.display_name}</span>
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{p.city || "–"}</TableCell>
+                    <TableCell className="text-muted-foreground">{sexLabel(p.sex)}</TableCell>
+                    <TableCell className="text-end tabular-nums">{p.declared_level.toFixed(1)}</TableCell>
+                    <TableCell className="text-muted-foreground">{stats[p.id] ? `${stats[p.id].played} partidos · ${stats[p.id].won} ganados` : "–"}</TableCell>
+                    <TableCell><Badge variant="outline" className="rounded-full">{isPending ? "Por verificar" : status === "rechazado" ? "Rechazado" : "Verificado"}</Badge></TableCell>
+                    <TableCell className="pe-4 text-end"><RowActionsMenu actions={actionsFor(p)} label={`Acciones para ${p.display_name}`} /></TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+        ) : (
         <CardContent className="grid gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
           {list === null && Array.from({length: 6}, (_, i) => <Skeleton key={i} className="h-64 rounded-3xl" />)}
           {list !== null && filtered.length === 0 && <AdminEmptyState className="col-span-full rounded-3xl bg-card" icon={<Users className="h-6 w-6" />} title={list.length ? "Sin coincidencias" : "No hay jugadores todavía"} description="Agrega un jugador o ajusta los filtros para ver el directorio." />}
               {filtered.map((p) => {
                 const status = (p.status ?? "verificado") as PlayerStatus;
                 const isPending = status === "pendiente";
-                const actions: RowAction[] = [
-                  ...(isPending
-                    ? [
-                        {
-                          label: "Verificar perfil",
-                          icon: <ShieldCheck className="h-4 w-4" />,
-                          onSelect: () => {
-                            setApproving(p);
-                          },
-                        } as RowAction,
-                      ]
-                    : []),
-                  {
-                    label: "Editar",
-                    icon: <Pencil className="h-4 w-4" />,
-                    onSelect: () => {
-                      setEditing(p);
-                      setOpenCreate(true);
-                    },
-                  },
-                  {
-                    label: "Eliminar",
-                    icon: <Trash2 className="h-4 w-4" />,
-                    onSelect: () => setDeleting(p),
-                    destructive: true,
-                    separator: true,
-                  },
-                ];
+                const actions = actionsFor(p);
                 return (
                   <RowContextMenu key={p.id} actions={actions}>
                     <article className="group overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
