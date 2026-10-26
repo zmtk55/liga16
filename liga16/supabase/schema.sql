@@ -142,6 +142,7 @@ create table if not exists public.tournament_categories (
   tournament_id uuid not null references public.tournaments (id) on delete cascade,
   name text not null,
   category padel_division not null default '1ra',
+  max_pairs integer not null default 0 check (max_pairs >= 0),
   sex sex_type not null,
   price_cents integer not null default 0,
   unique (tournament_id, name)
