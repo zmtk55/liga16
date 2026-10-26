@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import type { Pair, Match, TournamentCategory } from "@/types";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, RotateCcw, Trophy } from "lucide-react";
+import { Check, ChevronDown, Crown, RotateCcw, Trophy } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { BENTO_CARD, BENTO_DARK, BENTO_LIGHT, BENTO_METRIC_MD } from "@/components/admin/bento";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { computeStandings } from "@/lib/groups";
 import type { TournamentScoring } from "@/types";
-import { buildBracket, moveSeed, resolveBracket, type BracketEntry } from "@/lib/bracket";
+import { buildBracket, moveSeed, resolveBracket, type BracketEntry, type BracketMatch } from "@/lib/bracket";
 import { tournamentProgress } from "@/lib/tournament-progress";
 import { SIN_CATEGORIA } from "@/lib/format";
 import { matchStatusKey } from "@/lib/match-state";
@@ -101,149 +103,206 @@ function CategoryBracket({
     played: matches.filter((m) => matchStatusKey(m) === "finished").length,
     total: matches.length,
   });
-  const rondaNombre = (n: number) =>
-    n >= bracket.rounds ? "Final" : n === bracket.rounds - 1 ? "Semifinales" : `Ronda ${n}`;
+  const rondaNombre = (n: number) => {
+    const faltan = bracket.rounds - n;
+    return faltan === 0
+      ? "Final"
+      : faltan === 1
+        ? "Semifinales"
+        : faltan === 2
+          ? "Cuartos de final"
+          : faltan === 3
+            ? "Octavos de final"
+            : `Ronda ${n}`;
+  };
+  const jugados = matches.filter((m) => matchStatusKey(m) === "finished").length;
+  const finalistas = prog ? prog.finalists.filter(Boolean) : [];
 
   return (
     <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            En qué anda
-          </p>
-          {prog ? (
-            <p className="mt-1 font-display text-xl leading-none">
-              {prog.finished ? "Terminado" : rondaNombre(prog.currentRound)}
+      {/* Panorama: dónde va el torneo, cuánto falta y quién sigue vivo. */}
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className={cn(BENTO_CARD, BENTO_DARK, "flex flex-col justify-between gap-5 lg:col-span-5")}>
+          <p className="text-xs font-bold uppercase tracking-widest opacity-70">En qué anda</p>
+          <div>
+            <p className={BENTO_METRIC_MD}>
+              {prog ? (prog.finished ? "Terminado" : rondaNombre(prog.currentRound)) : "Fase de grupos"}
             </p>
-          ) : (
-            <p className="mt-1 font-display text-xl leading-none">Fase de grupos</p>
-          )}
-          {prog && !prog.finished && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {prog.pendingInRound} {prog.pendingInRound === 1 ? "partido" : "partidos"} sin capturar
-            </p>
-          )}
+            {prog && !prog.finished && (
+              <p className="mt-2 text-sm opacity-80">
+                {prog.pendingInRound} {prog.pendingInRound === 1 ? "cruce" : "cruces"} por definir en esta ronda
+              </p>
+            )}
+          </div>
         </div>
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Partidos
-          </p>
-          <p className="mt-1 font-display text-xl leading-none tabular-nums">
-            {matches.filter((m) => matchStatusKey(m) === "finished").length}
-            <span className="text-sm text-muted-foreground"> / {matches.length}</span>
+        <div className={cn(BENTO_CARD, BENTO_LIGHT, "flex flex-col justify-between gap-5 lg:col-span-3")}>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Partidos jugados</p>
+          <p className={BENTO_METRIC_MD}>
+            {jugados}
+            <span className="text-muted-foreground"> / {matches.length}</span>
           </p>
         </div>
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            {prog?.champion ? "Campeón" : "Finalistas"}
+        <div
+          className={cn(
+            BENTO_CARD,
+            "flex flex-col justify-between gap-5 border border-transparent bg-primary text-primary-foreground lg:col-span-4",
+          )}
+        >
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest opacity-80">
+            <Crown className="h-3.5 w-3.5" aria-hidden /> {prog?.champion ? "Campeón" : "Finalistas"}
           </p>
           {prog?.champion ? (
-            <p className="mt-1 truncate font-display text-xl leading-none text-primary">
-              {prog.champion.name}
-            </p>
-          ) : prog && prog.finalists.filter(Boolean).length > 0 ? (
-            <p className="mt-1 truncate text-sm font-medium">
-              {prog.finalists.filter(Boolean).map((f) => f!.name).join(" vs ")}
+            <p className="font-display text-3xl font-bold leading-none tracking-tight">{prog.champion.name}</p>
+          ) : finalistas.length > 0 ? (
+            <p className="font-display text-xl font-bold leading-tight">
+              {finalistas.map((f) => f!.name).join(" vs ")}
             </p>
           ) : (
-            <p className="mt-1 text-sm text-muted-foreground">Por definir</p>
+            <p className="text-sm font-medium opacity-80">Por definir: se conocen al jugarse las semifinales.</p>
           )}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
-        <p className="text-sm text-muted-foreground">
-          Pasan <strong className="text-foreground">{Math.min(slots, table.length)}</strong> de{" "}
-          {table.length} parejas. La siembra sale de los puntos: la primera se planta arriba.
-        </p>
-        <Button variant="outline" size="sm" onClick={() => setOrdenManual(null)}>
-          <RotateCcw className="h-4 w-4" /> Volver al orden por puntos
-        </Button>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {clasificadas.map((p, i) => (
-          <div key={p.pairId} className="flex min-w-0 items-center gap-2 rounded-lg border bg-card p-2.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-              {i + 1}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{p.name}</p>
-              <p className="text-xs tabular-nums text-muted-foreground">{p.points} pts</p>
-            </div>
-            <div className="flex shrink-0 flex-col">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => mover(p.pairId, -1)}
-                disabled={i === 0}
-                aria-label={`Subir a ${p.name} en la siembra`}
-              >
-                <ChevronDown className="h-4 w-4 rotate-180" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => mover(p.pairId, 1)}
-                disabled={i === clasificadas.length - 1}
-                aria-label={`Bajar a ${p.name} en la siembra`}
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {Array.from({ length: bracket.rounds }, (_, r) => r + 1).map((ronda) => (
-          <div key={ronda}>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {ronda === bracket.rounds ? "Final" : `Ronda ${ronda}`}
+      {/* Siembra: quién entra y en qué lugar. Se puede mover; el árbol se rehace solo. */}
+      <div className={cn(BENTO_CARD, BENTO_LIGHT, "space-y-4")}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="font-display text-lg font-bold leading-none">Siembra</h4>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Pasan <strong className="text-foreground">{Math.min(slots, table.length)}</strong> de {table.length} parejas.
+              La 1 se enfrenta a la última; la 1 y la 2 solo se cruzan en la final.
             </p>
-<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {bracket.matches
-                .filter((m) => m.round === ronda)
-                .map((m) => {
-                  // Solo la primera ronda puede tener bye; en las siguientes
-                  // un hueco es "ganador de la ronda anterior", no una baja.
-                  const etiqueta = (e: BracketEntry | null) =>
-                    e ? `S${e.seed}` : ronda === 1 ? "bye" : "ganador de la ronda anterior";
-                  const linea = (e: BracketEntry | null, rival: BracketEntry | null) => {
-                    const gano =
-                      e && rival && m.played && m.a?.pairId === e.pairId && m.a !== null && m.b !== null
-                        ? m.a.pairId !== m.b?.pairId
-                        : false;
-                    return (
-                      <div
-                        className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                          m.played && e ? (gano ? "bg-success/10" : "") : ""
-                        }`}
-                      >
-                        <span className="min-w-0 flex-1 truncate font-medium">{e?.name ?? "—"}</span>
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                          {etiqueta(e)}
-                        </span>
-                      </div>
-                    );
-                  };
-                  return (
-                    <div
-                      key={m.id}
-                      className={`overflow-hidden rounded-lg border bg-card ${m.played ? "border-success/40" : ""}`}
-                    >
-                      {linea(m.a, m.b)}
-                      <div className="border-t">{linea(m.b, m.a)}</div>
-                    </div>
-                  );
-                })}
-            </div>
           </div>
-        ))}
+          <Button variant="outline" size="sm" className="rounded-full" onClick={() => setOrdenManual(null)}>
+            <RotateCcw className="h-4 w-4" /> Orden por puntos
+          </Button>
+        </div>
+        <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {clasificadas.map((p, i) => (
+            <li key={p.pairId} className="flex min-w-0 items-center gap-3 rounded-2xl border bg-background/60 p-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-display text-sm font-bold text-primary-foreground">
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{p.name}</p>
+                <p className="text-xs tabular-nums text-muted-foreground">{p.points} pts</p>
+              </div>
+              <div className="flex shrink-0 gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={() => mover(p.pairId, -1)}
+                  disabled={i === 0}
+                  aria-label={`Subir a ${p.name} en la siembra`}
+                >
+                  <ChevronDown className="h-4 w-4 rotate-180" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={() => mover(p.pairId, 1)}
+                  disabled={i === clasificadas.length - 1}
+                  aria-label={`Bajar a ${p.name} en la siembra`}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* El árbol: las rondas fluyen de izquierda a derecha hasta la final. */}
+      <div className={cn(BENTO_CARD, BENTO_LIGHT, "p-4 sm:p-6")}>
+        <div className="overflow-x-auto pb-2">
+          <div className="flex min-w-max gap-0">
+            {Array.from({ length: bracket.rounds }, (_, r) => r + 1).map((ronda) => {
+              const cruces = bracket.matches.filter((m) => m.round === ronda);
+              const esFinal = ronda === bracket.rounds;
+              return (
+                <div key={ronda} className="flex w-64 shrink-0 flex-col">
+                  <p
+                    className={cn(
+                      "mb-3 mx-4 rounded-full px-3 py-1 text-center text-xs font-bold uppercase tracking-wider",
+                      esFinal ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {rondaNombre(ronda)}
+                  </p>
+                  <div className="flex flex-1 flex-col">
+                    {cruces.map((m, idx) => (
+                      <div key={m.id} className="relative flex flex-1 items-center px-4 py-2">
+                        {ronda > 1 && (
+                          <span aria-hidden className="absolute left-0 top-1/2 w-4 border-t-2 border-border" />
+                        )}
+                        {!esFinal && (
+                          <>
+                            <span aria-hidden className="absolute right-0 top-1/2 w-4 border-t-2 border-border" />
+                            <span
+                              aria-hidden
+                              className={cn(
+                                "absolute right-0 w-4 border-r-2 border-border",
+                                idx % 2 === 0 ? "top-1/2 h-1/2" : "bottom-1/2 h-1/2",
+                              )}
+                            />
+                          </>
+                        )}
+                        <MatchCard m={m} ronda={ronda} esFinal={esFinal} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
+  );
+}
+
+/** Un cruce: dos renglones, el ganador resaltado en naranja y el que cae atenuado. */
+function MatchCard({ m, ronda, esFinal }: { m: BracketMatch; ronda: number; esFinal: boolean }) {
+  const renglon = (e: BracketEntry | null) => {
+    const gano = Boolean(e && m.played && m.winnerId === e.pairId);
+    const perdio = Boolean(e && m.played && m.winnerId !== e.pairId);
+    const vacio = ronda === 1 ? "Descansa (bye)" : "Por definir";
+    return (
+      <div
+        className={cn(
+          "flex items-center gap-2.5 px-3 py-2.5 text-sm",
+          gano && "bg-primary/15",
+          perdio && "text-muted-foreground",
+        )}
+      >
+        <span
+          className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums",
+            gano ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+          )}
+        >
+          {e ? e.seed : "–"}
+        </span>
+        <span className={cn("min-w-0 flex-1 truncate", e ? "font-semibold" : "italic text-muted-foreground", perdio && "font-medium")}>
+          {e?.name ?? vacio}
+        </span>
+        {gano && <Check className="h-4 w-4 shrink-0 text-primary-strong" aria-label="Avanza" />}
+      </div>
+    );
+  };
+  return (
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-2xl border-2 bg-card",
+        esFinal ? "border-primary" : m.played ? "border-primary/40" : "border-border",
+        m.bye && "opacity-70",
+      )}
+    >
+      {renglon(m.a)}
+      <div className="border-t">{renglon(m.b)}</div>
+    </div>
   );
 }
 
@@ -293,7 +352,7 @@ export function BracketPanel({
   if (pairs.length === 0) {
     return (
       <AdminEmptyState
-        className="border bg-card"
+        className="rounded-3xl border bg-card"
         icon={<Trophy className="h-5 w-5" />}
         title="Sin parejas en este torneo"
         description="Cuando inscribas parejas, aquí se genera el bracket."
@@ -328,9 +387,9 @@ export function BracketPanel({
         return (
           <div key={categoryId || "__sin_categoria__"} className="space-y-4">
             {byCategory.length > 1 && (
-              <h3 className="flex flex-wrap items-center gap-2 border-b pb-2 text-sm font-semibold">
-                {name}
-                <span className="text-xs font-normal text-muted-foreground">
+              <h3 className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-foreground px-4 py-1.5 font-display text-sm font-bold text-background">{name}</span>
+                <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
                   {catPairs.length} parejas · {catMatches.length} partidos
                 </span>
               </h3>
