@@ -1,5 +1,6 @@
-"use client";
+import { useSearchParams } from "react-router";
 
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { NewsItem } from "@/types";
@@ -23,20 +24,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
+import { AdminEmptyState } from "@/components/admin/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
@@ -46,17 +40,28 @@ const TAG_OPTIONS = ["General", "Resultados", "Torneos", "Ligas", "Jugadores", "
 
 export default function AdminNews() {
   const [list, setList] = useState<NewsItem[] | null>(null);
-  const [query, setQuery] = useState("");
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set("q", value); else next.delete("q");
+    setParams(next, { replace: true });
+  };
   const [fTag, setFTag] = useState("all");
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<NewsItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    db.listNews().then(setList);
-  }, []);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const load = () => db.listNews().then(setList);
+  const load = () =>
+    db.listNews()
+      .then((l) => { setList(l); setLoadError(null); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar las noticias"));
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function handleSave(form: NewsForm) {
     if (!form.title?.trim()) {
@@ -104,10 +109,11 @@ export default function AdminNews() {
   /** Cifras de cabecera: lo publicado y lo que aun no tiene foto ni fecha. */
   const resumen = useMemo(() => {
     const all = list ?? [];
-    const hoy = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const hoy = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     return {
       total: all.length,
-      publicadas: all.filter((x) => (x.published_at ?? '') <= hoy).length,
+      publicadas: all.filter((x) => !!x.published_at && x.published_at.slice(0, 10) <= hoy).length,
       conFoto: all.filter((x) => x.image_url).length,
       esteMes: all.filter((x) => (x.published_at ?? '').slice(0, 7) === hoy.slice(0, 7)).length,
     };
@@ -129,6 +135,18 @@ export default function AdminNews() {
       .sort((a, b) => b.n - a.n);
   }, [list]);
 
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Noticias"
+        description="Publica novedades y resultados del circuito."
+        what="las noticias"
+        message={loadError}
+        onRetry={load}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -140,7 +158,7 @@ export default function AdminNews() {
           </Button>
         }
       >
-        <AdminStatStrip>
+        <AdminStatStrip loading={list === null}>
           <AdminStat value={resumen.total} label="Noticias" />
           <AdminStat value={resumen.publicadas} label="Publicadas" tone="text-success" />
           <AdminStat value={resumen.esteMes} label="Este mes" tone="text-primary" />
@@ -151,8 +169,8 @@ export default function AdminNews() {
           />
         </AdminStatStrip>
       </AdminPageHeader>
-      <Card>
-        <CardHeader className="gap-3">
+      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+        <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}
             onSearch={setQuery}
@@ -174,20 +192,10 @@ export default function AdminNews() {
           </FilterBar>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Título</TableHead>
-                <TableHead>Tag</TableHead>
-                <TableHead className="hidden sm:table-cell">Fecha</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list === null && <AdminTableSkeleton columns={4} />}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {list === null && <>{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-72 rounded-3xl" />)}</>}
               {list !== null && list.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={4}
+                <AdminEmptyState className="col-span-full rounded-3xl bg-card"
                   icon={<Newspaper className="h-5 w-5" />}
                   title="No hay noticias todavía"
                   description="Publica la primera novedad del circuito."
@@ -199,8 +207,7 @@ export default function AdminNews() {
                 />
               )}
               {list !== null && list.length > 0 && filtered.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={4}
+                <AdminEmptyState className="col-span-full rounded-3xl bg-card"
                   icon={<Newspaper className="h-5 w-5" />}
                   title="Sin coincidencias"
                   description="Ninguna noticia coincide con la búsqueda."
@@ -223,30 +230,23 @@ export default function AdminNews() {
                 ];
                 return (
                 <RowContextMenu key={n.id} actions={actions}>
-                  <TableRow>
-                  <TableCell>
-                    <div className="flex min-w-0 items-center gap-3">
-                      {n.image_url ? (
-                        <img src={n.image_url} alt="" className="h-10 w-16 shrink-0 rounded-xs object-cover" />
-                      ) : (
-                        <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xs bg-muted text-xs font-bold text-muted-foreground">
-                          SIN
-                        </span>
-                      )}
-                      <span className="truncate font-medium">{n.title}</span>
+<article className="group h-full overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                    <div className="relative flex h-44 items-center justify-center overflow-hidden bg-zinc-950 text-primary">
+                      {n.image_url ? <img src={n.image_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <Newspaper className="h-16 w-16 opacity-60" strokeWidth={1} />}
+                      <Badge className="absolute bottom-4 left-4 rounded-full bg-card text-foreground">{n.tag}</Badge>
+                      <div className="absolute right-3 top-3 rounded-full bg-card/95 text-foreground"><RowActionsMenu actions={actions} label={`Acciones para ${n.title}`} /></div>
                     </div>
-                  </TableCell>
-                  <TableCell><Badge variant="secondary">{n.tag}</Badge></TableCell>
-                  <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(n.published_at)}</TableCell>
-                  <TableCell className="pr-2 text-right">
-                    <RowActionsMenu actions={actions} label={`Acciones para ${n.title}`} />
-                  </TableCell>
-                  </TableRow>
+                    <div className="space-y-3 p-5">
+                      <p className="text-xs text-muted-foreground">{formatDate(n.published_at)}</p>
+                      <h2 className="font-display text-xl font-semibold leading-snug">{n.title}</h2>
+                      <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{n.excerpt}</p>
+                      <Button variant="ghost" size="sm" className="px-0" onClick={() => { setEditing(n); setOpenCreate(true); }}>Editar noticia <Pencil className="ml-2 h-3 w-3" /></Button>
+                    </div>
+                  </article>
                 </RowContextMenu>
                 );
               })}
-            </TableBody>
-          </Table>
+            </div>
         </CardContent>
       </Card>
 
