@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import type { ComponentProps } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import "./qualification-panel.css";
 import { AdminPageHeader, AdminStat } from "@/components/admin/page-header";
@@ -42,6 +43,33 @@ const TONE_ICON: Record<Tone, typeof Trophy> = {
   out: ShieldAlert,
 };
 
+
+/** Conserva summary/teclado nativos; anima altura al abrir y al cerrar. */
+function AnimatedDetails({ children, ...props }: ComponentProps<"details">) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  const animation = useRef<Animation | null>(null);
+  const targetOpen = useRef(false);
+  useEffect(() => () => animation.current?.cancel(), []);
+  return <details {...props} ref={ref} onClick={(event) => {
+    const details = ref.current;
+    const target = event.target;
+    if (!details || !(target instanceof Element) || target.closest("summary") !== details.querySelector("summary")) return;
+    event.preventDefault();
+    const opening = !targetOpen.current;
+    targetOpen.current = opening;
+    const start = details.getBoundingClientRect().height;
+    animation.current?.cancel();
+    details.style.height = "";
+    details.open = opening;
+    const end = details.getBoundingClientRect().height;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    details.open = true;
+    const effect = details.animate([{ height: `${start}px` }, { height: `${end}px` }], { duration: 220, easing: "cubic-bezier(0.2, 0, 0, 1)" });
+    animation.current = effect;
+    effect.onfinish = () => { details.open = opening; animation.current = null; };
+  }}>{children}</details>;
+}
+
 export default function ScenarioPanel({
   standings,
   me,
@@ -63,6 +91,8 @@ export default function ScenarioPanel({
 
   const q = useMemo(() => qualificationFor(rows, me, ctx), [rows, me, ctx]);
 
+  const requestInFlight = useRef(false);
+  const [askedQuestion, setAskedQuestion] = useState("");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -249,7 +279,9 @@ export default function ScenarioPanel({
 
   const generate = async (prompt: string) => {
     const clean = prompt.trim();
-    if (!clean) return;
+    if (!clean || requestInFlight.current) return;
+    requestInFlight.current = true;
+    setAskedQuestion(clean);
     setLoading(true);
     setAnswer(null);
     // JEV entiende la pregunta (acentos, subjuntivo, a quién nombra); el texto
@@ -258,6 +290,7 @@ export default function ScenarioPanel({
     setSource(reading ? "jev" : "local");
     setAnswer(buildAnswer(clean, reading));
     setLoading(false);
+    requestInFlight.current = false;
   };
 
   const ask = (text: string) => {
@@ -273,7 +306,7 @@ export default function ScenarioPanel({
       className="qualification-panel mx-auto max-w-7xl px-4 md:px-6"
     >
       <AdminPageHeader title="Clasificación" />
-      <div className="mb-4 mt-3 grid grid-cols-3 gap-3">
+      <div className="qualification-stats mb-4 mt-3 grid grid-cols-3 gap-3">
         <AdminStat value={`${q.position}°`} label="Posición" icon={<VerdictIcon className="h-3.5 w-3.5" aria-hidden />} className="gap-3 p-4 [&>span:first-child]:text-4xl" />
         <AdminStat value={`${fmtPct(myPoints)}%`} label="Rend." className="gap-3 p-4 [&>span:first-child]:text-4xl" />
         <AdminStat value={left} label="Por jugar" className="gap-3 p-4 [&>span:first-child]:text-4xl" />
@@ -284,7 +317,7 @@ export default function ScenarioPanel({
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
       {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
-      <BentoCard className={cn(BENTO_CARD, BENTO_LIGHT, "min-w-0 gap-0 p-5")}>
+      <BentoCard className={cn(BENTO_CARD, BENTO_LIGHT, "qualification-interactive min-w-0 gap-0 p-5")}>
         <h3 className="flex items-center gap-2.5 text-base font-semibold"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Pregunta por tu pase<Sparkles className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden /></h3>
         <form
           className="mt-3 rounded-xl border border-border bg-card p-2.5 transition-shadow focus-within:ring-2 focus-within:ring-ring/30"
@@ -331,7 +364,7 @@ export default function ScenarioPanel({
             )}
 
             {!loading && answer && (
-              <div className="animate-fade-in border-t border-border pt-3">
+              <div className="qualification-answer border-t border-border pt-3">
                 <div className="min-w-0 flex-1 space-y-3">
                   <QualificationResponse
                     answer={answer}
@@ -357,6 +390,7 @@ export default function ScenarioPanel({
                 type="button"
                 onClick={() => ask(f)}
                 disabled={loading}
+                aria-pressed={askedQuestion === f}
                 className="group inline-flex min-h-10 items-center gap-1.5 py-1 text-left text-xs leading-snug text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
               >
                 {["Si gano", "Mi rival", "Sin partidos"][index]}
@@ -371,7 +405,7 @@ export default function ScenarioPanel({
       </BentoCard>
       <div className="grid items-start gap-4">
       {/* Tabla alrededor de la línea de semifinales. */}
-      <details className={cn(BENTO_CARD, BENTO_LIGHT, "group min-w-0 p-5")}>
+      <AnimatedDetails className={cn(BENTO_CARD, BENTO_LIGHT, "qualification-interactive group min-w-0 p-5")}>
         <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2.5"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Tabla <span className="ml-2 text-xs font-normal text-muted-foreground">{rows.length} parejas</span></span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
@@ -430,10 +464,10 @@ export default function ScenarioPanel({
           )}
         </ol>
         </div>
-      </details>
+      </AnimatedDetails>
 
       {/* Los tres finales: una superficie con filas separadas, no texto suelto. */}
-      <details className={cn(BENTO_CARD, BENTO_LIGHT, "group min-w-0 p-5")}>
+      <AnimatedDetails className={cn(BENTO_CARD, BENTO_LIGHT, "qualification-interactive group min-w-0 p-5")}>
         <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2.5"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Escenarios</span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
@@ -467,7 +501,7 @@ export default function ScenarioPanel({
           Los escenarios asumen que los demás no suman entre sí; la tabla se
           recalcula con cada resultado guardado.
         </p>
-      </details>
+      </AnimatedDetails>
 
       </div>
       </div>
