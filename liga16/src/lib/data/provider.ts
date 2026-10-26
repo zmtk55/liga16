@@ -76,6 +76,7 @@ export interface DataProvider {
   deleteTournament(slug: string): Promise<boolean>;
   getTournamentCategories(tournamentId: string): Promise<TournamentCategory[]>;
   createTournamentCategory(data: Omit<TournamentCategory, 'id'>): Promise<TournamentCategory>;
+  updateTournamentCategory(id: UUID, data: Partial<Pick<TournamentCategory, 'name' | 'sex' | 'category' | 'max_pairs'>>): Promise<TournamentCategory>;
   deleteTournamentCategory(id: string): Promise<void>;
   getTournamentPairs(tournamentId: string): Promise<Pair[]>;
   /**
@@ -84,7 +85,7 @@ export interface DataProvider {
    */
   listAllPairs(): Promise<AllPair[]>;
   createPair(data: { tournament_id: UUID; category_id?: UUID | null; name: string; seed?: number | null; player1_id?: UUID | null; player2_id?: UUID | null; crest_url?: string | null }): Promise<Pair>;
-  updatePair(id: UUID, data: { name?: string; category_id?: UUID | null; seed?: number | null; group_name?: string | null; tournament_id?: UUID; crest_url?: string | null }): Promise<Pair>;
+  updatePair(id: UUID, data: { name?: string; category_id?: UUID | null; seed?: number | null; group_name?: string | null; tournament_id?: UUID; crest_url?: string | null; player1_id?: UUID | null; player2_id?: UUID | null }): Promise<Pair>;
   deletePair(id: UUID): Promise<boolean>;
   /**
    * Edita el pago de una inscripción: estado, método, monto y fecha de pago.
