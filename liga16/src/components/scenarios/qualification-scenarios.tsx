@@ -268,49 +268,42 @@ export default function ScenarioPanel({
       aria-labelledby="escenarios-title"
       className="qualification-panel mx-auto max-w-7xl px-4 md:px-6"
     >
-      <header className="mb-8 flex items-center justify-between gap-4 border-b border-border pb-4">
-        <p className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
-          Liga16 / Clasificación
-        </p>
-        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{slots} plazas · Semifinales</p>
+      <header className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+        <h2 id="escenarios-title" className="font-display text-3xl font-semibold leading-none tracking-tight">Clasificación</h2>
+        <p className="text-xs text-muted-foreground">Semifinales · {slots} lugares</p>
       </header>
 
-      <div className="grid gap-10 pb-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16 lg:pb-14">
-        <div className="flex flex-col">
-          <h2 id="escenarios-title" className="font-display text-[clamp(3.5rem,6vw,5.5rem)] font-bold uppercase leading-[0.88] tracking-[-0.025em]">
-            Tu ruta a<br /><span className="text-muted-foreground">semifinales.</span>
-          </h2>
-          <div className="my-7 flex items-end gap-5 sm:my-8">
-            <span className="font-display text-[7rem] font-semibold leading-[0.75] tracking-[-0.055em] text-primary-strong sm:text-[9rem]">{q.position}<span className="align-top text-[0.45em] leading-none">°</span></span>
-            <div className="pb-1">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Tu posición</p>
-              <p className="mt-2 flex items-center gap-2 text-sm font-semibold"><VerdictIcon className="h-4 w-4" aria-hidden />{verdict.word}</p>
+      <div className="grid gap-5 pb-5 lg:grid-cols-[0.6fr_1.4fr] lg:gap-8">
+        <div>
+          <div className="flex items-center gap-4">
+            <span className="text-5xl font-semibold leading-none tracking-tight text-primary-strong tabular-nums">{q.position}°</span>
+            <div>
+              <p className="text-xs text-muted-foreground">Posición actual</p>
+              <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold"><VerdictIcon className="h-3.5 w-3.5" aria-hidden />{verdict.word}</p>
             </div>
           </div>
-          <p className="max-w-[43ch] text-sm leading-7 text-muted-foreground">{verdict.sentence}</p>
-          <dl className="mt-7 grid grid-cols-2 border-t border-border pt-5 sm:mt-8">
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {q.inCut
+              ? left > 0 ? "Dentro del corte. Tu pase aún puede cambiar." : "Sin partidos pendientes. Dependes de los demás."
+              : tiedAtCut ? "Empate en el corte. Decide el desempate." : `A ${fmtPct(gapPct)} puntos porcentuales del corte.`}
+          </p>
+          <dl className="mt-4 grid grid-cols-2 border-t border-border pt-3">
             <div>
-              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Rendimiento</dt>
-              <dd className="mt-1 font-display text-3xl font-semibold tabular-nums">{fmtPct(myPoints)}<span className="ml-0.5 text-lg text-muted-foreground">%</span></dd>
+              <dt className="text-xs text-muted-foreground">Rendimiento</dt>
+              <dd className="mt-1 text-xl font-semibold tabular-nums">{fmtPct(myPoints)}%</dd>
             </div>
-            <div className="border-l border-border pl-6">
-              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Por jugar</dt>
-              <dd className="mt-1 font-display text-3xl font-semibold tabular-nums">{left}<span className="ml-2 font-sans text-xs font-normal text-muted-foreground">partido{left === 1 ? "" : "s"}</span></dd>
+            <div className="border-l border-border pl-4">
+              <dt className="text-xs text-muted-foreground">Por jugar</dt>
+              <dd className="mt-1 text-xl font-semibold tabular-nums">{left}</dd>
             </div>
           </dl>
         </div>
 
       {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
-      <div className="flex min-w-0 flex-col rounded-3xl bg-muted p-5 sm:p-8">
-        <div className="mb-7 flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Lectura de juego</span>
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Sparkles className="h-3.5 w-3.5" aria-hidden /> Asistente IA</span>
-        </div>
-        <h3 className="max-w-[15ch] font-display text-4xl font-semibold leading-[1] tracking-tight sm:text-5xl">¿Qué resultado<br />te cambia el pase?</h3>
-        <p className="mt-3 max-w-[42ch] text-sm leading-6 text-muted-foreground">Pregunta por tu próximo partido o por el de tus rivales. Lo leemos con la tabla de hoy.</p>
+      <div className="min-w-0 rounded-2xl bg-muted p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />Pregunta por tu pase</h3>
         <form
-          className="mt-6 rounded-2xl border border-border bg-card p-3 transition-shadow focus-within:ring-2 focus-within:ring-ring/30"
+          className="mt-3 rounded-xl border border-border bg-card p-2.5 transition-shadow focus-within:ring-2 focus-within:ring-ring/30"
           onSubmit={(e) => {
             e.preventDefault();
             ask(question);
@@ -323,18 +316,17 @@ export default function ScenarioPanel({
             id="clasificacion-pregunta"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="¿Paso si gano el próximo partido?"
-            rows={2}
-            className="block min-h-[4.5rem] w-full resize-y border-0 bg-transparent px-1 py-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
+            placeholder="¿Y si gano el próximo?"
+            rows={1}
+            className="block min-h-10 w-full resize-y border-0 bg-transparent px-1 py-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
             autoComplete="off"
           />
 
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="pl-1 text-xs text-muted-foreground">Con la tabla actual</span>
+          <div className="mt-1 flex items-center justify-end gap-3">
           <Button
             type="submit"
             size="sm"
-            className="h-10 shrink-0 rounded-xl bg-foreground px-3 text-background hover:bg-foreground/85 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+            className="h-9 shrink-0 rounded-lg bg-foreground px-3 text-background hover:bg-foreground/85 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
             disabled={loading || !question.trim()}
             aria-label="Preguntar a la IA"
           >
@@ -344,7 +336,7 @@ export default function ScenarioPanel({
           </div>
         </form>
 
-        <div className="mt-5">
+        <div className="mt-3">
           <div aria-live="polite" aria-busy={loading}>
             {loading && (
               <div className="space-y-1.5 py-1">
@@ -355,7 +347,7 @@ export default function ScenarioPanel({
             )}
 
             {!loading && answer && (
-              <div className="animate-fade-in border-t border-border pb-3 pt-5">
+              <div className="animate-fade-in border-t border-border pt-3">
                 <div className="min-w-0 flex-1 space-y-3">
                   <QualificationResponse
                     answer={answer}
@@ -374,7 +366,7 @@ export default function ScenarioPanel({
 
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0">
             {FREQUENT.map((f, index) => (
               <button
                 key={f}
@@ -383,7 +375,7 @@ export default function ScenarioPanel({
                 disabled={loading}
                 className="group inline-flex min-h-10 items-center gap-1.5 py-1 text-left text-xs leading-snug text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
               >
-                {["Si gano el próximo", "Qué necesita mi rival", "Sin partidos pendientes"][index]}
+                {["Si gano", "Mi rival", "Sin partidos"][index]}
                 <ArrowUpRight
                   className="h-3 w-3 shrink-0"
                   aria-hidden
@@ -394,11 +386,11 @@ export default function ScenarioPanel({
         </div>
       </div>
       </div>
-      <div className="grid items-start gap-x-12 border-t border-border md:grid-cols-2">
+      <div className="grid items-start gap-x-8 border-t border-border md:grid-cols-2">
       {/* Tabla alrededor de la línea de semifinales. */}
       <details className="group min-w-0 border-b border-border">
-        <summary className="flex min-h-24 cursor-pointer list-none items-center justify-between gap-4 py-5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-          <span>Tabla de clasificación<span className="mt-1 block text-xs font-normal text-muted-foreground">{rows.length} parejas · {slots} lugares</span></span>
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <span>Tabla <span className="ml-2 text-xs font-normal text-muted-foreground">{rows.length} parejas</span></span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
         </summary>
         <div className="pb-6">
@@ -459,8 +451,8 @@ export default function ScenarioPanel({
 
       {/* Los tres finales: una superficie con filas separadas, no texto suelto. */}
       <details className="group min-w-0 border-b border-border">
-        <summary className="flex min-h-24 cursor-pointer list-none items-center justify-between gap-4 py-5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-          <span>Explorar escenarios<span className="mt-1 block text-xs font-normal text-muted-foreground">Si ganas, si pierdes y qué cambia</span></span>
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <span>Escenarios</span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
         </summary>
         <ul className="divide-y">
