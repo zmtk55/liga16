@@ -33,17 +33,19 @@ export interface TournamentProgress {
 }
 
 export function tournamentProgress(input: ProgressInput): TournamentProgress | null {
-  const { matches, rounds, played, total } = input;
+  const { matches, rounds } = input;
   if (!matches.length || rounds === 0) return null;
 
   const finalMatch = matches.find((m) => m.round === rounds) ?? null;
-  // La última ronda tiene ganador cuando las dos parejas Facing ya son conocidas.
-  const championPick = finalMatch && finalMatch.a && finalMatch.b && finalMatch.played ? finalMatch.a : null;
-  const champion = championPick && finalMatch?.b?.pairId === championPick.pairId ? finalMatch.b : championPick;
+  // El campeón es el ganador capturado del último cruce.
+  const champion =
+    finalMatch?.played && finalMatch.winnerId
+      ? [finalMatch.a, finalMatch.b].find((e) => e?.pairId === finalMatch.winnerId) ?? null
+      : null;
 
   const pendingByRound = new Map<number, number>();
   for (const m of matches) {
-    if (!m.played) pendingByRound.set(m.round, (pendingByRound.get(m.round) ?? 0) + 1);
+    if (!m.played && !m.bye) pendingByRound.set(m.round, (pendingByRound.get(m.round) ?? 0) + 1);
   }
   const currentRound =
     Math.min(...[...pendingByRound.keys()], rounds + 1) || rounds + 1;
@@ -52,7 +54,7 @@ export function tournamentProgress(input: ProgressInput): TournamentProgress | n
     currentRound: Math.min(currentRound, rounds),
     pendingInRound: pendingByRound.get(Math.min(currentRound, rounds)) ?? 0,
     finalists: finalMatch ? [finalMatch.a, finalMatch.b] : [],
-    champion: champion ?? null,
-    finished: Boolean(champion) || (played > 0 && played >= total),
+    champion,
+    finished: Boolean(champion),
   };
 }
