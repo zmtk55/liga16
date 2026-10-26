@@ -1,5 +1,6 @@
 "use client";
 
+import { isoToLocalInput, localInputToIso } from "@/lib/datetime";
 import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -208,7 +209,7 @@ export default function AdminResults() {
         status: form.status as MatchStatus,
         round: form.round,
         court_name: form.court_name,
-        scheduled_at: form.scheduled_at || undefined,
+        scheduled_at: localInputToIso(form.scheduled_at),
         winner: autoWinner ?? manualWinner,
         sets: form.sets,
       });
@@ -473,7 +474,7 @@ function fromSetInputs(inputs: SetInput[]): SetScore[] {
 
 function MatchEditDialog({ match, tournament, open, onOpenChange, onSave, submitting }: { match: Match; tournament: Tournament | undefined; open: boolean; onOpenChange: (open: boolean) => void; onSave: (id: string, data: MatchFormData) => void; submitting: boolean; }) {
   const scoring = normalizeScoring(tournament?.scoring);
-  const [form, setForm] = useState<MatchFormData>(() => ({ tournament_id: match.tournament_id, status: match.status, round: match.round, court_name: match.court_name ?? "", scheduled_at: match.scheduled_at ? match.scheduled_at.slice(0, 16) : "", winner: match.winner ?? "", sets: match.sets.length > 0 ? match.sets : [{ a: 0, b: 0, tiebreak_a: null, tiebreak_b: null }] }));
+  const [form, setForm] = useState<MatchFormData>(() => ({ tournament_id: match.tournament_id, status: match.status, round: match.round, court_name: match.court_name ?? "", scheduled_at: isoToLocalInput(match.scheduled_at), winner: match.winner ?? "", sets: match.sets.length > 0 ? match.sets : [{ a: 0, b: 0, tiebreak_a: null, tiebreak_b: null }] }));
   const [setInputs, setSetInputs] = useState<SetInput[]>(() => toSetInputs(form.sets));
 
   const update = (field: keyof MatchFormData, value: string) => setForm((f) => ({ ...f, [field]: value }));
