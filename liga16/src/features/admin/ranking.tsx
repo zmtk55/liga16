@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BarChart3, ClipboardList } from "lucide-react";
@@ -55,11 +56,12 @@ export default function AdminRanking() {
   const [categoria, setCategoria] = useState("all");
   const [sex, setSex] = useState("all");
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const loadTeams = () => {
     let active = true;
     db.listTeams().then((t) => {
-      if (active) setTeams(t);
-    }).catch(() => { if (active) setTeams([]); });
+      if (active) { setTeams(t); setLoadError(null); }
+    }).catch((e) => { if (active) setLoadError((e as Error)?.message || "Error al cargar el ranking"); });
     return () => { active = false; };
   };
 
@@ -117,6 +119,18 @@ export default function AdminRanking() {
       grupos: groupByDivision(conPartidos).length,
     };
   }, [teams]);
+
+  if (loadError && teams === null) {
+    return (
+      <AdminLoadFailed
+        title="Ranking de parejas"
+        description="Se calcula con los resultados que capturas. Cambia un resultado y esta tabla se mueve sola."
+        what="el ranking"
+        message={loadError}
+        onRetry={() => { loadTeams(); }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">
