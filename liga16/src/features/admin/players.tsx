@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -161,8 +162,11 @@ export default function AdminPlayers() {
       .catch(() => undefined);
   };
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = () =>
-    db.listPlayers().then((l) => { setList(l); loadStats(l); }).catch((_e) => toast.error("No se cargaron jugadores"));
+    db.listPlayers()
+      .then((l) => { setList(l); setLoadError(null); loadStats(l); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar los jugadores"));
 
   useEffect(() => {
     load();
@@ -251,6 +255,18 @@ export default function AdminPlayers() {
     }
   }
 
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Jugadores"
+        description="Directorio de jugadores, nivel y rama de juego."
+        what="los jugadores"
+        message={loadError}
+        onRetry={() => { load(); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -258,22 +274,6 @@ export default function AdminPlayers() {
         description="Directorio de jugadores, nivel y rama de juego."
         action={
           <>
-            {pendingCount > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setVerification((v) =>
-                    v === "pendiente" ? "all" : "pendiente",
-                  )
-                }
-              >
-                <ShieldCheck className="h-4 w-4" />
-                {pendingCount} por verificar
-              </Button>
-            )}
-            {/* Siempre visible: verificar pendientes no puede quitarte la
-                acción de crear un jugador. */}
             <Button
               size="sm"
               onClick={() => {
