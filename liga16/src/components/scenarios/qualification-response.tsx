@@ -33,7 +33,7 @@ export function QualificationResponse(props: ResponseProps) {
         </p>
       ))}
       <p className="text-xs text-muted-foreground">
-        {props.position}° · {props.points}% · pasan {props.slots} · {props.remainingMatches} por jugar · {props.source === "jev" ? "lectura JEV" : "cálculo local"}
+        {props.verdict.word} · {props.position}° · {props.points}% · pasan {props.slots} · {props.remainingMatches} por jugar · {props.source === "jev" ? "lectura JEV" : "cálculo local"}
       </p>
     </div>
   );

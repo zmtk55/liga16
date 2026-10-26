@@ -14,6 +14,7 @@ const base: ResponseProps = {
     { pairId: "b", name: "Carla / Dana", points: 61, position: 2, played: 4 },
   ],
   position: 1, points: 72.5, slots: 1, remainingMatches: 2, inCut: true, source: "jev",
+  verdict: { tone: "pass", word: "Estás dentro" },
 };
 const render = (props = base) => renderToStaticMarkup(<QualificationResponse {...props} />);
 
@@ -23,19 +24,62 @@ describe("respuestas de clasificación con OpenUI", () => {
     expect(parsed.meta.errors).toEqual([]);
     expect(parsed.meta.unresolved).toEqual([]);
   });
-  it("monta Renderer con la explicación sin duplicar tabla ni métricas", () => {
+  it("usa los componentes de la librería, no solo MatchHint", () => {
+    const program = buildQualificationUI(base);
+    expect(program).toContain("VerdictBadge(");
+    expect(program).toContain("MetricRow(");
+    expect(program).toContain("StandingsTable(");
+    expect(program).toContain("MatchHint(");
+  });
+  it("monta veredicto, métricas, mini tabla resaltada y la explicación", () => {
     const html = render();
     expect(html).toContain('data-qualification-renderer="openui"');
+    // Badge del veredicto con la palabra del panel.
+    expect(html).toContain("Estás dentro");
+    // Métricas de la pareja.
+    expect(html).toContain("Posición");
+    expect(html).toContain("1°");
+    expect(html).toContain("de 2");
+    expect(html).toContain("Rendimiento");
+    expect(html).toContain("72.5%");
+    expect(html).toContain("Por jugar");
+    // Mini tabla con ambas parejas y tu fila resaltada.
+    expect(html).toContain("Ana / Bea");
+    expect(html).toContain("Carla / Dana");
+    expect(html).toContain("bg-primary/5");
+    // El texto de la explicación se conserva.
     expect(html).toContain("Si ganas, subes tu rendimiento.");
     expect(html).toContain("El corte depende de la tabla real.");
-    expect(html).not.toContain("Dentro del corte actual");
-    expect(html).not.toContain("Carla / Dana");
-    expect(html).not.toContain("Posición actual");
     expect(html).not.toContain("%%");
-    expect(html).not.toContain("Víctor Orozco");
   });
-  it("mantiene el cálculo local y no marca fuera como eliminación definitiva", () => {
-    const html = render({ ...base, source: "local", inCut: false, position: 2, remainingMatches: 0 });
+  it.each([
+    { tone: "pass", word: "Estás dentro" },
+    { tone: "depends", word: "Depende del desempate" },
+    { tone: "out", word: "Sin partidos" },
+  ] as const)("muestra el veredicto que manda el panel: $word", (verdict) => {
+    const html = render({ ...base, verdict });
+    expect(html).toContain(verdict.word);
+    expect(html).toContain('data-qualification-renderer="openui"');
+  });
+  it("recorta la mini tabla a la ventana alrededor del corte y de tu pareja", () => {
+    const rows = Array.from({ length: 8 }, (_, i) => ({
+      pairId: `p${i + 1}`,
+      name: `Pareja ${i + 1}`,
+      points: 90 - i * 5,
+      position: i + 1,
+      played: 4,
+    }));
+    const html = render({ ...base, rows, position: 6, points: 65, slots: 4, inCut: false, verdict: { tone: "depends", word: "Depende de ti" } });
+    expect(html).toContain("Pareja 3");
+    expect(html).toContain("Pareja 6");
+    expect(html).toContain("Pareja 7");
+    expect(html).not.toContain("Pareja 1");
+    expect(html).not.toContain("Pareja 2");
+    expect(html).not.toContain("Pareja 8");
+  });
+  it("mantiene el cálculo local con su veredicto, sin marcar eliminación definitiva", () => {
+    const html = render({ ...base, source: "local", inCut: false, position: 2, remainingMatches: 0, verdict: { tone: "out", word: "Sin partidos" } });
+    expect(html).toContain("Sin partidos");
     expect(html).not.toContain("Fuera del corte actual");
     expect(html).toContain("Cálculo local");
     expect(html).toContain("Con la tabla actual");
