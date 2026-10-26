@@ -71,7 +71,7 @@ export function AdminStat({
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col justify-between gap-5 rounded-3xl bg-card p-6 first:bg-zinc-950 first:text-white [&:nth-child(2)]:bg-primary [&:nth-child(2)]:text-primary-foreground", className)}>
-      <span className={cn("font-display text-5xl font-bold leading-none tracking-tight tabular-nums", tone)}>{value}</span>
+      <span className={cn("font-display text-5xl font-bold leading-none tracking-tight tabular-nums [div:first-child>&]:text-white [div:nth-child(2)>&]:text-primary-foreground", tone)}>{value}</span>
       <span className="flex items-center gap-1.5 opacity-65">
         {icon}
         <span className="text-caption uppercase">{label}</span>
@@ -105,7 +105,7 @@ export function AdminStatStrip({
       aria-label={loading ? "Cargando cifras" : "Resumen"}
       className={cn(
         "grid w-full basis-full grid-cols-1 gap-3 sm:grid-cols-2",
-        Children.count(children) === 3 ? "xl:grid-cols-3" : Children.count(children) === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4",
+        [3,6].includes(Children.count(children)) ? "xl:grid-cols-3" : Children.count(children) === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4",
         loading && "[&>div>span:first-child]:invisible animate-pulse",
         className,
       )}
