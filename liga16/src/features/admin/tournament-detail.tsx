@@ -377,9 +377,9 @@ export default function AdminTournamentDetail() {
   }
 
   function addGroup() {
-    let n = groups.length + 1;
-    while (groups.some((g) => g.name === `Grupo ${n}`)) n++;
-    setGroups((gs) => [...gs, { name: `Grupo ${n}`, pairIds: [] }]);
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const name = [...letters].map((letter) => `Grupo ${letter}`).find((name) => !groups.some((g) => g.name === name));
+    if (name) setGroups((gs) => [...gs, { name, pairIds: [] }]);
   }
 
   async function renameGroup(index: number, raw: string) {
