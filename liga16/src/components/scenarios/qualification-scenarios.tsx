@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import "./qualification-panel.css";
+import { AdminPageHeader, AdminStat } from "@/components/admin/page-header";
+import { BentoCard } from "@/components/admin/bento-card";
+import { BENTO_CARD, BENTO_LIGHT } from "@/components/admin/bento";
+import { cn } from "@/lib/utils";
 import {
   ArrowUpRight,
   Send,
@@ -265,43 +269,23 @@ export default function ScenarioPanel({
 
   return (
     <section
-      aria-labelledby="escenarios-title"
+      aria-label="Clasificación"
       className="qualification-panel mx-auto max-w-7xl px-4 md:px-6"
     >
-      <header className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-        <h2 id="escenarios-title" className="font-display text-3xl font-semibold leading-none tracking-tight">Clasificación</h2>
-        <p className="text-xs text-muted-foreground">Semifinales · {slots} lugares</p>
-      </header>
-
-      <div className="grid gap-5 pb-5 lg:grid-cols-[0.6fr_1.4fr] lg:gap-8">
-        <div>
-          <div className="flex items-center gap-4">
-            <span className="text-5xl font-semibold leading-none tracking-tight text-primary-strong tabular-nums">{q.position}°</span>
-            <div>
-              <p className="text-xs text-muted-foreground">Posición actual</p>
-              <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold"><VerdictIcon className="h-3.5 w-3.5" aria-hidden />{verdict.word}</p>
-            </div>
-          </div>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            {q.inCut
-              ? left > 0 ? "Dentro del corte. Tu pase aún puede cambiar." : "Sin partidos pendientes. Dependes de los demás."
-              : tiedAtCut ? "Empate en el corte. Decide el desempate." : `A ${fmtPct(gapPct)} puntos porcentuales del corte.`}
-          </p>
-          <dl className="mt-4 grid grid-cols-2 border-t border-border pt-3">
-            <div>
-              <dt className="text-xs text-muted-foreground">Rendimiento</dt>
-              <dd className="mt-1 text-xl font-semibold tabular-nums">{fmtPct(myPoints)}%</dd>
-            </div>
-            <div className="border-l border-border pl-4">
-              <dt className="text-xs text-muted-foreground">Por jugar</dt>
-              <dd className="mt-1 text-xl font-semibold tabular-nums">{left}</dd>
-            </div>
-          </dl>
-        </div>
-
+      <AdminPageHeader title="Clasificación" />
+      <div className="mb-4 mt-3 grid grid-cols-3 gap-3">
+        <AdminStat value={`${q.position}°`} label="Posición" icon={<VerdictIcon className="h-3.5 w-3.5" aria-hidden />} className="gap-3 p-4 [&>span:first-child]:text-4xl" />
+        <AdminStat value={`${fmtPct(myPoints)}%`} label="Rend." className="gap-3 p-4 [&>span:first-child]:text-4xl" />
+        <AdminStat value={left} label="Por jugar" className="gap-3 p-4 [&>span:first-child]:text-4xl" />
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary-strong">{verdict.word}</span>
+        <span className="text-muted-foreground">Semifinales · {slots} lugares{!q.inCut && !tiedAtCut ? ` · A ${fmtPct(gapPct)} p.p. del corte` : ""}</span>
+      </div>
+      <div className="grid items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
       {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
-      <div className="min-w-0 rounded-2xl bg-muted p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />Pregunta por tu pase</h3>
+      <BentoCard className={cn(BENTO_CARD, BENTO_LIGHT, "min-w-0 gap-0 p-5")}>
+        <h3 className="flex items-center gap-2.5 text-base font-semibold"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Pregunta por tu pase<Sparkles className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden /></h3>
         <form
           className="mt-3 rounded-xl border border-border bg-card p-2.5 transition-shadow focus-within:ring-2 focus-within:ring-ring/30"
           onSubmit={(e) => {
@@ -384,16 +368,15 @@ export default function ScenarioPanel({
             ))}
           </div>
         </div>
-      </div>
-      </div>
-      <div className="grid items-start gap-x-8 border-t border-border md:grid-cols-2">
+      </BentoCard>
+      <div className="grid items-start gap-4">
       {/* Tabla alrededor de la línea de semifinales. */}
-      <details className="group min-w-0 border-b border-border">
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-          <span>Tabla <span className="ml-2 text-xs font-normal text-muted-foreground">{rows.length} parejas</span></span>
+      <details className={cn(BENTO_CARD, BENTO_LIGHT, "group min-w-0 p-5")}>
+        <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2.5"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Tabla <span className="ml-2 text-xs font-normal text-muted-foreground">{rows.length} parejas</span></span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
         </summary>
-        <div className="pb-6">
+        <div className="pt-4">
         <ol className="overflow-hidden rounded-[var(--radius)] border bg-card">
           {rail.hiddenAbove > 0 && (
             <li className="border-b px-3 py-1 text-xs text-muted-foreground">
@@ -450,12 +433,12 @@ export default function ScenarioPanel({
       </details>
 
       {/* Los tres finales: una superficie con filas separadas, no texto suelto. */}
-      <details className="group min-w-0 border-b border-border">
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-          <span>Escenarios</span>
+      <details className={cn(BENTO_CARD, BENTO_LIGHT, "group min-w-0 p-5")}>
+        <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2.5"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Escenarios</span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
         </summary>
-        <ul className="divide-y">
+        <ul className="mt-4 divide-y">
           {scenarios.map((s) => {
             const Icon = TONE_ICON[s.tone];
             return (
@@ -486,6 +469,7 @@ export default function ScenarioPanel({
         </p>
       </details>
 
+      </div>
       </div>
     </section>
   );
