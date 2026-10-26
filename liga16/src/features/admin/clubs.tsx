@@ -17,7 +17,8 @@ import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/p
 import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
-import { AdminEmptyState } from "@/components/admin/empty-state";
+import { AdminEmptyState, AdminLoadFailed } from "@/components/admin/empty-state";
+import { RowActionsMenu } from "@/components/admin/row-actions";
 import { formatCity } from "@/lib/format";
 
 export default function AdminClubs() {
@@ -32,15 +33,18 @@ export default function AdminClubs() {
   const [courtQuery, setCourtQuery] = useState("");
   const [fSurface, setFSurface] = useState("all");
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const reload = () => {
     db.listClubs().then((list) => {
       const c = list[0] ?? null;
       setClub(c);
+      setLoadError(null);
       if (c) {
         setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "", photo_url: c.photo_url ?? "" });
       }
-    });
-    db.listCourts().then(setCourts).catch(() => undefined);
+    }).catch((e) => setLoadError((e as Error)?.message || "Error al cargar la sede"));
+    db.listCourts().then(setCourts).catch(() => toast.error("No se pudieron cargar las canchas"));
   };
 
   useEffect(() => {
@@ -54,7 +58,7 @@ export default function AdminClubs() {
       await db.createCourt({ club_id: club.id, name, surface: "Sintética" } as never);
       setNewCourt("");
       toast.success(`Cancha "${name}" registrada`);
-      db.listCourts().then(setCourts).catch(() => undefined);
+      db.listCourts().then(setCourts).catch(() => toast.error("No se pudieron cargar las canchas"));
     } catch (e) {
       toast.error((e as Error).message ?? "No se pudo crear la cancha");
     }
@@ -122,6 +126,17 @@ export default function AdminClubs() {
       .sort((a, b) => b.n - a.n);
   }, [courts]);
 
+  if (!club && loadError) {
+    return (
+      <AdminLoadFailed
+        title="Sede"
+        description="Datos del club y canchas disponibles."
+        what="la sede"
+        message={loadError}
+        onRetry={reload}
+      />
+    );
+  }
   if (!club) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   return (
@@ -353,9 +368,10 @@ export default function AdminClubs() {
                   <span className="font-medium">{c.name}</span>
                   <span className="flex items-center gap-2">
                     {c.surface && <Badge variant="outline">{c.surface}</Badge>}
-                    <Button variant="ghost" size="icon" onClick={() => setDeletingCourt({ id: c.id, name: c.name })} aria-label={`Eliminar ${c.name}`}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <RowActionsMenu
+                      label={`Acciones para ${c.name}`}
+                      actions={[{ label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeletingCourt({ id: c.id, name: c.name }), destructive: true }]}
+                    />
                   </span>
                 </li>
               ))}
