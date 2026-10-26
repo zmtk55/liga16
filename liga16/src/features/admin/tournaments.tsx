@@ -19,6 +19,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AdminTableSkeleton, AdminTableEmpty } from "@/components/admin/table-state";
+import { AdminViewToggle, useAdminView } from "@/components/admin/view-toggle";
 
 const STATUS_TRANSITIONS: Record<Tournament["status"], { label: string; target: Tournament["status"] }[]> = {
   draft: [
@@ -83,6 +86,27 @@ export default function AdminTournaments() {
 
   const [deleting, setDeleting] = useState<Tournament | null>(null);
   const [changingStatus, setChangingStatus] = useState<{ tournament: Tournament; target: Tournament["status"] } | null>(null);
+  // Vista de la lista: cards o tabla. La elección se recuerda por sección.
+  const [view, setView] = useAdminView("torneos", ["cards", "tabla"]);
+
+  /** Acciones de un torneo, compartidas por la vista de cards y la de tabla. */
+  function actionsFor(t: Tournament): RowAction[] {
+    const canTransition = STATUS_TRANSITIONS[t.status] ?? [];
+    const actions: RowAction[] = [
+      { label: "Abrir", icon: <ExternalLink className="h-4 w-4" />, to: `/admin/torneos/${t.slug}` },
+      { label: "Editar", icon: <Pencil className="h-4 w-4" />, to: `/admin/torneos/${t.slug}/editar` },
+    ];
+    for (const tr of canTransition) {
+      actions.push({
+        label: tr.label,
+        icon: <Check className="h-4 w-4" />,
+        onSelect: () => setChangingStatus({ tournament: t, target: tr.target }),
+        separator: tr.target === "cancelled" || tr.target === "finished",
+      });
+    }
+    actions.push({ label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting(t), destructive: true, separator: true });
+    return actions;
+  }
 
   const resumen = useMemo(() => {
     const all = list ?? [];
@@ -193,8 +217,51 @@ export default function AdminTournaments() {
               />
             </AdminFacets>
           </FilterBar>
+          <div className="flex justify-end">
+            <AdminViewToggle value={view} onChange={setView} views={["cards", "tabla"]} />
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
+          {view === "tabla" ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-4">Torneo</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Formato</TableHead>
+                  <TableHead>Sede</TableHead>
+                  <TableHead>Fechas</TableHead>
+                  <TableHead className="pe-4 text-end"><span className="sr-only">Acciones</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {list === null && <AdminTableSkeleton columns={6} rows={6} />}
+                {list !== null && list.length === 0 && (
+                  <AdminTableEmpty
+                    colSpan={6}
+                    icon={<Trophy className="h-5 w-5" />}
+                    title="No hay torneos todavía"
+                    description="Crea el primero con el asistente de torneo."
+                    action={<Button asChild variant="outline" size="sm"><Link to="/admin/torneos/nuevo">Crear torneo</Link></Button>}
+                  />
+                )}
+                {list !== null && list.length > 0 && filtered.length === 0 && (
+                  <AdminTableEmpty colSpan={6} title="Sin coincidencias" description="Ningún torneo coincide con la búsqueda o el filtro." />
+                )}
+                {filtered.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className="ps-4 font-medium"><Link to={`/admin/torneos/${t.slug}`} className="underline-offset-4 hover:underline">{t.name}</Link></TableCell>
+                    <TableCell><TournamentStatusBadge status={t.status} /></TableCell>
+                    <TableCell className="text-muted-foreground">{formatLabel[t.format] ?? t.format}</TableCell>
+                    <TableCell className="text-muted-foreground">{t.club_name ?? formatCity(t.city)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateRange(t.start_date, t.end_date)}</TableCell>
+                    <TableCell className="pe-4 text-end"><RowActionsMenu actions={actionsFor(t)} label={`Acciones para ${t.name}`} /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+          <>
           {list === null && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -235,34 +302,7 @@ export default function AdminTournaments() {
           {filtered.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((t) => {
-                const canTransition = STATUS_TRANSITIONS[t.status] ?? [];
-                const actions: RowAction[] = [
-                  {
-                    label: "Abrir",
-                    icon: <ExternalLink className="h-4 w-4" />,
-                    to: `/admin/torneos/${t.slug}`,
-                  },
-                  {
-                    label: "Editar",
-                    icon: <Pencil className="h-4 w-4" />,
-                    to: `/admin/torneos/${t.slug}/editar`,
-                  },
-                ];
-                for (const tr of canTransition) {
-                  actions.push({
-                    label: tr.label,
-                    icon: <Check className="h-4 w-4" />,
-                    onSelect: () => setChangingStatus({ tournament: t, target: tr.target }),
-                    separator: tr.target === "cancelled" || tr.target === "finished",
-                  });
-                }
-                actions.push({
-                  label: "Eliminar",
-                  icon: <Trash2 className="h-4 w-4" />,
-                  onSelect: () => setDeleting(t),
-                  destructive: true,
-                  separator: true,
-                });
+                const actions = actionsFor(t);
                 return (
                   <RowContextMenu key={t.id} actions={actions}>
                     <article className="group h-full overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
@@ -277,6 +317,8 @@ export default function AdminTournaments() {
                 );
               })}
             </div>
+          )}
+          </>
           )}
         </CardContent>
       </Card>
