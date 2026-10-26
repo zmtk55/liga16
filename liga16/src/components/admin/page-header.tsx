@@ -1,3 +1,4 @@
+import { Children } from "react";
 import { Link } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -93,13 +94,20 @@ export function AdminStatStrip({
   children: React.ReactNode;
   className?: string;
 }) {
+  // Columnas según cuántas cifras hay: 3 → 3, 4 → 4, 5 → 5, 6 → 3x2.
+  // Antes cada pantalla ajustaba el grid a mano y las de 5-6 cifras quedaban
+  // con una fila coja.
+  const count = Children.toArray(children).filter(Boolean).length;
+  const cols =
+    count <= 3 ? "sm:grid-cols-3" : count === 4 ? "sm:grid-cols-4" : count === 5 ? "sm:grid-cols-5" : "sm:grid-cols-3 lg:grid-cols-6";
   return (
     // Los separadores son el hueco (1px) del grid, no `divide-x`: con
     // divide-x la primera cifra de la segunda fila hereda un borde vertical
     // que no separa nada. Con el hueco, cada línea cae donde toca.
     <dl
       className={cn(
-        "-mb-4 grid w-full basis-full grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-4",
+        "-mb-4 grid w-full basis-full grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60",
+        cols,
         className,
       )}
     >
