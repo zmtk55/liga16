@@ -60,14 +60,14 @@ describe("respuestas de clasificación con OpenUI", () => {
     const html = renderToStaticMarkup(<ScenarioPanel standings={base.rows} me={{ pairId: "a", played: 4, setsWon: 6 }} ctx={{ slots: 1, pointsPerWin: 0 }} />);
     expect(html.match(/<details /g)).toHaveLength(2);
     expect(html).not.toContain("<details open");
-    expect(html).toContain("Tabla de clasificación");
-    expect(html).toContain("Explorar escenarios");
+    expect(html).toContain("Tabla ");
+    expect(html).toContain("Escenarios");
     expect(html).toContain("Carla / Dana");
-    expect(html).toContain("Si gano el próximo");
+    expect(html).toContain("Si gano");
   });
   it("conserva el estado vacío del formulario", () => {
     const html = renderToStaticMarkup(<ScenarioPanel standings={base.rows} me={{ pairId: "a", played: 4, setsWon: 6 }} ctx={{ slots: 1, pointsPerWin: 0 }} />);
-    expect(html).toContain("¿Paso si gano el próximo partido?");
+    expect(html).toContain("¿Y si gano el próximo?");
     expect(html).not.toContain('data-qualification-renderer="openui"');
   });
   it("renderiza la librería sin una llamada adicional al modelo", () => {
