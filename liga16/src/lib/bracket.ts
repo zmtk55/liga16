@@ -137,7 +137,7 @@ export function buildBracket(qualified: BracketEntry[]): Bracket {
  */
 export function resolveBracket(
   bracket: Bracket,
-  winnerOf: (a: BracketEntry, b: BracketEntry) => string | null,
+  winnerOf: (a: BracketEntry, b: BracketEntry, match: BracketMatch) => string | null,
 ): BracketMatch[] {
   const byPairId = new Map<string, BracketEntry>();
   for (const m of bracket.matches) {
@@ -163,7 +163,7 @@ export function resolveBracket(
     if (bye) {
       winner = (a ?? b)!.pairId;
     } else if (a && b) {
-      winner = winnerOf(a, b);
+      winner = winnerOf(a, b, m);
       played = winner !== null;
     }
     winners.set(m.id, winner);

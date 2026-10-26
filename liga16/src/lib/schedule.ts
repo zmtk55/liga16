@@ -73,12 +73,13 @@ export function buildSlotGrid(cfg: {
 export function assignSlotsToMatches(
   matches: Array<{ id: string; jornada: number; category?: string }>,
   cfg: { days: string[]; hours: number[]; courtNames: string[] },
+  reserved: Array<{ scheduled_at: string | null; court_name: string | null }> = [],
 ): {
   assignments: Array<{ id: string; court: string; at: string }>;
   missing: number;
   slots: number;
 } {
-  const grid = buildSlotGrid(cfg);
+  const grid = buildSlotGrid(cfg).filter((slot) => !reserved.some((m) => m.scheduled_at && new Date(m.scheduled_at).getTime() === new Date(slot.at).getTime() && m.court_name === slot.court));
 
   // Por jornada, y dentro de la jornada las categorías alternadas.
   const byJornada = new Map<number, Map<string, string[]>>();

@@ -5,6 +5,7 @@ import { computePairStatsLiga16, computeJerarquiaLiga16 } from "@/lib/liga16-sco
 export interface Group {
   name: string; // "Grupo A", "Grupo B"…
   pairIds: UUID[];
+  categoryId?: string;
 }
 
 /** Fisher-Yates: baraja aleatoria. */
@@ -43,14 +44,15 @@ export function drawGroupsByCategory(
 ): Group[] {
   const byCategory = new Map<string, DrawablePair[]>();
   for (const p of pairs) {
-    const key = p.categoryName;
+    const key = p.category_id ?? "";
     byCategory.set(key, [...(byCategory.get(key) ?? []), p]);
   }
   const multiCategory = byCategory.size > 1;
   const taken = new Set<string>();
   const out: Group[] = [];
 
-  for (const [categoryName, catPairs] of byCategory) {
+  for (const [, catPairs] of byCategory) {
+    const categoryName = catPairs[0]?.categoryName ?? "";
     const base = (letter: string) =>
       multiCategory && categoryName ? `${categoryName} · Grupo ${letter}` : `Grupo ${letter}`;
     // Un nombre de grupo no puede repetirse dentro del torneo.
@@ -64,13 +66,13 @@ export function drawGroupsByCategory(
     if (names.length === 0) continue;
     names.forEach((n) => taken.add(n));
 
-    const catGroups: Group[] = names.map((name) => ({ name, pairIds: [] }));
+    const catGroups: Group[] = names.map((name) => ({ name, pairIds: [], categoryId: catPairs[0]?.category_id ?? "" }));
 
     if (preserveAssignments) {
       // Las parejas ya asignadas conservan su grupo; sólo se reparten las
       // parejas libres entre los grupos que aún tienen cupo.
-      const assigned = catPairs.filter((p) => p.groupName);
-      const free = catPairs.filter((p) => !p.groupName);
+      const assigned = catPairs.filter((p) => names.includes(p.groupName ?? ""));
+      const free = catPairs.filter((p) => !names.includes(p.groupName ?? ""));
       for (const p of assigned) {
         const g = catGroups.find((x) => x.name === p.groupName);
         if (g) g.pairIds.push(p.id);
