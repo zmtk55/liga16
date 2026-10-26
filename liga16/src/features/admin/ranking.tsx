@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BarChart3, ClipboardList } from "lucide-react";
@@ -7,14 +8,6 @@ import { db } from "@/lib/data";
 import { useMatchUpdated } from "@/lib/refresh";
 import type { Team } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
@@ -36,10 +29,7 @@ import {
  * captura el admin en Resultados. Editar puntos a mano haría que el ranking
  * dejara de coincidir con los partidos y perdería la trazabilidad.
  *
- * Es una TABLA y no un grid de cards porque el dato que ordena —el % de puntos—
- * sólo se compara si las columnas están alineadas: en cards había que leer
- * una por una y no se veía quién estaba arriba. Se agrupa por división + rama
- * porque la posición sólo significa algo dentro de su grupo.
+ * Tarjetas agrupadas por división y rama, con posición y puntos visibles.
  */
 export default function AdminRanking() {
   const [teams, setTeams] = useState<Team[] | null>(null);
@@ -55,11 +45,12 @@ export default function AdminRanking() {
   const [categoria, setCategoria] = useState("all");
   const [sex, setSex] = useState("all");
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const loadTeams = () => {
     let active = true;
     db.listTeams().then((t) => {
-      if (active) setTeams(t);
-    }).catch(() => { if (active) setTeams([]); });
+      if (active) { setTeams(t); setLoadError(null); }
+    }).catch((e) => { if (active) setLoadError((e as Error)?.message || "Error al cargar el ranking"); });
     return () => { active = false; };
   };
 
@@ -118,20 +109,32 @@ export default function AdminRanking() {
     };
   }, [teams]);
 
+  if (loadError && teams === null) {
+    return (
+      <AdminLoadFailed
+        title="Ranking de parejas"
+        description="Se calcula con los resultados que capturas. Cambia un resultado y el ranking se actualiza."
+        what="el ranking"
+        message={loadError}
+        onRetry={() => { loadTeams(); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
         title="Ranking de parejas"
-        description="Se calcula con los resultados que capturas. Cambia un resultado y esta tabla se mueve sola."
+        description="Se calcula con los resultados que capturas. Cambia un resultado y el ranking se actualiza."
       >
-        <AdminStatStrip>
+        <AdminStatStrip loading={teams === null}>
           <AdminStat value={resumen.parejas} label="Parejas" />
           <AdminStat value={resumen.conPartidos} label="Con partidos" />
           <AdminStat value={resumen.grupos} label="Grupos" />
         </AdminStatStrip>
       </AdminPageHeader>
 
-      <div className="flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-3xl bg-card px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           Para mover el ranking, captura o corrige un partido.
         </p>
@@ -143,7 +146,7 @@ export default function AdminRanking() {
         </Link>
       </div>
 
-      <Card>
+      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
         {/* Buscador + las dos barras de filtro debajo. El FilterBar envuelve a las
             barras como `children`, así que el buscador sigue arriba y los
             filtros se leen de un vistazo. */}
@@ -199,67 +202,19 @@ export default function AdminRanking() {
           )}
 
           {filtered.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12 text-center">#</TableHead>
-                  <TableHead>Pareja</TableHead>
-                  <TableHead className="text-center">PJ</TableHead>
-                  <TableHead className="text-center">PG</TableHead>
-                  <TableHead className="text-center">PP</TableHead>
-                  <TableHead className="text-center">Sets</TableHead>
-                  {/* La columna que ORDENA la tabla. El % de puntos es
-                      puntos ganados / puntos jugados, no victorias: es lo que
-                      hace que un 6-0 perdido pese igual que un 10-8 ganado. */}
-                  <TableHead className="text-right">% puntos</TableHead>
-                  <TableHead className="text-right">Efectividad</TableHead>
-                </TableRow>
-              </TableHeader>
-              {groups.map((g) => (
-                <TableBody key={g.label}>
-                  {/* Encabezado de grupo dentro de la tabla: la posición de una
-                      pareja no compite contra las de otra división. */}
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableCell colSpan={8} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {g.label}
-                    </TableCell>
-                  </TableRow>
-                  {g.teams.map((t) => {
-                    const pct = t.played > 0 ? winRate(t.played, t.won) : 0;
-                    return (
-                      <TableRow key={t.id}>
-                        <TableCell className="text-center font-mono tabular-nums text-muted-foreground">
-                          {t.position > 0 ? t.position : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-2">
-                            <PairAvatars names={[t.player1?.name ?? t.name, t.player2?.name ?? ""]} size="sm" />
-                            <span className="flex flex-col leading-tight">
-                              <span className="font-medium">{t.name}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {[t.player1?.name, t.player2?.name].filter(Boolean).join(" · ")}
-                              </span>
-                            </span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center tabular-nums">{t.played || "—"}</TableCell>
-                        <TableCell className="text-center tabular-nums">{t.won || "—"}</TableCell>
-                        <TableCell className="text-center tabular-nums">{t.lost || "—"}</TableCell>
-                        <TableCell className="text-center tabular-nums text-muted-foreground">
-                          {t.played > 0 ? `${t.sets_for}–${t.sets_against}` : "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">
-                          {t.rendimiento_pct != null ? `${t.rendimiento_pct}%` : "—"}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {t.played > 0 ? `${pct}%` : "—"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              ))}
-            </Table>
+            <div className="space-y-8">
+              {groups.map(g => <section key={g.label} className="space-y-3">
+                <h2 className="flex items-center gap-2 text-sm font-semibold"><span className="h-2 w-2 rounded-full bg-primary" />{g.label}</h2>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{g.teams.map(t => <article key={t.id} className="overflow-hidden rounded-3xl border bg-card transition-colors hover:border-primary/40">
+                  <div className="flex items-start justify-between gap-3 p-5"><PairAvatars names={[t.player1?.name ?? t.name, t.player2?.name ?? ""]} size="sm" /><span className="font-display text-3xl font-bold text-primary">{t.position > 0 ? `#${t.position}` : "Sin posición"}</span></div>
+                  <div className="space-y-4 px-5 pb-5"><h3 className="font-display text-xl font-semibold">{t.name}</h3><p className="text-xs text-muted-foreground">{[t.player1?.name,t.player2?.name].filter(Boolean).join(" · ")}</p>
+                    <div className="rounded-2xl bg-zinc-950 p-4 text-white"><p className="text-xs text-white/60">Puntos ganados / jugados</p><p className="mt-2 font-display text-4xl font-bold tabular-nums">{t.rendimiento_pct != null ? `${t.rendimiento_pct}%` : "–"}</p></div>
+                    <dl className="grid grid-cols-3 gap-2 text-center text-xs"><div><dt className="text-muted-foreground">Jugados</dt><dd className="mt-1 text-lg font-semibold">{t.played}</dd></div><div><dt className="text-muted-foreground">Ganados</dt><dd className="mt-1 text-lg font-semibold">{t.won}</dd></div><div><dt className="text-muted-foreground">Perdidos</dt><dd className="mt-1 text-lg font-semibold">{t.lost}</dd></div></dl>
+                    <div className="flex justify-between gap-2 border-t pt-3 text-xs text-muted-foreground"><span>Sets {t.played > 0 ? `${t.sets_for} / ${t.sets_against}` : "–"}</span><span>Efectividad {t.played > 0 ? `${winRate(t.played,t.won)}%` : "–"}</span></div>
+                  </div>
+                </article>)}</div>
+              </section>)}
+            </div>
           )}
         </CardContent>
       </Card>
