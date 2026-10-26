@@ -42,7 +42,7 @@ export function QualificationResponse(props: ResponseProps) {
     <ResponseBoundary key={response} fallback={fallback}>
       <div data-qualification-renderer="openui" className="min-w-0">
         <Renderer response={response} library={openUILibrary} isStreaming={false} />
-        <p className="mt-4 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs text-muted-foreground">
           {props.source === "jev" ? "Lectura JEV" : "Cálculo local"} · Con la tabla actual
         </p>
       </div>
