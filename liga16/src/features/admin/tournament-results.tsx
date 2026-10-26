@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { hasMatchActivity } from "@/lib/tournament-flow";
-import { computeStandings, type Group } from "@/lib/groups";
+import { isKnockoutRound, computeStandings, type Group } from "@/lib/groups";
 import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -248,10 +248,10 @@ export function GroupStandingsCard({
     ? { ...DEFAULT_SCORING, ...baseScoring, ranking_method: 'points_percentage' as const }
     : baseScoring;
 
-  const standings = computeStandings(group.pairIds, matches, nameById, effectiveScoring);
+  const standings = computeStandings(group.pairIds, matches.filter((m) => !isKnockoutRound(m.round)), nameById, effectiveScoring);
 
   const groupMatches = matches.filter(
-    (m) => group.pairIds.includes(m.side_a.pair_id ?? "") && group.pairIds.includes(m.side_b.pair_id ?? ""),
+    (m) => !isKnockoutRound(m.round) && group.pairIds.includes(m.side_a.pair_id ?? "") && group.pairIds.includes(m.side_b.pair_id ?? ""),
   );
   const played = groupMatches.filter((m) => matchStatusKey(m) === "finished").length;
 
