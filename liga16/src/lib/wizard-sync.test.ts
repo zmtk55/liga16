@@ -18,7 +18,7 @@ function fixture() {
  const teams:WizardTeam[]=[{id:"p",categoryKey:"row",name:"Las palas",player1:"ana",player2:"bea",division:"5ta",sex:"F",group:"Grupo A",logo:null}];
  const player=vi.fn(async(name:string)=>({id:name}));
  const run=(save=true)=>syncWizard(db as unknown as DataProvider,"t",categories,teams,save,999,player,async(url)=>url);
- const addMatch=(status="scheduled")=>matches.push({id:"m",category_name:"5ta",side_a:{pair_id:"p"},side_b:{pair_id:"q"},sets:[],status} as Match);
+ const addMatch=(status="scheduled")=>matches.push({id:"m",category_name:"5ta",tournament_id:"t",round:"Grupo A · J1",court_name:null,scheduled_at:null,winner:null,side_a:{pair_id:"p",pair_name:"Las palas"},side_b:{pair_id:"q",pair_name:"Rival"},sets:[],status:status as Match["status"]} as Match);
  return {db,categories,teams,cats,pairs,matches,player,run,addMatch};
 }
 describe("wizard sync por ID",()=>{
