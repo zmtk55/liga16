@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ArrowUpRight,
-  MessageSquare,
   Send,
   ShieldAlert,
   Sparkles,
   TrendingUp,
+  ChevronDown,
   Trophy,
 } from "lucide-react";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
@@ -36,12 +36,6 @@ const TONE_ICON: Record<Tone, typeof Trophy> = {
   pass: Trophy,
   depends: TrendingUp,
   out: ShieldAlert,
-};
-
-const TONE_LABEL: Record<Tone, string> = {
-  pass: "Pasa",
-  depends: "Depende",
-  out: "Riesgo",
 };
 
 export default function ScenarioPanel({
@@ -272,7 +266,7 @@ export default function ScenarioPanel({
   return (
     <section
       aria-labelledby="escenarios-title"
-      className="mx-auto max-w-7xl space-y-8 px-4 md:px-6"
+      className="mx-auto max-w-5xl space-y-6 px-4 md:space-y-8 md:px-6"
     >
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
@@ -289,46 +283,131 @@ export default function ScenarioPanel({
         <p className="text-xs text-muted-foreground">Con la tabla real del torneo</p>
       </div>
 
-      {/* Veredicto: superficie póster de la casa (oscura en ambos temas). */}
-      <div className="liga16-card liga16-surface--poster relative overflow-hidden rounded-[var(--radius)]">
-        <span className="liga16-stripe" aria-hidden />
-        <div className="grid gap-5 p-4 pt-5 sm:p-5 md:grid-cols-[1.15fr_1fr] md:items-end">
-          <div className="space-y-3">
-            <span className="inline-flex items-center gap-2 text-caption uppercase tracking-[0.14em] text-white/65">
-              <VerdictIcon className="h-4 w-4" aria-hidden />
-              {TONE_LABEL[verdict.tone]}
-            </span>
-            <p className="font-black text-3xl uppercase leading-none tracking-[-0.04em] sm:text-4xl">
-              {verdict.word}
-            </p>
-            <p className="max-w-[60ch] text-sm leading-relaxed text-[hsl(var(--surface-inverse-foreground))]/75">
-              {verdict.sentence}
-            </p>
-          </div>
-
-          <dl className="grid grid-cols-2 divide-x divide-white/10 border-t border-white/10 sm:grid-cols-4">
-            {[
-              { l: "Posición", v: `${q.position}°` },
-              { l: "Pasan", v: `${slots}` },
-              { l: "Diferencia", v: q.inCut ? "0" : tiedAtCut ? "empate" : `${fmtPct(gapPct)} p.p.` },
-              { l: "Quedan", v: `${left} PJ` },
-            ].map((s) => (
-              <div key={s.l} className="px-3 py-2 first:ps-0">
-                <dt className="text-caption uppercase tracking-[0.12em] text-white/55">
-                  {s.l}
-                </dt>
-                <dd className="font-bold text-xl leading-none tabular-nums">{s.v}</dd>
-              </div>
-            ))}
-          </dl>
+      {/* Una sola lectura del estado actual; sin repetir cifras en la respuesta. */}
+      <div className="grid gap-6 rounded-[var(--radius)] bg-muted/40 p-5 sm:p-7 md:grid-cols-[1fr_auto] md:items-center md:gap-10">
+        <div className="space-y-2.5">
+          <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <VerdictIcon className="h-4 w-4" aria-hidden />
+            Tu clasificación hoy
+          </span>
+          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{verdict.word}</p>
+          <p className="max-w-[56ch] text-sm leading-relaxed text-muted-foreground">{verdict.sentence}</p>
         </div>
+        <dl className="flex gap-8 border-t pt-5 md:gap-10 md:border-0 md:pt-0">
+          {[
+            { label: "Posición", value: `${q.position}°` },
+            { label: "Rendimiento", value: `${fmtPct(myPoints)}%` },
+            { label: "Por jugar", value: String(left) },
+          ].map((stat) => (
+            <div key={stat.label} className="space-y-1">
+              <dt className="text-xs text-muted-foreground">{stat.label}</dt>
+              <dd className="text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">{stat.value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
+      {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
+      <div className="overflow-hidden rounded-[var(--radius)] border bg-card">
+        <div className="px-5 pt-5 sm:px-7 sm:pt-7">
+          <h3 className="text-base font-semibold tracking-tight">Pregunta por tu pase</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Consulta un resultado o compara a tus rivales.</p>
+        </div>
+        <form
+          className="mx-5 my-5 flex items-center gap-3 rounded-lg border bg-background p-2.5 sm:mx-7"
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask(question);
+          }}
+        >
+          <span
+            className="flex h-9 w-8 shrink-0 items-center justify-center text-muted-foreground"
+            aria-hidden
+          >
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+          </span>
+
+          <label htmlFor="clasificacion-pregunta" className="sr-only">
+            Pregunta sobre tu clasificación a semifinales
+          </label>
+          <Input
+            id="clasificacion-pregunta"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Pregunta por tu pase…"
+            className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 sm:text-base"
+            autoComplete="off"
+          />
+
+          <Button
+            type="submit"
+            size="sm"
+            className="h-9 w-9 shrink-0 bg-foreground p-0 text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 sm:h-10 sm:w-auto sm:px-3"
+            disabled={loading || !question.trim()}
+            aria-label="Preguntar a la IA"
+          >
+            <Send className="h-4 w-4 sm:me-1.5" aria-hidden />
+            <span className="hidden sm:inline">{loading ? "Analizando…" : "Preguntar"}</span>
+          </Button>
+        </form>
+
+        <div className="px-5 pb-5 sm:px-7 sm:pb-7">
+          <div aria-live="polite" aria-busy={loading}>
+            {loading && (
+              <div className="space-y-1.5 py-1">
+                <span className="sr-only">Analizando tu situación…</span>
+                <span className="block h-3 w-4/5 animate-pulse rounded bg-muted-foreground/20" />
+                <span className="block h-3 w-3/5 animate-pulse rounded bg-muted-foreground/20" />
+              </div>
+            )}
+
+            {!loading && answer && (
+              <div className="animate-fade-in border-t pb-2 pt-5">
+                <div className="min-w-0 flex-1 space-y-3">
+                  <QualificationResponse
+                    answer={answer}
+                    rows={rows}
+                    position={q.position}
+                    points={myPoints}
+                    slots={slots}
+                    remainingMatches={left}
+                    inCut={q.inCut}
+                    source={source === "jev" ? "jev" : "local"}
+                  />
+                </div>
+              </div>
+            )}
+
+
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {FREQUENT.map((f, index) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => ask(f)}
+                disabled={loading}
+                className="group inline-flex min-h-9 items-center gap-2 rounded-full bg-muted/60 px-3 py-2 text-left text-xs leading-snug text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
+              >
+                {["Si gano el próximo", "Qué necesita mi rival", "Sin partidos pendientes"][index]}
+                <ArrowUpRight
+                  className="h-3 w-3 shrink-0"
+                  aria-hidden
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="grid items-start gap-3 md:grid-cols-2">
       {/* Tabla alrededor de la línea de semifinales. */}
-      <div>
-        <p className="mb-2 text-caption uppercase tracking-[0.14em] text-muted-foreground">
-          Tabla hacia semifinales
-        </p>
+      <details className="group min-w-0 rounded-[var(--radius)] border bg-card">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-sm font-medium [&::-webkit-details-marker]:hidden">
+          <span>Tabla de clasificación<span className="mt-1 block text-xs font-normal text-muted-foreground">{rows.length} parejas · {slots} lugares</span></span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="px-5 pb-5">
         <ol className="overflow-hidden rounded-[var(--radius)] border bg-card">
           {rail.hiddenAbove > 0 && (
             <li className="border-b px-3 py-1 text-xs text-muted-foreground">
@@ -381,17 +460,15 @@ export default function ScenarioPanel({
             </li>
           )}
         </ol>
-      </div>
+        </div>
+      </details>
 
       {/* Los tres finales: una superficie con filas separadas, no texto suelto. */}
-      <div className="overflow-hidden rounded-[var(--radius)] border bg-card">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b px-4 py-3">
-          <h3 className="text-caption uppercase tracking-[0.14em] text-muted-foreground">
-            Los tres finales posibles
-          </h3>
-          <span className="text-xs text-muted-foreground">con la tabla de hoy</span>
-        </div>
-
+      <details className="group min-w-0 rounded-[var(--radius)] border bg-card">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-sm font-medium [&::-webkit-details-marker]:hidden">
+          <span>Explorar escenarios<span className="mt-1 block text-xs font-normal text-muted-foreground">Si ganas, si pierdes y qué cambia</span></span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
         <ul className="divide-y">
           {scenarios.map((s) => {
             const Icon = TONE_ICON[s.tone];
@@ -421,105 +498,8 @@ export default function ScenarioPanel({
           Los escenarios asumen que los demás no suman entre sí; la tabla se
           recalcula con cada resultado guardado.
         </p>
-      </div>
+      </details>
 
-      {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
-      <div className="overflow-hidden rounded-[var(--radius)] border bg-card">
-        <form
-          className="flex items-center gap-3 p-3 sm:p-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            ask(question);
-          }}
-        >
-          <span
-            className="liga16-ai-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background sm:h-10 sm:w-10"
-            aria-hidden
-          >
-            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
-          </span>
-
-          <label htmlFor="clasificacion-pregunta" className="sr-only">
-            Pregunta sobre tu clasificación a semifinales
-          </label>
-          <Input
-            id="clasificacion-pregunta"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Pregunta por tu pase…"
-            className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 sm:text-base"
-            autoComplete="off"
-          />
-
-          <Button
-            type="submit"
-            size="sm"
-            className="h-9 w-9 shrink-0 bg-foreground p-0 text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 sm:h-10 sm:w-auto sm:px-3"
-            disabled={loading || !question.trim()}
-            aria-label="Preguntar a la IA"
-          >
-            <Send className="h-4 w-4 sm:me-1.5" aria-hidden />
-            <span className="hidden sm:inline">{loading ? "Analizando…" : "Preguntar"}</span>
-          </Button>
-        </form>
-
-        <div className="border-t px-3 py-2.5 sm:px-4">
-          <div aria-live="polite" aria-busy={loading}>
-            {loading && (
-              <div className="space-y-1.5 py-1">
-                <span className="sr-only">Analizando tu situación…</span>
-                <span className="block h-3 w-4/5 animate-pulse rounded bg-muted-foreground/20" />
-                <span className="block h-3 w-3/5 animate-pulse rounded bg-muted-foreground/20" />
-              </div>
-            )}
-
-            {!loading && answer && (
-              <div className="animate-fade-in flex items-start gap-3 py-1">
-                <MessageSquare
-                  className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-                  aria-hidden
-                />
-                <div className="min-w-0 flex-1 space-y-3">
-                  <QualificationResponse
-                    answer={answer}
-                    rows={rows}
-                    position={q.position}
-                    points={myPoints}
-                    slots={slots}
-                    remainingMatches={left}
-                    inCut={q.inCut}
-                    source={source === "jev" ? "jev" : "local"}
-                  />
-                </div>
-              </div>
-            )}
-
-            {!loading && !answer && (
-              <p className="text-xs text-muted-foreground">
-                Nombra dos parejas y simulo el cruce: «¿y si Julián le gana a
-                Víctor Orozco?»
-              </p>
-            )}
-          </div>
-
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            {FREQUENT.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => ask(f)}
-                disabled={loading}
-                className="group inline-flex items-center gap-1 text-left text-sm leading-snug text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50"
-              >
-                {f}
-                <ArrowUpRight
-                  className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  aria-hidden
-                />
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );
