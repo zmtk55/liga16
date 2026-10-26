@@ -23,22 +23,22 @@ describe("respuestas de clasificación con OpenUI", () => {
     expect(parsed.meta.errors).toEqual([]);
     expect(parsed.meta.unresolved).toEqual([]);
   });
-  it("monta Renderer, los párrafos, métricas y tabla reales", () => {
+  it("monta Renderer con la explicación sin duplicar tabla ni métricas", () => {
     const html = render();
     expect(html).toContain('data-qualification-renderer="openui"');
     expect(html).toContain("Si ganas, subes tu rendimiento.");
     expect(html).toContain("El corte depende de la tabla real.");
-    expect(html).toContain("Dentro del corte actual");
-    expect(html).toContain("Carla / Dana");
-    expect(html).toContain("72.5%");
+    expect(html).not.toContain("Dentro del corte actual");
+    expect(html).not.toContain("Carla / Dana");
+    expect(html).not.toContain("Posición actual");
     expect(html).not.toContain("%%");
     expect(html).not.toContain("Víctor Orozco");
   });
   it("mantiene el cálculo local y no marca fuera como eliminación definitiva", () => {
     const html = render({ ...base, source: "local", inCut: false, position: 2, remainingMatches: 0 });
-    expect(html).toContain("Fuera del corte actual");
+    expect(html).not.toContain("Fuera del corte actual");
     expect(html).toContain("Cálculo local");
-    expect(html).toContain("no es una predicción");
+    expect(html).toContain("Con la tabla actual");
   });
   it.each([
     'Nombre "doble" \\ slash',
@@ -55,6 +55,15 @@ describe("respuestas de clasificación con OpenUI", () => {
     expect(html).toContain('data-qualification-renderer="openui"');
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("<img src=x");
+  });
+  it("deja tabla y escenarios cerrados por defecto sin quitar su contenido", () => {
+    const html = renderToStaticMarkup(<ScenarioPanel standings={base.rows} me={{ pairId: "a", played: 4, setsWon: 6 }} ctx={{ slots: 1, pointsPerWin: 0 }} />);
+    expect(html.match(/<details /g)).toHaveLength(2);
+    expect(html).not.toContain("<details open");
+    expect(html).toContain("Tabla de clasificación");
+    expect(html).toContain("Explorar escenarios");
+    expect(html).toContain("Carla / Dana");
+    expect(html).toContain("Si gano el próximo");
   });
   it("conserva el estado vacío del formulario", () => {
     const html = renderToStaticMarkup(<ScenarioPanel standings={base.rows} me={{ pairId: "a", played: 4, setsWon: 6 }} ctx={{ slots: 1, pointsPerWin: 0 }} />);
