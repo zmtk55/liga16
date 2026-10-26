@@ -2,6 +2,7 @@
 // Categorias como se registran (5ta, 4ta, Suma 9...), jugadores visibles y
 // gestion de pagos desde aqui. Nada se renombra: lo que el torneo guardó es
 // lo que se muestra.
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -92,15 +93,17 @@ export default function AdminParticipants() {
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   async function load() {
     try {
       const [allPairs, ts, ps] = await Promise.all([db.listAllPairs(), db.listTournaments(), db.listPlayers()]);
       setPairs(allPairs);
       setTournaments(ts);
       setPlayers(ps);
+      setLoadError(null);
     } catch (e) {
-      toast.error((e as Error).message ?? "Error cargando participantes");
-      setPairs([]);
+      setLoadError((e as Error)?.message || "Error al cargar las parejas");
     }
   }
 
@@ -293,6 +296,18 @@ export default function AdminParticipants() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (loadError && pairs === null) {
+    return (
+      <AdminLoadFailed
+        title="Participantes"
+        description="Todas las parejas de todos los torneos, en una sola vista."
+        what="las parejas"
+        message={loadError}
+        onRetry={() => { load(); }}
+      />
+    );
   }
 
   return (
