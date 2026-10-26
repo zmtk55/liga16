@@ -5,7 +5,7 @@ import { CheckCircle2, ChevronRight, Inbox, RefreshCw, XCircle } from 'lucide-re
 import { useAdminAlerts } from '@/hooks/use-admin-alerts';
 import type { AlertSeverity, AdminAlert } from '@/types';
 import { alertTypeMeta } from '@/lib/alerts';
-import { AdminPageHeader } from '@/components/admin/page-header';
+import { AdminPageHeader, AdminStat, AdminStatStrip } from '@/components/admin/page-header';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { AdminFacet, AdminFacets } from '@/components/admin/filter-facets';
 import { countActive } from '@/lib/filters';
@@ -96,18 +96,34 @@ export default function AdminInbox() {
     .filter((o) => o.n > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <AdminPageHeader
         title="Bandeja de entrada"
         description="Alertas y mensajes del sistema derivados de los datos en vivo. Desaparecen al resolverse."
         action={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={refresh} disabled={loading} aria-label="Actualizar alertas">
+            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Actualizar
             </Button>
           </div>
         }
-      />
+      >
+        <AdminStatStrip>
+          <AdminStat value={alerts.length} label="Alertas" />
+          <AdminStat
+            value={alerts.filter((a) => a.severity === "critical").length}
+            label="Urgentes"
+            tone={alerts.some((a) => a.severity === "critical") ? "text-destructive" : undefined}
+          />
+          <AdminStat
+            value={alerts.filter((a) => a.severity === "warning").length}
+            label="Atención"
+            tone={alerts.some((a) => a.severity === "warning") ? "text-warning-strong" : undefined}
+          />
+          <AdminStat value={alerts.filter((a) => a.severity === "info").length} label="Info" />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       <FilterBar
         search={query}
