@@ -4,9 +4,10 @@ import { db } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
+import { BENTO_CARD, BENTO_DARK } from "@/components/admin/bento";
 
 type Check = { label: string; ok: boolean; detail: string; warn?: boolean };
 
@@ -98,53 +99,73 @@ export default function SystemStatus() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
+  const total = checks?.length ?? 0;
+  const warns = checks?.filter((c) => c.warn).length ?? 0;
+  const fails = checks?.filter((c) => !c.ok && !c.warn).length ?? 0;
+  const oks = total - warns - fails;
+
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="space-y-5">
       <AdminPageHeader
         title="Estado del sistema"
         description="Por qué ves (o no ves) lo que ves. No cambia nada, solo diagnostica."
         action={
-          <Button onClick={() => void run()} disabled={running} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4" />
+          <Button onClick={() => void run()} disabled={running} variant="outline" size="sm" className="rounded-full">
+            <RefreshCw className={`h-4 w-4 ${running ? "animate-spin" : ""}`} />
             {running ? "Comprobando…" : "Volver a comprobar"}
           </Button>
         }
-      />
+      >
+        <AdminStatStrip loading={checks === null}>
+          <AdminStat value={total} label="Comprobaciones" />
+          <AdminStat value={oks} label="Correctas" />
+          <AdminStat value={warns} label="Con aviso" tone={warns > 0 ? "text-warning-strong" : undefined} />
+          <AdminStat value={fails} label="Con error" tone={fails > 0 ? "text-destructive" : undefined} />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       {user && (
-        <Card>
-          <CardContent className="pt-6 text-sm">
-            <p>
-              Sesión de <strong>{user.email || "(sin email)"}</strong> con rol{" "}
-              <Badge variant="secondary">{user.role}</Badge>
-            </p>
-          </CardContent>
-        </Card>
+        <div className={`${BENTO_CARD} ${BENTO_DARK} flex flex-wrap items-center justify-between gap-3`}>
+          <div className="min-w-0">
+            <p className="text-caption uppercase opacity-65">Sesión activa</p>
+            <p className="mt-1 truncate font-display text-xl font-semibold">{user.email || "(sin email)"}</p>
+          </div>
+          <Badge className="rounded-full">{user.role}</Badge>
+        </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Comprobaciones</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {!checks && <p className="text-sm text-muted-foreground">Comprobando…</p>}
-          {checks?.map((c) => (
-            <div key={c.label} className="flex items-start gap-3 rounded-lg border p-3">
-              {c.ok && !c.warn ? (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-              ) : c.warn ? (
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-strong" />
-              ) : (
-                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-              )}
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{c.label}</p>
-                <p className="break-words text-sm text-muted-foreground">{c.detail}</p>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      {!checks && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-32 rounded-3xl" />)}
+        </div>
+      )}
+      {checks && (
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {checks.map((c) => {
+            const state = c.ok && !c.warn ? "ok" : c.warn ? "warn" : "fail";
+            return (
+              <li
+                key={c.label}
+                className={`flex min-h-32 flex-col justify-between gap-4 rounded-3xl border bg-card p-5 ${
+                  state === "warn" ? "border-warning/40" : state === "fail" ? "border-destructive/40" : ""
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-display text-lg font-semibold leading-snug">{c.label}</p>
+                  {state === "ok" ? (
+                    <CheckCircle2 aria-label="Correcto" className="h-5 w-5 shrink-0 text-success" />
+                  ) : state === "warn" ? (
+                    <AlertTriangle aria-label="Aviso" className="h-5 w-5 shrink-0 text-warning-strong" />
+                  ) : (
+                    <XCircle aria-label="Error" className="h-5 w-5 shrink-0 text-destructive" />
+                  )}
+                </div>
+                <p className="break-words text-sm leading-relaxed text-muted-foreground">{c.detail}</p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

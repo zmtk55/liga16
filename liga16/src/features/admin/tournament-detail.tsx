@@ -2,101 +2,42 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Pair, Match, Tournament, TournamentCategory, Club } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BentoCard as Card } from "@/components/admin/bento-card";
+import { BracketPanel } from "@/features/admin/tournament-bracket";
+import { MatchResultDialog, GroupStandingsCard } from "@/features/admin/tournament-results";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  ChevronDown,
-  Dice5,
-  GripVertical,
-  Pencil,
-  Plus,
-  Trash2,
-  CalendarClock,
-  RotateCcw,
-  UserPlus,
-  Trophy,
-  Check,
-} from "lucide-react";
+import { ChevronDown, Dice5, GripVertical, Pencil, Plus, Trash2, CalendarClock, RotateCcw, UserPlus, Trophy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminEmptyState } from "@/components/admin/empty-state";
-import { drawGroupsByCategory, parseRound, computeStandings, type Group, type AvailabilityConfig } from "@/lib/groups";
-import type { TournamentScoring } from "@/types";
-import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
-import { DEFAULT_SCORING } from "@/lib/scoring";
+import { drawGroupsByCategory, parseRound, type Group, type AvailabilityConfig } from "@/lib/groups";
 import { ensurePlayer } from "@/lib/players";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Court } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { buildBracket, moveSeed, resolveBracket, type BracketEntry } from "@/lib/bracket";
-import { tournamentProgress } from "@/lib/tournament-progress";
-import { DateTimePicker } from "@/components/ui/date-picker";
 import { DatePicker } from "@/components/ui/date-picker";
-import { AdminPageHeader } from "@/components/admin/page-header";
+import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { formatCity, formatDateRange, formatLabel, formatMatchTime, SIN_CATEGORIA, tournamentStatusLabel } from "@/lib/format";
 import { matchStatusKey } from "@/lib/match-state";
-import {
-  findScheduleIssues,
-  isSlotFree,
-  localDayKey,
-  localTimeHHMM,
-  rescheduleTo,
-  todayKey,
-  tournamentDays,
-  assignSlotsToMatches,
-} from "@/lib/schedule";
+import { findScheduleIssues, isSlotFree, localDayKey, localTimeHHMM, rescheduleTo, todayKey, tournamentDays, assignSlotsToMatches } from "@/lib/schedule";
+
+const TAB_LIST = "h-auto w-full flex-wrap justify-start gap-1 rounded-3xl border bg-card p-1.5";
+const TAB_TRIGGER = "h-9 flex-none rounded-full px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none";
 
 function SortablePair({
   id,
@@ -132,349 +73,6 @@ function SortablePair({
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove} aria-label="Quitar equipo">
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
-      )}
-    </div>
-  );
-}
-
-/**
- * Bracket de UNA categoría: siembra por puntos, con el primero plantado arriba.
- *
- * No guarda nada: se deriva de los resultados que el admin ya capturó, así que
- * mover una semilla o corregir un partido lo recalcula solo. Los partidos que
- * alimentan los ganadores se filtran a los de la categoría —una 4ta nunca puede
- * avanzar por un partido que jugó una 5ta.
- */
-function CategoryBracket({
-  pairs,
-  matches,
-  scoring,
-  slots,
-}: {
-  pairs: Pair[];
-  matches: Match[];
-  scoring?: TournamentScoring | null;
-  slots: number;
-}) {
-  const [ordenManual, setOrdenManual] = useState<BracketEntry[] | null>(null);
-
-  const table = useMemo(() => {
-    const ids = pairs.map((p) => p.id);
-    const names = Object.fromEntries(pairs.map((p) => [p.id, p.name]));
-    // computeStandings no numera posiciones: el orden lo hacemos aqui, con los
-    // mismos criterios que usa la tabla de posiciones (puntos, sets, juegos).
-    return computeStandings(ids, matches, names, scoring ?? undefined)
-      .slice()
-      .sort(
-        (a, b) =>
-          b.points - a.points ||
-          b.setsFor - a.setsFor ||
-          b.gamesFor - a.gamesFor ||
-          a.pairId.localeCompare(b.pairId),
-      );
-  }, [pairs, matches, scoring]);
-
-  // Clasifican las primeras `slots`; el resto se queda esperando. Si la categoría
-  // tiene menos parejas que el cupo, clasifican todas: no hay de dónde elegir.
-  const clasificadas: BracketEntry[] = useMemo(() => {
-    const base = table.slice(0, slots).map((row) => {
-      const pair = pairs.find((p) => p.id === row.pairId);
-      return {
-        seed: 0,
-        pairId: row.pairId,
-        name: pair?.name ?? row.pairId,
-        points: row.points,
-      };
-    });
-    if (!ordenManual) return base.map((e, i) => ({ ...e, seed: i + 1 }));
-    // Se re-siembra por posición para respetar lo que movió el admin.
-    return base.map((e, i) => ({ ...(ordenManual[i] ?? e), seed: i + 1 }));
-  }, [table, pairs, slots, ordenManual]);
-
-  const base = useMemo(() => buildBracket(clasificadas), [clasificadas]);
-  const bracket = useMemo(() => {
-    // El ganador de cada cruce sale de los resultados que el admin ya capturó.
-    const terminado = matches.filter((m) => matchStatusKey(m) === "finished" && m.winner);
-    return {
-      ...base,
-      matches: resolveBracket(base, (a, b) => {
-        const partido = terminado.find(
-          (m) =>
-            (m.side_a.pair_id === a.pairId && m.side_b.pair_id === b.pairId) ||
-            (m.side_a.pair_id === b.pairId && m.side_b.pair_id === a.pairId),
-        );
-        if (!partido) return null;
-        const ganador = partido.winner === "a" ? partido.side_a.pair_id : partido.side_b.pair_id;
-        return ganador ?? null;
-      }),
-    };
-  }, [base, matches]);
-
-  function mover(pairId: string, delta: number) {
-    setOrdenManual((prev) => {
-      const base = prev ?? clasificadas;
-      const idx = base.findIndex((e) => e.pairId === pairId);
-      const destino = idx + delta;
-      if (idx === -1 || destino < 0 || destino >= base.length) return prev;
-      return moveSeed(base, idx + 1, destino + 1);
-    });
-  }
-
-  if (pairs.length < 2) return null;
-
-  const prog = tournamentProgress({
-    matches: bracket.matches,
-    rounds: bracket.rounds,
-    played: matches.filter((m) => matchStatusKey(m) === "finished").length,
-    total: matches.length,
-  });
-  const rondaNombre = (n: number) =>
-    n >= bracket.rounds ? "Final" : n === bracket.rounds - 1 ? "Semifinales" : `Ronda ${n}`;
-
-  return (
-    <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            En qué anda
-          </p>
-          {prog ? (
-            <p className="mt-1 font-display text-xl leading-none">
-              {prog.finished ? "Terminado" : rondaNombre(prog.currentRound)}
-            </p>
-          ) : (
-            <p className="mt-1 font-display text-xl leading-none">Fase de grupos</p>
-          )}
-          {prog && !prog.finished && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {prog.pendingInRound} {prog.pendingInRound === 1 ? "partido" : "partidos"} sin capturar
-            </p>
-          )}
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Partidos
-          </p>
-          <p className="mt-1 font-display text-xl leading-none tabular-nums">
-            {matches.filter((m) => matchStatusKey(m) === "finished").length}
-            <span className="text-sm text-muted-foreground"> / {matches.length}</span>
-          </p>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            {prog?.champion ? "Campeón" : "Finalistas"}
-          </p>
-          {prog?.champion ? (
-            <p className="mt-1 truncate font-display text-xl leading-none text-primary">
-              {prog.champion.name}
-            </p>
-          ) : prog && prog.finalists.filter(Boolean).length > 0 ? (
-            <p className="mt-1 truncate text-sm font-medium">
-              {prog.finalists.filter(Boolean).map((f) => f!.name).join(" vs ")}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted-foreground">Por definir</p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
-        <p className="text-sm text-muted-foreground">
-          Pasan <strong className="text-foreground">{Math.min(slots, table.length)}</strong> de{" "}
-          {table.length} parejas. La siembra sale de los puntos: la primera se planta arriba.
-        </p>
-        <Button variant="outline" size="sm" onClick={() => setOrdenManual(null)}>
-          <RotateCcw className="h-4 w-4" /> Volver al orden por puntos
-        </Button>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {clasificadas.map((p, i) => (
-          <div key={p.pairId} className="flex min-w-0 items-center gap-2 rounded-lg border bg-card p-2.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-              {i + 1}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{p.name}</p>
-              <p className="text-xs tabular-nums text-muted-foreground">{p.points} pts</p>
-            </div>
-            <div className="flex shrink-0 flex-col">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => mover(p.pairId, -1)}
-                disabled={i === 0}
-                aria-label={`Subir a ${p.name} en la siembra`}
-              >
-                <ChevronDown className="h-4 w-4 rotate-180" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => mover(p.pairId, 1)}
-                disabled={i === clasificadas.length - 1}
-                aria-label={`Bajar a ${p.name} en la siembra`}
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {Array.from({ length: bracket.rounds }, (_, r) => r + 1).map((ronda) => (
-          <div key={ronda}>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {ronda === bracket.rounds ? "Final" : `Ronda ${ronda}`}
-            </p>
-<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {bracket.matches
-                .filter((m) => m.round === ronda)
-                .map((m) => {
-                  // Solo la primera ronda puede tener bye; en las siguientes
-                  // un hueco es "ganador de la ronda anterior", no una baja.
-                  const etiqueta = (e: BracketEntry | null) =>
-                    e ? `S${e.seed}` : ronda === 1 ? "bye" : "ganador de la ronda anterior";
-                  const linea = (e: BracketEntry | null, rival: BracketEntry | null) => {
-                    const gano =
-                      e && rival && m.played && m.a?.pairId === e.pairId && m.a !== null && m.b !== null
-                        ? m.a.pairId !== m.b?.pairId
-                        : false;
-                    return (
-                      <div
-                        className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                          m.played && e ? (gano ? "bg-success/10" : "") : ""
-                        }`}
-                      >
-                        <span className="min-w-0 flex-1 truncate font-medium">{e?.name ?? "—"}</span>
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                          {etiqueta(e)}
-                        </span>
-                      </div>
-                    );
-                  };
-                  return (
-                    <div
-                      key={m.id}
-                      className={`overflow-hidden rounded-lg border bg-card ${m.played ? "border-success/40" : ""}`}
-                    >
-                      {linea(m.a, m.b)}
-                      <div className="border-t">{linea(m.b, m.a)}</div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/**
- * Brackets del torneo, uno por categoría.
- *
- * Una categoría es una competencia cerrada: 4tas solo contra 4tas, 5tas solo
- * contra 5tas. Por eso aquí no hay un bracket único con todas las parejas —sería
- * un torneo que nadie está disputando— sino uno por categoría, con sus puntos y
- * sus cruces. Los partidos que cuentan para una categoría son los que van entre
- * parejas de esa misma categoría.
- */
-function BracketPanel({
-  pairs,
-  matches,
-  categories,
-  scoring,
-  slots,
-}: {
-  pairs: Pair[];
-  matches: Match[];
-  categories: TournamentCategory[];
-  scoring?: TournamentScoring | null;
-  slots: number;
-}) {
-  const nameByCatId = useMemo(
-    () => new Map(categories.map((c) => [c.id, c.name])),
-    [categories],
-  );
-
-  // Orden: primero las categorías del torneo en su orden, y al final las parejas
-  // sin categoría, para que no se pierdan de la vista.
-  const byCategory = useMemo(() => {
-    const order = new Map(categories.map((c, i) => [c.id, i]));
-    const buckets = new Map<string, Pair[]>();
-    for (const p of pairs) {
-      const key = p.category_id ?? "";
-      buckets.set(key, [...(buckets.get(key) ?? []), p]);
-    }
-    return [...buckets.entries()].sort(
-      ([a], [b]) =>
-        (order.get(a) ?? Number.MAX_SAFE_INTEGER) - (order.get(b) ?? Number.MAX_SAFE_INTEGER) ||
-        a.localeCompare(b),
-    );
-  }, [pairs, categories]);
-
-  if (pairs.length === 0) {
-    return (
-      <AdminEmptyState
-        className="border bg-card"
-        icon={<Trophy className="h-5 w-5" />}
-        title="Sin parejas en este torneo"
-        description="Cuando inscribas parejas, aquí se genera el bracket."
-      />
-    );
-  }
-
-  const conParejas = byCategory.filter(([, list]) => list.length >= 2);
-
-  return (
-    <div className="space-y-6">
-      {byCategory.length > 1 && (
-        <p className="text-sm text-muted-foreground">
-          Un bracket por categoría: las 4tas solo juegan contra 4tas y las 5tas contra 5tas.
-        </p>
-      )}
-      {conParejas.map(([categoryId, catPairs]) => {
-        const ids = new Set(catPairs.map((p) => p.id));
-        // Un partido pertenece a la categoría solo si AMBOS lados son de ella. Por id
-        // cuando existe, y por nombre cuando no: el asistente crea los partidos
-        // sin `pair_id` (solo el texto del lado), así que filtrando solo por id
-        // cualquier torneo hecho con el asistente salía con "0 partidos" y sin
-        // ganadores resolverse nunca, mientras la pestaña de posiciones —que sí
-        // cae a nombres— mostraba los mismos partidos bien.
-        const pairNameKey = (s: { pair_name: string } | null) =>
-          (s?.pair_name ?? "").trim().toLowerCase();
-        const namesInCat = new Set(catPairs.map((p) => p.name.trim().toLowerCase()));
-        const inCat = (s: { pair_id: string | null; pair_name: string } | null) =>
-          !!s && (ids.has(s.pair_id ?? "") || namesInCat.has(pairNameKey(s)));
-        const catMatches = matches.filter((m) => inCat(m.side_a) && inCat(m.side_b));
-        const name = nameByCatId.get(categoryId) ?? (categoryId ? "" : SIN_CATEGORIA);
-        return (
-          <div key={categoryId || "__sin_categoria__"} className="space-y-4">
-            {byCategory.length > 1 && (
-              <h3 className="flex flex-wrap items-center gap-2 border-b pb-2 text-sm font-semibold">
-                {name}
-                <span className="text-xs font-normal text-muted-foreground">
-                  {catPairs.length} parejas · {catMatches.length} partidos
-                </span>
-              </h3>
-            )}
-            <CategoryBracket
-              pairs={catPairs}
-              matches={catMatches}
-              scoring={scoring}
-              slots={slots}
-            />
-          </div>
-        );
-      })}
-      {conParejas.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          Cada categoría necesita al menos 2 parejas para armar su bracket.
-        </p>
       )}
     </div>
   );
@@ -1114,7 +712,7 @@ export default function AdminTournamentDetail() {
     }
   }
 
-  if (!tournament) return <Skeleton className="h-64 w-full rounded-xl" />;
+  if (!tournament) return <Skeleton className="h-64 w-full rounded-3xl" />;
 
   const club = clubs.find((c) => c.id === tournament.club_id);
   const filteredPairs = (pairs ?? []).filter((p) => {
@@ -1181,22 +779,36 @@ export default function AdminTournamentDetail() {
                 {tournament.semifinal_slots} a semifinales
               </Badge>
             )}
-            <Badge variant="outline">{(pairs ?? []).length} parejas</Badge>
             <Button variant="outline" size="sm" onClick={openEditDates}>
               <Pencil className="h-3.5 w-3.5" /> Fechas
             </Button>
           </>
         }
-      />
+      >
+        <AdminStatStrip loading={!pairs}>
+          <AdminStat value={(pairs ?? []).length} label="Parejas" />
+          <AdminStat value={matches.length} label="Partidos" />
+          <AdminStat
+            value={matches.filter((m) => matchStatusKey(m) === "finished").length}
+            label="Jugados"
+            tone="text-success"
+          />
+          <AdminStat
+            value={matches.filter((m) => matchStatusKey(m) !== "finished").length}
+            label="Por jugar"
+            tone="text-primary"
+          />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="h-auto w-full flex-wrap justify-start">
-          <TabsTrigger value="jornada">Jornada</TabsTrigger>
-          <TabsTrigger value="parejas">Parejas</TabsTrigger>
-          <TabsTrigger value="grupos">Grupos y sorteo</TabsTrigger>
-          <TabsTrigger value="posiciones">Posiciones</TabsTrigger>
-          <TabsTrigger value="calendario">Calendario ({matches.length})</TabsTrigger>
-          <TabsTrigger value="bracket">Bracket</TabsTrigger>
+        <TabsList className={TAB_LIST}>
+          <TabsTrigger value="jornada" className={TAB_TRIGGER}>Jornada</TabsTrigger>
+          <TabsTrigger value="parejas" className={TAB_TRIGGER}>Parejas</TabsTrigger>
+          <TabsTrigger value="grupos" className={TAB_TRIGGER}>Grupos y sorteo</TabsTrigger>
+          <TabsTrigger value="posiciones" className={TAB_TRIGGER}>Posiciones</TabsTrigger>
+          <TabsTrigger value="calendario" className={TAB_TRIGGER}>Calendario ({matches.length})</TabsTrigger>
+          <TabsTrigger value="bracket" className={TAB_TRIGGER}>Bracket</TabsTrigger>
         </TabsList>
 
         {/* ============ BRACKET ============ */}
@@ -1270,7 +882,7 @@ return (
                           key={m.id}
                           type="button"
                           variant="outline"
-                          className="h-auto w-full flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-start text-sm hover:border-primary/40 hover:bg-muted/40"
+                          className="h-auto w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-3xl bg-card px-5 py-4 text-start text-sm hover:border-primary/40 hover:bg-muted/40"
                           onClick={() => setEditingMatchId(m.id)}
                         >
                           <span className="flex min-w-0 shrink-0 flex-col items-start gap-1">
@@ -1398,37 +1010,28 @@ return (
                   description="Ningún equipo coincide con la búsqueda."
                 />
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="ps-4">Equipo</TableHead>
-                      <TableHead className="hidden sm:table-cell">Categoría</TableHead>
-                      <TableHead className="text-end pe-4">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPairs.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="ps-4 font-medium">{p.name}</TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {p.category_id ? (
-                            <Badge variant="secondary">{catNameById.get(p.category_id) ?? "—"}</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">{SIN_CATEGORIA}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="pe-4 text-end space-x-1">
-                          <Button variant="ghost" size="sm" onClick={() => openEditPair(p)}>
+                <ul className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredPairs.map((p) => (
+                    <li key={p.id} className="flex min-h-28 flex-col justify-between gap-4 rounded-3xl border bg-card p-5">
+                      <span className="font-display text-lg font-semibold leading-snug">{p.name}</span>
+                      <span className="flex items-center justify-between gap-2">
+                        {p.category_id ? (
+                          <Badge variant="secondary" className="rounded-full">{catNameById.get(p.category_id) ?? "—"}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{SIN_CATEGORIA}</span>
+                        )}
+                        <span className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openEditPair(p)} aria-label={`Editar ${p.name}`}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleRemovePair(p.id)} aria-label={`Eliminar ${p.name}`}>
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>
@@ -2268,374 +1871,4 @@ return (
       />
     </div>
   );
-}
-
-/** Captura y edición de marcador, cancha, fecha y hora desde el calendario del torneo. */
-function MatchResultDialog({
-  match,
-  nextMatchId,
-  courts,
-  open,
-  onOpenChange,
-  onAdvance,
-}: {
-  match: Match;
-  nextMatchId: string | null;
-  courts: Court[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onAdvance: (nextMatchId: string | null) => void;
-}) {
-  // El estado nace de `match`, así que el componente DEBE remontarse cuando
-  // cambia el partido: el diálogo se encadena al siguiente con `onAdvance` sin
-  // cerrarse. Sin la `key` que se le pone arriba, los sets del partido anterior
-  // se guardaban encima del nuevo.
-  const [sets, setSets] = useState<Array<{ a: string; b: string }>>(() =>
-    match.sets.length > 0 ? match.sets.map((s) => ({ a: String(s.a), b: String(s.b) })) : [{ a: "", b: "" }],
-  );
-  const [courtName, setCourtName] = useState(match.court_name ?? "");
-  const [scheduledAt, setScheduledAt] = useState(match.scheduled_at ? match.scheduled_at.slice(0, 16) : "");
-  const [saving, setSaving] = useState(false);
-
-  const finishedSets = sets.filter((s) => s.a !== "" && s.b !== "");
-  const validSets = finishedSets.map((s) => ({ a: Number(s.a), b: Number(s.b), tiebreak_a: null, tiebreak_b: null }));
-  const setsA = validSets.filter((s) => s.a > s.b).length;
-  const setsB = validSets.filter((s) => s.b > s.a).length;
-  const winner = setsA > setsB ? "a" : setsB > setsA ? "b" : null;
-
-  async function save(status: Match["status"]) {
-    if (status === "finished" && !winner) {
-      toast.error("Marca los sets: deben ganar más sets una pareja para cerrar el partido");
-      return;
-    }
-    setSaving(true);
-    try {
-      await db.updateMatch(match.id, {
-        sets: status === "finished" ? validSets : match.sets,
-        winner: status === "finished" ? winner : match.winner,
-        status,
-        court_name: courtName || null,
-        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
-      });
-      toast.success(status === "finished" ? (nextMatchId ? "Guardado — siguiente partido" : "Resultado guardado") : "Partido actualizado");
-      onAdvance(status === "finished" ? nextMatchId : null);
-    } catch (e) {
-      toast.error((e as Error).message ?? "Error al guardar");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Editar partido</DialogTitle>
-          <DialogDescription>
-            {match.side_a.pair_name} vs {match.side_b.pair_name} · {match.round}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3 py-2">
-          {sets.map((s, i) => (
-            <div key={i} className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-              <div className="grid gap-1">
-                <Label className="text-xs">Set {i + 1} — {match.side_a.pair_name}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={s.a}
-                  onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)))}
-                  aria-label={`Juegos de ${match.side_a.pair_name} en el set ${i + 1}`}
-                />
-              </div>
-              <span className="pb-2 text-muted-foreground">–</span>
-              <div className="grid gap-1">
-                <Label className="text-xs">{match.side_b.pair_name}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={s.b}
-                  onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, b: e.target.value } : x)))}
-                  aria-label={`Juegos de ${match.side_b.pair_name} en el set ${i + 1}`}
-                />
-              </div>
-            </div>
-          ))}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSets((arr) => [...arr, { a: "", b: "" }])}
-              disabled={sets.length >= 5}
-            >
-              <Plus className="h-4 w-4 ms-1" /> Añadir set
-            </Button>
-{winner && (
-                <Badge variant="default">
-                  Gana: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
-                </Badge>
-              )}
-          </div>
-          <div className="grid grid-cols-2 gap-3 border-t pt-3">
-            <div className="grid gap-1.5">
-              <Label className="text-xs">Cancha</Label>
-              <Select value={courtName} onValueChange={setCourtName}>
-                <SelectTrigger><SelectValue placeholder="Sin cancha" /></SelectTrigger>
-                <SelectContent>
-                  {courts.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label className="text-xs">Fecha y hora</Label>
-              <DateTimePicker
-                value={scheduledAt}
-                onChange={(v) => setScheduledAt(v ?? "")}
-                ariaLabel="Fecha y hora del partido"
-              />
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
-          <Button variant="outline" onClick={() => save("scheduled")} disabled={saving}>
-            Guardar sin jugar
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={() => save("finished")} disabled={saving}>
-              {saving ? "Guardando…" : "Guardar resultado"}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** Tabla de posiciones de un grupo: compacta por defecto, completa al expandir. */
-function GroupStandingsCard({
-  group,
-  matches,
-  nameById,
-  pairs,
-  categories,
-  tournament,
-}: {
-  group: Group;
-  matches: Match[];
-  nameById: Record<string, string>;
-  pairs: Pair[];
-  categories: TournamentCategory[];
-  tournament: Tournament | null;
-}) {
-  const [expanded, setExpanded] = useState(false);
-
-  // Determinar categoría del grupo (asumimos que todos los pares del grupo son de la misma categoría)
-  const firstPairId = group.pairIds[0];
-  const firstPair = pairs.find((p) => p.id === firstPairId);
-  const catName = firstPair
-    ? categories.find((c) => c.id === firstPair.category_id)?.name ?? ""
-    : "";
-  const liga16Cat = getLiga16Category(catName);
-
-  // Usar computeStandings unificado con el scoring del torneo
-  // Para categorías Liga16, forzar ranking_method = 'points_percentage'
-  const baseScoring = tournament?.scoring ?? undefined;
-  const effectiveScoring = liga16Cat
-    ? { ...DEFAULT_SCORING, ...baseScoring, ranking_method: 'points_percentage' as const }
-    : baseScoring;
-
-  const standings = computeStandings(group.pairIds, matches, nameById, effectiveScoring);
-
-  const groupMatches = matches.filter(
-    (m) => group.pairIds.includes(m.side_a.pair_id ?? "") && group.pairIds.includes(m.side_b.pair_id ?? ""),
-  );
-  const played = groupMatches.filter((m) => matchStatusKey(m) === "finished").length;
-
-  // Jornada summary solo para Liga16
-  const isLiga16 = liga16Cat !== null;
-
-  // Leyenda de columnas. Sin ella, PJ/PG/PP/%PTS obligan a adivinar: en la vista
-  // completa PP va justo después de PG y se lee como "puntos por partido", pero
-  // son partidos perdidos. La auditoría de Jev lo señaló como el punto ciego más
-  // claro del admin (confianza 0.99). Mismo patrón que la leyenda de sets en
-  // resultados.tsx: texto visible, no tooltip — en móvil no hay hover.
-  const leyendaColumnas = expanded
-    ? "PJ partidos jugados · PG ganados · PP perdidos · Sets G/P ganados/perdidos · Juegos G/P ganados/perdidos · Dif diferencia a favor · %Pts porcentaje de puntos ganados sobre el total de puntos jugados · G/D en Forma = victoria/derrota"
-    : isLiga16
-      ? "PJ partidos jugados · PG ganados · %PG porcentaje de victorias · %PTS puntos ganados sobre el total de puntos jugados · Pos posición"
-      : "PJ partidos jugados · Sets ganados-perdidos · %Pts porcentaje de puntos ganados · G/D en Forma = victoria/derrota";
-
-  let jornadaSummary: { JUEGOS_JUGADOS: number; TOTAL_JUEGOS: number; JUEGOS_FALTANTES: number } | null = null;
-  if (isLiga16) {
-    const totalPJ = standings.reduce((sum, s) => sum + s.played, 0);
-    const JUEGOS_JUGADOS = Math.floor(totalPJ / 2);
-    const TOTAL_JUEGOS = LIGA16_CATEGORIES[liga16Cat!].totalMatchesRoundRobin;
-    jornadaSummary = { JUEGOS_JUGADOS, TOTAL_JUEGOS, JUEGOS_FALTANTES: TOTAL_JUEGOS - JUEGOS_JUGADOS };
-  }
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="flex items-center gap-2">
-            {group.name}
-            {liga16Cat && <Badge variant="secondary" className="text-xs">Liga16: {liga16Cat}</Badge>}
-            <Badge variant="outline">{played}/{groupMatches.length} jugados</Badge>
-          </span>
-          {jornadaSummary && (
-            <span className="text-xs text-muted-foreground">
-              Jornada: {jornadaSummary.JUEGOS_JUGADOS}/{jornadaSummary.TOTAL_JUEGOS} · Faltan {jornadaSummary.JUEGOS_FALTANTES}
-            </span>
-          )}
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "Ver básico" : "Ver completa"}
-            <ChevronDown className={`ms-1 h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0 overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="ps-4 w-8">#</TableHead>
-              <TableHead>Equipo</TableHead>
-              {isLiga16 ? (
-                // Columnas Liga16: PJ, PG, %PG, %PTS, JERARQUIA
-                !expanded && (
-                  <>
-                    <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
-                    <TableHead className="text-end" title="Partidos ganados">PG</TableHead>
-                    <TableHead className="text-end" title="Porcentaje de partidos ganados">%PG</TableHead>
-                    <TableHead className="text-end" title="Puntos ganados sobre el total de puntos jugados">%PTS</TableHead>
-                    <TableHead className="text-end pe-4" title="Posición en la tabla">Pos</TableHead>
-                  </>
-                )
-              ) : (
-                // Columnas genéricas
-                !expanded && (
-                  <>
-                    <TableHead className="text-center w-28" title="Últimos partidos: G es victoria, D es derrota">Forma</TableHead>
-                    <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
-                    <TableHead className="text-end" title="Sets ganados - sets perdidos">Sets</TableHead>
-                    <TableHead className="text-end pe-4" title="Porcentaje de puntos ganados sobre el total de puntos jugados">%Pts</TableHead>
-                  </>
-                )
-              )}
-              {expanded && (
-                <>
-                  <TableHead className="text-center w-28" title="Últimos partidos: G es victoria, D es derrota">Forma</TableHead>
-                  <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
-                  <TableHead className="text-end" title="Partidos ganados">PG</TableHead>
-                  <TableHead className="text-end" title="Partidos perdidos (no puntos: van juntos a PJ y PG)">PP</TableHead>
-                  <TableHead className="text-end" title="Sets ganados">Sets G</TableHead>
-                  <TableHead className="text-end" title="Sets perdidos">Sets P</TableHead>
-                  <TableHead className="text-end" title="Diferencia de sets a favor">Dif sets</TableHead>
-                  <TableHead className="text-end" title="Juegos ganados">Juegos G</TableHead>
-                  <TableHead className="text-end" title="Juegos perdidos">Juegos P</TableHead>
-                  <TableHead className="text-end" title="Diferencia de juegos a favor">Dif juegos</TableHead>
-                  <TableHead className="text-end pe-4" title="Porcentaje de puntos ganados sobre el total de puntos jugados">%Pts</TableHead>
-                </>
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {standings.map((row, i) => {
-              const difSets = row.setsFor - row.setsAgainst;
-              const difGames = row.gamesFor - row.gamesAgainst;
-              const position = row.jerarquia ?? i + 1;
-              return (
-                <TableRow key={row.pairId} className={position === 1 ? "bg-primary/5" : ""}>
-                  <TableCell className="ps-4 font-medium">{position}</TableCell>
-                  <TableCell className="font-medium min-w-0 truncate">{nameById[row.pairId] ?? "?"}</TableCell>
-                  {isLiga16 ? (
-                    // Vista compacta Liga16
-                    !expanded && (
-                      <>
-                        <TableCell className="text-end tabular-nums">{row.played}</TableCell>
-                        <TableCell className="text-end tabular-nums text-success">{row.won}</TableCell>
-                        <TableCell className="text-end tabular-nums">
-                          {row.played > 0 ? ((row.won / row.played) * 100).toFixed(1) + "%" : "—"}
-                        </TableCell>
-                        <TableCell className="text-end tabular-nums">
-                          {row.gamesFor > 0 || row.gamesAgainst > 0
-                            ? ((row.gamesFor / (row.gamesFor + row.gamesAgainst)) * 100).toFixed(1) + "%"
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-end pe-4 font-bold tabular-nums">{position}</TableCell>
-                      </>
-                    )
-                  ) : (
-                    // Vista compacta genérica
-                    !expanded && (
-                      <>
-                        <TableCell className="text-center">
-                          <span className="inline-flex gap-0.5">
-                            {row.form.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                            {row.form.map((f, fi) => (
-                              <span
-                                key={fi}
-                                className={`flex h-4.5 w-4.5 items-center justify-center rounded-xs text-xs font-bold text-white ${
-                                  f === "G" ? "bg-success" : "bg-destructive"
-                                }`}
-                                title={f === "G" ? "Victoria" : "Derrota"}
-                              >
-                                {f}
-                              </span>
-                            ))}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-end tabular-nums">{row.played}</TableCell>
-                        <TableCell className="text-end tabular-nums">{row.setsFor}-{row.setsAgainst}</TableCell>
-                        <TableCell className="text-end pe-4 font-bold tabular-nums">{row.points}</TableCell>
-                      </>
-                    )
-                  )}
-                  {expanded && (
-                    <>
-                      <TableCell className="text-center">
-                        <span className="inline-flex gap-0.5">
-                          {row.form.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                          {row.form.map((f, fi) => (
-                            <span
-                              key={fi}
-                              className={`flex h-4.5 w-4.5 items-center justify-center rounded-xs text-xs font-bold text-white ${
-                                f === "G" ? "bg-success" : "bg-destructive"
-                              }`}
-                              title={f === "G" ? "Victoria" : "Derrota"}
-                            >
-                              {f}
-                            </span>
-                          ))}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-end tabular-nums">{row.played}</TableCell>
-                      <TableCell className="text-end tabular-nums text-success">{row.won}</TableCell>
-                      <TableCell className="text-end tabular-nums text-destructive">{row.lost}</TableCell>
-                      <TableCell className="text-end tabular-nums">{row.setsFor}</TableCell>
-                      <TableCell className="text-end tabular-nums">{row.setsAgainst}</TableCell>
-                      <TableCell className={`text-end tabular-nums ${difSets > 0 ? "text-success" : difSets < 0 ? "text-destructive" : ""}`}>
-                        {difSets > 0 ? "+" : ""}{difSets}
-                      </TableCell>
-                      <TableCell className="text-end tabular-nums">{row.gamesFor}</TableCell>
-                      <TableCell className="text-end tabular-nums">{row.gamesAgainst}</TableCell>
-                      <TableCell className={`text-end tabular-nums ${difGames > 0 ? "text-success" : difGames < 0 ? "text-destructive" : ""}`}>
-                        {difGames > 0 ? "+" : ""}{difGames}
-                      </TableCell>
-                      <TableCell className="text-end pe-4 font-bold tabular-nums">{row.points}</TableCell>
-                    </>
-                  )}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-        <p className="border-t px-4 py-2 text-xs leading-relaxed text-muted-foreground">
-          {leyendaColumnas}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
+                                    }
