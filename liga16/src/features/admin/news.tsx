@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { NewsItem } from "@/types";
@@ -52,11 +53,16 @@ export default function AdminNews() {
   const [editing, setEditing] = useState<NewsItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    db.listNews().then(setList);
-  }, []);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const load = () => db.listNews().then(setList);
+  const load = () =>
+    db.listNews()
+      .then((l) => { setList(l); setLoadError(null); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar las noticias"));
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function handleSave(form: NewsForm) {
     if (!form.title?.trim()) {
@@ -128,6 +134,18 @@ export default function AdminNews() {
       .filter((o) => o.n > 0)
       .sort((a, b) => b.n - a.n);
   }, [list]);
+
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Noticias"
+        description="Publica novedades y resultados del circuito."
+        what="las noticias"
+        message={loadError}
+        onRetry={load}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">
