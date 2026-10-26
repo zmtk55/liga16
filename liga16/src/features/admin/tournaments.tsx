@@ -1,4 +1,6 @@
+import { tournamentPhase } from "@/lib/tournament-phase";
 import { useEffect, useMemo, useState } from "react";
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
@@ -11,7 +13,7 @@ import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
-import { CardShell, CardIdentity } from "@/components/cards/card-kit";
+import { CardShell } from "@/components/cards/card-kit";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -62,8 +64,14 @@ export default function AdminTournaments() {
   };
   const [status, setStatus] = useState("all");
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = () =>
+    db.listTournaments()
+      .then((l) => { setList(l); setLoadError(null); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar los torneos"));
+
   useEffect(() => {
-    db.listTournaments().then(setList);
+    load();
   }, []);
 
   const filtered = (list ?? []).filter((t) => {
@@ -80,8 +88,8 @@ export default function AdminTournaments() {
     const all = list ?? [];
     return {
       total: all.length,
-      enJuego: all.filter((t) => t.status === "in_progress").length,
-      abiertos: all.filter((t) => t.status === "registration_open").length,
+      enJuego: all.filter((t) => tournamentPhase(t) === "running").length,
+      abiertos: all.filter((t) => tournamentPhase(t) === "signup").length,
       terminados: all.filter((t) => t.status === "finished").length,
     };
   }, [list]);
@@ -103,7 +111,7 @@ export default function AdminTournaments() {
     try {
       await db.deleteTournament(t.slug);
       toast.success(`Torneo "${t.name}" eliminado`);
-      db.listTournaments().then(setList);
+      load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al eliminar");
     } finally {
@@ -115,12 +123,24 @@ export default function AdminTournaments() {
     try {
       await db.updateTournament(t.slug, { status: target });
       toast.success(`"${t.name}" cambiado a ${tournamentStatusLabel[target]}`);
-      db.listTournaments().then(setList);
+      load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al cambiar estado");
     } finally {
       setChangingStatus(null);
     }
+  }
+
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Torneos"
+        description="Crea, publica y administra los torneos del circuito."
+        what="los torneos"
+        message={loadError}
+        onRetry={load}
+      />
+    );
   }
 
   return (
@@ -136,7 +156,7 @@ export default function AdminTournaments() {
           </Button>
         }
       >
-        <AdminStatStrip>
+        <AdminStatStrip loading={list === null}>
           <AdminStat value={resumen.total} label="Torneos" />
           <AdminStat
             value={resumen.enJuego}
@@ -152,8 +172,8 @@ export default function AdminTournaments() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      <Card>
-        <CardHeader className="gap-3">
+      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+        <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}
             onSearch={setQuery}
@@ -245,30 +265,14 @@ export default function AdminTournaments() {
                 });
                 return (
                   <RowContextMenu key={t.id} actions={actions}>
-                    <CardShell banner={t.cover_url} bannerAlt={`Cubierta del torneo ${t.name}`} className="relative">
-                      {t.cover_url && (
-                        <>
-                          <h3 className="absolute inset-inline-start-4 top-4 z-10 line-clamp-1 text-base font-bold text-white drop-shadow-sm">
-                            {t.name}
-                          </h3>
-                          <div className="absolute inset-inline-end-4 top-4 z-10">
-                            <TournamentStatusBadge status={t.status} />
-                          </div>
-                        </>
-                      )}
-                      <CardContent className={t.cover_url ? "pt-12" : "p-4"}>
-                          <CardIdentity
-                            lead={<Trophy className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
-                            titleLines={[
-                              t.club_name ?? formatCity(t.city),
-                              `${formatDateRange(t.start_date, t.end_date)} · ${formatLabel[t.format] ?? t.format}`,
-                            ]}
-                          />
-                        </CardContent>
-                      <div className="flex items-center justify-end border-t border-border/60 bg-muted/40 px-3 py-1.5">
-                        <RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} />
+                    <article className="group h-full overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                      <div className="relative flex h-44 items-center justify-center overflow-hidden bg-zinc-950 text-primary">
+                        {t.cover_url ? <img src={t.cover_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <Trophy className="h-16 w-16 opacity-60" strokeWidth={1} />}
+                        <div className="absolute left-4 top-4"><TournamentStatusBadge status={t.status} /></div>
+                        <div className="absolute right-3 top-3 rounded-full bg-card text-foreground"><RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} /></div>
                       </div>
-                    </CardShell>
+                      <div className="space-y-3 p-5"><p className="text-xs text-muted-foreground">{formatLabel[t.format] ?? t.format}</p><h2 className="font-display text-2xl font-semibold leading-tight">{t.name}</h2><p className="text-sm text-muted-foreground">{t.club_name ?? formatCity(t.city)}</p><p className="text-sm">{formatDateRange(t.start_date,t.end_date)}</p><Link to={`/admin/torneos/${t.slug}`} className="inline-flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm font-medium transition-colors hover:bg-primary hover:text-primary-foreground">Abrir torneo <ExternalLink className="h-3 w-3" /></Link></div>
+                    </article>
                   </RowContextMenu>
                 );
               })}

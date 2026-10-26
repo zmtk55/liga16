@@ -1,11 +1,11 @@
-"use client";
+import { useSearchParams } from "react-router";
 
 import { useState } from "react";
 import { CheckCircle2, ChevronRight, Inbox, RefreshCw, XCircle } from 'lucide-react';
 import { useAdminAlerts } from '@/hooks/use-admin-alerts';
 import type { AlertSeverity, AdminAlert } from '@/types';
 import { alertTypeMeta } from '@/lib/alerts';
-import { AdminPageHeader } from '@/components/admin/page-header';
+import { AdminPageHeader, AdminStat, AdminStatStrip } from '@/components/admin/page-header';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { AdminFacet, AdminFacets } from '@/components/admin/filter-facets';
 import { countActive } from '@/lib/filters';
@@ -47,15 +47,15 @@ function AlertRow({ alert }: { alert: AdminAlert }) {
   return (
     <Link
       to={alert.href}
-      className="block rounded-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+      className="block rounded-3xl outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/40">
+      <div className="flex h-full items-start gap-4 rounded-3xl border bg-card p-6 transition-colors hover:bg-muted/40">
         <div className="mt-0.5 shrink-0 rounded-md bg-muted/60 p-1.5">
           <Icon className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm font-medium">{alert.title}</p>
+            <p className="font-display text-lg font-semibold">{alert.title}</p>
             <Badge className={cn('border-transparent text-xs', severityTone[alert.severity])}>
               {severityLabelKey(alert.severity)}
             </Badge>
@@ -79,7 +79,13 @@ function severityLabelKey(s: AlertSeverity) {
 
 export default function AdminInbox() {
   const { alerts, loading, error, refresh } = useAdminAlerts();
-  const [query, setQuery] = useState("");
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set("q", value); else next.delete("q");
+    setParams(next, { replace: true });
+  };
   const [fSeverity, setFSeverity] = useState("all");
   const visible = alerts.filter((a) => {
     const q = query.trim().toLowerCase();
@@ -96,18 +102,34 @@ export default function AdminInbox() {
     .filter((o) => o.n > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <AdminPageHeader
         title="Bandeja de entrada"
         description="Alertas y mensajes del sistema derivados de los datos en vivo. Desaparecen al resolverse."
         action={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={refresh} disabled={loading} aria-label="Actualizar alertas">
+            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Actualizar
             </Button>
           </div>
         }
-      />
+      >
+        <AdminStatStrip loading={loading}>
+          <AdminStat value={alerts.length} label="Alertas" />
+          <AdminStat
+            value={alerts.filter((a) => a.severity === "critical").length}
+            label="Urgentes"
+            tone={alerts.some((a) => a.severity === "critical") ? "text-destructive" : undefined}
+          />
+          <AdminStat
+            value={alerts.filter((a) => a.severity === "warning").length}
+            label="Atención"
+            tone={alerts.some((a) => a.severity === "warning") ? "text-warning-strong" : undefined}
+          />
+          <AdminStat value={alerts.filter((a) => a.severity === "info").length} label="Info" />
+        </AdminStatStrip>
+      </AdminPageHeader>
 
       <FilterBar
         search={query}
@@ -142,7 +164,7 @@ export default function AdminInbox() {
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
-      ) : total === 0 ? (
+      ) : error ? null : total === 0 ? (
         alerts.length === 0 ? (
         <AdminEmptyState
           className="py-16"
@@ -173,9 +195,9 @@ export default function AdminInbox() {
                   {items.length}
                 </Badge>
               </div>
-              <Card>
+              <Card className="rounded-3xl border-0 bg-transparent shadow-none">
                 <CardContent className="p-2">
-                  <div className="divide-y">
+                  <div className="grid gap-4 lg:grid-cols-2">
                     {items.map((a) => (
                       <AlertRow key={a.id} alert={a} />
                     ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -23,24 +24,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
 import {
-  LayoutGrid,
-  List,
   Pencil,
   Plus,
   ShieldCheck,
   Trash2,
   Users,
-  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { PlayerStatus } from "@/types";
@@ -48,7 +38,6 @@ import {
   buildDirectoryStats,
   type DirStats,
 } from "@/lib/data/record-stats";
-import { PlayerCard } from "@/components/players/player-card";
 import { SEX_BRANCHES, sexLabel } from "@/lib/format";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
@@ -59,10 +48,6 @@ import {
   AdminStat,
   AdminStatStrip,
 } from "@/components/admin/page-header";
-import {
-  AdminTableEmpty,
-  AdminTableSkeleton,
-} from "@/components/admin/table-state";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -81,7 +66,6 @@ const POSITION_OPTIONS = [
 
 export default function AdminPlayers() {
   const [list, setList] = useState<PlayerProfile[] | null>(null);
-  const [view, setView] = useState<"lista" | "galeria">("lista");
   /** Récord derivado (jugado/ganado) por jugador para la galería. */
   const [stats, setStats] = useState<Record<string, DirStats>>({});
   const [openCreate, setOpenCreate] = useState(false);
@@ -101,6 +85,7 @@ export default function AdminPlayers() {
     Array<{ id: string; name: string }>
   >([]);
   const [tid, setTid] = useState("all");
+  const [playerIdsByTournament, setPlayerIdsByTournament] = useState<Record<string, string[]>>({});
   /** Ids de los jugadores inscritos en el torneo filtrado. */
   const [tournamentPlayers, setTournamentPlayers] = useState<Set<string>>(
     new Set(),
@@ -130,9 +115,9 @@ export default function AdminPlayers() {
   const tournamentOptions = useMemo(() => {
     const all = list ?? [];
     return tournaments
-      .map((t) => ({ key: t.id, label: t.name, n: all.filter((p) => tournamentPlayers.has(p.id)).length }))
+      .map((t) => ({ key: t.id, label: t.name, n: all.filter((p) => (playerIdsByTournament[t.id] ?? []).includes(p.id)).length }))
       .filter((o) => o.n > 0);
-  }, [list, tournaments, tournamentPlayers]);
+  }, [list, tournaments, playerIdsByTournament]);
 
   const filtered = (list ?? [])
     .filter((p) => {
@@ -161,11 +146,24 @@ export default function AdminPlayers() {
       .catch(() => undefined);
   };
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = () =>
-    db.listPlayers().then((l) => { setList(l); loadStats(l); }).catch((_e) => toast.error("No se cargaron jugadores"));
+    db.listPlayers()
+      .then((l) => { setList(l); setLoadError(null); loadStats(l); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar los jugadores"));
 
   useEffect(() => {
     load();
+    db.listAllPairs().then(pairs => {
+      const ids: Record<string, Set<string>> = {};
+      for (const pair of pairs) {
+        if (!pair.tournament_id) continue;
+        const group = ids[pair.tournament_id] ??= new Set();
+        if (pair.player1_id) group.add(pair.player1_id);
+        if (pair.player2_id) group.add(pair.player2_id);
+      }
+      setPlayerIdsByTournament(Object.fromEntries(Object.entries(ids).map(([id, members]) => [id, [...members]])));
+    }).catch(() => toast.error("No se pudieron cargar los filtros de torneo"));
     db.listTournaments()
       .then((ts) => setTournaments(ts.map((t) => ({ id: t.id, name: t.name }))))
       .catch(() => setTournaments([]));
@@ -251,6 +249,18 @@ export default function AdminPlayers() {
     }
   }
 
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Jugadores"
+        description="Directorio de jugadores, nivel y rama de juego."
+        what="los jugadores"
+        message={loadError}
+        onRetry={() => { load(); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -258,22 +268,6 @@ export default function AdminPlayers() {
         description="Directorio de jugadores, nivel y rama de juego."
         action={
           <>
-            {pendingCount > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setVerification((v) =>
-                    v === "pendiente" ? "all" : "pendiente",
-                  )
-                }
-              >
-                <ShieldCheck className="h-4 w-4" />
-                {pendingCount} por verificar
-              </Button>
-            )}
-            {/* Siempre visible: verificar pendientes no puede quitarte la
-                acción de crear un jugador. */}
             <Button
               size="sm"
               onClick={() => {
@@ -286,7 +280,7 @@ export default function AdminPlayers() {
           </>
         }
       >
-        <AdminStatStrip>
+        <AdminStatStrip loading={list === null}>
           <AdminStat value={list?.length ?? 0} label="Jugadores" />
           <AdminStat
             value={pendingCount}
@@ -309,34 +303,8 @@ export default function AdminPlayers() {
           <AdminStat value={tournaments.length} label="Torneos" />
         </AdminStatStrip>
       </AdminPageHeader>
-      <Card>
-        <CardHeader className="gap-3">
-          <div className="flex justify-end">
-            <div className="inline-flex rounded-lg border p-0.5">
-              <Button
-                size="sm"
-                variant={view === "lista" ? "secondary" : "ghost"}
-                aria-label="Ver como lista"
-                aria-pressed={view === "lista"}
-                className="h-7 gap-1.5 px-2.5"
-                onClick={() => setView("lista")}
-              >
-                <List className="h-4 w-4" />
-                <span className="hidden sm:inline">Lista</span>
-              </Button>
-              <Button
-                size="sm"
-                variant={view === "galeria" ? "secondary" : "ghost"}
-                aria-label="Ver como galería"
-                aria-pressed={view === "galeria"}
-                className="h-7 gap-1.5 px-2.5"
-                onClick={() => setView("galeria")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-                <span className="hidden sm:inline">Galería</span>
-              </Button>
-            </div>
-          </div>
+      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+        <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}
             onSearch={setQuery}
@@ -368,46 +336,10 @@ export default function AdminPlayers() {
             </AdminFacets>
           </FilterBar>
         </CardHeader>
-        {view === "lista" ? (
-        <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Nivel</TableHead>
-                <TableHead className="hidden md:table-cell">Sexo</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list === null && <AdminTableSkeleton columns={4} />}
-              {list !== null && list.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={6}
-                  icon={<Users className="h-5 w-5" />}
-                  title="No hay jugadores todavía"
-                  description="Agrega al primer jugador para empezar el directorio."
-                  action={
-                    <Button
-                      size="sm"
-                      className="mt-4"
-                      onClick={() => {
-                        setEditing(null);
-                        setOpenCreate(true);
-                      }}
-                    >
-                      Agregar jugador
-                    </Button>
-                  }
-                />
-              )}
-              {list !== null && list.length > 0 && filtered.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={6}
-                  title="Sin coincidencias"
-                  description="Ningún jugador coincide con la búsqueda o el filtro."
-                />
-              )}
+        {(
+        <CardContent className="grid gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
+          {list === null && Array.from({length: 6}, (_, i) => <Skeleton key={i} className="h-64 rounded-3xl" />)}
+          {list !== null && filtered.length === 0 && <AdminEmptyState className="col-span-full rounded-3xl bg-card" icon={<Users className="h-6 w-6" />} title={list.length ? "Sin coincidencias" : "No hay jugadores todavía"} description="Agrega un jugador o ajusta los filtros para ver el directorio." />}
               {filtered.map((p) => {
                 const status = (p.status ?? "verificado") as PlayerStatus;
                 const isPending = status === "pendiente";
@@ -441,111 +373,22 @@ export default function AdminPlayers() {
                 ];
                 return (
                   <RowContextMenu key={p.id} actions={actions}>
-                    <TableRow
-                      className={
-                        isPending
-                          ? "bg-warning/10"
-                          : undefined
-                      }
-                    >
-                      <TableCell className="font-medium">
-                        <span className="flex items-center gap-2">
-                          {p.display_name}
-                          {isPending && (
-                            <Badge
-                              variant="outline"
-                              className="border-warning/30 bg-warning/10 text-xs uppercase tracking-wide text-warning-strong"
-                            >
-                              Por verificar
-                            </Badge>
-                          )}
-                        </span>
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {p.declared_level.toFixed(1)}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {sexLabel(p.sex)}
-                      </TableCell>
-                      <TableCell className="pr-2 text-right">
-                        <RowActionsMenu
-                          actions={actions}
-                          label={`Acciones para ${p.display_name}`}
-                        />
-                      </TableCell>
-                    </TableRow>
+                    <article className="group overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                      <div className="relative flex h-32 items-center justify-center bg-zinc-950">
+                        {p.photo_url ? <img src={p.photo_url} alt="" className="h-20 w-20 rounded-full object-cover ring-4 ring-white/10" /> : <span className="font-display text-5xl font-bold text-primary">{p.display_name.split(" ").map(n => n[0]).slice(0,2).join("")}</span>}
+                        <div className="absolute right-3 top-3 rounded-full bg-card"><RowActionsMenu actions={actions} label={`Acciones para ${p.display_name}`} /></div>
+                      </div>
+                      <div className="space-y-4 p-5">
+                        <Badge variant="outline" className="rounded-full">{isPending ? "Por verificar" : status === "rechazado" ? "Rechazado" : "Verificado"}</Badge>
+                        <h2 className="font-display text-2xl font-semibold">{p.display_name}</h2>
+                        <p className="text-sm text-muted-foreground">{[p.city, sexLabel(p.sex)].filter(Boolean).join(" · ")}</p><p className="text-xs text-muted-foreground">{stats[p.id] ? `${stats[p.id].played} partidos · ${stats[p.id].won} ganados` : "Récord no disponible"}</p>
+                        <div className="flex items-end justify-between border-t pt-4"><div><p className="text-xs text-muted-foreground">Nivel declarado</p><p className="font-display text-3xl font-bold tabular-nums">{p.declared_level.toFixed(1)}</p></div><Button size="sm" variant="outline" className="rounded-full" onClick={() => {setEditing(p); setOpenCreate(true);}}>Editar</Button></div>
+                      </div>
+                    </article>
                   </RowContextMenu>
                 );
               })}
-            </TableBody>
-          </Table>
         </CardContent>
-        ) : (
-          <CardContent className="p-4">
-            {list === null && (
-              /* Skeleton con la forma final de la galería: la carga se ve
-                 como la pantalla que va a aparecer, no como un texto. */
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <Skeleton key={i} className="h-40 w-full rounded-xl" />
-                ))}
-              </div>
-            )}
-            {list !== null && filtered.length === 0 && (
-              <AdminEmptyState
-                icon={<Users className="h-5 w-5 text-muted-foreground" />}
-                title={
-                  list.length === 0 ? "No hay jugadores todavía" : "Sin coincidencias"
-                }
-                description={
-                  list.length === 0
-                    ? "Agrega al primer jugador para empezar el directorio."
-                    : "Ningún jugador coincide con la búsqueda o el filtro."
-                }
-                action={
-                  list.length === 0 ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditing(null);
-                        setOpenCreate(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4" /> Nuevo jugador
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setQuery("");
-                        setTid("all");
-                        setVerification("all");
-                      }}
-                    >
-                      <X className="h-3.5 w-3.5" /> Limpiar filtros
-                    </Button>
-                  )
-                }
-              />
-            )}
-            {filtered.length > 0 && (
-              <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filtered.map((p) => {
-                  const c = stats[p.id];
-                  return (
-                    <PlayerCard
-                      key={p.id}
-                      player={p}
-                      played={c?.played}
-                      won={c?.won}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
         )}
       </Card>
 

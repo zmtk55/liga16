@@ -1,9 +1,14 @@
-"use client";
+import { useSearchParams } from "react-router";
 
+import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
+import { countActive } from "@/lib/filters";
+import { RowActionsMenu, RowContextMenu, type RowAction } from "@/components/admin/row-actions";
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
 import type { Sponsor } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,25 +28,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { MoreHorizontal, Pencil, Plus, Trash2, ImagePlus, X } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Pencil, Plus, Trash2, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
-import { AdminTableEmpty, AdminTableSkeleton } from "@/components/admin/table-state";
+import { AdminEmptyState } from "@/components/admin/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const TIER_OPTIONS = [
   { value: "principal", label: "Principal" },
@@ -57,11 +49,39 @@ export default function AdminSponsors() {
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<Sponsor | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set("q", value); else next.delete("q");
+    setParams(next, { replace: true });
+  };
+  const [fTier, setFTier] = useState("all");
+
+  const load = () =>
+    db.listSponsors()
+      .then((l) => { setList(l); setLoadError(null); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar los patrocinadores"));
+
   useEffect(() => {
-    db.listSponsors().then(setList);
+    load();
   }, []);
 
-  const load = () => db.listSponsors().then(setList);
+  const tierOptions = useMemo(() => {
+    const all = list ?? [];
+    const tiers = Array.from(new Set(all.map((s) => s.tier)));
+    return tiers
+      .map((t) => ({ key: t, label: t.charAt(0).toUpperCase() + t.slice(1), n: all.filter((s) => s.tier === t).length }))
+      .sort((a, b) => b.n - a.n);
+  }, [list]);
+
+  const filtered = (list ?? []).filter((s) => {
+    const q = query.trim().toLowerCase();
+    if (q && !s.name.toLowerCase().includes(q)) return false;
+    if (fTier !== "all" && s.tier !== fTier) return false;
+    return true;
+  });
 
   /** Cifras de cabecera: el patrocinio que se publica y el que todavia no. */
   const resumen = useMemo(() => {
@@ -106,18 +126,29 @@ export default function AdminSponsors() {
 
   const dialogKey = editing?.id ?? "new";
 
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Patrocinadores"
+        what="los patrocinadores"
+        message={loadError}
+        onRetry={load}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
         title="Patrocinadores"
-        description="Los logos que subís acá giran en el banner rotativo de la landing page. Subí PNG con fondo transparente para que se vea prolijo."
+        description="Los logos que subes aquí giran en el banner rotativo de la landing page. Sube PNG con fondo transparente para que se vea prolijo."
         action={
           <Button size="sm" onClick={() => { setEditing(null); setOpenCreate(true); }}>
             <Plus className="h-4 w-4" /> Nuevo patrocinador
           </Button>
         }
       >
-        <AdminStatStrip>
+        <AdminStatStrip loading={list === null}>
           <AdminStat value={resumen.total} label="Patrocinadores" />
           <AdminStat
             value={resumen.conLogo}
@@ -129,23 +160,27 @@ export default function AdminSponsors() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      <Card>
+      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+        <CardHeader className="gap-3 px-0">
+          <FilterBar
+            search={query}
+            onSearch={setQuery}
+            searchPlaceholder="Buscar patrocinador…"
+            resultCount={filtered.length}
+            resultLabel="patrocinadores"
+            activeCount={countActive(fTier)}
+            onClear={() => { setQuery(""); setFTier("all"); }}
+          >
+            <AdminFacets>
+              <AdminFacet label="Nivel" value={fTier} onChange={setFTier} options={tierOptions} allLabel="Todos" />
+            </AdminFacets>
+          </FilterBar>
+        </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Logo</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Tier</TableHead>
-                <TableHead>Website</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list === null && <AdminTableSkeleton columns={5} />}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {list === null && <>{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-72 rounded-3xl" />)}</>}
               {list !== null && list.length === 0 && (
-                <AdminTableEmpty
-                  colSpan={5}
+                <AdminEmptyState className="col-span-full rounded-3xl bg-card"
                   icon={<ImagePlus className="h-5 w-5" />}
                   title="No hay patrocinadores todavía"
                   description="Agrega el primero para que aparezca en la landing page."
@@ -156,56 +191,35 @@ export default function AdminSponsors() {
                   }
                 />
               )}
-              {list?.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>
-                    {s.logo_url ? (
-                      <img src={s.logo_url} alt={s.name} className="h-10 w-auto max-w-[120px] shrink-0 rounded-xs object-contain" />
-                    ) : (
-                      <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xs bg-muted text-xs font-bold text-muted-foreground">
-                        SIN
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell>
-                    <Badge variant={s.tier === "principal" ? "default" : s.tier === "oro" ? "secondary" : s.tier === "plata" ? "outline" : "destructive"}>
-                      {s.tier}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground">
-                    {s.website ? (
-                      <a href={s.website} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
-                        {s.website.replace(/^https?:\/\//, "")}
-                      </a>
-                    ) : (
-                      <span>—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="pr-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones para ${s.name}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditing(s); setOpenCreate(true); }}>
-                          <Pencil className="h-4 w-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setDeleting(s)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" /> Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              {list !== null && list.length > 0 && filtered.length === 0 && (
+                <AdminEmptyState className="col-span-full rounded-3xl bg-card"
+                  title="Sin coincidencias"
+                  description="Ningún patrocinador coincide con la búsqueda."
+                />
+              )}
+              {filtered.map((s) => {
+                const actions: RowAction[] = [
+                  { label: "Editar", icon: <Pencil className="h-4 w-4" />, onSelect: () => { setEditing(s); setOpenCreate(true); } },
+                  { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting(s), destructive: true, separator: true },
+                ];
+                return (
+                <RowContextMenu key={s.id} actions={actions}>
+<article className="group h-full overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                  <div className="relative flex h-40 items-center justify-center bg-muted/50 p-8">
+                    {s.logo_url ? <img src={s.logo_url} alt={s.name} className="h-full w-full object-contain" /> : <ImagePlus className="h-12 w-12 text-muted-foreground/40" />}
+                    <div className="absolute right-3 top-3 rounded-full bg-card"><RowActionsMenu actions={actions} label={`Acciones para ${s.name}`} /></div>
+                  </div>
+                  <div className="space-y-4 p-5">
+                    <Badge variant="secondary" className="rounded-full capitalize">{s.tier}</Badge>
+                    <h2 className="font-display text-2xl font-semibold">{s.name}</h2>
+                    {s.website ? <a href={s.website} target="_blank" rel="noopener noreferrer" className="block truncate text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline">{s.website.replace(/^https?:\/\//, "")}</a> : <p className="text-sm text-muted-foreground">Sin sitio web</p>}
+                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => { setEditing(s); setOpenCreate(true); }}>Editar patrocinador</Button>
+                  </div>
+                </article>
+                </RowContextMenu>
+                );
+              })}
+            </div>
         </CardContent>
       </Card>
 

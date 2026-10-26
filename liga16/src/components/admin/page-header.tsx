@@ -1,3 +1,4 @@
+import { Children } from "react";
 import { Link } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,7 @@ export function AdminPageHeader({
     // propia línea, a todo el ancho. Antes competía con el título por el
     // espacio y con cinco cifras las etiquetas se partían en dos líneas
     // ("POR / CAPTURAR").
-    <header className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+    <header className="flex flex-col gap-6 pb-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
       <div className="min-w-0">
         {backTo && (
           <Link
@@ -38,7 +39,7 @@ export function AdminPageHeader({
             {backLabel}
           </Link>
         )}
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
         {description && (
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             {description}
@@ -69,9 +70,9 @@ export function AdminStat({
   className?: string;
 }) {
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1 bg-card px-4 py-3", className)}>
-      <span className={cn("text-stat tabular-nums", tone)}>{value}</span>
-      <span className="flex items-center gap-1.5 text-muted-foreground">
+    <div className={cn("flex min-w-0 flex-col justify-between gap-5 rounded-3xl bg-card p-6 first:bg-zinc-950 first:text-white [&:nth-child(2)]:bg-primary [&:nth-child(2)]:text-primary-foreground", className)}>
+      <span className={cn("font-display text-5xl font-bold leading-none tracking-tight tabular-nums [div:first-child>&]:text-white [div:nth-child(2)>&]:text-primary-foreground", tone)}>{value}</span>
+      <span className="flex items-center gap-1.5 opacity-65">
         {icon}
         <span className="text-caption uppercase">{label}</span>
       </span>
@@ -89,17 +90,23 @@ export function AdminStat({
 export function AdminStatStrip({
   children,
   className,
+  loading = false,
 }: {
   children: React.ReactNode;
   className?: string;
+  loading?: boolean;
 }) {
   return (
     // Los separadores son el hueco (1px) del grid, no `divide-x`: con
     // divide-x la primera cifra de la segunda fila hereda un borde vertical
     // que no separa nada. Con el hueco, cada línea cae donde toca.
     <dl
+      aria-busy={loading}
+      aria-label={loading ? "Cargando cifras" : "Resumen"}
       className={cn(
-        "-mb-4 grid w-full basis-full grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-4",
+        "grid w-full basis-full grid-cols-1 gap-3 sm:grid-cols-2",
+        [3,6].includes(Children.count(children)) ? "xl:grid-cols-3" : Children.count(children) === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4",
+        loading && "[&>div>span:first-child]:invisible animate-pulse",
         className,
       )}
     >

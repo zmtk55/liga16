@@ -188,13 +188,13 @@ export function FilterBar({
     <div className={cn("min-w-0 space-y-2", className)}>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         {onSearch && (
-          <div className="relative min-w-0 flex-1 sm:max-w-60">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative min-w-0 flex-1 sm:max-w-80">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={text}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder={searchPlaceholder}
-              className="h-9 w-full pl-8"
+              className="h-11 w-full rounded-full bg-card pl-11"
               aria-label={searchPlaceholder}
             />
           </div>
