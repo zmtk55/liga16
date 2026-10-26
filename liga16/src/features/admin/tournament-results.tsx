@@ -18,12 +18,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Court } from "@/types";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { matchStatusKey } from "@/lib/match-state";
+import { isoToLocalInput, localInputToIso } from "@/lib/datetime";
+import { checkFinishedMatch, isPlayedSet } from "@/lib/match-result";
+import type { SetScore } from "@/types";
 
 /** Captura y edición de marcador, cancha, fecha y hora desde el calendario del torneo. */
 export function MatchResultDialog({
   match,
   nextMatchId,
   courts,
+  scoring,
   open,
   onOpenChange,
   onAdvance,
@@ -31,6 +35,8 @@ export function MatchResultDialog({
   match: Match;
   nextMatchId: string | null;
   courts: Court[];
+  /** Scoring del torneo: la misma validación que usa Resultados. */
+  scoring?: Tournament["scoring"] | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAdvance: (nextMatchId: string | null) => void;
@@ -39,32 +45,48 @@ export function MatchResultDialog({
   // cambia el partido: el diálogo se encadena al siguiente con `onAdvance` sin
   // cerrarse. Sin la `key` que se le pone arriba, los sets del partido anterior
   // se guardaban encima del nuevo.
-  const [sets, setSets] = useState<Array<{ a: string; b: string }>>(() =>
-    match.sets.length > 0 ? match.sets.map((s) => ({ a: String(s.a), b: String(s.b) })) : [{ a: "", b: "" }],
+  const [sets, setSets] = useState<Array<{ a: string; b: string; tba: string; tbb: string }>>(() =>
+    match.sets.length > 0
+      ? match.sets.map((s) => ({
+          a: String(s.a),
+          b: String(s.b),
+          tba: s.tiebreak_a != null ? String(s.tiebreak_a) : "",
+          tbb: s.tiebreak_b != null ? String(s.tiebreak_b) : "",
+        }))
+      : [{ a: "", b: "", tba: "", tbb: "" }],
   );
   const [courtName, setCourtName] = useState(match.court_name ?? "");
-  const [scheduledAt, setScheduledAt] = useState(match.scheduled_at ? match.scheduled_at.slice(0, 16) : "");
+  // La BD guarda ISO en UTC; el campo trabaja en hora local.
+  const [scheduledAt, setScheduledAt] = useState(isoToLocalInput(match.scheduled_at));
   const [saving, setSaving] = useState(false);
 
-  const finishedSets = sets.filter((s) => s.a !== "" && s.b !== "");
-  const validSets = finishedSets.map((s) => ({ a: Number(s.a), b: Number(s.b), tiebreak_a: null, tiebreak_b: null }));
-  const setsA = validSets.filter((s) => s.a > s.b).length;
-  const setsB = validSets.filter((s) => s.b > s.a).length;
-  const winner = setsA > setsB ? "a" : setsB > setsA ? "b" : null;
+  const typedSets: SetScore[] = sets
+    .filter((s) => s.a !== "" && s.b !== "")
+    .map((s) => ({
+      a: Number(s.a),
+      b: Number(s.b),
+      tiebreak_a: s.tba.trim() ? Number(s.tba) : null,
+      tiebreak_b: s.tbb.trim() ? Number(s.tbb) : null,
+    }));
+  const check = checkFinishedMatch(typedSets, scoring);
+  const winner = check.ok ? check.winner : null;
 
   async function save(status: Match["status"]) {
-    if (status === "finished" && !winner) {
-      toast.error("Marca los sets: deben ganar más sets una pareja para cerrar el partido");
+    if (status === "finished" && !check.ok) {
+      toast.error(check.error);
       return;
     }
     setSaving(true);
     try {
+      const partial = typedSets.filter(isPlayedSet);
       await db.updateMatch(match.id, {
-        sets: status === "finished" ? validSets : match.sets,
-        winner: status === "finished" ? winner : match.winner,
+        // "Guardar sin jugar" conserva lo capturado a medias y ya no deja un
+        // ganador viejo: el partido vuelve a pendiente / a medias.
+        sets: status === "finished" && check.ok ? check.sets : partial,
+        winner: status === "finished" && check.ok ? check.winner : null,
         status,
         court_name: courtName || null,
-        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        scheduled_at: localInputToIso(scheduledAt),
       });
       toast.success(status === "finished" ? (nextMatchId ? "Guardado — siguiente partido" : "Resultado guardado") : "Partido actualizado");
       onAdvance(status === "finished" ? nextMatchId : null);
@@ -108,13 +130,32 @@ export function MatchResultDialog({
                   aria-label={`Juegos de ${match.side_b.pair_name} en el set ${i + 1}`}
                 />
               </div>
+              <Input
+                type="number"
+                min={0}
+                placeholder="TB"
+                className="h-8 text-xs"
+                value={s.tba}
+                onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, tba: e.target.value } : x)))}
+                aria-label={`Tie-break de ${match.side_a.pair_name} en el set ${i + 1}`}
+              />
+              <span />
+              <Input
+                type="number"
+                min={0}
+                placeholder="TB"
+                className="h-8 text-xs"
+                value={s.tbb}
+                onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, tbb: e.target.value } : x)))}
+                aria-label={`Tie-break de ${match.side_b.pair_name} en el set ${i + 1}`}
+              />
             </div>
           ))}
           <div className="flex items-center justify-between">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSets((arr) => [...arr, { a: "", b: "" }])}
+              onClick={() => setSets((arr) => [...arr, { a: "", b: "", tba: "", tbb: "" }])}
               disabled={sets.length >= 5}
             >
               <Plus className="h-4 w-4 ms-1" /> Añadir set
