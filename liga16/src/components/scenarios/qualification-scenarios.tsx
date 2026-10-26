@@ -13,6 +13,7 @@ import {
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
 import { qualificationFor } from "@/lib/qualification";
 import { answerQualification } from "@/lib/qualification-answer";
+import { QualificationResponse } from "./qualification-response";
 import { readQuestion } from "@/lib/jev-question";
 
 interface Props {
@@ -478,17 +479,17 @@ export default function ScenarioPanel({
                   className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
                   aria-hidden
                 />
-                <div className="min-w-0 space-y-3">
-                  {answer.split("\n\n").map((para, i) => (
-                    <p key={i} className="max-w-[72ch] text-sm leading-relaxed">
-                      {para.charAt(0).toUpperCase() + para.slice(1)}
-                    </p>
-                  ))}
-                  <p className="text-xs text-muted-foreground">
-                    {q.position}° · {fmtPct(myPoints)}% · pasan {slots} · {left} partido
-                    {left === 1 ? "" : "s"} por jugar ·{" "}
-                    {source === "jev" ? "lectura JEV" : "cálculo local"}
-                  </p>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <QualificationResponse
+                    answer={answer}
+                    rows={rows}
+                    position={q.position}
+                    points={myPoints}
+                    slots={slots}
+                    remainingMatches={left}
+                    inCut={q.inCut}
+                    source={source === "jev" ? "jev" : "local"}
+                  />
                 </div>
               </div>
             )}
