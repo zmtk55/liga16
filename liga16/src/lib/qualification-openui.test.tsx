@@ -67,7 +67,7 @@ describe("respuestas de clasificación con OpenUI", () => {
   });
   it("conserva el estado vacío del formulario", () => {
     const html = renderToStaticMarkup(<ScenarioPanel standings={base.rows} me={{ pairId: "a", played: 4, setsWon: 6 }} ctx={{ slots: 1, pointsPerWin: 0 }} />);
-    expect(html).toContain("Pregunta por tu pase");
+    expect(html).toContain("¿Paso si gano el próximo partido?");
     expect(html).not.toContain('data-qualification-renderer="openui"');
   });
   it("renderiza la librería sin una llamada adicional al modelo", () => {
