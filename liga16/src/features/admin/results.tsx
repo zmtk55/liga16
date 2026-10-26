@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -175,6 +176,8 @@ export default function AdminResults() {
     load();
   }, []);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   async function load() {
     try {
       const [matches, tList] = await Promise.all([db.listRecentMatches(), db.listTournaments()]);
@@ -182,8 +185,9 @@ export default function AdminResults() {
       const map: Record<string, Tournament> = {};
       for (const t of tList) map[t.id] = t;
       setTournaments(map);
-    } catch {
-      toast.error("No se pudo cargar resultados");
+      setLoadError(null);
+    } catch (e) {
+      setLoadError((e as Error)?.message || "Error al cargar los partidos");
     }
   }
 
@@ -238,27 +242,25 @@ export default function AdminResults() {
 
   const getPairKey = (pv: PairMatchView) => `${pv.tournamentId}::${pv.pairName}`;
 
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Resultados"
+        description="Captura sets, juegos y tie-breaks de cada partido."
+        what="los partidos"
+        message={loadError}
+        onRetry={() => { load(); }}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <AdminPageHeader
         title="Resultados"
         description="Captura sets, juegos y tie-breaks de cada partido."
-        action={
-          resumen.porCapturar > 0 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              aria-pressed={fStatus === "pending"}
-              className={fStatus === "pending" ? "border-primary bg-primary text-primary-foreground hover:bg-primary-strong hover:text-primary-foreground" : undefined}
-              onClick={() => setFStatus((s) => (s === "pending" ? "all" : "pending"))}
-            >
-              <ClipboardList className="h-4 w-4" />
-              {resumen.porCapturar} por capturar
-            </Button>
-          ) : undefined
-        }
       >
-        <AdminStatStrip className="sm:grid-cols-5">
+        <AdminStatStrip>
           <AdminStat value={resumen.total} label="Partidos" />
           <AdminStat value={resumen.porCapturar} label="Por capturar" tone={resumen.porCapturar > 0 ? "text-primary" : undefined} />
           <AdminStat value={resumen.aMedias} label="En curso" tone={resumen.aMedias > 0 ? "text-primary-strong" : undefined} />
