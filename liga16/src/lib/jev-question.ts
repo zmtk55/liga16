@@ -83,6 +83,7 @@ export async function readQuestion(args: {
       posicion: r.position,
       puntos: r.points,
       jugados: r.played,
+      restantes: r.remaining ?? null,
     })),
   };
 

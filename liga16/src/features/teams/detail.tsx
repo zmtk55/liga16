@@ -34,6 +34,10 @@ export default function TeamDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [team, setTeam] = useState<Team | null | undefined>(undefined);
   const [matches, setMatches] = useState<Match[]>([]);
+  // Todos los partidos del torneo, sin filtrar: los escenarios necesitan los
+  // pendientes de CADA pareja, no solo los de esta (si no, anunciaban bajadas
+  // imposibles cuando el rol ya había terminado).
+  const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [rolExpanded, setRolExpanded] = useState(false);
   const [compareName, setCompareName] = useState<string>("");
@@ -58,6 +62,7 @@ export default function TeamDetailPage() {
               Math.abs((b.position || 99) - (t?.position || 99)),
           );
         setAllTeams(rivals);
+        setAllMatches(allMatches);
         setCompareName("");
         // Partidos donde participa la pareja (por nombre del lado A o B)
         setMatches(
@@ -74,6 +79,7 @@ export default function TeamDetailPage() {
           setTeam(null);
           setAllTeams([]);
           setMatches([]);
+          setAllMatches([]);
         }
       });
     return () => {
@@ -121,6 +127,22 @@ export default function TeamDetailPage() {
       // A futuro primero; los que ya pasaron (o no tienen fecha) al final.
       .sort((a, b) => at(a) - at(b));
   }, [rol]);
+
+  /**
+   * Partidos sin capturar de TODAS las parejas, con la misma regla de estado
+   * que `pendientes`. Clave: nombre de la pareja (así cruza con la tabla).
+   */
+  const remainingByPair = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of allMatches) {
+      const key = matchStatusKey(m);
+      if (key !== "scheduled" && key !== "live" && key !== "disputed") continue;
+      for (const name of [m.side_a.pair_name, m.side_b.pair_name]) {
+        if (name) map.set(name, (map.get(name) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [allMatches]);
 
   // Stats de sets reales desde los partidos capturados
   const setStats = useMemo(() => {
@@ -363,6 +385,7 @@ export default function TeamDetailPage() {
           position: t.position || 0,
           points: t.points || 0,
           played: t.played || 0,
+          remaining: remainingByPair.get(t.name) ?? 0,
         }));
         const meData: MyLine = {
           pairId: team?.id ?? team?.name ?? "",
@@ -370,9 +393,7 @@ export default function TeamDetailPage() {
           setsWon: setStats.sf,
         };
         const ctxData: CutContext = { slots: 4, pointsPerWin: 3 };
-        const remainingMatches = pendientes.filter(
-          (m) => m.side_a.pair_name === team?.name || m.side_b.pair_name === team?.name
-        ).length;
+        const remainingMatches = remainingByPair.get(team?.name ?? "") ?? 0;
         return (
           <ScenarioPanel
             standings={standingsData}

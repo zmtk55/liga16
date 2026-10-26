@@ -16,6 +16,8 @@ import {
   Trophy,
 } from "lucide-react";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
+import { buildScenarios, buildVerdict } from "@/lib/qualification-scenarios";
+import type { ScenarioTone } from "@/lib/qualification-scenarios";
 import { qualificationFor } from "@/lib/qualification";
 import { answerQualification } from "@/lib/qualification-answer";
 import { QualificationResponse } from "./qualification-response";
@@ -35,9 +37,7 @@ const FREQUENT = [
 ];
 
 /** Tono del veredicto. El color nunca es el mensaje: lo lleva el icono. */
-type Tone = "pass" | "depends" | "out";
-
-const TONE_ICON: Record<Tone, typeof Trophy> = {
+const TONE_ICON: Record<ScenarioTone, typeof Trophy> = {
   pass: Trophy,
   depends: TrendingUp,
   out: ShieldAlert,
@@ -108,155 +108,18 @@ export default function ScenarioPanel({
   const fmtPct = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
   const myLine = rows.find((r) => r.pairId === me.pairId);
   const myPoints = round1(myLine?.points ?? 0);
-  const lastPlace = rows[slots - 1];
-  const lastPlacePoints = round1(lastPlace?.points ?? 0);
-  const gapPct = q.inCut ? 0 : Math.max(0, round1(lastPlacePoints - myPoints));
+  const gapPct = q.inCut
+    ? 0
+    : Math.max(0, round1(round1(rows[slots - 1]?.points ?? 0) - myPoints));
   const tiedAtCut = !q.inCut && gapPct === 0;
-  // Quien está justo arriba (a quien hay que alcanzar) y justo abajo (el que
-  // puede sacarte). Dentro de semifinales el peligro es el de abajo.
-  const rival = q.mustBeat[q.mustBeat.length - 1] ?? null;
-  const chaser = rows.find((r) => r.position === q.position + 1) ?? rows[slots] ?? null;
   const left = Math.max(0, remainingMatches);
 
-  const verdict: { tone: Tone; word: string; sentence: string } = q.inCut
-    ? {
-        tone: "pass",
-        word: "Estás dentro",
-        sentence:
-          left > 0
-            ? `Vas ${q.position}° de ${rows.length} con ${fmtPct(myPoints)}% de rendimiento y pasan ${slots}. Te quedan ${left} partido${left === 1 ? "" : "s"}: ganar sube tu porcentaje y te mantiene arriba.`
-            : `Vas ${q.position}° de ${rows.length} con ${fmtPct(myPoints)}% de rendimiento y pasan ${slots}. Ya jugaste todo: si nadie sube por debajo, sigues en semifinales.`,
-      }
-    : gapPct <= 1 && left > 0
-      ? {
-          tone: "depends",
-          word: "Depende de ti",
-          sentence: `Vas ${q.position}° con ${fmtPct(myPoints)}%: la última plaza está en ${fmtPct(lastPlacePoints)}%. Te queda${left === 1 ? "" : "n"} ${left} partido${left === 1 ? "" : "s"} y ganar sube tu porcentaje.`,
-        }
-      : left > 0
-        ? {
-            tone: "out",
-            word: "Fuera por ahora",
-            sentence: `Vas ${q.position}° de ${rows.length} y pasan ${slots}. Te separan ${fmtPct(gapPct)} puntos porcentuales de la última plaza (${fmtPct(lastPlacePoints)}%) con ${left} partido${left === 1 ? "" : "s"} por jugar: necesitas ganar y que ${rival ? rival.name.split("/")[0].trim() : "el de arriba"} no sume.`,
-          }
-        : {
-            tone: "out",
-            word: "Sin partidos",
-            sentence: `Ya no te quedan partidos: quedaste ${q.position}° de ${rows.length} y pasan ${slots}. ${
-              tiedAtCut
-                ? `Estás empatado en ${fmtPct(myPoints)}% con la última plaza, así que el lugar lo decide el desempate.`
-                : `Te separan ${fmtPct(gapPct)} puntos porcentuales de la última plaza (${fmtPct(lastPlacePoints)}%) y ya no puedes sumar.`
-            }`,
-          };
-
-  /* ---------------- los tres finales ----------------
-     Sin totales inventados: ganar sube el porcentaje, pero cuánto depende de
-     los juegos de cada partido. */
-  const scenarios: Array<{
-    tone: Tone;
-    label: string;
-    when: string;
-    then: string;
-  }> = left === 0
-    ? q.inCut
-      ? [
-          {
-            tone: "pass",
-            label: "Pasas",
-            when: "La tabla no se mueve",
-            then: `Terminas ${q.position}° con ${fmtPct(myPoints)}%; la última plaza quedó en ${fmtPct(lastPlacePoints)}%.`,
-          },
-          {
-            tone: "depends",
-            label: "Depende",
-            when: chaser ? `${chaser.name} gana lo suyo` : "Alguien de abajo suma",
-            then: chaser
-              ? `${chaser.name} sube su ${fmtPct(round1(chaser.points))}% y te puede alcanzar: el lugar queda en manos del desempate.`
-              : "El de abajo suma y el desempate decide.",
-          },
-          {
-            tone: "out",
-            label: "Riesgo",
-            when: "Dos de abajo suman",
-            then: `Puedes caer al ${q.position + 2}° y quedar fuera de semifinales.`,
-          },
-        ]
-      : [
-          {
-            tone: "pass",
-            label: "Pasas",
-            when: "El desempate te favorece",
-            then: rival
-              ? `Estás empatado en ${fmtPct(myPoints)}% con ${rival.name}: si el desempate te deja arriba, entras.`
-              : "Solo si el desempate te deja arriba.",
-          },
-          {
-            tone: "depends",
-            label: "Depende",
-            when: "El desempate te deja abajo",
-            then: `Con el mismo ${fmtPct(myPoints)}% quedas ${q.position}°: necesitas que el torneo ajuste la tabla.`,
-          },
-          {
-            tone: "out",
-            label: "Riesgo",
-            when: rival ? `${rival.name} gana lo que le queda` : "Los de arriba suman",
-            then: rival
-              ? `${rival.name.split("/")[0].trim()} gana y su ${fmtPct(round1(rival.points))}% sube: la diferencia ya no se remonta.`
-              : "La diferencia ya no se remonta.",
-          },
-        ]
-    : q.inCut
-      ? [
-          {
-            tone: "pass",
-            label: "Pasas",
-            when: `Ganas 1 de los ${left}`,
-            then: `Tu ${fmtPct(myPoints)}% sube y sigues entre los ${slots} que van a semifinales.`,
-          },
-          {
-            tone: "depends",
-            label: "Depende",
-            when: chaser ? `Pierdes y ${chaser.name} gana` : "Pierdes y alguien de abajo suma",
-            then: chaser
-              ? `Caes a ${q.position + 1}° y ${chaser.name} te puede empatar con su ${fmtPct(round1(chaser.points))}%: decide el desempate.`
-              : `Caes a ${q.position + 1}° y se te acercan: decide el desempate.`,
-          },
-          {
-            tone: "out",
-            label: "Riesgo",
-            when:
-              left > 1
-                ? `Pierdes 2 seguidos y ${chaser?.name ?? "el de abajo"} gana`
-                : `Pierdes y ${chaser?.name ?? "el de abajo"} gana`,
-            then: `${chaser ? `Quedas ${q.position + 2}° y ${chaser.name} sube al ${q.position}°.` : `Quedas ${q.position + 2}° y quedas fuera de semifinales.`} Aun así, si EL RIVAL PIERDE, te mantienes.`,
-          },
-        ]
-      : [
-          {
-            tone: "pass",
-            label: "Pasas",
-            when: `Ganas tus ${left} partido${left === 1 ? "" : "s"} y ${rival?.name ?? "el rival"} no suma`,
-            then: `Tu ${fmtPct(myPoints)}% sube con cada victoria y ${rival ? rival.name.split("/")[0].trim() : "el de arriba"} se queda con el suyo: recortas los ${fmtPct(gapPct)} puntos porcentuales.`,
-          },
-          {
-            tone: "depends",
-            label: "Depende",
-            when: "Ganas 1 y el rival no gana",
-            then: rival
-              ? `${rival.name} se queda en ${fmtPct(round1(rival.points))}% y tú acercas tu ${fmtPct(myPoints)}%: cuánto recortas depende de los juegos de tu partido.`
-              : `Te acercas a la última plaza (${fmtPct(lastPlacePoints)}%).`,
-          },
-          {
-            tone: "out",
-            label: "Riesgo",
-            when: "Pierdes",
-            then: `No sumas y te quedas con ${fmtPct(myPoints)}%, así que bajas a ${q.position + 1}°. ${
-              left > 1
-                ? `Todavía te quedaría${left === 2 ? "" : "n"} ${left - 1} partido${left - 1 === 1 ? "" : "s"} para recuperar.`
-                : "Sería el último partido del rol."
-            }`,
-          },
-        ];
+  // Veredicto y escenarios se arman en lib/qualification-scenarios.ts (puras y
+  // probadas): solo nombran movimientos que todavía son posibles, usando los
+  // partidos que le quedan a CADA pareja (`remaining`), no solo los tuyos.
+  const scenarioInput = { rows, q, mePairId: me.pairId, slots, left };
+  const verdict = buildVerdict(scenarioInput);
+  const scenarios = buildScenarios(scenarioInput);
 
   /* ---------------- tabla alrededor de la línea de semifinales ---------------- */
   const rail = useMemo(() => {
