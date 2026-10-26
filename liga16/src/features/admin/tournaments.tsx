@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { Tournament } from "@/types";
@@ -62,8 +63,14 @@ export default function AdminTournaments() {
   };
   const [status, setStatus] = useState("all");
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = () =>
+    db.listTournaments()
+      .then((l) => { setList(l); setLoadError(null); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar los torneos"));
+
   useEffect(() => {
-    db.listTournaments().then(setList);
+    load();
   }, []);
 
   const filtered = (list ?? []).filter((t) => {
@@ -103,7 +110,7 @@ export default function AdminTournaments() {
     try {
       await db.deleteTournament(t.slug);
       toast.success(`Torneo "${t.name}" eliminado`);
-      db.listTournaments().then(setList);
+      load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al eliminar");
     } finally {
@@ -115,12 +122,24 @@ export default function AdminTournaments() {
     try {
       await db.updateTournament(t.slug, { status: target });
       toast.success(`"${t.name}" cambiado a ${tournamentStatusLabel[target]}`);
-      db.listTournaments().then(setList);
+      load();
     } catch (e) {
       toast.error((e as Error).message ?? "Error al cambiar estado");
     } finally {
       setChangingStatus(null);
     }
+  }
+
+  if (loadError && list === null) {
+    return (
+      <AdminLoadFailed
+        title="Torneos"
+        description="Crea, publica y administra los torneos del circuito."
+        what="los torneos"
+        message={loadError}
+        onRetry={load}
+      />
+    );
   }
 
   return (
