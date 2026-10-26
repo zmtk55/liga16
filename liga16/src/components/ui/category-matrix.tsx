@@ -1,7 +1,6 @@
 // Matriz de categorías del asistente de torneo.
 // Las categorías se TECLEAN (nombre libre: "4ta Varonil", "Suma Nueve" —
-// que significa 4ta+5ta). Sin cupos: el número de grupos se decide en el
-// sorteo según los inscritos.
+// que significa 4ta+5ta). División y cupo se guardan de forma explícita.
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,9 +11,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Eraser, Plus, X } from "lucide-react";
-import type { Sex } from "@/types";
+import type { PadelDivision, Sex } from "@/types";
 import {
   categoriaProblema,
+  divisionFromCategory,
   categorySuggestions,
   type CategoryValue,
 } from "@/lib/categories";
@@ -75,9 +75,11 @@ export default function CategoryMatrix({
           <option key={n} value={n} />
         ))}
       </datalist>
-      <div className="hidden grid-cols-[1fr_140px_36px] items-center gap-2 px-1 sm:grid">
+      <div className="hidden grid-cols-[1fr_140px_120px_100px_36px] items-center gap-2 px-1 sm:grid">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Categoría</span>
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rama</span>
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">División</span>
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Cupo</span>
         <span />
       </div>
 
@@ -109,6 +111,13 @@ export default function CategoryMatrix({
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={c.division ?? divisionFromCategory(c.label)} onValueChange={(v) => update(i, { division: v as PadelDivision })}>
+                  <SelectTrigger className="h-9 w-[120px]" aria-label={`División de la categoría ${i + 1}`}><SelectValue /></SelectTrigger>
+                  <SelectContent>{divisionOptions.filter((d) => d.value !== "all").map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <Input type="number" min={0} step={1} value={c.max_pairs ?? 0}
+                  onChange={(e) => update(i, { max_pairs: Number(e.target.value) })}
+                  aria-label={`Cupo de la categoría ${i + 1} (0 sin límite)`} className="h-9 w-[100px]" />
                 <Button
                   type="button"
                   variant="ghost"
@@ -148,7 +157,7 @@ export default function CategoryMatrix({
 
       <p className="text-sm text-muted-foreground">
         Teclea el nombre exacto que usa tu club — "Suma Nueve" significa 4ta+5ta. El número de grupos se
-        decide en el sorteo según los inscritos, aquí no hay cupos.
+        decide en el sorteo según los inscritos. Confirma la división; cupo 0 significa sin límite.
       </p>
     </div>
   );

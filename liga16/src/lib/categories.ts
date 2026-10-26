@@ -3,6 +3,9 @@ import { divisionOptions, SEX_BRANCHES } from "@/lib/format";
 import type { PadelDivision, Sex, Team } from "@/types";
 
 export interface CategoryValue {
+  persistedId?: string;
+  division?: PadelDivision;
+  max_pairs?: number;
   label: string; // nombre libre: "4ta Varonil", "Suma Nueve"…
   sex: Sex;
   /**
@@ -96,6 +99,8 @@ export function categoriaProblema(
 ): string | null {
   const label = (cats[index]?.label ?? "").trim();
   if (!label) return "Ponle un nombre";
+  const cap = cats[index]?.max_pairs;
+  if (cap !== undefined && (!Number.isInteger(cap) || cap < 0)) return "El cupo debe ser un entero de 0 o más";
   const norm = label.toLowerCase();
   const otra = cats.findIndex(
     (c, i) => i !== index && c.label.trim().toLowerCase() === norm,

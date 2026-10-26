@@ -343,17 +343,23 @@ export const supabaseProvider: DataProvider = {
   },
 
   async createTournamentCategory(data: Omit<import('@/types').TournamentCategory, 'id'>) {
-    // La tabla real usa (tournament_id, name, category, sex, price_cents).
-    // Mapear desde el tipo interno: max_pairs vive en el select de UI, no en la BD.
-    const row: Record<string, unknown> = {
-      tournament_id: (data as { tournament_id?: string }).tournament_id,
+    const row = {
+      tournament_id: data.tournament_id,
       name: data.name,
-      category: (data as unknown as { division?: string }).division ?? '4ta',
+      category: data.category ?? divisionFromCategory(data.name),
       sex: data.sex,
       price_cents: data.price_cents,
+      max_pairs: data.max_pairs,
     };
     const { data: result, error } = await client()
       .from('tournament_categories').insert(row).select().single();
+    if (error) throw error;
+    return result as never;
+  },
+
+  async updateTournamentCategory(id: string, data: Partial<Pick<import('@/types').TournamentCategory, 'name' | 'sex' | 'category' | 'max_pairs'>>) {
+    const { data: result, error } = await client()
+      .from('tournament_categories').update(data).eq('id', id).select().single();
     if (error) throw error;
     return result as never;
   },
@@ -380,10 +386,12 @@ export const supabaseProvider: DataProvider = {
     return result as never;
   },
 
-  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; group_name?: string | null; tournament_id?: string; crest_url?: string | null }) {
+  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; group_name?: string | null; tournament_id?: string; crest_url?: string | null; player1_id?: string | null; player2_id?: string | null }) {
     const patch: Record<string, unknown> = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.category_id !== undefined) patch.category_id = data.category_id;
+    if (data.player1_id !== undefined) patch.player1_id = data.player1_id;
+    if (data.player2_id !== undefined) patch.player2_id = data.player2_id;
     if (data.seed !== undefined) patch.seed = data.seed;
     if (data.group_name !== undefined) patch.group_name = data.group_name;
     if (data.tournament_id !== undefined) patch.tournament_id = data.tournament_id;
@@ -840,6 +848,7 @@ export const supabaseProvider: DataProvider = {
     // en el update y se perdía en silencio. El toast decía "guardado" y la caja
     // volvía al valor viejo al reabrir.
     if (updates.round !== undefined) row.round = updates.round;
+    if (updates.category_name !== undefined) row.category_name = updates.category_name;
     // Capturar el marcador en Resultados guardaba `sets` + `winner` pero dejaba
     // el estado en "scheduled", y el ranking y las fichas exigían partido
     // cerrado: el resultado se veía en el diálogo y no movía nada. Si llega un

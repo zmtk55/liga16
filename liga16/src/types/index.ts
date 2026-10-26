@@ -159,6 +159,7 @@ export interface Tournament {
 }
 
 export interface TournamentCategory {
+  category?: PadelDivision;
   id: UUID;
   tournament_id: UUID;
   name: string;
@@ -400,4 +401,4 @@ export interface AdminAlert {
   timestamp: string;
   /** Cuando la alerta agrupa varios ítems (p. ej. jugadores pendientes). */
   count?: number;
-}
+  }

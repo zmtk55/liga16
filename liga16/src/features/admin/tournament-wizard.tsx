@@ -46,7 +46,8 @@ import { DEFAULT_SCORING } from "@/lib/scoring";
 import { scheduleRounds, turnsUsed, drawGroupsByCategory, type Group, type DrawablePair } from "@/lib/groups";
 import { sexLabel } from "@/lib/format";
 import { toast } from "sonner";
-import { ensurePlayer } from "@/lib/players";
+import { syncWizard } from "@/lib/wizard-sync";
+import { ensurePlayer, normalizePlayerName } from "@/lib/players";
 import {
   Building2,
   Check,
@@ -92,6 +93,7 @@ const STEPS = [
 const GRUPO_LETRAS = "ABCDEFGHIJ".split("");
 
 interface TeamInput {
+  categoryKey: string;
   division: PadelDivision;
   sex: Sex;
   name: string;
@@ -243,12 +245,13 @@ export default function TournamentWizard() {
   // Paso 3: categorías
   const [categories, setCategories] = useState<CategoryValue[]>([]);
   // ids reales de categorías ya guardadas (para editar/sincronizar)
-  const [catIds, setCatIds] = useState<Map<string, string>>(new Map());
+
 
   // Paso 4: equipos — formulario único (draft) + lista compacta de agregados
   const [teams, setTeams] = useState<TeamInput[]>([]);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const emptyDraft = (): TeamInput => ({
+    categoryKey: categories[0]?.id ?? "",
     division: (categories[0]?.label ?? "4ta") as PadelDivision,
     sex: categories[0]?.sex ?? "M",
     name: "",
@@ -258,6 +261,7 @@ export default function TournamentWizard() {
     group: null,
   });
   const [draft, setDraft] = useState<TeamInput>(emptyDraft);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const draftWasManual = useRef(false);
 
   /** Auto-nombre del draft con los jugadores; respeta edición manual. */
@@ -278,7 +282,8 @@ export default function TournamentWizard() {
       return;
     }
     // Un jugador no puede repetirse entre equipos del torneo
-    const dup = teams.find((x) => {
+    const dup = teams.find((x, i) => {
+      if (i === editingIndex) return false;
       const roster = [x.player1.trim().toLowerCase(), x.player2.trim().toLowerCase()];
       return roster.includes(t.player1.trim().toLowerCase()) || roster.includes(t.player2.trim().toLowerCase());
     });
@@ -298,7 +303,8 @@ export default function TournamentWizard() {
         }
       }
     }
-    setTeams((prev) => [...prev, t]);
+    setTeams((prev) => editingIndex === null ? [...prev, t] : prev.map((x, i) => i === editingIndex ? t : x));
+    setEditingIndex(null);
     setDraft(emptyDraft());
     draftWasManual.current = false;
   }
@@ -360,31 +366,31 @@ export default function TournamentWizard() {
           win_by_two_tiebreak: String(t.scoring?.win_by_two_tiebreak ?? DEFAULT_SCORING.win_by_two_tiebreak),
           ranking_method: t.scoring?.ranking_method ?? DEFAULT_SCORING.ranking_method ?? "match_points",
         }));
-        // categorías existentes → filas (name libre)
-        const cats = await db.getTournamentCategories(t.id).catch(() => []);
-        const rows: CategoryValue[] = (cats as unknown as Array<{ id: string; name: string; sex: Sex }>).map((c) => ({
-          label: c.name,
-          sex: c.sex,
-        }));
+        const [cats, saved, directory] = await Promise.all([
+          db.getTournamentCategories(t.id), db.getTournamentPairs(t.id), db.listPlayers(),
+        ]);
+        const missingPlayers = [...new Set(saved.flatMap((p) => [p.player1_id, p.player2_id]).filter((id) => id && !directory.some((p) => p.id === id)))];
+        for (const id of missingPlayers) {
+          const profile = await db.getPlayer(id);
+          if (profile) directory.push(profile);
+        }
+        setPlayers(directory);
+        const rows: CategoryValue[] = cats.map((c) => ({ id: c.id, persistedId: c.id, label: c.name,
+          sex: c.sex, division: c.category, max_pairs: c.max_pairs }));
         setCategories(rows);
-        const catIdsCache = new Map((cats as unknown as Array<{ id: string; name: string }>).map((c) => [c.id, c.name.toLowerCase()]));
-        const catNamesCache = new Map((cats as unknown as Array<{ id: string; name: string; sex: string }>).map((c) => [c.id, c.name]));
-        setCatIds(new Map((cats as unknown as Array<{ id: string; name: string }>).map((c) => [c.name.toLowerCase(), c.id])));
-        // Equipos ya guardados → lista del paso 4 (con su grupo si el sorteo venía hecho)
-        db.getTournamentPairs(t.id).then((saved) => {
-          const loaded: TeamInput[] = (saved as unknown as Array<{ id: string; name: string; category_id: string | null; seed: number | null }>).map((p) => ({
-            division: (catIdsCache.get(p.category_id ?? "") ?? (rows[0]?.label ?? "4ta")) as PadelDivision,
-            sex: (rows.find((r) => r.label === (catNamesCache.get(p.category_id ?? "")))?.sex ?? "M") as Sex,
-            name: p.name,
-            player1: p.name.includes(" / ") ? p.name.split(" /")[0].trim() : "",
-            player2: p.name.includes(" / ") ? p.name.split(" /").slice(1).join("/").trim() : "",
-            logo: null,
-            group: null,
-            id: p.id,
-          }));
-          setTeams(loaded);
-        }).catch(() => undefined);
-      });
+        const loaded: TeamInput[] = saved.map((p) => {
+          const c = rows.find((c) => c.id === p.category_id);
+          return {
+            id: p.id, categoryKey: c?.id ?? "", division: (c?.label ?? "") as PadelDivision,
+            sex: c?.sex ?? "M", name: p.name,
+            player1: directory.find((x) => x.id === p.player1_id)?.display_name ?? p.name.split(" / ")[0] ?? "",
+            player2: directory.find((x) => x.id === p.player2_id)?.display_name ?? p.name.split(" / ").slice(1).join(" / "),
+            logo: (p as Pair & { crest_url?: string | null }).crest_url ?? null, group: p.group_name, 
+          };
+        });
+        setTeams(loaded);
+
+      }).catch((e: Error) => toast.error(`No se pudo cargar el torneo: ${e.message}`));
     }
   }, [slug, navigate]);
 
@@ -397,13 +403,14 @@ export default function TournamentWizard() {
     if (step === 1 && !tournament.name.trim()) return "Escribe el nombre del torneo";
     if (step === 2 && !categoriasValidas(categories)) return "Añade al menos una categoría válida";
     if (step === 3) {
-      if (teams.length === 0) return "Añade al menos un equipo";
+      if (editingIndex !== null) return "Guarda o cancela la edición del equipo";
+      if (teams.length === 0 && !editMode) return "Añade al menos un equipo";
       const bad = teams.find((t) => !t.player1.trim() || !t.player2.trim() || !t.division || !t.sex);
       if (bad) return `Equipo incompleto: "${bad.name || "(sin nombre)"}" — faltan jugadores o categoría`;
     }
     if (step === 4 && groups.length === 0) return "Ejecuta el sorteo para crear los grupos";
     return null;
-  }, [step, club, courts, tournament, categories, teams, groups]);
+  }, [step, club, courts, tournament, categories, teams, groups, editingIndex, editMode]);
 
   const canAdvance = useMemo(() => missingReason === null, [missingReason]);
 
@@ -412,9 +419,8 @@ export default function TournamentWizard() {
       if (missingReason) toast.warning(missingReason);
       return;
     }
-    // Navegar al instante; la persistencia corre en segundo plano con toasts de error.
-    setStep((s) => Math.min(STEPS.length - 1, s + 1));
-    void persistStep(step + 1);
+    if (saving) return;
+    if (await persistStep(step + 1)) setStep((s) => Math.min(STEPS.length - 1, s + 1));
   }
 
   function addCourt() {
@@ -448,9 +454,11 @@ export default function TournamentWizard() {
     setSaving(true);
     try {
       await doPersistStep(target);
+      return true;
     } catch (e) {
       const msg = (e as Error).message ?? "Error desconocido";
       toast.error(`No se pudo guardar (paso ${target}): ${msg}`);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -494,73 +502,33 @@ export default function TournamentWizard() {
           setTournamentId((created as unknown as { id: string }).id);
         }
       }
-      // Sincronizar categorías al pasar del paso 3
       if (target >= 3 && tournamentId) {
-        // Quitar en BD las que borró el usuario
-        const dbCats = await db.getTournamentCategories(String(tournamentId));
-        for (const dbCat of dbCats as unknown as Array<{ id: string; name: string }>) {
-          if (!categories.some((c) => c.label.trim().toLowerCase() === dbCat.name.toLowerCase())) {
-            await db.deleteTournamentCategory(dbCat.id).catch((e) => toast.error((e as Error).message ?? "No se pudo borrar la categoría"));
-          }
+        try {
+          await syncWizard(db, tournamentId, categories, teams, target >= 4,
+            Math.round(tournament.price_mxn * 100),
+            async (name, division) => players.find((p) => normalizePlayerName(p.display_name) === normalizePlayerName(name)) ?? ensurePlayer(name, division),
+            uploadCrest);
+        } finally {
+          // Keep successful IDs even when a later write failed. Retrying cannot duplicate them.
+          setCategories([...categories]);
+          setTeams([...teams]);
         }
-        // Crear las nuevas (o actualizar el nombre de las existentes via create)
-        const nextIds = new Map(catIds);
-        for (const c of categories) {
-          const key = c.label.trim().toLowerCase();
-          const existingId = nextIds.get(key);
-          if (!existingId) {
-            const created = await db.createTournamentCategory({
-              tournament_id: tournamentId,
-              name: c.label.trim(),
-              sex: c.sex,
-              min_level: null,
-              max_level: null,
-              max_pairs: 0,
-              registered_pairs: 0,
-              price_cents: Math.round(tournament.price_mxn * 100),
-              semifinal_slots: tournament.semifinal_slots ?? 4,
-            } as never);
-            nextIds.set(key, (created as unknown as { id: string }).id);
-          }
-        }
-        setCatIds(nextIds);
       }
-      // Persistir equipos al pasar del paso 4 (antes estaban solo en memoria)
-      if (target >= 4 && tournamentId) {
-        const existing = await db.getTournamentPairs(String(tournamentId));
-        const existingNames = new Set((existing as Pair[]).map((p) => p.name.toLowerCase()));
-        const failures: string[] = [];
-        for (const t of teams) {
-          const name = t.name.trim();
-          if (!name || existingNames.has(name.toLowerCase())) continue;
-          // Perfiles de jugadores nuevos se crean aquí si no existen
-          const [prof1, prof2] = await Promise.all([
-            ensurePlayer(t.player1, t.division).catch(() => null),
-            ensurePlayer(t.player2, t.division).catch(() => null),
-          ]);
-try {
-              const crest = t.logo ? await uploadCrest(t.logo, name) : null;
-              await db.createPair({
-                tournament_id: String(tournamentId),
-                category_id: catIds.get(t.division.toLowerCase()) ?? null,
-                name,
-              player1_id: prof1?.id ?? null,
-              player2_id: prof2?.id ?? null,
-               // El escudo se sube en el paso 4 y se ve en la lista de equipos
-               // inscritos, pero se perdía aquí: `createPair` sí acepta el
-               // campo y el logo desaparecía al cerrar el asistente.
-               crest_url: crest,
-             });
-          } catch (e) {
-            failures.push(`${name}: ${(e as Error).message ?? "no se pudo registrar"}`);
-          }
-        }
-        if (failures.length > 0) {
-          toast.error(`No se registraron ${failures.length} equipo(s): ${failures.join(" · ")}`);
-          throw new Error(failures[0]);
-        }
-        if (teams.length > 0) toast.success(`${teams.length} equipo(s) registrados`);
-      }
+  }
+
+  function changeCategories(next: CategoryValue[]) {
+    setCategories(next);
+    setTeams((prev) => prev.map((t) => {
+      const c = next.find((c) => c.id === t.categoryKey);
+      return c ? { ...t, division: c.label as PadelDivision, sex: c.sex } : t;
+    }));
+  }
+
+  function removeTeam(index: number) {
+    if (!window.confirm(`¿Quitar "${teams[index]?.name}" del torneo? Los equipos con partidos no se pueden eliminar.`)) return;
+    setTeams((prev) => prev.filter((_, i) => i !== index));
+    setEditingIndex(null);
+    setDraft(emptyDraft());
   }
 
   function back() {
@@ -1055,7 +1023,7 @@ teams.forEach((t) => {
           {step === 2 && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold">Categorías</h2>
-              <CategoryMatrix value={categories} onChange={setCategories} />
+              <CategoryMatrix value={categories} onChange={changeCategories} />
             </div>
           )}
 
@@ -1064,8 +1032,12 @@ teams.forEach((t) => {
             <div className="space-y-5">
               {/* Formulario de captura (se limpia al agregar) */}
               <div className="rounded-xl border bg-muted/30 p-4">
-                <p className="mb-3 text-sm font-semibold">Agregar equipo</p>
+                <p className="mb-3 text-sm font-semibold">{editingIndex === null ? "Agregar equipo" : "Editar equipo"}</p>
                 <div className="space-y-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="team-name">Nombre del equipo</Label>
+                    <Input id="team-name" value={draft.name} onChange={(e) => { draftWasManual.current = true; setDraft((d) => ({ ...d, name: e.target.value })); }} />
+                  </div>
                   {/* Fila 1: logo + jugadores */}
                   <div className="flex items-center gap-3">
                   <input
@@ -1117,10 +1089,10 @@ teams.forEach((t) => {
                     <div className="grid gap-1.5">
                       <Label className="text-xs text-muted-foreground">Categoría</Label>
                       <Select
-                        value={categories.some((c) => `${c.label}|${c.sex}` === `${draft.division}|${draft.sex}`) ? `${draft.division}|${draft.sex}` : ""}
+                        value={draft.categoryKey}
                         onValueChange={(v) => {
-                          const [division, sex] = v.split("|") as [PadelDivision, Sex];
-                          setDraft((d) => ({ ...d, division, sex }));
+                          const c = categories.find((c) => c.id === v);
+                          if (c) setDraft((d) => ({ ...d, categoryKey: v, division: c.label as PadelDivision, sex: c.sex }));
                         }}
                       >
                         <SelectTrigger className="h-9 bg-background">
@@ -1128,7 +1100,7 @@ teams.forEach((t) => {
                         </SelectTrigger>
                         <SelectContent>
                           {categories.map((c) => (
-                            <SelectItem key={`${c.label}-${c.sex}`} value={`${c.label}|${c.sex}`}>
+                            <SelectItem key={c.id} value={c.id!}>
                               {c.label} · {sexLabel(c.sex)}
                             </SelectItem>
                           ))}
@@ -1154,16 +1126,17 @@ teams.forEach((t) => {
                     </div>
                   </div>
                   {/* Fila 3: acción */}
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     {draft.name ? (
-                      <p className="min-w-0 truncate text-xs text-muted-foreground">Se agregará como "{draft.name}"</p>
+                      <p className="min-w-0 truncate text-xs text-muted-foreground">{editingIndex === null ? "Se agregará" : "Se guardará"} como "{draft.name}"</p>
                     ) : <span />}
+                    {editingIndex !== null && <Button type="button" variant="ghost" onClick={() => { setEditingIndex(null); setDraft(emptyDraft()); }}>Cancelar edición</Button>}
                     <Button
                       type="button"
                       onClick={commitDraft}
-                      disabled={!draft.player1.trim() || !draft.player2.trim() || !draft.division}
+                      disabled={!draft.player1.trim() || !draft.player2.trim() || !draft.categoryKey}
                     >
-                      <Plus className="h-4 w-4 ms-1" /> Agregar a la lista
+                      <Plus className="h-4 w-4 ms-1" /> {editingIndex === null ? "Agregar a la lista" : "Guardar equipo"}
                     </Button>
                   </div>
                 </div>
@@ -1181,7 +1154,7 @@ teams.forEach((t) => {
                 ) : (
                   <ul className="divide-y rounded-lg border">
                     {teams.map((t, i) => (
-                      <li key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
+                      <li key={t.id ?? i} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
                         <span className="w-6 text-center text-xs tabular-nums text-muted-foreground">{i + 1}</span>
                         {t.logo ? (
                           <img src={t.logo} alt="" className="h-7 w-7 rounded-xs object-contain" />
@@ -1191,12 +1164,13 @@ teams.forEach((t) => {
                         <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
                         <Badge variant="outline" className="shrink-0">{t.division} · {sexLabel(t.sex)}</Badge>
                         {t.group && <Badge variant="secondary" className="shrink-0">{t.group}</Badge>}
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { setDraft({ ...t }); setEditingIndex(i); draftWasManual.current = true; }}>Editar</Button>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 shrink-0"
-                          onClick={() => setTeams((prev) => prev.filter((_, j) => j !== i))}
+                          onClick={() => removeTeam(i)}
                           aria-label={`Quitar ${t.name}`}
                         >
                           ×
@@ -1344,7 +1318,7 @@ teams.forEach((t) => {
                                 key={idx}
                                 id={idx}
                                 name={teamName(idx)}
-                                onRemove={() => setTeams((prev) => prev.filter((_, j) => j !== Number(idx)))}
+                                onRemove={() => removeTeam(Number(idx))}
                                 groups={groups.map((g) => g.name)}
                                 currentGroup="__pool__"
                                 onReassign={(target) => reassignTeam(idx, target)}
@@ -1406,12 +1380,12 @@ teams.forEach((t) => {
 
       {/* Navegación siempre visible: los pasos largos no deben esconder el botón. */}
       <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between gap-3 border-t bg-card/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
-        <Button variant="outline" onClick={back} disabled={step === 0}>
+        <Button variant="outline" onClick={back} disabled={step === 0 || saving}>
           <ChevronLeft className="h-4 w-4" /> Anterior
         </Button>
         {step < STEPS.length - 1 ? (
           <div className="text-end">
-            <Button onClick={next} disabled={!canAdvance}>
+            <Button onClick={next} disabled={!canAdvance || saving}>
               Siguiente <ChevronRight className="h-4 w-4" />
             </Button>
             {!canAdvance && missingReason && (
@@ -1577,4 +1551,4 @@ function CoverUpload({
       )}
     </div>
   );
-                      }
+                          }
