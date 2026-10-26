@@ -445,6 +445,33 @@ it("el ganador de una semi pasa a la final", () => {
   });
 });
 
+describe("bracket de 8: cuartos, semis y final encadenados", () => {
+  const equipos = (n: number): BracketEntry[] =>
+    Array.from({ length: n }, (_, i) => ({ seed: i + 1, name: `P${i + 1}`, points: 0, pairId: `pr-${i + 1}` }));
+
+  it("cada ronda se alimenta de los dos cruces correctos y el campeón sale de la final", () => {
+    const b = buildBracket(equipos(8));
+    const sem = b.matches.filter((m) => m.round === 2);
+    expect(sem[0].sourceIds).toEqual(["r1-m1", "r1-m2"]);
+    expect(sem[1].sourceIds).toEqual(["r1-m3", "r1-m4"]);
+    // Siempre gana la semilla menor: debe quedar campeón la 1.
+    const r = resolveBracket(b, (a, rival) => (a.seed < rival.seed ? a.pairId : rival.pairId));
+    const final = r.find((m) => m.round === 3);
+    expect(final?.a?.seed).toBe(1);
+    expect(final?.b?.seed).toBe(2);
+    expect(final?.winnerId).toBe("pr-1");
+  });
+
+  it("con byes la pareja libre pasa sin jugar", () => {
+    const b = buildBracket(equipos(3));
+    const r = resolveBracket(b, () => null);
+    const bye = r.find((m) => m.round === 1 && m.bye);
+    expect(bye?.played).toBe(false);
+    expect(bye?.winnerId).toBe("pr-1");
+    expect(r.find((m) => m.round === 2)?.a?.pairId).toBe("pr-1");
+  });
+});
+
 describe("tournamentProgress (cómo va el torneo)", () => {
   const e = (n: number): BracketEntry[] =>
     Array.from({ length: n }, (_, i) => ({ seed: i + 1, name: `P${i + 1}`, points: 0, pairId: `p${i + 1}` }));
