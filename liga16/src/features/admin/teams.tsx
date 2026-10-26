@@ -20,7 +20,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import ImageUpload from "@/components/ui/image-upload";
 import { deleteStoredImage } from "@/lib/storage";
-import { PairAvatar } from "@/components/cards/card-kit";
 import { RowActionsMenu } from "@/components/admin/row-actions";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -184,6 +183,19 @@ export default function AdminTeams() {
   }
 
   const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
+  const [matchCount, setMatchCount] = useState<Map<string, number> | null>(null);
+  useEffect(() => {
+    if (!tid) { setMatchCount(null); return; }
+    let cancelled = false;
+    setMatchCount(null);
+    db.listMatchesByTournament(tid).then((ms) => {
+      if (cancelled) return;
+      const m = new Map<string, number>();
+      for (const x of ms) for (const id of [x.side_a?.pair_id, x.side_b?.pair_id]) if (id) m.set(id, (m.get(id) ?? 0) + 1);
+      setMatchCount(m);
+    }).catch(() => { if (!cancelled) setMatchCount(null); });
+    return () => { cancelled = true; };
+  }, [tid, pairs]);
   const [deletingMatches, setDeletingMatches] = useState<number | null>(null);
 
   // Al abrir la confirmación de eliminar se cuenta en cuántos partidos aparece
@@ -346,24 +358,44 @@ export default function AdminTeams() {
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((p) => {
                 const [p1, p2] = p.name.split(" / ");
+                const ini = `${p1?.trim().charAt(0) ?? "?"}${p2?.trim().charAt(0) ?? ""}`.toUpperCase();
+                const partidos = matchCount ? matchCount.get(p.id) ?? 0 : null;
                 return (
-                  <li key={p.id} className={cn(BENTO_CARD, BENTO_LIGHT, "flex flex-col gap-5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md")}>
-                    <div className="flex items-start justify-between gap-3">
-                      <PairAvatar p1={p1} p2={p2} className="h-14 w-14 shrink-0 text-xl" />
-                      <RowActionsMenu
-                        label={`Acciones para ${p.name}`}
-                        actions={[
-                          { label: "Editar", icon: <Pencil className="h-4 w-4" />, onSelect: () => openDialog(p) },
-                          { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting({ id: p.id, name: p.name }), destructive: true, separator: true },
-                        ]}
-                      />
+                  <li key={p.id} className={cn(BENTO_CARD, BENTO_LIGHT, "group flex flex-col gap-4 p-3 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg")}>
+                    {/* Portada: el escudo o foto si hay; si no, un póster oscuro con las iniciales. */}
+                    <div className="relative h-36 overflow-hidden rounded-2xl bg-[#141414]">
+                      {p.crest_url ? (
+                        <img src={p.crest_url} alt={`Escudo de ${p.name}`} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105" />
+                      ) : (
+                        <>
+                          <div className="liga16-stripe" aria-hidden />
+                          <span aria-hidden className="absolute inset-0 flex items-center justify-center font-display text-[6.5rem] font-bold leading-none tracking-[-0.04em] text-primary">{ini}</span>
+                          <span aria-hidden className="absolute -bottom-10 -right-6 h-28 w-28 rounded-full bg-primary/15" />
+                        </>
+                      )}
+                      <span className="absolute left-3 top-3 max-w-[70%] truncate rounded-full bg-black/60 px-2.5 py-1 text-caption text-white backdrop-blur">{categoryOf(p.category_id)}</span>
+                      <div className="absolute right-2 top-2 rounded-full bg-black/60 text-white backdrop-blur [&_button]:text-white">
+                        <RowActionsMenu
+                          label={`Acciones para ${p.name}`}
+                          actions={[
+                            { label: "Editar", icon: <Pencil className="h-4 w-4" />, onSelect: () => openDialog(p) },
+                            { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting({ id: p.id, name: p.name }), destructive: true, separator: true },
+                          ]}
+                        />
+                      </div>
                     </div>
-                    <div className="min-w-0 space-y-2">
-                      <h3 className="font-display text-2xl font-bold leading-tight tracking-tight">
+                    <div className="min-w-0 space-y-3 px-3 pb-2">
+                      <h3 className="font-display text-[1.65rem] font-bold leading-[1.05] tracking-tight">
                         <span className="block truncate">{p1}</span>
-                        <span className="block truncate text-muted-foreground">{p2 ?? "—"}</span>
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <span aria-hidden className="text-primary">&amp;</span>
+                          <span className="truncate">{p2 ?? "—"}</span>
+                        </span>
                       </h3>
-                      <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-caption text-muted-foreground">{categoryOf(p.category_id)}</span>
+                      <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                        <span className="tabular-nums">{partidos === null ? "Partidos: –" : `${partidos} ${partidos === 1 ? "partido" : "partidos"}`}</span>
+                        <button type="button" onClick={() => openDialog(p)} className="rounded-full px-2.5 py-1 font-medium text-primary opacity-0 transition-opacity hover:bg-primary/10 focus-visible:opacity-100 group-hover:opacity-100">Editar</button>
+                      </div>
                     </div>
                   </li>
                 );
@@ -454,4 +486,4 @@ function EquipoDialog({ open, onOpenChange, onSave, editing, submitting, players
       </DialogContent>
     </Dialog>
   );
-      }
+                       }
