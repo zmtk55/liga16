@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { Link } from "react-router";
 import {
   Activity,
@@ -35,7 +36,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge, MatchStatusBadge } from "@/components/admin/status-badge";
@@ -451,14 +451,13 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6">
-        <h1 className="text-lg font-semibold">No se pudo cargar el panel</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{error}</p>
-        <Button className="mt-4" variant="outline" size="sm" onClick={() => window.location.reload()}>
-          <Spinner />
-          Reintentar
-        </Button>
-      </div>
+      <AdminLoadFailed
+        title="Panel de control"
+        description="Resumen general del circuito: actividad, torneos y tareas pendientes."
+        what="el panel"
+        message={error}
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
