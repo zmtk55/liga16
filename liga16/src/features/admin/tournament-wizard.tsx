@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { db } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { deleteStoredImage } from "@/lib/storage";
-import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile, Pair } from "@/types";
+import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile, Pair, Match } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,7 +43,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { categoriasValidas, ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { DEFAULT_SCORING } from "@/lib/scoring";
-import { scheduleRounds, drawGroupsByCategory, type Group, type DrawablePair } from "@/lib/groups";
+import { scheduleRounds, turnsUsed, drawGroupsByCategory, type Group, type DrawablePair } from "@/lib/groups";
 import { sexLabel } from "@/lib/format";
 import { toast } from "sonner";
 import { ensurePlayer } from "@/lib/players";
@@ -227,6 +227,8 @@ export default function TournamentWizard() {
     registration_deadline: addDays(new Date().toISOString().split("T")[0], 7),
     format: "groups_knockout",
     status: "published",
+    // Se conserva la descripción existente al editar (antes se guardaba null).
+    description: null as string | null,
     price_mxn: 500,
     semifinal_slots: 4 as number | null,
     rules_summary: "Grupos de 4 + eliminación directa. Mejor de 3 sets.",
@@ -345,6 +347,9 @@ export default function TournamentWizard() {
           end_date: t.end_date,
           registration_deadline: t.registration_deadline,
           format: t.format,
+          // Al editar se conserva el estado real (antes volvía a "published").
+          status: t.status ?? prev.status,
+          description: t.description ?? null,
           price_mxn: t.price_cents / 100,
           semifinal_slots: t.semifinal_slots ?? 4,
           rules_summary: t.rules_summary ?? "",
@@ -470,7 +475,7 @@ export default function TournamentWizard() {
           price_cents: Math.round(tournament.price_mxn * 100),
           currency: "MXN",
           rules_summary: tournament.rules_summary || null,
-          description: null,
+          description: tournament.description,
           scoring: {
             sets_to_win: Number(tournament.sets_to_win) || DEFAULT_SCORING.sets_to_win,
             games_per_set: Number(tournament.games_per_set) || DEFAULT_SCORING.games_per_set,
@@ -730,25 +735,55 @@ teams.forEach((t) => {
     }
     setSaving(true);
     try {
-      const pairNameById = new Map<string, string>();
-      for (const idx in teams) {
-        const t = teams[idx];
-        if (t.id) pairNameById.set(t.id, t.name || `${t.player1 ?? "?"} / ${t.player2 ?? "?"}`);
+      // IDs reales de las parejas (se resuelven por nombre: las recién creadas
+      // en este paso aún no tienen `id` en el estado local).
+      const [dbPairs, dbCats, existing] = await Promise.all([
+        db.getTournamentPairs(tournamentId),
+        db.getTournamentCategories(tournamentId).catch(() => []),
+        db.listMatchesByTournament(tournamentId).catch(() => [] as Match[]),
+      ]);
+      const catNameById = new Map((dbCats as unknown as Array<{ id: string; name: string }>).map((c) => [c.id, c.name]));
+      const pairByName = new Map((dbPairs as Pair[]).map((p) => [p.name.trim().toLowerCase(), p]));
+      const pairOf = (idx: string) => {
+        const t = teams[Number(idx)];
+        const nm = (t?.name || `${t?.player1 ?? "?"} / ${t?.player2 ?? "?"}`).trim().toLowerCase();
+        return (t?.id ? (dbPairs as Pair[]).find((p) => p.id === t.id) : undefined) ?? pairByName.get(nm);
+      };
+      const missing = groups.flatMap((g) => g.pairIds).filter((i) => !pairOf(i));
+      if (missing.length > 0) {
+        throw new Error(`Hay equipos sin registrar en la BD (${missing.map((i) => teamName(i)).join(", ")}). Vuelve al paso de equipos y guarda.`);
       }
+
+      // Partidos con resultado (o capturados a medias) NUNCA se borran.
+      const protectedMatches = existing.filter(
+        (m) => m.winner != null || m.status === "finished" || m.sets.some((x) => (x.a ?? 0) + (x.b ?? 0) > 0),
+      );
+      const keyOf = (round: string, x: string | null, y: string | null) => `${round}|${[x, y].sort().join("|")}`;
+      const protectedKeys = new Set(protectedMatches.map((m) => keyOf(m.round, m.side_a.pair_id, m.side_b.pair_id)));
+
+      const courtNames = courts.map((c) => c.name);
+      const courtCount = courts.length || 1;
       const allMatches: Array<Parameters<typeof db.createMatches>[0][number]> = [];
+      let startSlot = 0; // los grupos comparten canchas: cada uno arranca donde terminó el anterior
       for (const group of groups) {
         if (group.pairIds.length < 2) continue;
-        const rounds = scheduleRounds(group.pairIds, courts.length || 1, tournament.start_date, 60, 9);
+        const rounds = scheduleRounds(group.pairIds, courtCount, tournament.start_date, 60, 9, startSlot);
+        startSlot += turnsUsed(rounds, courtCount);
         rounds.forEach((roundMatches, ri) => {
           roundMatches.forEach((m) => {
+            const pa = pairOf(m.a)!;
+            const pb = pairOf(m.b)!;
+            const round = `${group.name} · J${ri + 1}`;
+            if (protectedKeys.has(keyOf(round, pa.id, pb.id))) return;
             allMatches.push({
               tournament_id: tournamentId,
-              round: `${group.name} · J${ri + 1}`,
-              court_name: `Cancha ${m.court}`,
+              category_name: catNameById.get(pa.category_id) ?? undefined,
+              round,
+              court_name: courtNames[m.court - 1] ?? `Cancha ${m.court}`,
               scheduled_at: m.scheduled_at,
               status: "scheduled",
-              side_a: { pair_id: null, pair_name: teamName(m.a) },
-              side_b: { pair_id: null, pair_name: teamName(m.b) },
+              side_a: { pair_id: pa.id, pair_name: pa.name },
+              side_b: { pair_id: pb.id, pair_name: pb.name },
               sets: [],
               winner: null,
             });
@@ -756,10 +791,15 @@ teams.forEach((t) => {
         });
       }
       if (allMatches.length > 0) {
-        await db.deleteMatchesByTournament(tournamentId);
+        // Primero se crean los nuevos y solo después se borran los viejos sin
+        // resultado: si la inserción falla, no se pierde nada.
         await db.createMatches(allMatches);
+        const protectedIds = new Set(protectedMatches.map((m) => m.id));
+        for (const m of existing) {
+          if (!protectedIds.has(m.id)) await db.deleteMatchById(m.id);
+        }
       }
-      toast.success(`Torneo listo: ${allMatches.length} partidos generados`);
+      toast.success(`Torneo listo: ${allMatches.length} partidos generados` + (protectedMatches.length > 0 ? ` (${protectedMatches.length} con resultado conservados)` : ""));
       navigate(`/admin/torneos/${tournamentId}`);
     } catch (e) {
       toast.error((e as Error).message ?? "Error generando el calendario");
@@ -1537,4 +1577,4 @@ function CoverUpload({
       )}
     </div>
   );
-              }
+                      }
