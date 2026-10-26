@@ -350,7 +350,7 @@ export default function AdminTournamentDetail() {
   async function clearGroups() {
     if (!await editableGroups()) return;
     setSaving(true);
-    try { await saveGroups([]); toast.success("Grupos vaciados. Los equipos siguen inscritos."); }
+    try { await saveGroups([]); await syncGroupMatches([], await db.listMatchesByTournament(tournament!.id)); await reload(); toast.success("Grupos vaciados. Los equipos siguen inscritos."); }
     catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
   }
@@ -371,7 +371,7 @@ export default function AdminTournamentDetail() {
     const next = groups.map((g, i) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== id).concat(!pool && i === to ? [id] : []),
       categoryId: !pool && i === to ? (pair.category_id ?? "") : g.categoryId }));
     setSaving(true);
-    try { await saveGroups(next); }
+    try { await saveGroups(next); await syncGroupMatches(next, await db.listMatchesByTournament(tournament!.id)); await reload(); }
     catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
   }
@@ -387,7 +387,7 @@ export default function AdminTournamentDetail() {
     if (!name || groups.some((g, i) => i !== index && g.name === name)) { toast.error("Usa un nombre de grupo único y no vacío"); return; }
     if (!await editableGroups()) return;
     setSaving(true);
-    try { await saveGroups(groups.map((g, i) => i === index ? { ...g, name } : g)); }
+    try { const next = groups.map((g, i) => i === index ? { ...g, name } : g); await saveGroups(next); await syncGroupMatches(next, await db.listMatchesByTournament(tournament!.id)); await reload(); }
     catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
   }
@@ -395,7 +395,7 @@ export default function AdminTournamentDetail() {
   async function ungroupPair(id: string) {
     if (!await editableGroups()) return;
     setSaving(true);
-    try { await saveGroups(groups.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== id) }))); toast.success("Equipo sin grupo; sigue inscrito"); }
+    try { const next = groups.map((g) => ({ ...g, pairIds: g.pairIds.filter((x) => x !== id) })); await saveGroups(next); await syncGroupMatches(next, await db.listMatchesByTournament(tournament!.id)); await reload(); toast.success("Equipo sin grupo; sigue inscrito"); }
     catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
   }
