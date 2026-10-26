@@ -1,6 +1,6 @@
 "use client";
 
-import { createLibrary, defineComponent } from "@openuidev/react-lang";
+import { createLibrary, defineComponent, useRenderNode } from "@openuidev/react-lang";
 import { z } from "zod/v4";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -12,7 +12,10 @@ const Stack = defineComponent({
   name: "Stack",
   description: "Contenedor vertical de componentes",
   props: z.object({ children: z.any().optional().describe("Contenido del stack") }),
-  component: ({ props: { children } }) => <div className="space-y-4">{children}</div>,
+  component: function StackContent({ props: { children } }) {
+    const renderNode = useRenderNode();
+    return <div className="space-y-4">{renderNode(children)}</div>;
+  },
 });
 
 const VerdictBadge = defineComponent({
@@ -48,7 +51,7 @@ const StandingsTable = defineComponent({
   }),
   component: ({ props: { rows, highlightPos } }) => {
     const fmtPct = (value: number | null | undefined): string => {
-      if (value == null || !Number.isFinite(value)) return "—";
+      if (value == null || !Number.isFinite(value)) return "-";
       const rounded = Math.round(value * 10) / 10;
       return `${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)}%`;
     };
@@ -66,7 +69,7 @@ const StandingsTable = defineComponent({
             <TableRow key={r.pos} className={r.pos === highlightPos ? "bg-primary/5 font-medium" : ""}>
               <TableCell>{r.pos}°</TableCell>
               <TableCell>{r.name}</TableCell>
-              <TableCell className="text-right font-mono">{fmtPct(r.pct)}%</TableCell>
+              <TableCell className="text-right font-mono">{fmtPct(r.pct)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -94,18 +97,17 @@ const MetricRow = defineComponent({
 
 const MatchHint = defineComponent({
   name: "MatchHint",
-  description: "Respuesta estructurada con ejemplo real (no genérica)",
+  description: "Párrafos de la respuesta de clasificación calculada con datos reales",
   props: z.object({
-    text: z.string().describe("Texto del hint"),
+    text: z.string().describe("Respuesta calculada, sin ejemplos inventados"),
   }),
   component: ({ props: { text } }) => (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
-      <p className="text-sm font-medium">Respuesta de IA — ejemplo real</p>
-      <p className="text-sm text-muted-foreground">{text || "Ejemplo: Julián / María vs Víctor Orozco — Cuarta. Resultado: 6-4, 6-3."}</p>
-      <div className="flex gap-2">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-emerald-100 text-emerald-800 border-emerald-200">PASS</span>
-        <span className="text-xs text-muted-foreground">· Julián / María vs Víctor Orozco</span>
-      </div>
+    <div className="space-y-3 break-words">
+      {text.split("\n\n").filter(Boolean).map((paragraph, index) => (
+        <p key={index} className="max-w-[72ch] text-sm leading-relaxed">
+          {paragraph.charAt(0).toUpperCase() + paragraph.slice(1)}
+        </p>
+      ))}
     </div>
   ),
 });
