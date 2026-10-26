@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { hasMatchActivity } from "@/lib/tournament-flow";
 import { computeStandings, type Group } from "@/lib/groups";
 import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
 import { DEFAULT_SCORING } from "@/lib/scoring";
@@ -78,6 +79,16 @@ export function MatchResultDialog({
     }
     setSaving(true);
     try {
+      const node = / · r(\d+)-m\d+$/.exec(match.round);
+      const nextWinner = status === "finished" && check.ok ? check.winner : null;
+      if (node && nextWinner !== match.winner) {
+        const all = await db.listMatchesByTournament(match.tournament_id);
+        const later = all.filter((m) => {
+          const n = / · r(\d+)-m\d+$/.exec(m.round);
+          return n && Number(n[1]) > Number(node[1]) && m.category_name === match.category_name;
+        });
+        if (later.some(hasMatchActivity)) throw new Error("No se puede cambiar el ganador: una ronda posterior ya tiene actividad. Revisa primero sus resultados.");
+      }
       const partial = typedSets.filter(isPlayedSet);
       await db.updateMatch(match.id, {
         // "Guardar sin jugar" conserva lo capturado a medias y ya no deja un
