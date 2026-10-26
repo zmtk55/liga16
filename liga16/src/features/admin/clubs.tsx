@@ -1,4 +1,4 @@
-"use client";
+import { useSearchParams } from "react-router";
 
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/data";
@@ -17,10 +17,13 @@ import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/p
 import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
-import { AdminEmptyState } from "@/components/admin/empty-state";
+import { AdminEmptyState, AdminLoadFailed } from "@/components/admin/empty-state";
+import { RowActionsMenu } from "@/components/admin/row-actions";
 import { formatCity } from "@/lib/format";
 
 export default function AdminClubs() {
+  const [loaded, setLoaded] = useState(false);
+  const [courtsError, setCourtsError] = useState<string | null>(null);
   const [club, setClub] = useState<Club | null>(null);
   const [deletingCourt, setDeletingCourt] = useState<{ id: string; name: string } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -29,18 +32,28 @@ export default function AdminClubs() {
   const [courts, setCourts] = useState<Court[]>([]);
   const [newCourt, setNewCourt] = useState("");
   /** Filtros de la lista de canchas: buscador + superficie. */
-  const [courtQuery, setCourtQuery] = useState("");
+  const [params, setParams] = useSearchParams();
+  const courtQuery = params.get("q") ?? "";
+  const setCourtQuery = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set("q", value); else next.delete("q");
+    setParams(next, { replace: true });
+  };
   const [fSurface, setFSurface] = useState("all");
+
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const reload = () => {
     db.listClubs().then((list) => {
       const c = list[0] ?? null;
       setClub(c);
+      setLoaded(true);
+      setLoadError(null);
       if (c) {
         setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "", photo_url: c.photo_url ?? "" });
       }
-    });
-    db.listCourts().then(setCourts).catch(() => undefined);
+    }).catch((e) => setLoadError((e as Error)?.message || "Error al cargar la sede"));
+    db.listCourts().then(cs => { setCourts(cs); setCourtsError(null); }).catch(() => setCourtsError("No se pudieron cargar las canchas"));
   };
 
   useEffect(() => {
@@ -54,7 +67,7 @@ export default function AdminClubs() {
       await db.createCourt({ club_id: club.id, name, surface: "Sintética" } as never);
       setNewCourt("");
       toast.success(`Cancha "${name}" registrada`);
-      db.listCourts().then(setCourts).catch(() => undefined);
+      db.listCourts().then(cs => { setCourts(cs); setCourtsError(null); }).catch(() => setCourtsError("No se pudieron cargar las canchas"));
     } catch (e) {
       toast.error((e as Error).message ?? "No se pudo crear la cancha");
     }
@@ -88,6 +101,7 @@ export default function AdminClubs() {
       db.listClubs().then((list) => {
         const c = list[0] ?? null;
         setClub(c);
+      setLoaded(true);
         if (c) {
           setForm({ name: c.name, address: c.address ?? "", phone: c.phone ?? "", description: c.description ?? "", photo_url: c.photo_url ?? "" });
         }
@@ -122,6 +136,18 @@ export default function AdminClubs() {
       .sort((a, b) => b.n - a.n);
   }, [courts]);
 
+  if (!club && loadError) {
+    return (
+      <AdminLoadFailed
+        title="Sede"
+        description="Datos del club y canchas disponibles."
+        what="la sede"
+        message={loadError}
+        onRetry={reload}
+      />
+    );
+  }
+  if (!club && loaded) return <AdminEmptyState title="No hay sede registrada" description="Configura primero la sede del circuito para administrar sus canchas." icon={<MapPin className="h-6 w-6" />} />;
   if (!club) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   return (
@@ -137,7 +163,7 @@ export default function AdminClubs() {
           ) : undefined
         }
       >
-        <AdminStatStrip>
+        <AdminStatStrip loading={club === null}>
           <AdminStat value={courts.length} label="Canchas" />
           <AdminStat
             value={club ? (club.phone ? "Sí" : "No") : "—"}
@@ -154,7 +180,7 @@ export default function AdminClubs() {
       </AdminPageHeader>
 
       {editing ? (
-        <Card>
+        <Card className="overflow-hidden rounded-3xl border bg-card shadow-none">
           <CardHeader><CardTitle className="text-base">Editar configuración de la sede</CardTitle></CardHeader>
           <CardContent className="grid gap-3">
             <div className="grid gap-2">
@@ -256,7 +282,7 @@ export default function AdminClubs() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="overflow-hidden rounded-3xl border bg-card shadow-none">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-4">
               {club.photo_url ? (
@@ -289,8 +315,8 @@ export default function AdminClubs() {
       )}
 
       {/* Canchas */}
-      <Card>
-        <CardHeader className="gap-3">
+      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+        <CardHeader className="gap-3 px-0">
           <CardTitle className="text-base">Canchas disponibles ({courts.length})</CardTitle>
           <FilterBar
             search={courtQuery}
@@ -332,7 +358,7 @@ export default function AdminClubs() {
               <Plus className="h-4 w-4 mr-1" /> Agregar
             </Button>
           </div>
-          {courts.length === 0 ? (
+          {courtsError ? <div role="alert" className="rounded-3xl border border-destructive/30 p-6"><p className="text-sm">{courtsError}</p><Button size="sm" variant="outline" onClick={reload} className="mt-3 rounded-full">Reintentar</Button></div> : courts.length === 0 ? (
             <AdminEmptyState
               className="py-8"
               icon={<MapPin className="h-5 w-5" />}
@@ -347,15 +373,16 @@ export default function AdminClubs() {
               description="Prueba con otro nombre o quita el filtro de superficie."
             />
           ) : (
-            <ul className="divide-y rounded-lg border">
+            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleCourts.map((c) => (
-                <li key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                  <span className="font-medium">{c.name}</span>
+                <li key={c.id} className="flex min-h-32 flex-col items-start justify-between gap-4 rounded-3xl border bg-card p-5 text-sm">
+                  <span className="font-display text-xl font-semibold">{c.name}</span>
                   <span className="flex items-center gap-2">
                     {c.surface && <Badge variant="outline">{c.surface}</Badge>}
-                    <Button variant="ghost" size="icon" onClick={() => setDeletingCourt({ id: c.id, name: c.name })} aria-label={`Eliminar ${c.name}`}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <RowActionsMenu
+                      label={`Acciones para ${c.name}`}
+                      actions={[{ label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeletingCourt({ id: c.id, name: c.name }), destructive: true }]}
+                    />
                   </span>
                 </li>
               ))}
