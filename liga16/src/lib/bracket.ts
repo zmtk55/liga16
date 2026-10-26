@@ -57,6 +57,10 @@ export interface BracketMatch {
   b: BracketEntry | null;
   /** Ya hay resultado capturado para este cruce. */
   played?: boolean;
+  /** Pareja que pasa de este cruce (ganador capturado o pase libre). */
+  winnerId?: string | null;
+  /** Cruce de primera ronda con una sola pareja: pasa sin jugar. */
+  bye?: boolean;
 }
 
 export interface Bracket {
@@ -104,9 +108,9 @@ export function buildBracket(qualified: BracketEntry[]): Bracket {
           b: placed[slotB - 1] ?? null,
         });
       } else {
-        const pos = (i - 1) * 2 + 1;
-        const srcA = `r${round - 1}-m${i + 1}`;
-        const srcB = `r${round - 1}-m${i + 2}`;
+        const pos = i * 2 + 1;
+        const srcA = `r${round - 1}-m${i * 2 + 1}`;
+        const srcB = `r${round - 1}-m${i * 2 + 2}`;
         matches.push({
           id,
           round,
@@ -143,27 +147,27 @@ export function resolveBracket(
   const resolved: BracketMatch[] = [];
 
   for (const m of bracket.matches) {
-    if (m.round === 1) {
-      let winner: string | null = null;
-      let played = false;
-      if (m.a && m.b) {
-        winner = winnerOf(m.a, m.b);
-        played = winner !== null;
-      }
-      winners.set(m.id, winner);
-      resolved.push({ ...m, played });
-      continue;
+    let a = m.a;
+    let b = m.b;
+    if (m.round > 1) {
+      const [srcA, srcB] = m.sourceIds ?? ["", ""];
+      const idA = winners.get(srcA) ?? null;
+      const idB = winners.get(srcB) ?? null;
+      a = idA ? byPairId.get(idA) ?? null : null;
+      b = idB ? byPairId.get(idB) ?? null : null;
     }
-    const [srcA, srcB] = m.sourceIds ?? ["", ""];
-    const idA = winners.get(srcA) ?? null;
-    const idB = winners.get(srcB) ?? null;
-    winners.set(m.id, null); // el ganador de esta ronda aún no existe
-    resolved.push({
-      ...m,
-      a: idA ? byPairId.get(idA) ?? null : null,
-      b: idB ? byPairId.get(idB) ?? null : null,
-      played: Boolean(idA && idB),
-    });
+    // Primera ronda con una sola pareja: pase libre, avanza sin jugar.
+    const bye = m.round === 1 && (Boolean(a) !== Boolean(b));
+    let winner: string | null = null;
+    let played = false;
+    if (bye) {
+      winner = (a ?? b)!.pairId;
+    } else if (a && b) {
+      winner = winnerOf(a, b);
+      played = winner !== null;
+    }
+    winners.set(m.id, winner);
+    resolved.push({ ...m, a, b, played, winnerId: winner, bye });
   }
   return resolved;
 }
