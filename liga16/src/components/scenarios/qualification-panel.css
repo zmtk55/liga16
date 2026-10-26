@@ -1,0 +1,51 @@
+/* Usa el mismo lenguaje bento del admin. Motion breve para dar respuesta,
+   nunca movimiento continuo ni una segunda dirección visual. */
+.qualification-interactive {
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.qualification-interactive:hover,
+.qualification-interactive:focus-within {
+  border-color: hsl(var(--primary) / 0.4);
+}
+.qualification-panel textarea {
+  transition: background-color 160ms ease;
+}
+.qualification-panel form:focus-within {
+  border-color: hsl(var(--primary) / 0.5);
+}
+.qualification-panel button {
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+.qualification-panel button:not(:disabled):active {
+  transform: scale(0.97);
+}
+.qualification-panel button[aria-pressed="true"] {
+  color: hsl(var(--primary-strong));
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.qualification-panel button[aria-pressed="true"] svg {
+  transform: translate(1px, -1px);
+}
+.qualification-panel button svg {
+  transition: transform 160ms ease;
+}
+.qualification-stats > div {
+  transition: transform 180ms ease;
+}
+@media (hover: hover) {
+  .qualification-stats > div:hover { transform: translateY(-2px); }
+}
+.qualification-answer {
+  animation: qualification-reveal 220ms ease-out both;
+}
+@keyframes qualification-reveal {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qualification-panel *, .qualification-panel *::before, .qualification-panel *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

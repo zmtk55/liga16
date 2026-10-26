@@ -1,18 +1,24 @@
-import { useMemo, useState } from "react";
+import type { ComponentProps } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import "./qualification-panel.css";
+import { AdminPageHeader, AdminStat } from "@/components/admin/page-header";
+import { BentoCard } from "@/components/admin/bento-card";
+import { BENTO_CARD, BENTO_LIGHT } from "@/components/admin/bento";
+import { cn } from "@/lib/utils";
 import {
   ArrowUpRight,
-  MessageSquare,
   Send,
   ShieldAlert,
   Sparkles,
   TrendingUp,
+  ChevronDown,
   Trophy,
 } from "lucide-react";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
 import { qualificationFor } from "@/lib/qualification";
 import { answerQualification } from "@/lib/qualification-answer";
+import { QualificationResponse } from "./qualification-response";
 import { readQuestion } from "@/lib/jev-question";
 
 interface Props {
@@ -37,11 +43,32 @@ const TONE_ICON: Record<Tone, typeof Trophy> = {
   out: ShieldAlert,
 };
 
-const TONE_LABEL: Record<Tone, string> = {
-  pass: "Pasa",
-  depends: "Depende",
-  out: "Riesgo",
-};
+
+/** Conserva summary/teclado nativos; anima altura al abrir y al cerrar. */
+function AnimatedDetails({ children, ...props }: ComponentProps<"details">) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  const animation = useRef<Animation | null>(null);
+  const targetOpen = useRef(false);
+  useEffect(() => () => animation.current?.cancel(), []);
+  return <details {...props} ref={ref} onClick={(event) => {
+    const details = ref.current;
+    const target = event.target;
+    if (!details || !(target instanceof Element) || target.closest("summary") !== details.querySelector("summary")) return;
+    event.preventDefault();
+    const opening = !targetOpen.current;
+    targetOpen.current = opening;
+    const start = details.getBoundingClientRect().height;
+    animation.current?.cancel();
+    details.style.height = "";
+    details.open = opening;
+    const end = details.getBoundingClientRect().height;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    details.open = true;
+    const effect = details.animate([{ height: `${start}px` }, { height: `${end}px` }], { duration: 220, easing: "cubic-bezier(0.2, 0, 0, 1)" });
+    animation.current = effect;
+    effect.onfinish = () => { details.open = opening; animation.current = null; };
+  }}>{children}</details>;
+}
 
 export default function ScenarioPanel({
   standings,
@@ -64,6 +91,8 @@ export default function ScenarioPanel({
 
   const q = useMemo(() => qualificationFor(rows, me, ctx), [rows, me, ctx]);
 
+  const requestInFlight = useRef(false);
+  const [askedQuestion, setAskedQuestion] = useState("");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -250,7 +279,9 @@ export default function ScenarioPanel({
 
   const generate = async (prompt: string) => {
     const clean = prompt.trim();
-    if (!clean) return;
+    if (!clean || requestInFlight.current) return;
+    requestInFlight.current = true;
+    setAskedQuestion(clean);
     setLoading(true);
     setAnswer(null);
     // JEV entiende la pregunta (acentos, subjuntivo, a quién nombra); el texto
@@ -259,6 +290,7 @@ export default function ScenarioPanel({
     setSource(reading ? "jev" : "local");
     setAnswer(buildAnswer(clean, reading));
     setLoading(false);
+    requestInFlight.current = false;
   };
 
   const ask = (text: string) => {
@@ -270,64 +302,115 @@ export default function ScenarioPanel({
 
   return (
     <section
-      aria-labelledby="escenarios-title"
-      className="mx-auto max-w-7xl space-y-8 px-4 md:px-6"
+      aria-label="Clasificación"
+      className="qualification-panel mx-auto max-w-7xl px-4 md:px-6"
     >
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-caption uppercase tracking-[0.14em] text-muted-foreground">
-            Semifinales · {slots} lugares
-          </p>
-          <h2
-            id="escenarios-title"
-            className="font-black text-2xl uppercase leading-none tracking-[-0.03em] md:text-3xl"
-          >
-            Qué necesitas para pasar
-          </h2>
-        </div>
-        <p className="text-xs text-muted-foreground">Con la tabla real del torneo</p>
+      <AdminPageHeader title="Clasificación" />
+      <div className="qualification-stats mb-4 mt-3 grid grid-cols-3 gap-3">
+        <AdminStat value={`${q.position}°`} label="Posición" icon={<VerdictIcon className="h-3.5 w-3.5" aria-hidden />} className="gap-3 p-4 [&>span:first-child]:text-4xl" />
+        <AdminStat value={`${fmtPct(myPoints)}%`} label="Rend." className="gap-3 p-4 [&>span:first-child]:text-4xl" />
+        <AdminStat value={left} label="Por jugar" className="gap-3 p-4 [&>span:first-child]:text-4xl" />
       </div>
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary-strong">{verdict.word}</span>
+        <span className="text-muted-foreground">Semifinales · {slots} lugares{!q.inCut && !tiedAtCut ? ` · A ${fmtPct(gapPct)} p.p. del corte` : ""}</span>
+      </div>
+      <div className="grid items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
+      {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
+      <BentoCard className={cn(BENTO_CARD, BENTO_LIGHT, "qualification-interactive min-w-0 gap-0 p-5")}>
+        <h3 className="flex items-center gap-2.5 text-base font-semibold"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Pregunta por tu pase<Sparkles className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden /></h3>
+        <form
+          className="mt-3 rounded-xl border border-border bg-card p-2.5 transition-shadow focus-within:ring-2 focus-within:ring-ring/30"
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask(question);
+          }}
+        >
+          <label htmlFor="clasificacion-pregunta" className="sr-only">
+            Pregunta sobre tu clasificación a semifinales
+          </label>
+          <textarea
+            id="clasificacion-pregunta"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="¿Y si gano el próximo?"
+            rows={1}
+            className="block min-h-10 w-full resize-y border-0 bg-transparent px-1 py-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
+            autoComplete="off"
+          />
 
-      {/* Veredicto: superficie póster de la casa (oscura en ambos temas). */}
-      <div className="liga16-card liga16-surface--poster relative overflow-hidden rounded-[var(--radius)]">
-        <span className="liga16-stripe" aria-hidden />
-        <div className="grid gap-5 p-4 pt-5 sm:p-5 md:grid-cols-[1.15fr_1fr] md:items-end">
-          <div className="space-y-3">
-            <span className="inline-flex items-center gap-2 text-caption uppercase tracking-[0.14em] text-white/65">
-              <VerdictIcon className="h-4 w-4" aria-hidden />
-              {TONE_LABEL[verdict.tone]}
-            </span>
-            <p className="font-black text-3xl uppercase leading-none tracking-[-0.04em] sm:text-4xl">
-              {verdict.word}
-            </p>
-            <p className="max-w-[60ch] text-sm leading-relaxed text-[hsl(var(--surface-inverse-foreground))]/75">
-              {verdict.sentence}
-            </p>
+          <div className="mt-1 flex items-center justify-end gap-3">
+          <Button
+            type="submit"
+            size="sm"
+            className="h-9 shrink-0 rounded-lg bg-foreground px-3 text-background hover:bg-foreground/85 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+            disabled={loading || !question.trim()}
+            aria-label="Preguntar a la IA"
+          >
+            <Send className="h-3.5 w-3.5" aria-hidden />
+            <span className="ml-2 text-xs">{loading ? "Analizando…" : "Preguntar"}</span>
+          </Button>
+          </div>
+        </form>
+
+        <div className="mt-3">
+          <div aria-live="polite" aria-busy={loading}>
+            {loading && (
+              <div className="space-y-1.5 py-1">
+                <span className="sr-only">Analizando tu situación…</span>
+                <span className="block h-3 w-4/5 animate-pulse rounded bg-muted-foreground/20" />
+                <span className="block h-3 w-3/5 animate-pulse rounded bg-muted-foreground/20" />
+              </div>
+            )}
+
+            {!loading && answer && (
+              <div className="qualification-answer border-t border-border pt-3">
+                <div className="min-w-0 flex-1 space-y-3">
+                  <QualificationResponse
+                    answer={answer}
+                    rows={rows}
+                    position={q.position}
+                    points={myPoints}
+                    slots={slots}
+                    remainingMatches={left}
+                    inCut={q.inCut}
+                    source={source === "jev" ? "jev" : "local"}
+                  />
+                </div>
+              </div>
+            )}
+
+
           </div>
 
-          <dl className="grid grid-cols-2 divide-x divide-white/10 border-t border-white/10 sm:grid-cols-4">
-            {[
-              { l: "Posición", v: `${q.position}°` },
-              { l: "Pasan", v: `${slots}` },
-              { l: "Diferencia", v: q.inCut ? "0" : tiedAtCut ? "empate" : `${fmtPct(gapPct)} p.p.` },
-              { l: "Quedan", v: `${left} PJ` },
-            ].map((s) => (
-              <div key={s.l} className="px-3 py-2 first:ps-0">
-                <dt className="text-caption uppercase tracking-[0.12em] text-white/55">
-                  {s.l}
-                </dt>
-                <dd className="font-bold text-xl leading-none tabular-nums">{s.v}</dd>
-              </div>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0">
+            {FREQUENT.map((f, index) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => ask(f)}
+                disabled={loading}
+                aria-pressed={askedQuestion === f}
+                className="group inline-flex min-h-10 items-center gap-1.5 py-1 text-left text-xs leading-snug text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
+              >
+                {["Si gano", "Mi rival", "Sin partidos"][index]}
+                <ArrowUpRight
+                  className="h-3 w-3 shrink-0"
+                  aria-hidden
+                />
+              </button>
             ))}
-          </dl>
+          </div>
         </div>
-      </div>
-
+      </BentoCard>
+      <div className="grid items-start gap-4">
       {/* Tabla alrededor de la línea de semifinales. */}
-      <div>
-        <p className="mb-2 text-caption uppercase tracking-[0.14em] text-muted-foreground">
-          Tabla hacia semifinales
-        </p>
+      <AnimatedDetails className={cn(BENTO_CARD, BENTO_LIGHT, "qualification-interactive group min-w-0 p-5")}>
+        <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2.5"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Tabla <span className="ml-2 text-xs font-normal text-muted-foreground">{rows.length} parejas</span></span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="pt-4">
         <ol className="overflow-hidden rounded-[var(--radius)] border bg-card">
           {rail.hiddenAbove > 0 && (
             <li className="border-b px-3 py-1 text-xs text-muted-foreground">
@@ -380,18 +463,16 @@ export default function ScenarioPanel({
             </li>
           )}
         </ol>
-      </div>
+        </div>
+      </AnimatedDetails>
 
       {/* Los tres finales: una superficie con filas separadas, no texto suelto. */}
-      <div className="overflow-hidden rounded-[var(--radius)] border bg-card">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b px-4 py-3">
-          <h3 className="text-caption uppercase tracking-[0.14em] text-muted-foreground">
-            Los tres finales posibles
-          </h3>
-          <span className="text-xs text-muted-foreground">con la tabla de hoy</span>
-        </div>
-
-        <ul className="divide-y">
+      <AnimatedDetails className={cn(BENTO_CARD, BENTO_LIGHT, "qualification-interactive group min-w-0 p-5")}>
+        <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2.5"><span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />Escenarios</span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <ul className="mt-4 divide-y">
           {scenarios.map((s) => {
             const Icon = TONE_ICON[s.tone];
             return (
@@ -420,105 +501,9 @@ export default function ScenarioPanel({
           Los escenarios asumen que los demás no suman entre sí; la tabla se
           recalcula con cada resultado guardado.
         </p>
+      </AnimatedDetails>
+
       </div>
-
-      {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
-      <div className="overflow-hidden rounded-[var(--radius)] border bg-card">
-        <form
-          className="flex items-center gap-3 p-3 sm:p-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            ask(question);
-          }}
-        >
-          <span
-            className="liga16-ai-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background sm:h-10 sm:w-10"
-            aria-hidden
-          >
-            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
-          </span>
-
-          <label htmlFor="clasificacion-pregunta" className="sr-only">
-            Pregunta sobre tu clasificación a semifinales
-          </label>
-          <Input
-            id="clasificacion-pregunta"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Pregunta por tu pase…"
-            className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 sm:text-base"
-            autoComplete="off"
-          />
-
-          <Button
-            type="submit"
-            size="sm"
-            className="h-9 w-9 shrink-0 bg-foreground p-0 text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 sm:h-10 sm:w-auto sm:px-3"
-            disabled={loading || !question.trim()}
-            aria-label="Preguntar a la IA"
-          >
-            <Send className="h-4 w-4 sm:me-1.5" aria-hidden />
-            <span className="hidden sm:inline">{loading ? "Analizando…" : "Preguntar"}</span>
-          </Button>
-        </form>
-
-        <div className="border-t px-3 py-2.5 sm:px-4">
-          <div aria-live="polite" aria-busy={loading}>
-            {loading && (
-              <div className="space-y-1.5 py-1">
-                <span className="sr-only">Analizando tu situación…</span>
-                <span className="block h-3 w-4/5 animate-pulse rounded bg-muted-foreground/20" />
-                <span className="block h-3 w-3/5 animate-pulse rounded bg-muted-foreground/20" />
-              </div>
-            )}
-
-            {!loading && answer && (
-              <div className="animate-fade-in flex items-start gap-3 py-1">
-                <MessageSquare
-                  className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-                  aria-hidden
-                />
-                <div className="min-w-0 space-y-3">
-                  {answer.split("\n\n").map((para, i) => (
-                    <p key={i} className="max-w-[72ch] text-sm leading-relaxed">
-                      {para.charAt(0).toUpperCase() + para.slice(1)}
-                    </p>
-                  ))}
-                  <p className="text-xs text-muted-foreground">
-                    {q.position}° · {fmtPct(myPoints)}% · pasan {slots} · {left} partido
-                    {left === 1 ? "" : "s"} por jugar ·{" "}
-                    {source === "jev" ? "lectura JEV" : "cálculo local"}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {!loading && !answer && (
-              <p className="text-xs text-muted-foreground">
-                Nombra dos parejas y simulo el cruce: «¿y si Julián le gana a
-                Víctor Orozco?»
-              </p>
-            )}
-          </div>
-
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            {FREQUENT.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => ask(f)}
-                disabled={loading}
-                className="group inline-flex items-center gap-1 text-left text-sm leading-snug text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50"
-              >
-                {f}
-                <ArrowUpRight
-                  className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  aria-hidden
-                />
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );
