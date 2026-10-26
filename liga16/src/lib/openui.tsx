@@ -12,7 +12,7 @@ const Stack = defineComponent({
   name: "Stack",
   description: "Contenedor vertical de componentes",
   props: z.object({ children: z.any().optional().describe("Contenido del stack") }),
-  component: ({ children }: { children?: React.ReactNode }) => <div className="space-y-4">{children}</div>,
+  component: ({ props: { children } }) => <div className="space-y-4">{children}</div>,
 });
 
 const VerdictBadge = defineComponent({
@@ -22,7 +22,7 @@ const VerdictBadge = defineComponent({
     tone: z.enum(["pass", "depends", "out"]).describe("Tono del veredicto"),
     word: z.string().describe("Palabra del veredicto"),
   }),
-  component: ({ tone, word }: { tone: "pass" | "depends" | "out"; word: string }) => {
+  component: ({ props: { tone, word } }) => {
     const icons = { pass: CheckCircle, depends: MinusCircle, out: AlertTriangle };
     const colors = {
       pass: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -46,7 +46,7 @@ const StandingsTable = defineComponent({
     rows: z.array(z.object({ pos: z.number(), name: z.string(), pct: z.number() })).describe("Filas de la tabla"),
     highlightPos: z.number().optional().describe("Posición a resaltar"),
   }),
-  component: ({ rows, highlightPos }: { rows: Array<{ pos: number; name: string; pct: number }>; highlightPos?: number }) => {
+  component: ({ props: { rows, highlightPos } }) => {
     const fmtPct = (value: number | null | undefined): string => {
       if (value == null || !Number.isFinite(value)) return "—";
       const rounded = Math.round(value * 10) / 10;
@@ -83,7 +83,7 @@ const MetricRow = defineComponent({
     value: z.string().describe("Valor"),
     sub: z.string().optional().describe("Subtexto opcional"),
   }),
-  component: ({ label, value, sub }: { label: string; value: string; sub?: string }) => (
+  component: ({ props: { label, value, sub } }) => (
     <div className="flex items-baseline gap-2 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-mono font-medium">{value}</span>
@@ -98,7 +98,7 @@ const MatchHint = defineComponent({
   props: z.object({
     text: z.string().describe("Texto del hint"),
   }),
-  component: ({ text }: { text: string }) => (
+  component: ({ props: { text } }) => (
     <div className="rounded-lg border bg-card p-4 space-y-3">
       <p className="text-sm font-medium">Respuesta de IA — ejemplo real</p>
       <p className="text-sm text-muted-foreground">{text || "Ejemplo: Julián / María vs Víctor Orozco — Cuarta. Resultado: 6-4, 6-3."}</p>
