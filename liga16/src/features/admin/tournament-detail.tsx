@@ -1678,6 +1678,7 @@ return (
               .find((m) => m.id !== editingMatchId)?.id ?? null
           }
           courts={courts}
+          scoring={tournament?.scoring}
           open={!!editingMatchId}
           onOpenChange={(o) => { if (!o) setEditingMatchId(null); }}
           onAdvance={(nextId) => {
@@ -1697,4 +1698,4 @@ return (
       />
     </div>
   );
-                      }
+}
