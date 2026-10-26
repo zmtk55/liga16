@@ -238,6 +238,7 @@ export default function ScenarioPanel({
                     remainingMatches={left}
                     inCut={q.inCut}
                     source={source === "jev" ? "jev" : "local"}
+                    verdict={{ tone: verdict.tone, word: verdict.word }}
                   />
                 </div>
               </div>
