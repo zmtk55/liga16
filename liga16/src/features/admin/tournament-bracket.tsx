@@ -234,7 +234,7 @@ function CategoryBracket({
         <p className="text-sm text-muted-foreground">{legacy ? "Eliminatorias antiguas sin siembra o identificador de cruce. Revisa estos partidos antes de continuar; no se cambiarán automáticamente." :
           !groupsReady ? "Termina todos los partidos de grupos antes de crear eliminatorias." : locked ? "Siembra fijada. Captura los cruces y pulsa Generar siguiente ronda. Los pases libres avanzan sin partido." :
           "Al crear eliminatorias se fijan los clasificados y la siembra. Los pases libres avanzan sin partido."}</p>
-        <Button disabled={busy || legacy || !groupsReady || clasificadas.length < 2} onClick={() => locked ? void generate() : setConfirmStart(true)}>{busy ? "Generando…" : locked ? "Generar siguiente ronda" : "Crear eliminatorias"}</Button>
+        <Button disabled={busy || legacy || !groupsReady || clasificadas.length < 2 || !!prog?.champion} onClick={() => locked ? void generate() : setConfirmStart(true)}>{busy ? "Generando…" : prog?.champion ? "Eliminatorias terminadas" : locked ? "Generar siguiente ronda" : "Crear eliminatorias"}</Button>
         {readyMatches.map((m) => {
           const saved = savedNode(m);
           return <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
