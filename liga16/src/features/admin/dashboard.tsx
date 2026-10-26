@@ -38,6 +38,7 @@ import { MatchStatusBadge } from "@/components/admin/status-badge";
 import { PopNumber } from "@/components/ui/transitions";
 import { formatCity, formatDateRange } from "@/lib/format";
 import { groupByDivision } from "@/lib/categories";
+import { tournamentPhase } from "@/lib/tournament-phase";
 import { cn } from "@/lib/utils";
 
 interface DashboardData {
@@ -572,11 +573,11 @@ export default function AdminDashboard() {
     [data],
   );
   const running = useMemo(
-    () => (data?.tournaments ?? []).filter((t) => t.status === "in_progress"),
+    () => (data?.tournaments ?? []).filter((t) => tournamentPhase(t) === "running"),
     [data],
   );
   const openSignups = useMemo(
-    () => (data?.tournaments ?? []).filter((t) => t.status === "registration_open"),
+    () => (data?.tournaments ?? []).filter((t) => tournamentPhase(t) === "signup"),
     [data],
   );
   const totalPlayers = data?.players.length ?? 0;
