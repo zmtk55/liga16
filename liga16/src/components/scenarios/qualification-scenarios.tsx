@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import "./qualification-panel.css";
 import {
   ArrowUpRight,
   Send,
@@ -266,92 +266,85 @@ export default function ScenarioPanel({
   return (
     <section
       aria-labelledby="escenarios-title"
-      className="mx-auto max-w-5xl space-y-6 px-4 md:space-y-8 md:px-6"
+      className="qualification-panel mx-auto max-w-7xl px-4 md:px-6"
     >
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-caption uppercase tracking-[0.14em] text-muted-foreground">
-            Semifinales · {slots} lugares
-          </p>
-          <h2
-            id="escenarios-title"
-            className="font-black text-2xl uppercase leading-none tracking-[-0.03em] md:text-3xl"
-          >
-            Qué necesitas para pasar
-          </h2>
-        </div>
-        <p className="text-xs text-muted-foreground">Con la tabla real del torneo</p>
-      </div>
+      <header className="mb-8 flex items-center justify-between gap-4 border-b border-border pb-4">
+        <p className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
+          Liga16 / Clasificación
+        </p>
+        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{slots} plazas · Semifinales</p>
+      </header>
 
-      {/* Una sola lectura del estado actual; sin repetir cifras en la respuesta. */}
-      <div className="grid gap-6 rounded-[var(--radius)] bg-muted/40 p-5 sm:p-7 md:grid-cols-[1fr_auto] md:items-center md:gap-10">
-        <div className="space-y-2.5">
-          <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <VerdictIcon className="h-4 w-4" aria-hidden />
-            Tu clasificación hoy
-          </span>
-          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{verdict.word}</p>
-          <p className="max-w-[56ch] text-sm leading-relaxed text-muted-foreground">{verdict.sentence}</p>
-        </div>
-        <dl className="flex gap-8 border-t pt-5 md:gap-10 md:border-0 md:pt-0">
-          {[
-            { label: "Posición", value: `${q.position}°` },
-            { label: "Rendimiento", value: `${fmtPct(myPoints)}%` },
-            { label: "Por jugar", value: String(left) },
-          ].map((stat) => (
-            <div key={stat.label} className="space-y-1">
-              <dt className="text-xs text-muted-foreground">{stat.label}</dt>
-              <dd className="text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">{stat.value}</dd>
+      <div className="grid gap-10 pb-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16 lg:pb-14">
+        <div className="flex flex-col">
+          <h2 id="escenarios-title" className="font-display text-[clamp(3.5rem,6vw,5.5rem)] font-bold uppercase leading-[0.88] tracking-[-0.025em]">
+            Tu ruta a<br /><span className="text-muted-foreground">semifinales.</span>
+          </h2>
+          <div className="my-7 flex items-end gap-5 sm:my-8">
+            <span className="font-display text-[7rem] font-semibold leading-[0.75] tracking-[-0.055em] text-primary-strong sm:text-[9rem]">{q.position}<span className="align-top text-[0.45em] leading-none">°</span></span>
+            <div className="pb-1">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Tu posición</p>
+              <p className="mt-2 flex items-center gap-2 text-sm font-semibold"><VerdictIcon className="h-4 w-4" aria-hidden />{verdict.word}</p>
             </div>
-          ))}
-        </dl>
-      </div>
+          </div>
+          <p className="max-w-[43ch] text-sm leading-7 text-muted-foreground">{verdict.sentence}</p>
+          <dl className="mt-7 grid grid-cols-2 border-t border-border pt-5 sm:mt-8">
+            <div>
+              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Rendimiento</dt>
+              <dd className="mt-1 font-display text-3xl font-semibold tabular-nums">{fmtPct(myPoints)}<span className="ml-0.5 text-lg text-muted-foreground">%</span></dd>
+            </div>
+            <div className="border-l border-border pl-6">
+              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Por jugar</dt>
+              <dd className="mt-1 font-display text-3xl font-semibold tabular-nums">{left}<span className="ml-2 font-sans text-xs font-normal text-muted-foreground">partido{left === 1 ? "" : "s"}</span></dd>
+            </div>
+          </dl>
+        </div>
 
       {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
-      <div className="overflow-hidden rounded-[var(--radius)] border bg-card">
-        <div className="px-5 pt-5 sm:px-7 sm:pt-7">
-          <h3 className="text-base font-semibold tracking-tight">Pregunta por tu pase</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Consulta un resultado o compara a tus rivales.</p>
+      <div className="flex min-w-0 flex-col rounded-3xl bg-muted p-5 sm:p-8">
+        <div className="mb-7 flex items-center justify-between gap-3">
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Lectura de juego</span>
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Sparkles className="h-3.5 w-3.5" aria-hidden /> Asistente IA</span>
         </div>
+        <h3 className="max-w-[15ch] font-display text-4xl font-semibold leading-[1] tracking-tight sm:text-5xl">¿Qué resultado<br />te cambia el pase?</h3>
+        <p className="mt-3 max-w-[42ch] text-sm leading-6 text-muted-foreground">Pregunta por tu próximo partido o por el de tus rivales. Lo leemos con la tabla de hoy.</p>
         <form
-          className="mx-5 my-5 flex items-center gap-3 rounded-lg border bg-background p-2.5 sm:mx-7"
+          className="mt-6 rounded-2xl border border-border bg-card p-3 transition-shadow focus-within:ring-2 focus-within:ring-ring/30"
           onSubmit={(e) => {
             e.preventDefault();
             ask(question);
           }}
         >
-          <span
-            className="flex h-9 w-8 shrink-0 items-center justify-center text-muted-foreground"
-            aria-hidden
-          >
-            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
-          </span>
-
           <label htmlFor="clasificacion-pregunta" className="sr-only">
             Pregunta sobre tu clasificación a semifinales
           </label>
-          <Input
+          <textarea
             id="clasificacion-pregunta"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Pregunta por tu pase…"
-            className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 sm:text-base"
+            placeholder="¿Paso si gano el próximo partido?"
+            rows={2}
+            className="block min-h-[4.5rem] w-full resize-y border-0 bg-transparent px-1 py-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
             autoComplete="off"
           />
 
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="pl-1 text-xs text-muted-foreground">Con la tabla actual</span>
           <Button
             type="submit"
             size="sm"
-            className="h-9 w-9 shrink-0 bg-foreground p-0 text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 sm:h-10 sm:w-auto sm:px-3"
+            className="h-10 shrink-0 rounded-xl bg-foreground px-3 text-background hover:bg-foreground/85 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
             disabled={loading || !question.trim()}
             aria-label="Preguntar a la IA"
           >
-            <Send className="h-4 w-4 sm:me-1.5" aria-hidden />
-            <span className="hidden sm:inline">{loading ? "Analizando…" : "Preguntar"}</span>
+            <Send className="h-3.5 w-3.5" aria-hidden />
+            <span className="ml-2 text-xs">{loading ? "Analizando…" : "Preguntar"}</span>
           </Button>
+          </div>
         </form>
 
-        <div className="px-5 pb-5 sm:px-7 sm:pb-7">
+        <div className="mt-5">
           <div aria-live="polite" aria-busy={loading}>
             {loading && (
               <div className="space-y-1.5 py-1">
@@ -362,7 +355,7 @@ export default function ScenarioPanel({
             )}
 
             {!loading && answer && (
-              <div className="animate-fade-in border-t pb-2 pt-5">
+              <div className="animate-fade-in border-t border-border pb-3 pt-5">
                 <div className="min-w-0 flex-1 space-y-3">
                   <QualificationResponse
                     answer={answer}
@@ -381,14 +374,14 @@ export default function ScenarioPanel({
 
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
             {FREQUENT.map((f, index) => (
               <button
                 key={f}
                 type="button"
                 onClick={() => ask(f)}
                 disabled={loading}
-                className="group inline-flex min-h-9 items-center gap-2 rounded-full bg-muted/60 px-3 py-2 text-left text-xs leading-snug text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
+                className="group inline-flex min-h-10 items-center gap-1.5 py-1 text-left text-xs leading-snug text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
               >
                 {["Si gano el próximo", "Qué necesita mi rival", "Sin partidos pendientes"][index]}
                 <ArrowUpRight
@@ -400,14 +393,15 @@ export default function ScenarioPanel({
           </div>
         </div>
       </div>
-      <div className="grid items-start gap-3 md:grid-cols-2">
+      </div>
+      <div className="grid items-start gap-x-12 border-t border-border md:grid-cols-2">
       {/* Tabla alrededor de la línea de semifinales. */}
-      <details className="group min-w-0 rounded-[var(--radius)] border bg-card">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-sm font-medium [&::-webkit-details-marker]:hidden">
+      <details className="group min-w-0 border-b border-border">
+        <summary className="flex min-h-24 cursor-pointer list-none items-center justify-between gap-4 py-5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
           <span>Tabla de clasificación<span className="mt-1 block text-xs font-normal text-muted-foreground">{rows.length} parejas · {slots} lugares</span></span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
         </summary>
-        <div className="px-5 pb-5">
+        <div className="pb-6">
         <ol className="overflow-hidden rounded-[var(--radius)] border bg-card">
           {rail.hiddenAbove > 0 && (
             <li className="border-b px-3 py-1 text-xs text-muted-foreground">
@@ -464,8 +458,8 @@ export default function ScenarioPanel({
       </details>
 
       {/* Los tres finales: una superficie con filas separadas, no texto suelto. */}
-      <details className="group min-w-0 rounded-[var(--radius)] border bg-card">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-sm font-medium [&::-webkit-details-marker]:hidden">
+      <details className="group min-w-0 border-b border-border">
+        <summary className="flex min-h-24 cursor-pointer list-none items-center justify-between gap-4 py-5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
           <span>Explorar escenarios<span className="mt-1 block text-xs font-normal text-muted-foreground">Si ganas, si pierdes y qué cambia</span></span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
         </summary>
