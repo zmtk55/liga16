@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Pair, TournamentCategory } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CalendarClock, Check, Dice5, GripVertical, Plus, RotateCcw, Trash2 } from "lucide-react";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { BENTO_CARD, BENTO_DARK, BENTO_LIGHT, BENTO_METRIC_MD } from "@/components/admin/bento";
 import type { Group } from "@/lib/groups";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SIN_CATEGORIA } from "@/lib/format";
 
 function SortablePair({ id, name, onRemove }: { id: string; name: string; onRemove?: () => void }) {
@@ -42,6 +43,16 @@ function SortablePair({ id, name, onRemove }: { id: string; name: string; onRemo
       )}
     </div>
   );
+}
+
+function DropZone({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return <div ref={setNodeRef} className={cn("min-h-20 rounded-lg", isOver && "ring-2 ring-primary")}>{children}</div>;
+}
+function GroupName({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+  const [value, setValue] = useState(name);
+  return <Input key={name} value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => { if (value !== name) onSave(value); }}
+    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label={`Nombre de ${name}`} className="h-9 font-semibold" />;
 }
 
 /**
@@ -82,6 +93,7 @@ export function DrawPanel({
   onRemovePair: (id: string) => void;
   onDragEnd: (e: DragEndEvent) => void;
 }) {
+  const [confirm, setConfirm] = useState<"draw" | "clear" | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const total = pairs?.length ?? 0;
   const canDraw = total >= 2;
@@ -94,7 +106,7 @@ export function DrawPanel({
     const order = new Map(categories.map((c, i) => [c.id, i]));
     const buckets = new Map<string, { gi: number; g: Group }[]>();
     groups.forEach((g, gi) => {
-      const key = g.pairIds.map((id) => catOfPair.get(id)).find((c) => c !== undefined) ?? "";
+      const key = g.categoryId ?? g.pairIds.map((id) => catOfPair.get(id)).find((c) => c !== undefined) ?? "";
       buckets.set(key, [...(buckets.get(key) ?? []), { gi, g }]);
     });
     return [...buckets.entries()]
@@ -141,14 +153,14 @@ export function DrawPanel({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button className="rounded-full" onClick={onDraw} disabled={!canDraw}>
+            <Button className="rounded-full" onClick={() => groups.length ? setConfirm("draw") : onDraw()} disabled={!canDraw || saving}>
               <Dice5 className="h-4 w-4" /> {groups.length > 0 ? "Volver a sortear" : "Sortear grupos"}
             </Button>
-            <Button variant="outline" className="rounded-full bg-transparent" onClick={onAddGroup} disabled={groups.length >= 10}>
+            <Button variant="outline" className="rounded-full bg-transparent" onClick={onAddGroup} disabled={saving || groups.length >= 10}>
               <Plus className="h-4 w-4" /> Añadir grupo
             </Button>
             {groups.length > 0 && (
-              <Button variant="outline" className="rounded-full bg-transparent" onClick={onClear}>
+              <Button variant="outline" className="rounded-full bg-transparent" onClick={() => setConfirm("clear")}>
                 <RotateCcw className="h-4 w-4" /> Vaciar
               </Button>
             )}
@@ -213,7 +225,7 @@ export function DrawPanel({
             title="Aún no hay grupos"
             description="Pulsa «Sortear grupos» para crearlos o añádelos a mano."
             action={
-              <Button className="rounded-full" onClick={onDraw} disabled={!canDraw}>
+              <Button className="rounded-full" onClick={() => groups.length ? setConfirm("draw") : onDraw()} disabled={!canDraw || saving}>
                 <Dice5 className="h-4 w-4" /> Sortear grupos
               </Button>
             }
@@ -226,7 +238,7 @@ export function DrawPanel({
             strategy={verticalListSortingStrategy}
           >
             <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <div>
+              <DropZone id="__pool__">
                 {unassigned.length > 0 ? (
                   <section className={cn(BENTO_CARD, BENTO_LIGHT, "space-y-3 border-primary/50 p-5")}>
                     <h4 className="flex items-center justify-between font-display text-base font-bold">
@@ -236,7 +248,7 @@ export function DrawPanel({
                     <p className="text-xs text-muted-foreground">Arrástralas a un grupo.</p>
                     <div className="space-y-2">
                       {unassigned.map((p) => (
-                        <SortablePair key={p.id} id={p.id} name={p.name} onRemove={() => onRemovePair(p.id)} />
+                        <SortablePair key={p.id} id={p.id} name={p.name} />
                       ))}
                     </div>
                   </section>
@@ -246,7 +258,7 @@ export function DrawPanel({
                     Todas las parejas tienen grupo.
                   </section>
                 )}
-              </div>
+              </DropZone>
               <div className="space-y-5">
                 {sections.map((sec) => (
                   <div key={sec.key || "__sin__"} className="space-y-3">
@@ -261,14 +273,9 @@ export function DrawPanel({
                     )}
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {sec.items.map(({ g, gi }) => (
-                        <section key={g.name} className={cn(BENTO_CARD, BENTO_LIGHT, "space-y-3 p-4")}>
+                        <DropZone key={gi} id={`group:${gi}`}><section className={cn(BENTO_CARD, BENTO_LIGHT, "space-y-3 p-4")}>
                           <div className="flex items-center justify-between gap-2">
-                            <Input
-                              value={g.name}
-                              onChange={(e) => onRename(gi, e.target.value)}
-                              className="h-8 rounded-full border-none bg-muted px-3 font-display font-bold shadow-none focus-visible:ring-1"
-                              aria-label={`Nombre del grupo ${gi + 1}`}
-                            />
+                            <GroupName key={g.name} name={g.name} onSave={(name) => onRename(gi, name)} />
                             <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-primary px-2 text-xs font-bold text-primary-foreground">
                               {g.pairIds.length}
                             </span>
@@ -283,7 +290,7 @@ export function DrawPanel({
                               <SortablePair key={id} id={id} name={nameById[id] ?? id} onRemove={() => onRemovePair(id)} />
                             ))}
                           </div>
-                        </section>
+                        </section></DropZone>
                       ))}
                     </div>
                   </div>
@@ -293,6 +300,10 @@ export function DrawPanel({
           </SortableContext>
         </DndContext>
       )}
+      <ConfirmDialog open={!!confirm} onOpenChange={(o) => { if (!o) setConfirm(null); }}
+        title={confirm === "draw" ? "¿Volver a sortear?" : "¿Vaciar los grupos?"}
+        description="Se cambiarán las asignaciones de grupo. Los equipos siguen inscritos. Si ya hay resultados, la acción se bloqueará."
+        confirmLabel="Continuar" onConfirm={() => confirm === "draw" ? onDraw() : onClear()} />
     </div>
   );
                 }
