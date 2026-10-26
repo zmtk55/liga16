@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { PlayerProfile, Tournament, TournamentCategory } from "@/types";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,18 +13,18 @@ import { checkLevelSum } from "@/lib/qualification";
 import { ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
-import { FilterBar } from "@/components/ui/filter-bar";
-import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
-import { countActive } from "@/lib/filters";
+import { AdminSearchPill, BENTO_CARD, BENTO_DARK, BENTO_LIGHT, BENTO_METRIC, BENTO_METRIC_MD } from "@/components/admin/bento";
+import { cn } from "@/lib/utils";
+import { formatCity, formatDateRange, SIN_CATEGORIA } from "@/lib/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
+import { AdminPageHeader } from "@/components/admin/page-header";
 import ImageUpload from "@/components/ui/image-upload";
 import { deleteStoredImage } from "@/lib/storage";
 import { PairAvatar } from "@/components/cards/card-kit";
 import { RowActionsMenu } from "@/components/admin/row-actions";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SIN_CATEGORIA } from "@/lib/format";
+
 
 const SIN_TORNEO = "__sin_torneo__";
 interface EquipoForm {
@@ -209,115 +208,168 @@ export default function AdminTeams() {
   const openDialog = (pair: PairRow | null) => { setEditing(pair); setFormKey((k) => k + 1); setOpenCreate(true); };
   const dialogKey = `${editing?.id ?? "new"}-${formKey}`;
 
+  const torneo = tournaments.find((t) => t.id === tid) ?? null;
+  const torneoEstado =
+    torneo?.status === "in_progress" ? "En juego" : torneo?.status === "registration_open" ? "Inscripciones abiertas" : null;
+  const conteoPorCategoria = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of pairs ?? []) m.set(p.category_id ?? "", (m.get(p.category_id ?? "") ?? 0) + 1);
+    return m;
+  }, [pairs]);
+  const chip = (active: boolean) =>
+    cn(
+      "inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
+      active
+        ? "border-primary/40 bg-primary/10 font-medium text-primary-strong"
+        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+    );
+
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="Equipos" description="Las parejas inscritas viven dentro de cada torneo." action={
-        <Button size="sm" disabled={!tid} onClick={() => openDialog(null)}><Plus className="h-3.5 w-3.5" /> Inscribir pareja</Button>
-      }>
-        <AdminStatStrip>
-          <AdminStat value={resumen.parejas} label="Parejas" />
-          <AdminStat value={resumen.categorias} label="Categorías" />
-          <AdminStat value={resumen.completas} label="Categorías con rival" tone={resumen.completas > 0 ? "text-success" : undefined} />
-          <AdminStat value={resumen.conEscudo} label="Con escudo" />
-        </AdminStatStrip>
-      </AdminPageHeader>
+      <AdminPageHeader
+        title="Equipos"
+        description="Las parejas inscritas viven dentro de cada torneo."
+        action={
+          <>
+            <AdminSearchPill value={query} onChange={setQuery} placeholder="Buscar pareja…" label="Buscar pareja" />
+            <Button disabled={!tid} onClick={() => openDialog(null)}><Plus className="h-4 w-4" /> Inscribir pareja</Button>
+          </>
+        }
+      />
 
-      {/* Contexto */}
-      <section aria-label="Contexto del torneo" className="rounded-lg border bg-card p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Trophy className="h-4 w-4" /></span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold leading-tight">Torneo</p>
-            <div className="mt-1 flex items-center gap-2">
-              <Select value={tid || SIN_TORNEO} onValueChange={(v) => { if (v !== SIN_TORNEO) setTid(v); }}>
-                <SelectTrigger className="h-8 w-full sm:w-72 text-xs"><SelectValue placeholder="Elige un torneo" /></SelectTrigger>
-                <SelectContent>
-                  {tournaments.length === 0 && <SelectItem value={SIN_TORNEO}>Elige un torneo</SelectItem>}
-                  {tournaments.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {tid && <span className="text-caption text-muted-foreground whitespace-nowrap">· {categories.length} categorías · {pairs?.length ?? 0} parejas</span>}
-            </div>
+      {/* Fila 1: el torneo en un póster oscuro y, al lado, la cifra de parejas. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <section aria-label="Contexto del torneo" className={cn(BENTO_CARD, BENTO_DARK, "flex flex-col justify-between gap-6 lg:col-span-8")}>
+          <div className="liga16-stripe" aria-hidden />
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-caption uppercase text-white/60">Torneo</p>
+            {torneoEstado && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 px-2.5 py-1 text-caption text-primary">
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
+                {torneoEstado}
+              </span>
+            )}
           </div>
-        </div>
-      </section>
+          <div className="space-y-2">
+            <p className={cn(BENTO_METRIC_MD, "break-words")}>{torneo?.name ?? "Elige un torneo"}</p>
+            {torneo && (
+              <p className="text-sm text-white/60">
+                {formatDateRange(torneo.start_date, torneo.end_date)} · {torneo.club_name ?? formatCity(torneo.city)}
+              </p>
+            )}
+          </div>
+          <Select value={tid || SIN_TORNEO} onValueChange={(v) => { if (v !== SIN_TORNEO) setTid(v); }}>
+            <SelectTrigger aria-label="Torneo" className="h-10 w-full rounded-full border-white/20 bg-white/10 px-4 text-sm text-white sm:w-80">
+              <SelectValue placeholder="Elige un torneo" />
+            </SelectTrigger>
+            <SelectContent>
+              {tournaments.length === 0 && <SelectItem value={SIN_TORNEO}>Elige un torneo</SelectItem>}
+              {tournaments.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </section>
+
+        <section aria-label="Parejas inscritas" className={cn(BENTO_CARD, "flex flex-col justify-between gap-8 bg-primary text-primary-foreground lg:col-span-4")}>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-caption uppercase">Parejas</p>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/15"><Users className="h-4 w-4" aria-hidden /></span>
+          </div>
+          <div className="space-y-3">
+            <p className={BENTO_METRIC}>{pairs === null && tid ? "–" : resumen.parejas}</p>
+            <span className="inline-flex rounded-full bg-black/15 px-2.5 py-1 text-caption">inscritas en el torneo</span>
+          </div>
+        </section>
+      </div>
+
+      {/* Fila 2: tres cifras, una por tarjeta. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {[
+          { label: "Categorías", value: resumen.categorias, pill: "en este torneo", dark: false },
+          { label: "Categorías con rival", value: resumen.completas, pill: "con 2 o más parejas", dark: false },
+          { label: "Con escudo", value: resumen.conEscudo, pill: "foto o logo cargado", dark: true },
+        ].map((m) => (
+          <section key={m.label} aria-label={m.label} className={cn(BENTO_CARD, m.dark ? BENTO_DARK : BENTO_LIGHT, "flex flex-col justify-between gap-8")}>
+            <p className={cn("text-caption uppercase", m.dark ? "text-white/60" : "text-muted-foreground")}>{m.label}</p>
+            <div className="space-y-3">
+              <p className={BENTO_METRIC}>{pairs === null && tid ? "–" : m.value}</p>
+              <span className={cn("inline-flex rounded-full px-2.5 py-1 text-caption", m.dark ? "bg-white/10 text-white/70" : "bg-muted text-muted-foreground")}>{m.pill}</span>
+            </div>
+          </section>
+        ))}
+      </div>
 
       {error ? (
-        <Card><CardContent className="p-0">
+        <section className={cn(BENTO_CARD, BENTO_LIGHT)}>
           <AdminEmptyState
             icon={<AlertTriangle className="h-5 w-5" />}
             title={tid ? "No se pudieron cargar las parejas" : "No se pudieron cargar los torneos"}
             description={error}
             action={<Button variant="outline" size="sm" onClick={reintentar}>Reintentar</Button>}
           />
-        </CardContent></Card>
+        </section>
       ) : !tid ? (
-        <Card><CardContent className="p-0"><AdminEmptyState icon={<Trophy className="h-5 w-5" />} title="Elige un torneo" description="Cada torneo tiene sus propias parejas." /></CardContent></Card>
+        <section className={cn(BENTO_CARD, BENTO_LIGHT)}>
+          <AdminEmptyState icon={<Trophy className="h-5 w-5" />} title="Elige un torneo" description="Cada torneo tiene sus propias parejas." />
+        </section>
       ) : (
-        <section aria-label="Equipos del torneo" className="mx-auto w-full max-w-3xl space-y-4">
-          <FilterBar
-            search={query}
-            onSearch={setQuery}
-            searchPlaceholder="Buscar pareja…"
-            resultCount={filtered.length}
-            resultLabel="parejas"
-            activeCount={countActive(cat)}
-            onClear={() => { setQuery(""); setCat("all"); }}
-          >
-            <AdminFacets>
-              <AdminFacet label="Categoría" value={cat} onChange={setCat} options={categories.map(c => ({ key: c.id, label: c.name }))} allLabel="Todas" />
-            </AdminFacets>
-          </FilterBar>
+        <section aria-label="Equipos del torneo" className="space-y-4">
+          {categories.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrar por categoría">
+              <button type="button" aria-pressed={cat === "all"} className={chip(cat === "all")} onClick={() => setCat("all")}>
+                Todas <span className="tabular-nums text-xs opacity-70">{pairs?.length ?? 0}</span>
+              </button>
+              {categories.map((c) => (
+                <button key={c.id} type="button" aria-pressed={cat === c.id} className={chip(cat === c.id)} onClick={() => setCat(c.id)}>
+                  {c.name} <span className="tabular-nums text-xs opacity-70">{conteoPorCategoria.get(c.id) ?? 0}</span>
+                </button>
+              ))}
+              <p className="ml-auto text-xs text-muted-foreground tabular-nums">{filtered.length} de {pairs?.length ?? 0} parejas</p>
+            </div>
+          )}
 
-          <Card>
-            <CardContent className="p-0">
-              <div className="space-y-3 p-4">
-                {pairs === null && (
-                  <div className="space-y-3" aria-label="Cargando parejas">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                        <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-3 w-24" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {pairs !== null && pairs.length === 0 && (
-                  <AdminEmptyState icon={<Users className="h-5 w-5" />} title="Sin parejas" description="Inscribe la primera pareja." action={<Button variant="outline" size="sm" onClick={() => openDialog(null)}>Inscribir pareja</Button>} />
-                )}
-                {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
-                  <AdminEmptyState title="Sin coincidencias" description="Ninguna pareja coincide con la búsqueda o el filtro." />
-                )}
-                {filtered.length > 0 && (
-                  <div className="space-y-3">
-                    {filtered.map(p => {
-                      const [p1, p2] = p.name.split(" / ");
-                      return (
-                        <div key={p.id} className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                          <PairAvatar p1={p1} p2={p2} className="h-12 w-12 shrink-0 text-lg" />
-                          <div className="min-w-0 flex-1">
-                            <h4 className="truncate font-semibold">{p1} / {p2 ?? "—"}</h4>
-                            <p className="text-xs text-muted-foreground">{categoryOf(p.category_id)}</p>
-                          </div>
-                          <RowActionsMenu
-                            label={`Acciones para ${p.name}`}
-                            actions={[
-                              { label: "Editar", icon: <Pencil className="h-4 w-4" />, onSelect: () => openDialog(p) },
-                              { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting({ id: p.id, name: p.name }), destructive: true, separator: true },
-                            ]}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter className="border-t pt-3"><p className="text-xs text-muted-foreground">Total: {resumen.parejas} · Categorías con rival: {resumen.completas}</p></CardFooter>
-          </Card>
+          {pairs === null && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Cargando parejas">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-3xl" />)}
+            </div>
+          )}
+          {pairs !== null && pairs.length === 0 && (
+            <div className={cn(BENTO_CARD, BENTO_LIGHT)}>
+              <AdminEmptyState icon={<Users className="h-5 w-5" />} title="Sin parejas" description="Inscribe la primera pareja." action={<Button variant="outline" size="sm" onClick={() => openDialog(null)}>Inscribir pareja</Button>} />
+            </div>
+          )}
+          {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
+            <div className={cn(BENTO_CARD, BENTO_LIGHT)}>
+              <AdminEmptyState title="Sin coincidencias" description="Ninguna pareja coincide con la búsqueda o el filtro." action={<Button variant="outline" size="sm" onClick={() => { setQuery(""); setCat("all"); }}>Limpiar</Button>} />
+            </div>
+          )}
+          {filtered.length > 0 && (
+            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((p) => {
+                const [p1, p2] = p.name.split(" / ");
+                return (
+                  <li key={p.id} className={cn(BENTO_CARD, BENTO_LIGHT, "flex flex-col gap-5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md")}>
+                    <div className="flex items-start justify-between gap-3">
+                      <PairAvatar p1={p1} p2={p2} className="h-14 w-14 shrink-0 text-xl" />
+                      <RowActionsMenu
+                        label={`Acciones para ${p.name}`}
+                        actions={[
+                          { label: "Editar", icon: <Pencil className="h-4 w-4" />, onSelect: () => openDialog(p) },
+                          { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting({ id: p.id, name: p.name }), destructive: true, separator: true },
+                        ]}
+                      />
+                    </div>
+                    <div className="min-w-0 space-y-2">
+                      <h3 className="font-display text-2xl font-bold leading-tight tracking-tight">
+                        <span className="block truncate">{p1}</span>
+                        <span className="block truncate text-muted-foreground">{p2 ?? "—"}</span>
+                      </h3>
+                      <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-caption text-muted-foreground">{categoryOf(p.category_id)}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
       )}
 
@@ -402,4 +454,4 @@ function EquipoDialog({ open, onOpenChange, onSave, editing, submitting, players
       </DialogContent>
     </Dialog>
   );
-}
+      }
