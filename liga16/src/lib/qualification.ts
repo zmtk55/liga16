@@ -13,6 +13,12 @@ export interface StandingLike {
   position: number;
   points: number;
   played: number;
+  /**
+   * Partidos que le quedan a esa pareja; undefined = no se sabe.
+   * Sin este dato los escenarios inventaban movimientos imposibles ("el de
+   * abajo gana lo suyo y te baja") cuando el rol ya había terminado.
+   */
+  remaining?: number;
 }
 
 export interface MyLine {
