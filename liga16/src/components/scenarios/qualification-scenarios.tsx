@@ -20,6 +20,7 @@ import { buildScenarios, buildVerdict } from "@/lib/qualification-scenarios";
 import type { ScenarioTone } from "@/lib/qualification-scenarios";
 import { qualificationFor } from "@/lib/qualification";
 import { answerQualification } from "@/lib/qualification-answer";
+import type { SimContext } from "@/lib/qualification-sim";
 import { QualificationResponse } from "./qualification-response";
 import { readQuestion } from "@/lib/jev-question";
 
@@ -28,7 +29,16 @@ interface Props {
   me: MyLine;
   ctx: CutContext;
   remainingMatches?: number;
+  /** Contexto del torneo para simular cruces; sin él, solo aritmética de %. */
+  sim?: SimContext | null;
 }
+
+const SIM_FREQUENT = [
+  "¿Qué posición me queda si gano mis partidos pendientes?",
+  "¿Qué posición me queda si pierdo mis partidos pendientes?",
+  "¿Qué partidos de otras parejas mueven mi lugar?",
+];
+const SIM_LABELS = ["Si gano", "Si pierdo", "Partidos que me mueven"];
 
 const FREQUENT = [
   "¿Paso a semifinales si gano el próximo?",
@@ -75,6 +85,7 @@ export default function ScenarioPanel({
   me,
   ctx,
   remainingMatches = 0,
+  sim = null,
 }: Props) {
   // La tabla llega con el equipo repetido (`[team, ...resto]`); duplicado,
   // "5° de 6" mentía y el rail mostraba la misma pareja dos veces.
@@ -138,7 +149,7 @@ export default function ScenarioPanel({
 
   // Respuestas: ver lib/qualification-answer.ts (simula el cruce que preguntes).
   const buildAnswer = (prompt: string, reading: Awaited<ReturnType<typeof readQuestion>>) =>
-    answerQualification({ prompt, rows, me, q, slots, remainingMatches: left, reading });
+    answerQualification({ prompt, rows, me, q, slots, remainingMatches: left, reading, sim });
 
   const generate = async (prompt: string) => {
     const clean = prompt.trim();
@@ -162,6 +173,8 @@ export default function ScenarioPanel({
   };
 
   const VerdictIcon = TONE_ICON[verdict.tone];
+  /** Con torneo real todo sale de la simulación; sin él, el panel anterior (aritmética de %). */
+  const simMode = sim !== null;
 
   return (
     <section
@@ -170,13 +183,21 @@ export default function ScenarioPanel({
     >
       <AdminPageHeader title="Clasificación" />
       <div className="qualification-stats mb-4 mt-3 grid grid-cols-3 gap-3">
-        <AdminStat value={`${q.position}°`} label="Posición" icon={<VerdictIcon className="h-3.5 w-3.5" aria-hidden />} className="gap-3 p-4 [&>span:first-child]:text-4xl" />
+        <AdminStat value={`${q.position}°`} label="Posición" icon={simMode ? undefined : <VerdictIcon className="h-3.5 w-3.5" aria-hidden />} className="gap-3 p-4 [&>span:first-child]:text-4xl" />
         <AdminStat value={`${fmtPct(myPoints)}%`} label="Rend." className="gap-3 p-4 [&>span:first-child]:text-4xl" />
         <AdminStat value={left} label="Por jugar" className="gap-3 p-4 [&>span:first-child]:text-4xl" />
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary-strong">{verdict.word}</span>
-        <span className="text-muted-foreground">Semifinales · {slots} lugares{!q.inCut && !tiedAtCut ? ` · A ${fmtPct(gapPct)} p.p. del corte` : ""}</span>
+        {simMode ? (
+          <span className="text-muted-foreground">
+            {sim?.slots != null ? `Semifinales · ${sim.slots} lugares` : "Este torneo no define cuántas parejas pasan a semifinales"}
+          </span>
+        ) : (
+          <>
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary-strong">{verdict.word}</span>
+            <span className="text-muted-foreground">Semifinales · {slots} lugares{!q.inCut && !tiedAtCut ? ` · A ${fmtPct(gapPct)} p.p. del corte` : ""}</span>
+          </>
+        )}
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
       {/* Pregunta a la IA: monocromo, con marca animada y las frecuentes abajo. */}
@@ -247,7 +268,7 @@ export default function ScenarioPanel({
           </div>
 
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0">
-            {FREQUENT.map((f, index) => (
+            {(simMode ? SIM_FREQUENT : FREQUENT).map((f, index) => (
               <button
                 key={f}
                 type="button"
@@ -256,7 +277,7 @@ export default function ScenarioPanel({
                 aria-pressed={askedQuestion === f}
                 className="group inline-flex min-h-10 items-center gap-1.5 py-1 text-left text-xs leading-snug text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
               >
-                {["Si gano", "Mi rival", "Sin partidos"][index]}
+                {(simMode ? SIM_LABELS : ["Si gano", "Mi rival", "Sin partidos"])[index]}
                 <ArrowUpRight
                   className="h-3 w-3 shrink-0"
                   aria-hidden
@@ -282,7 +303,7 @@ export default function ScenarioPanel({
           )}
           {rail.items.map((r) => {
             const isMe = r.pairId === me.pairId;
-            const isLastPlace = r.position === slots;
+            const isLastPlace = r.position === slots && (!simMode || sim?.slots != null);
             return (
               <li key={r.pairId}>
                 <div
@@ -312,7 +333,7 @@ export default function ScenarioPanel({
                   <div className="flex items-center gap-2 px-3">
                     <span className="h-px flex-1 bg-border" aria-hidden />
                     <span className="py-1 text-caption uppercase tracking-[0.14em] text-muted-foreground">
-                      semifinales · {slots} lugares
+                      semifinales · {simMode ? sim?.slots : slots} lugares
                     </span>
                     <span className="h-px flex-1 bg-border" aria-hidden />
                   </div>
@@ -329,6 +350,8 @@ export default function ScenarioPanel({
         </div>
       </AnimatedDetails>
 
+      {!simMode && (
+      <>
       {/* Los tres finales: una superficie con filas separadas, no texto suelto. */}
       <AnimatedDetails className={cn(BENTO_CARD, BENTO_LIGHT, "qualification-interactive group min-w-0 p-5")}>
         <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
@@ -365,6 +388,9 @@ export default function ScenarioPanel({
           recalcula con cada resultado guardado.
         </p>
       </AnimatedDetails>
+
+      </>
+      )}
 
       </div>
       </div>
