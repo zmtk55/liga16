@@ -89,10 +89,10 @@ describe("deriveTeamStandings", () => {
     expect(a.won).toBe(1);
   });
 
-  it("ordena por % de puntos, no por victorias", () => {
+  it("ordena por partidos ganados primero (orden general), con el % de puntos como dato", () => {
     // A gana 1 partido y lo barre: 100% de puntos.
     // B gana 3 partidos, los tres por super tie-break apretado: ~52.6%.
-    // El que más victorias tiene NO es el líder.
+    // Orden general: partidos ganados > dominio > % de puntos. B (3 ganados) lidera.
     const out = deriveTeamStandings(roster.map((t) => ({ ...t })), [
       match("m1", "A / A", "C / C", [S(6, 0), S(6, 0)], "a"),
       match("m2", "B / B", "C / C", [S(6, 4), S(4, 6), S(10, 8)], "a"),
@@ -107,8 +107,8 @@ describe("deriveTeamStandings", () => {
     // B gana 3: 20/38 + 20/38 + 20/38 = 60 de 114 = 52.6%.
     expect(byName["A / A"].rendimiento_pct).toBe(54.5);
     expect(byName["B / B"].rendimiento_pct).toBe(52.6);
-    expect(byName["A / A"].position).toBe(1);
-    expect(byName["B / B"].position).toBe(2);
+    expect(byName["B / B"].position).toBe(1);
+    expect(byName["A / A"].position).toBe(2);
   });
 
   it("empates en % de puntos comparten posición y la siguiente salta (RANK de Excel)", () => {

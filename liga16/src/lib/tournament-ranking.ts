@@ -65,3 +65,21 @@ export function tournamentTeams(teams: Team[], matches: Match[], tournamentId: s
   }
   return out;
 }
+
+/**
+ * Parejas contra las que compite `team` en un torneo: las inscritas en él y de su MISMA
+ * categoría (igual que /ranking). Incluye bajas, que cuentan en estadísticas pero no ocupan cupo.
+ */
+export function categoryRoster(teams: Team[], tournamentId: string, team: Team | null | undefined) {
+  const key = team ? teamCategoryKey(team) : null;
+  const roster: { id: string; name: string }[] = [];
+  const withdrawn = new Set<string>();
+  for (const t of teams) {
+    const e = (t.entries ?? []).find((x) => x.tournament_id === tournamentId);
+    if (!e) continue;
+    if (key !== null && teamCategoryKey(t) !== key) continue;
+    if (e.withdrawn) withdrawn.add(e.pair_id);
+    roster.push({ id: e.pair_id, name: t.name });
+  }
+  return { roster, withdrawn };
+}

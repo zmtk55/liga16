@@ -40,7 +40,7 @@ export function deriveTeamStandings(teams: Team[], matches: Match[]): Team[] {
 
   for (const list of groups.values()) {
     const stats = list.map((t, i) => computePairStatsLiga16(t.id, i + 1, t.name, matches));
-    const ranked = computeJerarquiaLiga16(stats);
+    const ranked = computeJerarquiaLiga16(stats, undefined, matches);
     for (const s of ranked) {
       const t = byId.get(s.pairId);
       if (!t) continue;

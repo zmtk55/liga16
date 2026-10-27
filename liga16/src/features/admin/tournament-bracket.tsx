@@ -56,16 +56,15 @@ function CategoryBracket({
   const table = useMemo(() => {
     const ids = pairs.map((p) => p.id);
     const names = Object.fromEntries(pairs.map((p) => [p.id, p.name]));
-    const customOrder = !!scoring?.rank_order?.length;
     // computeStandings no numera posiciones: el orden lo hacemos aqui, con los
     // mismos criterios que usa la tabla de posiciones (puntos, sets, juegos).
     return computeStandings(ids, matches.filter((m) => !isKnockoutRound(m.round)), names, scoring ?? undefined)
       .slice()
       .sort(
         (a, b) =>
-          // Con orden propio del torneo (scoring.rank_order) manda la posición
-          // calculada con ese orden; sin él, el desempate de siempre.
-          (customOrder ? (a.jerarquia || 999) - (b.jerarquia || 999) : 0) ||
+          // Manda la posición calculada con el orden del torneo (scoring.rank_order)
+          // o, sin él, con el orden general (PG > dominio > puntos).
+          (a.jerarquia || 999) - (b.jerarquia || 999) ||
           b.points - a.points ||
           b.setsFor - a.setsFor ||
           b.gamesFor - a.gamesFor ||

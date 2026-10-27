@@ -292,11 +292,16 @@ export type RankCriterion =
   | "matches_played"
   | "head_to_head";
 
-/** Orden por defecto: el de la 4ta edición. Un torneo sin configurar usa este. */
+/**
+ * Orden general (pedido por Julian): partidos ganados, luego dominio (enfrentamiento
+ * directo) y luego % de puntos. Lo demás solo desempata si siguen igualadas.
+ * Un torneo sin `scoring.rank_order` usa este; uno con orden propio lo conserva.
+ */
 export const DEFAULT_RANK_ORDER: RankCriterion[] = [
+  "matches_won",
+  "head_to_head",
   "points_pct",
   "sets_diff",
-  "matches_won",
   "matches_played",
 ];
 
