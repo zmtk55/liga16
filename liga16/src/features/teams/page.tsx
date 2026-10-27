@@ -141,7 +141,7 @@ export default function TeamsPage() {
     <div className="animate-fade-in space-y-8">
       <PageHero
         title="Equipos"
-        subtitle="Las parejas de Liga16, división por división. Récord y puntos calculados de los partidos reales del circuito."
+        subtitle="Las parejas de Liga16, división por división. Récord y puntos calculados de los partidos reales del circuito, con el orden estándar; la clasificación de cada torneo está en la página de la pareja."
       />
 
       {/* El buscador vive en el header (variante "search", ADR-0009): una sola
