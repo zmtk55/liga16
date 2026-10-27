@@ -40,3 +40,26 @@ describe("ranking por torneo", () => {
     expect(tournamentTeams([mk("A", "A")], matches, "otro")).toEqual([]);
   });
 });
+
+import { categoryRoster } from "./tournament-ranking";
+describe("Equipos: solo la categoría de la pareja", () => {
+  const cat = (id: string, name: string, c: string, w = false) => {
+    const t = mk(id, name, undefined, w) as unknown as Record<string, unknown>;
+    t.category_name = c; t.division = c;
+    return t as unknown as Team;
+  };
+  const teams = [cat("A", "A", "Suma 9"), cat("B", "B", "Suma 9", true), cat("C", "C", "Suma 7"), cat("D", "D", "Suma 7")];
+  it("no mezcla categorías en el roster", () => {
+    const r = categoryRoster(teams, T, teams[0]);
+    expect(r.roster.map((x) => x.id)).toEqual(["A", "B"]);
+    expect([...r.withdrawn]).toEqual(["B"]);
+  });
+  it("coincide con la tabla de /ranking para la misma pareja", () => {
+    const ms = [m("A", "B", "a", [[6, 0], [6, 0]]), m("C", "D", "b", [[0, 6], [0, 6]])];
+    const rank = tournamentTeams(teams, ms, T);
+    const c = categoryRoster(teams, T, teams[2]);
+    expect(c.roster.map((x) => x.id)).toEqual(["C", "D"]);
+    expect(rank.find((t) => t.name === "D")!.position).toBe(1);
+    expect(rank.find((t) => t.name === "A")!.position).toBe(1);
+  });
+});
