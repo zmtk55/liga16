@@ -99,6 +99,12 @@ export interface DataProvider {
   listMatchesByTournament(tournamentId: string): Promise<Match[]>;
   createMatches(matches: Array<Omit<Match, 'id'>>): Promise<Match[]>;
   updateMatch(id: string, updates: Partial<Match>): Promise<Match | null>;
+  /**
+   * Guarda la duración real del partido (60 u 90 min). Devuelve false si la
+   * columna `duration_minutes` aún no existe (supabase/match-duration.sql):
+   * el resto del partido ya quedó guardado y la interfaz avisa.
+   */
+  saveMatchDuration(id: string, minutes: number): Promise<boolean>;
   deleteMatchesByTournament(tournamentId: string): Promise<boolean>;
   deleteMatchById(id: string): Promise<boolean>;
   // Canchas

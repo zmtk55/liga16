@@ -222,6 +222,7 @@ function matchFromRow(row: Record<string, unknown>): Match {
     round: (row.round as string) ?? '',
     court_name: (row.court_name as string) ?? null,
     scheduled_at: (row.scheduled_at as string) ?? null,
+    duration_minutes: (row.duration_minutes as number | null) ?? null,
     status: row.status as Match['status'],
     side_a: { pair_id: (row.side_a_pair_id as string) ?? null, pair_name: (row.side_a_name as string) ?? '' },
     side_b: { pair_id: (row.side_b_pair_id as string) ?? null, pair_name: (row.side_b_name as string) ?? '' },
@@ -445,6 +446,7 @@ export const supabaseProvider: DataProvider = {
       round: m.round,
       court_name: m.court_name ?? null,
       scheduled_at: m.scheduled_at ?? null,
+      duration_minutes: m.duration_minutes ?? null,
       status: m.status,
       side_a_pair_id: m.side_a.pair_id ?? null,
       side_b_pair_id: m.side_b.pair_id ?? null,
@@ -453,7 +455,14 @@ export const supabaseProvider: DataProvider = {
       winner: null,
       sets: [],
     }));
-    const { data, error } = await client().from('matches').insert(rows).select();
+    let { data, error } = await client().from('matches').insert(rows).select();
+    if (error) {
+      // `duration_minutes` puede no existir todavía (supabase/match-duration.sql):
+      // reintenta sin la columna en vez de romper la generación del calendario.
+      // Si el error era por otra causa, el reintento lo vuelve a lanzar.
+      const sinDuracion = rows.map(({ duration_minutes: _omitida, ...r }) => r);
+      ({ data, error } = await client().from('matches').insert(sinDuracion).select());
+    }
     if (error) throw error;
     return (data ?? []).map((r: Record<string, unknown>) => matchFromRow(r)) as never;
   },
@@ -833,6 +842,22 @@ export const supabaseProvider: DataProvider = {
       const sb = orderKeys.indexOf(b.status);
       return sa - sb || String(a.scheduled_at ?? '').localeCompare(String(b.scheduled_at ?? ''));
     });
+  },
+
+  /**
+   * Guarda la duración real del partido (60 u 90 min).
+   *
+   * `duration_minutes` es una columna que puede no existir todavía (ver
+   * `supabase/match-duration.sql`). Si no existe, la escritura falla y se
+   * devuelve false en vez de romper: el resto del partido ya quedó guardado.
+   */
+  async saveMatchDuration(id: string, minutes: number) {
+    const { error } = await client()
+      .from('matches')
+      .update({ duration_minutes: minutes } as never)
+      .eq('id', id);
+    if (error) return false;
+    return true;
   },
 
   async updateMatch(id: string, updates: Partial<import('@/types').Match>) {

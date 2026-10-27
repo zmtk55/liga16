@@ -233,6 +233,7 @@ export default function TournamentWizard() {
     description: null as string | null,
     price_mxn: 500,
     semifinal_slots: 4 as number | null,
+    schedule_config: null as Tournament["schedule_config"],
     rules_summary: "Grupos de 4 + eliminación directa. Mejor de 3 sets.",
     sets_to_win: String(DEFAULT_SCORING.sets_to_win),
     games_per_set: String(DEFAULT_SCORING.games_per_set),
@@ -358,6 +359,7 @@ export default function TournamentWizard() {
           description: t.description ?? null,
           price_mxn: t.price_cents / 100,
           semifinal_slots: t.semifinal_slots ?? 4,
+          schedule_config: t.schedule_config ?? null,
           rules_summary: t.rules_summary ?? "",
           sets_to_win: String(t.scoring?.sets_to_win ?? DEFAULT_SCORING.sets_to_win),
           games_per_set: String(t.scoring?.games_per_set ?? DEFAULT_SCORING.games_per_set),
@@ -735,7 +737,11 @@ teams.forEach((t) => {
       let startSlot = 0; // los grupos comparten canchas: cada uno arranca donde terminó el anterior
       for (const group of groups) {
         if (group.pairIds.length < 2) continue;
-        const rounds = scheduleRounds(group.pairIds, courtCount, tournament.start_date, 60, 9, startSlot);
+        // La cuadrícula respeta la duración configurada del torneo; 60 solo si
+        // aún no hay configuración (torneo nuevo). Antes era 60 fijo aunque el
+        // torneo jugara a 90: una inconsistencia silenciosa.
+        const minutesPer = tournament.schedule_config?.minutesPerMatch || 60;
+        const rounds = scheduleRounds(group.pairIds, courtCount, tournament.start_date, minutesPer, 9, startSlot);
         startSlot += turnsUsed(rounds, courtCount);
         rounds.forEach((roundMatches, ri) => {
           roundMatches.forEach((m) => {
@@ -749,6 +755,7 @@ teams.forEach((t) => {
               round,
               court_name: courtNames[m.court - 1] ?? `Cancha ${m.court}`,
               scheduled_at: m.scheduled_at,
+              duration_minutes: minutesPer,
               status: "scheduled",
               side_a: { pair_id: pa.id, pair_name: pa.name },
               side_b: { pair_id: pb.id, pair_name: pb.name },

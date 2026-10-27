@@ -1,6 +1,9 @@
 "use client";
 
 import { isoToLocalInput, localInputToIso } from "@/lib/datetime";
+import SlotPicker, { type SlotDay } from "@/components/kokonutui/slot-picker";
+import { effectiveDurationMinutes } from "@/lib/match-duration";
+import { cn } from "@/lib/utils";
 import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -213,6 +216,14 @@ export default function AdminResults() {
         winner: autoWinner ?? manualWinner,
         sets: form.sets,
       });
+      // La duración viaja aparte: la columna duration_minutes puede no existir
+      // todavía (supabase/match-duration.sql). Si falta, no se rompe el
+      // guardado del resto del partido; solo se avisa.
+      const dur = Number(form.duration);
+      if (dur > 0) {
+        const durSaved = await db.saveMatchDuration(id, dur);
+        if (!durSaved) toast.warning("El partido se guardó, pero la duración no: falta aplicar la migración de la base (supabase/match-duration.sql).");
+      }
       toast.success("Partido actualizado");
       setEditingId(null);
       load();
@@ -451,6 +462,7 @@ export default function AdminResults() {
       {editingMatch && (
         <MatchEditDialog
           match={editingMatch}
+          allMatches={list ?? []}
           tournament={tournaments[editingMatch.tournament_id]}
           open={!!editingId}
           onOpenChange={(o) => { if (!o) setEditingId(null); }}
@@ -463,7 +475,7 @@ export default function AdminResults() {
 }
 
 interface SetInput { a: string; b: string; tiebreak_a: string; tiebreak_b: string; }
-interface MatchFormData { tournament_id: string; status: string; round: string; court_name: string; scheduled_at: string; winner: string; sets: SetScore[]; }
+interface MatchFormData { tournament_id: string; status: string; round: string; court_name: string; scheduled_at: string; duration: string; winner: string; sets: SetScore[]; }
 
 function toSetInputs(sets: SetScore[]): SetInput[] {
   return sets.map((s) => ({ a: String(s.a ?? 0), b: String(s.b ?? 0), tiebreak_a: s.tiebreak_a != null ? String(s.tiebreak_a) : "", tiebreak_b: s.tiebreak_b != null ? String(s.tiebreak_b) : "" }));
@@ -472,15 +484,44 @@ function fromSetInputs(inputs: SetInput[]): SetScore[] {
   return inputs.map((s) => ({ a: Number(s.a) || 0, b: Number(s.b) || 0, tiebreak_a: s.tiebreak_a.trim() ? Number(s.tiebreak_a) : null, tiebreak_b: s.tiebreak_b.trim() ? Number(s.tiebreak_b) : null }));
 }
 
-function MatchEditDialog({ match, tournament, open, onOpenChange, onSave, submitting }: { match: Match; tournament: Tournament | undefined; open: boolean; onOpenChange: (open: boolean) => void; onSave: (id: string, data: MatchFormData) => void; submitting: boolean; }) {
+function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, onSave, submitting }: { match: Match; allMatches: Match[]; tournament: Tournament | undefined; open: boolean; onOpenChange: (open: boolean) => void; onSave: (id: string, data: MatchFormData) => void; submitting: boolean; }) {
   const scoring = normalizeScoring(tournament?.scoring);
-  const [form, setForm] = useState<MatchFormData>(() => ({ tournament_id: match.tournament_id, status: match.status, round: match.round, court_name: match.court_name ?? "", scheduled_at: isoToLocalInput(match.scheduled_at), winner: match.winner ?? "", sets: match.sets.length > 0 ? match.sets : [{ a: 0, b: 0, tiebreak_a: null, tiebreak_b: null }] }));
+  // Sin duración registrada se asume la del torneo (schedule_config) o 60:
+  // es un supuesto visible, no un dato histórico.
+  const defaultMinutes = tournament?.schedule_config?.minutesPerMatch || 60;
+  const [form, setForm] = useState<MatchFormData>(() => ({ tournament_id: match.tournament_id, status: match.status, round: match.round, court_name: match.court_name ?? "", scheduled_at: isoToLocalInput(match.scheduled_at), duration: String(match.duration_minutes ?? defaultMinutes), winner: match.winner ?? "", sets: match.sets.length > 0 ? match.sets : [{ a: 0, b: 0, tiebreak_a: null, tiebreak_b: null }] }));
   const [setInputs, setSetInputs] = useState<SetInput[]>(() => toSetInputs(form.sets));
+  const [showSlots, setShowSlots] = useState(false);
 
   const update = (field: keyof MatchFormData, value: string) => setForm((f) => ({ ...f, [field]: value }));
   function updateSet(index: number, field: keyof SetInput, value: string) { setSetInputs((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))); }
   function addSet() { setSetInputs((prev) => [...prev, { a: "", b: "", tiebreak_a: "", tiebreak_b: "" }]); }
   function removeSet(index: number) { setSetInputs((prev) => prev.filter((_, i) => i !== index)); }
+
+  // Huecos libres para el slot-picker de Kokonut: proximos 7 dias, ventana
+  // visible 9:00-21:00 (el sorteo arranca jornadas a las 9), ocupados = los
+  // demas partidos de esa cancha ese dia. Cada bloque ocupado dura lo que
+  // diga duration_minutes del partido; los que no la tienen registrada se
+  // toman como defaultMinutes (supuesto visible, no dato historico).
+  const slotDays: SlotDay[] = useMemo(() => {
+    const court = form.court_name.trim();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const busy: [number, number][] = [];
+      for (const m of allMatches) {
+        if (m.id === match.id || !m.scheduled_at) continue;
+        if (court !== "" && (m.court_name ?? "") !== court) continue;
+        const t = new Date(m.scheduled_at);
+        const dayKey = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+        if (dayKey !== date) continue;
+        const start = t.getHours() * 60 + t.getMinutes();
+        busy.push([start, start + effectiveDurationMinutes(m, defaultMinutes)]);
+      }
+      return { date, open: [9 * 60, 21 * 60] as [number, number], busy };
+    });
+  }, [allMatches, form.court_name, match.id, defaultMinutes]);
 
   const currentSets = fromSetInputs(setInputs);
   const winner = determineMatchWinner(currentSets, scoring);
@@ -501,6 +542,47 @@ function MatchEditDialog({ match, tournament, open, onOpenChange, onSave, submit
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5"><Label htmlFor="cancha">Cancha</Label><Input id="cancha" value={form.court_name} onChange={(e) => update("court_name", e.target.value)} /></div>
             <div className="grid gap-1.5"><Label htmlFor="fecha-y-hora">Fecha y hora</Label><DateTimePicker id="fecha-y-hora" value={form.scheduled_at} onChange={(v) => update("scheduled_at", v ?? "")} ariaLabel="Fecha y hora del partido" /></div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="duracion">Duración</Label>
+              <Select value={form.duration} onValueChange={(v) => update("duration", v)}><SelectTrigger id="duracion"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="60">1 hora</SelectItem><SelectItem value="90">1 hora y media</SelectItem></SelectContent></Select>
+              {match.duration_minutes == null && (
+                <p className="text-xs text-muted-foreground">Sin duración registrada: los cruces la suponen de {defaultMinutes} min hasta que la guardes.</p>
+              )}
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="justify-start gap-2"
+              aria-expanded={showSlots}
+              onClick={() => setShowSlots((s) => !s)}
+            >
+              <Calendar className="h-4 w-4" />
+              Explorar horarios en calendario
+              <ChevronDown className={cn("h-4 w-4 transition-transform", showSlots && "rotate-180")} />
+            </Button>
+            {showSlots && (
+              <>
+                <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  Ventana de exploración 9:00-21:00 en bloques de 60 o 90 min (hay partidos de hora y media). Solo marca cruces con partidos ya registrados{form.court_name.trim() ? " en esta cancha" : ""}: cada uno ocupa su duración registrada, y los que no la tienen se suponen de {defaultMinutes} min. No es disponibilidad confirmada de la sede. Al confirmar un hueco solo se llenan Fecha y hora y Duración: nada se guarda hasta Guardar.
+                </p>
+                <SlotPicker
+                  className="max-w-none"
+                  days={slotDays}
+                  durations={[60, 90]}
+                  timezone="America/Hermosillo"
+                  host={{ name: form.court_name.trim() || "Cancha por definir", city: tournament?.city }}
+                  onBook={({ date, start, minutes }) => {
+                    update("scheduled_at", `${date}T${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`);
+                    update("duration", String(minutes));
+                  }}
+                />
+              </>
+            )}
           </div>
           <div className="rounded-lg border p-4 space-y-3">
             <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">Sets</h3><p className="text-xs text-muted-foreground">{scoring.sets_to_win} de {scoring.sets_to_win * 2 - 1} sets · {scoring.games_per_set} juegos · tie-break a {scoring.tie_break_points} puntos</p></div><Button type="button" variant="outline" size="sm" onClick={addSet}><Plus className="h-4 w-4 mr-1" /> Añadir set</Button></div>

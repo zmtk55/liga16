@@ -14,23 +14,15 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  Sector,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Cell, Pie, PieChart, Sector } from "recharts";
 import { db } from "@/lib/data";
 import { useMatchUpdated } from "@/lib/refresh";
 import { matchBucket, matchStatusKey } from "@/lib/match-state";
 import type { Match, PlayerProfile, Team, Tournament } from "@/types";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import KokonutMetricCard, { type MetricPoint } from "@/components/kokonutui/metric-card";
+import CardStack, { type DeckCard } from "@/components/kokonutui/card-stack";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { AdminPageHeader } from "@/components/admin/page-header";
@@ -61,10 +53,6 @@ const PALETTE = [
   "hsl(var(--chart-5))",
   "hsl(var(--chart-6))",
 ];
-
-const activityConfig = {
-  partidos: { label: "Partidos", color: "hsl(var(--primary))" },
-} satisfies ChartConfig;
 
 /**
  * Dos mundos tonales (DESIGN.md): superficies claras y póster oscuro. Cada
@@ -325,66 +313,6 @@ function DashboardSkeleton() {
   );
 }
 
-function ActivityChart({ matches }: { matches: Match[] }) {
-  const data = useMemo(() => {
-    const last7 = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i));
-      return d.toISOString().slice(0, 10);
-    });
-    return last7.map((date) => ({
-      day: new Date(date).toLocaleDateString("es-MX", { weekday: "short" }),
-      partidos: matches.filter((m) => m.scheduled_at?.startsWith(date)).length,
-    }));
-  }, [matches]);
-
-  // Una gráfica vacía parece rota. Si no hubo partidos en la semana, se dice
-  // con palabras.
-  if (data.every((d) => d.partidos === 0)) {
-    return (
-      <div className="flex h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 text-center">
-        <Activity className="h-5 w-5 text-white/50" aria-hidden />
-        <p className="text-sm font-semibold">Sin actividad esta semana</p>
-        <p className="max-w-xs text-xs text-white/60">No se jugó ningún partido en los últimos 7 días.</p>
-      </div>
-    );
-  }
-
-  return (
-    <ChartContainer config={activityConfig} className="h-[200px] w-full aspect-auto [&_.recharts-cartesian-axis-tick_text]:!fill-white/50 [&_.recharts-cartesian-grid_line]:!stroke-white/10">
-      <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-        <defs>
-          <linearGradient id="fillActividad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-partidos)" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="var(--color-partidos)" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-        <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 11 }} />
-        <YAxis
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          width={26}
-          allowDecimals={false}
-          tick={{ fontSize: 11 }}
-        />
-        <ChartTooltip
-          cursor={{ stroke: "hsl(0 0% 100% / 0.2)" }}
-          content={<ChartTooltipContent indicator="line" />}
-        />
-        <Area
-          dataKey="partidos"
-          type="monotone"
-          fill="url(#fillActividad)"
-          stroke="var(--color-partidos)"
-          strokeWidth={2.5}
-        />
-      </AreaChart>
-    </ChartContainer>
-  );
-}
-
 function DivisionPie({ teams }: { teams: Team[] }) {
   const data = useMemo(() => {
     const groups = groupByDivision(teams.filter((t) => t.played > 0));
@@ -528,6 +456,7 @@ function MatchesByStatus({ matches }: { matches: Match[] }) {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -576,6 +505,8 @@ export default function AdminDashboard() {
     () => (data?.tournaments ?? []).filter((t) => tournamentPhase(t) === "running"),
     [data],
   );
+  // Mazo de torneos: la tarjeta al frente decide los accesos de abajo.
+  const [deckTop, setDeckTop] = useState<string | null>(null);
   const openSignups = useMemo(
     () => (data?.tournaments ?? []).filter((t) => tournamentPhase(t) === "signup"),
     [data],
@@ -588,6 +519,21 @@ export default function AdminDashboard() {
     () => (data?.matches ?? []).filter((m) => matchStatusKey(m) === "finished").length,
     [data],
   );
+
+  // Serie para la metric-card de Kokonut: 60 dias (la comparacion de 30D
+  // necesita los 30 previos), dos segmentos que NO se solapan: los jugados y
+  // los que siguen sin jugarse. Misma fecha que la grafica vieja.
+  const activitySeries: MetricPoint[] = useMemo(() => {
+    const ms = data?.matches ?? [];
+    return Array.from({ length: 60 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (59 - i));
+      const date = d.toISOString().slice(0, 10);
+      const day = ms.filter((m) => m.scheduled_at?.startsWith(date));
+      const jugados = day.filter((m) => matchStatusKey(m) === "finished").length;
+      return { date, parts: [day.length - jugados, jugados] };
+    });
+  }, [data]);
 
   const tasks = [
     ...(pendingPlayers.length
@@ -673,28 +619,17 @@ export default function AdminDashboard() {
 
       {/* Fila 1: la semana en una gráfica oscura y, al lado, lo que pide atención hoy. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <section aria-labelledby="actividad-semanal" className={cn(CARD, DARK, "lg:col-span-8")}>
-          <div className="liga16-stripe" aria-hidden />
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 id="actividad-semanal" className="flex items-center gap-2.5 text-base font-semibold">
-                <span aria-hidden className="h-2.5 w-2.5 rounded-[4px] bg-primary" />
-                Actividad semanal
-              </h2>
-              <p className="mt-1 text-xs text-white/60">Partidos programados en los últimos 7 días</p>
-            </div>
-            <div className="text-right">
-              <p className={cn(METRIC_MD, "text-primary")}>
-                <PopNumber value={data.matches.filter((m) => {
-                  const d = new Date();
-                  d.setDate(d.getDate() - 6);
-                  return m.scheduled_at && m.scheduled_at.slice(0, 10) >= d.toISOString().slice(0, 10);
-                }).length} />
-              </p>
-              <p className="mt-1 text-caption uppercase text-white/60">esta semana</p>
-            </div>
-          </div>
-          <ActivityChart matches={data.matches} />
+        <section aria-label="Actividad semanal" className="lg:col-span-8">
+          <KokonutMetricCard
+            label="Partidos"
+            data={activitySeries}
+            segments={["Por jugar", "Jugados"]}
+            periods={[7, 14, 30]}
+            defaultPeriod={7}
+            format="number"
+            events={[]}
+            className="h-full max-w-none"
+          />
         </section>
 
         <section aria-labelledby="hoy" className={cn(CARD, "flex flex-col bg-primary text-primary-foreground lg:col-span-4")}>
@@ -774,38 +709,55 @@ export default function AdminDashboard() {
           {running.length === 0 ? (
             <SoftEmpty dark icon={Trophy} title="Sin torneos en juego" description="No hay torneos en juego ahora mismo." />
           ) : (
-            <ul className="space-y-3">
-              {running.map((t) => (
-                <li key={t.id} className="space-y-3 rounded-2xl bg-white/[0.06] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{t.name}</p>
-                      <p className="mt-0.5 text-xs text-white/60">
-                        {formatDateRange(t.start_date, t.end_date)} · {t.club_name ?? formatCity(t.city)}
-                      </p>
-                    </div>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/20 px-2.5 py-1 text-caption text-primary">
-                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
-                      En juego
-                    </span>
+            <>
+            {/* La tarjeta vive sobre el poster oscuro: scope dark para que las
+                variantes dark: del vendor apliquen (contador legible, etc). */}
+            <div className="dark">
+            <CardStack
+              cards={running.map((t): DeckCard => ({
+                id: t.id,
+                title: t.name,
+                subtitle: t.club_name ?? formatCity(t.city),
+                description: formatDateRange(t.start_date, t.end_date),
+                art: (
+                  <div className="flex h-full w-full items-center justify-center bg-primary/15">
+                    <Trophy className="h-12 w-12 text-primary" aria-hidden />
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Link
-                      to={`/admin/torneos/${t.slug}?tab=bracket`}
-                      className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium transition-colors hover:bg-white/20"
-                    >
-                      Ver bracket
-                    </Link>
-                    <Link
-                      to={`/admin/torneos/${t.slug}?tab=jornada`}
-                      className="rounded-full px-3.5 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                    >
-                      Jornada
-                    </Link>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                ),
+                specs: [
+                  { label: "Inicio", value: new Date(t.start_date).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) },
+                  { label: "Fin", value: new Date(t.end_date).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) },
+                ],
+                price: "En juego",
+              }))}
+              actionLabel="Abrir torneo"
+              onChange={(card) => setDeckTop(card.id)}
+              onAction={(card) => {
+                const t = running.find((x) => x.id === card.id);
+                if (t) navigate(`/admin/torneos/${t.slug}`);
+              }}
+            />
+            </div>
+            {(() => {
+              const current = running.find((t) => t.id === deckTop) ?? running[0];
+              return current ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link
+                    to={`/admin/torneos/${current.slug}?tab=bracket`}
+                    className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium transition-colors hover:bg-white/20"
+                  >
+                    Ver bracket
+                  </Link>
+                  <Link
+                    to={`/admin/torneos/${current.slug}?tab=jornada`}
+                    className="rounded-full px-3.5 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    Jornada
+                  </Link>
+                </div>
+              ) : null;
+            })()}
+            </>
           )}
         </section>
 

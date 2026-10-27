@@ -268,6 +268,8 @@ export interface Match {
   round: string;
   court_name: string | null;
   scheduled_at: string | null;
+  /** Duración real en minutos (60 u 90). Null/ausente = sin registrar: no se rellena a lo histórico. */
+  duration_minutes?: number | null;
   status: MatchStatus;
   side_a: MatchSide;
   side_b: MatchSide;

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { AlertTriangle, Pencil, Plus, Trash2, Trophy, Users } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, Repeat, Trash2, Trophy, Users } from "lucide-react";
 import { checkLevelSum } from "@/lib/qualification";
 import { ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
@@ -20,7 +20,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import ImageUpload from "@/components/ui/image-upload";
 import { deleteStoredImage } from "@/lib/storage";
-import { RowActionsMenu } from "@/components/admin/row-actions";
+import CardFlip from "@/components/kokonutui/card-flip";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -341,7 +341,7 @@ export default function AdminTeams() {
 
           {pairs === null && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Cargando parejas">
-              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-3xl" />)}
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-3xl" />)}
             </div>
           )}
           {pairs !== null && pairs.length === 0 && (
@@ -361,42 +361,68 @@ export default function AdminTeams() {
                 const ini = `${p1?.trim().charAt(0) ?? "?"}${p2?.trim().charAt(0) ?? ""}`.toUpperCase();
                 const partidos = matchCount ? matchCount.get(p.id) ?? 0 : null;
                 return (
-                  <li key={p.id} className={cn(BENTO_CARD, BENTO_LIGHT, "group flex flex-col gap-4 p-3 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg")}>
-                    {/* Portada: el escudo o foto si hay; si no, un póster oscuro con las iniciales. */}
-                    <div className="relative h-36 overflow-hidden rounded-2xl bg-[#141414]">
-                      {p.crest_url ? (
-                        <img src={p.crest_url} alt={`Escudo de ${p.name}`} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105" />
-                      ) : (
-                        <>
-                          <div className="liga16-stripe" aria-hidden />
-                          <span aria-hidden className="absolute inset-0 flex items-center justify-center font-display text-[6.5rem] font-bold leading-none tracking-[-0.04em] text-primary">{ini}</span>
-                          <span aria-hidden className="absolute -bottom-10 -right-6 h-28 w-28 rounded-full bg-primary/15" />
-                        </>
+                  <li key={p.id}>
+                    <CardFlip
+                      label={`Pareja ${p.name}`}
+                      className="h-56 w-full"
+                      faceClassName="rounded-3xl border-border bg-card text-card-foreground dark:border-border dark:bg-card dark:text-card-foreground"
+                      front={(
+                        <div className="flex h-full flex-col gap-3 p-3">
+                          {/* Portada: el escudo o foto si hay; si no, un póster oscuro con las iniciales. */}
+                          <div className="relative h-24 shrink-0 overflow-hidden rounded-2xl bg-[#141414]">
+                            {p.crest_url ? (
+                              <img src={p.crest_url} alt={`Escudo de ${p.name}`} loading="lazy" className="h-full w-full object-cover" />
+                            ) : (
+                              <>
+                                <div className="liga16-stripe" aria-hidden />
+                                <span aria-hidden className="absolute inset-0 flex items-center justify-center font-display text-5xl font-bold leading-none tracking-[-0.04em] text-primary">{ini}</span>
+                                <span aria-hidden className="absolute -bottom-8 -right-5 h-20 w-20 rounded-full bg-primary/15" />
+                              </>
+                            )}
+                            <span className="absolute left-3 top-3 max-w-[70%] truncate rounded-full bg-black/60 px-2.5 py-1 text-caption text-white backdrop-blur">{categoryOf(p.category_id)}</span>
+                            <span aria-hidden className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white backdrop-blur"><Repeat className="h-4 w-4" /></span>
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-2 px-3 pb-1">
+                            <h3 className="font-display text-xl font-bold leading-[1.05] tracking-tight">
+                              <span className="block truncate">{p1}</span>
+                              <span className="flex items-center gap-2 text-muted-foreground">
+                                <span aria-hidden className="text-primary">&amp;</span>
+                                <span className="truncate">{p2 ?? "—"}</span>
+                              </span>
+                            </h3>
+                            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                              <span className="tabular-nums">{partidos === null ? "Partidos: –" : `${partidos} ${partidos === 1 ? "partido" : "partidos"}`}</span>
+                              <span className="inline-flex items-center gap-1 font-medium text-primary"><Repeat className="h-3.5 w-3.5" aria-hidden /> Ver acciones</span>
+                            </div>
+                          </div>
+                        </div>
                       )}
-                      <span className="absolute left-3 top-3 max-w-[70%] truncate rounded-full bg-black/60 px-2.5 py-1 text-caption text-white backdrop-blur">{categoryOf(p.category_id)}</span>
-                      <div className="absolute right-2 top-2 rounded-full bg-black/60 text-white backdrop-blur [&_button]:text-white">
-                        <RowActionsMenu
-                          label={`Acciones para ${p.name}`}
-                          actions={[
-                            { label: "Editar", icon: <Pencil className="h-4 w-4" />, onSelect: () => openDialog(p) },
-                            { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeleting({ id: p.id, name: p.name }), destructive: true, separator: true },
-                          ]}
-                        />
-                      </div>
-                    </div>
-                    <div className="min-w-0 space-y-3 px-3 pb-2">
-                      <h3 className="font-display text-[1.65rem] font-bold leading-[1.05] tracking-tight">
-                        <span className="block truncate">{p1}</span>
-                        <span className="flex items-center gap-2 text-muted-foreground">
-                          <span aria-hidden className="text-primary">&amp;</span>
-                          <span className="truncate">{p2 ?? "—"}</span>
-                        </span>
-                      </h3>
-                      <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-                        <span className="tabular-nums">{partidos === null ? "Partidos: –" : `${partidos} ${partidos === 1 ? "partido" : "partidos"}`}</span>
-                        <button type="button" onClick={() => openDialog(p)} className="rounded-full px-2.5 py-1 font-medium text-primary opacity-0 transition-opacity hover:bg-primary/10 focus-visible:opacity-100 group-hover:opacity-100">Editar</button>
-                      </div>
-                    </div>
+                      back={(
+                        <div className="flex h-full flex-col gap-3 p-4">
+                          <div className="flex items-center gap-3">
+                            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 font-display text-base font-bold text-primary">{ini}</span>
+                            <div className="min-w-0">
+                              <h3 className="truncate font-display text-base font-bold leading-tight">{p.name}</h3>
+                              <p className="truncate text-xs text-muted-foreground">{categoryOf(p.category_id)}</p>
+                            </div>
+                          </div>
+                          <dl className="space-y-1.5 border-t border-border/60 pt-2 text-sm">
+                            <div className="flex items-center justify-between gap-2">
+                              <dt className="text-muted-foreground">Partidos</dt>
+                              <dd className="tabular-nums font-medium">{partidos === null ? "–" : partidos}</dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <dt className="text-muted-foreground">Escudo</dt>
+                              <dd className="font-medium">{p.crest_url ? "Con escudo" : "Sin escudo"}</dd>
+                            </div>
+                          </dl>
+                          <div className="mt-auto flex gap-2">
+                            <Button type="button" size="sm" className="flex-1" onClick={() => openDialog(p)}><Pencil className="h-4 w-4" /> Editar</Button>
+                            <Button type="button" size="sm" variant="outline" className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-red-400/40 dark:text-red-400 dark:hover:bg-red-400/10 dark:hover:text-red-300" onClick={() => setDeleting({ id: p.id, name: p.name })}><Trash2 className="h-4 w-4" /> Eliminar</Button>
+                          </div>
+                        </div>
+                      )}
+                    />
                   </li>
                 );
               })}

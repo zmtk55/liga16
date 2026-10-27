@@ -11,11 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SmoothTab from "@/components/kokonutui/smooth-tab";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { DragEndEvent } from "@dnd-kit/core";
 
-import { ChevronDown, Dice5, Pencil, Plus, Trash2, CalendarClock, UserPlus, Trophy, Check } from "lucide-react";
+import { ChevronDown, Dice5, Pencil, Plus, Trash2, CalendarClock, CalendarDays, UserPlus, Users, ListOrdered, Trophy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminEmptyState } from "@/components/admin/empty-state";
@@ -37,8 +37,6 @@ import { formatCity, formatDateRange, formatLabel, formatMatchTime, SIN_CATEGORI
 import { matchStatusKey } from "@/lib/match-state";
 import { findScheduleIssues, isSlotFree, localDayKey, localTimeHHMM, rescheduleTo, todayKey, tournamentDays, assignSlotsToMatches } from "@/lib/schedule";
 
-const TAB_LIST = "h-auto w-full flex-wrap justify-start gap-1 rounded-3xl border bg-card p-1.5";
-const TAB_TRIGGER = "h-9 flex-none rounded-full px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none";
 
 export default function AdminTournamentDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -569,7 +567,10 @@ export default function AdminTournamentDetail() {
       );
       if (missing > 0) { toast.error(`Faltan huecos: ${missing} partidos no caben en ${slots} huecos libres. Marca más días u horas.`); return; }
       const byId = new Map(assignments.map((a) => [a.id, a]));
-      const newMatches = drafts.map(({ id, ...m }) => ({ ...m, scheduled_at: byId.get(id)!.at, court_name: byId.get(id)!.court }));
+      // Los partidos NUEVOS nacen con la duración configurada del torneo: sin
+      // ella, los cruces de cancha tendrían que suponerla. Los ya existentes
+      // conservan lo que tengan (no se asigna duración a lo histórico).
+      const newMatches = drafts.map(({ id, ...m }) => ({ ...m, scheduled_at: byId.get(id)!.at, court_name: byId.get(id)!.court, duration_minutes: m.duration_minutes ?? scheduleConfig.minutesPerMatch }));
       if (newMatches.length) await db.createMatches(newMatches);
       for (const m of plan.remove) await db.deleteMatchById(m.id);
       for (const m of pending) {
@@ -737,32 +738,18 @@ export default function AdminTournamentDetail() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className={TAB_LIST}>
-          <TabsTrigger value="jornada" className={TAB_TRIGGER}>Jornada</TabsTrigger>
-          <TabsTrigger value="parejas" className={TAB_TRIGGER}>Parejas</TabsTrigger>
-          <TabsTrigger value="grupos" className={TAB_TRIGGER}>Grupos y sorteo</TabsTrigger>
-          <TabsTrigger value="posiciones" className={TAB_TRIGGER}>Posiciones</TabsTrigger>
-          <TabsTrigger value="calendario" className={TAB_TRIGGER}>Calendario ({matches.length})</TabsTrigger>
-          <TabsTrigger value="bracket" className={TAB_TRIGGER}>Bracket</TabsTrigger>
-        </TabsList>
-
-        {/* ============ BRACKET ============ */}
-        <TabsContent value="bracket" className="space-y-4 pt-2">
-          <BracketPanel
-            pairs={pairs ?? []}
-            matches={matches}
-            categories={categories}
-            scoring={tournament.scoring}
-            slots={tournament.semifinal_slots ?? 4}
-            tournamentId={tournament.id}
-            onReload={reload}
-            onEditMatch={setEditingMatchId}
-          />
-        </TabsContent>
-
-        {/* ============ JORNADA ============ */}
-        <TabsContent value="jornada" className="space-y-4 pt-2">
+      <SmoothTab
+        label="Secciones del torneo"
+        className="max-w-none"
+        value={tab}
+        onChange={setTab}
+        items={[
+            {
+              id: "jornada",
+              title: "Jornada",
+              icon: CalendarClock,
+              content: tab === "jornada" ? (
+                <div className="space-y-4 pt-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">Día:</span>
             <DatePicker
@@ -850,10 +837,15 @@ return (
                   </div>
                 );
           })()}
-        </TabsContent>
-
-        {/* ============ PAREJAS ============ */}
-        <TabsContent value="parejas" className="space-y-4 pt-2">
+                </div>
+              ) : undefined,
+            },
+            {
+              id: "parejas",
+              title: "Parejas",
+              icon: Users,
+              content: tab === "parejas" ? (
+                <div className="space-y-4 pt-2">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Registrar equipo</CardTitle>
@@ -974,10 +966,15 @@ return (
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* ============ GRUPOS ============ */}
-        <TabsContent value="grupos" className="space-y-4 pt-2">
+                </div>
+              ) : undefined,
+            },
+            {
+              id: "grupos",
+              title: "Grupos y sorteo",
+              icon: Dice5,
+              content: tab === "grupos" ? (
+                <div className="space-y-4 pt-2">
           <DrawPanel
             pairs={pairs}
             categories={categories}
@@ -1004,10 +1001,15 @@ return (
             onRemovePair={setRemoveFromGroup}
             onDragEnd={handleDragEnd}
           />
-        </TabsContent>
-
-        {/* ============ TABLAS DE POSICIONES ============ */}
-        <TabsContent value="posiciones" className="space-y-4 pt-2">
+                </div>
+              ) : undefined,
+            },
+            {
+              id: "posiciones",
+              title: "Posiciones",
+              icon: ListOrdered,
+              content: tab === "posiciones" ? (
+                <div className="space-y-4 pt-2">
           {groups.length === 0 ? (
             <Card>
               <CardContent className="p-0">
@@ -1038,10 +1040,15 @@ return (
               ))}
             </div>
           )}
-        </TabsContent>
-
-        {/* ============ CALENDARIO ============ */}
-        <TabsContent value="calendario" className="space-y-4 pt-2">
+                </div>
+              ) : undefined,
+            },
+            {
+              id: "calendario",
+              title: `Calendario (${matches.length})`,
+              icon: CalendarDays,
+              content: tab === "calendario" ? (
+                <div className="space-y-4 pt-2">
           {matches.length === 0 ? (
             <Card>
               <CardContent className="p-0">
@@ -1310,8 +1317,30 @@ return (
               )}
             </>
           )}
-        </TabsContent>
-      </Tabs>
+                </div>
+              ) : undefined,
+            },
+            {
+              id: "bracket",
+              title: "Bracket",
+              icon: Trophy,
+              content: tab === "bracket" ? (
+                <div className="space-y-4 pt-2">
+          <BracketPanel
+            pairs={pairs ?? []}
+            matches={matches}
+            categories={categories}
+            scoring={tournament.scoring}
+            slots={tournament.semifinal_slots ?? 4}
+            tournamentId={tournament.id}
+            onReload={reload}
+            onEditMatch={setEditingMatchId}
+          />
+                </div>
+              ) : undefined,
+            },
+        ]}
+      />
 
       {/* Diálogo: reprogramar un partido (día · hora · cancha). Es la pieza que
           faltaba: cambiarle el día a un partido no debería obligar a entrar al
