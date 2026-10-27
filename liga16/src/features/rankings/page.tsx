@@ -30,6 +30,8 @@ import {
   categoryFacet,
   teamCategoryKey,
 } from "@/lib/categories";
+import { tournamentOptions, tournamentTeams } from "@/lib/tournament-ranking";
+import { orderText } from "@/lib/qualification-sim";
 import { Users, Trophy, ChevronLeft, ChevronRight, Clock, LayoutGrid, BarChart3, List, GitCompare } from "lucide-react";
 
 /**
@@ -248,6 +250,17 @@ export default function RankingsPage() {
     setParams(next, { replace: true });
   };
   const setSex = (v: string) => setParam("sex", v);
+  const torneo = params.get("torneo") ?? "all";
+  const [allMatches, setAllMatches] = useState<Match[] | null>(null);
+  // Los partidos solo se piden cuando se elige un torneo: el ranking global no los necesita.
+  useEffect(() => {
+    if (torneo === "all") return;
+    let active = true;
+    db.listRecentMatches().then((m) => active && setAllMatches(m)).catch(() => active && setAllMatches([]));
+    return () => {
+      active = false;
+    };
+  }, [torneo]);
   const [detail, setDetail] = useState<Team | null>(null);
   const [view, setView] = useState<"table" | "cards" | "chart">("table");
   const [compare, setCompare] = useState<[Team | null, Team | null]>([null, null]);
@@ -277,9 +290,21 @@ export default function RankingsPage() {
     };
   }, []);
 
+  const torneos = useMemo(() => tournamentOptions(teams ?? []), [teams]);
+  const torneoSel = torneos.find((t) => t.id === torneo) ?? null;
+  const torneoEntry = torneoSel
+    ? (teams ?? []).flatMap((t) => t.entries ?? []).find((e) => e.tournament_id === torneoSel.id)
+    : undefined;
+  const torneoOrder = torneoEntry?.scoring?.rank_order?.length ? torneoEntry.scoring.rank_order : undefined;
+  const base = useMemo(() => {
+    if (!teams) return null;
+    if (!torneoSel) return teams;
+    return allMatches ? tournamentTeams(teams, allMatches, torneoSel.id) : null;
+  }, [teams, torneoSel, allMatches]);
+
   const filtered = useMemo(() => {
-    if (!teams) return [] as Team[];
-    let list = [...teams];
+    if (!base) return [] as Team[];
+    let list = [...base];
     if (categoria !== "all") list = list.filter((t) => teamCategoryKey(t) === categoria);
     if (sex !== "all") list = list.filter((t) => t.sex === sex);
     const q = query.trim().toLowerCase();
@@ -306,7 +331,7 @@ export default function RankingsPage() {
         return b.points - a.points;
       })
       .map((t) => ({ ...t }));
-  }, [teams, categoria, sex, query]);
+  }, [base, categoria, sex, query]);
 
   /** Categorías y ramas que existen de verdad, no el catálogo de la BD. */
   const categorias = useMemo(() => categoryFacet(teams ?? []), [teams]);
@@ -321,7 +346,7 @@ export default function RankingsPage() {
     <div className="animate-fade-in space-y-8">
       <PageHero
         title="Ranking"
-        subtitle="Parejas ordenadas por rendimiento: puntos ganados sobre el total de puntos jugados (%), dentro de su división y género. Criterio de desempate: diferencia de sets → PG → PJ."
+        subtitle="Parejas ordenadas por rendimiento: puntos ganados sobre el total de puntos jugados (%), dentro de su división y género. Criterio de desempate: diferencia de sets → PG → PJ. Es el ranking general del circuito; cada torneo puede usar otro orden en su clasificación."
         ghost="16"
       />
 
@@ -329,6 +354,17 @@ export default function RankingsPage() {
           se arman con los equipos cargados: las categorías que existen de
           verdad —"Suma 9", "Mixtos"— y solo esas. */}
       <div className="relative z-10 -mt-4 flex flex-wrap items-center gap-2">
+        <FilterMenu
+          label="Torneo"
+          value={torneoSel ? torneoSel.id : "all"}
+          onChange={(v) => {
+            setAllMatches(null);
+            setParam("torneo", v);
+          }}
+          options={torneos.map((t) => ({ key: t.id, label: t.name, count: t.n }))}
+          allLabel="Global (orden estándar)"
+          showCount
+        />
         <FilterMenu
           label="Categoría"
           value={categoria}
@@ -369,7 +405,12 @@ export default function RankingsPage() {
         </Button>
       </div>
 
-      {teams === null ? (
+      <p className="-mt-4 text-xs text-muted-foreground">
+        {torneoSel
+          ? `Clasificación de ${torneoSel.name} · orden: ${orderText(torneoOrder)}. Solo fase de grupos; las bajas no ocupan posición.`
+          : "Ranking global: orden estándar, sin reglas de ningún torneo. Elige un torneo para ver su clasificación con su orden."}
+      </p>
+      {teams === null || (torneoSel && base === null) ? (
         <Skeleton className="h-96 w-full" />
       ) : filtered.length === 0 ? (
         <Card>
@@ -597,4 +638,4 @@ export default function RankingsPage() {
       </Dialog>
     </div>
   );
-}
+}
