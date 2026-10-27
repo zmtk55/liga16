@@ -8,9 +8,12 @@ const mk = (id: string, PJ: number, PG: number, pct: number, sf: number, sc: num
 
 describe("orden configurable", () => {
   const stats = () => [mk("alto-pct", 3, 1, 0.6, 3, 4), mk("mas-ganados", 3, 3, 0.55, 6, 1)];
-  it("por defecto manda el % de puntos (orden actual)", () => {
-    expect(DEFAULT_RANK_ORDER[0]).toBe("points_pct");
-    expect(computeJerarquiaLiga16(stats())[0].pairId).toBe("alto-pct");
+  it("por defecto mandan los partidos ganados, luego dominio y luego % de puntos", () => {
+    expect(DEFAULT_RANK_ORDER.slice(0, 3)).toEqual(["matches_won", "head_to_head", "points_pct"]);
+    expect(computeJerarquiaLiga16(stats())[0].pairId).toBe("mas-ganados");
+  });
+  it("un orden propio explícito (% de puntos primero) se conserva", () => {
+    expect(computeJerarquiaLiga16(stats(), ["points_pct", "sets_diff", "matches_won", "matches_played"])[0].pairId).toBe("alto-pct");
   });
   it("con partidos ganados primero cambia el orden", () => {
     const r = computeJerarquiaLiga16(stats(), ["matches_won", "points_pct"]);
@@ -82,7 +85,10 @@ describe("orden pedido: partidos ganados > dominio > puntos (configuración de p
   it("P y Q empatan en partidos ganados; P le ganó a Q, así que P va arriba aunque Q tenga más % de puntos", () => {
     expect(order(["matches_won", "head_to_head", "points_pct"] as never).slice(0, 2)).toEqual(["P", "Q"]);
   });
-  it("con el orden estándar (sin configurar) Q va arriba por % de puntos: el torneo actual no cambia", () => {
-    expect(order().slice(0, 2)).toEqual(["Q", "P"]);
+  it("sin configurar usa el orden general: P va arriba (ganó el directo)", () => {
+    expect(order().slice(0, 2)).toEqual(["P", "Q"]);
+  });
+  it("un torneo con % de puntos primero explícito conserva su orden: Q arriba", () => {
+    expect(order(["points_pct", "sets_diff", "matches_won", "matches_played"] as never).slice(0, 2)).toEqual(["Q", "P"]);
   });
 });

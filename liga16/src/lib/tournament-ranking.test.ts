@@ -20,8 +20,13 @@ describe("ranking por torneo", () => {
     const p = pos(tournamentTeams(teams, matches, T));
     expect(p.B).toBeLessThan(p.A);
   });
-  it("sin orden definido usa el estándar (los puntos pesan antes)", () => {
+  it("sin orden definido usa el general (PG > dominio > puntos): B arriba", () => {
     const teams = ["A", "B", "C", "D"].map((n) => mk(n, n));
+    const p = pos(tournamentTeams(teams, matches, T));
+    expect(p.B).toBeLessThan(p.A);
+  });
+  it("un torneo con orden propio distinto lo conserva (puntos primero: A arriba)", () => {
+    const teams = ["A", "B", "C", "D"].map((n) => mk(n, n, ["points_pct", "sets_diff"]));
     const p = pos(tournamentTeams(teams, matches, T));
     expect(p.A).toBeLessThan(p.B);
   });
