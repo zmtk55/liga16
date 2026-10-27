@@ -286,19 +286,21 @@ export interface StandingRow {
  * default, de modo que el detalle de torneo ordenaba por victorias mientras el
  * ranking global ordenaba por porcentaje: dos reglas para lo mismo.
  * `ranking_method` sigue en el tipo porque es una columna de la BD, pero ya no
- * cambia el cálculo.
+ * cambia el cálculo. `scoring.rank_order` (opcional) sí cambia el orden.
  */
 export function computeStandings(
   pairIds: UUID[],
   matches: Match[],
   pairNameById: Record<string, string>,
-  _scoring?: TournamentScoring,
+  scoring?: TournamentScoring,
 ): StandingRow[] {
   // Reglas únicas Liga16: derivar de partidos con ganador + puntos (no status crudo)
   const stats = pairIds.map((id, i) =>
     computePairStatsLiga16(id, i + 1, pairNameById[id] ?? "", matches),
   );
-  const ranked = computeJerarquiaLiga16(stats);
+  // Orden del torneo (scoring.rank_order); sin él, el estándar de siempre.
+  const order = scoring?.rank_order?.length ? scoring.rank_order : undefined;
+  const ranked = computeJerarquiaLiga16(stats, order, matches);
   return ranked.map((s) => ({
     pairId: s.pairId,
     played: s.PJ,

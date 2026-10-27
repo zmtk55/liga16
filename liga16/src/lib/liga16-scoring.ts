@@ -283,37 +283,103 @@ export function computePairStatsLiga16(
  */
 /** Compara dos estadísticas por el criterio de orden de Liga16 (descendente).
  *  > 0 si `a` va por delante de `b`. */
-function rankCompare(a: Liga16PairStats, b: Liga16PairStats): number {
-  const pts = (a.RENDIMIENTO_PTS ?? 0) - (b.RENDIMIENTO_PTS ?? 0);
-  if (pts !== 0) return pts;
-  const diffA = (a.SETS_FAVOR ?? 0) - (a.SETS_CONTRA ?? 0);
-  const diffB = (b.SETS_FAVOR ?? 0) - (b.SETS_CONTRA ?? 0);
-  if (diffA !== diffB) return diffA - diffB;
-  if (a.PG !== b.PG) return a.PG - b.PG;
-  return a.PJ - b.PJ;
+/** Criterios de orden disponibles. Cada uno es una cifra por pareja, mayor = mejor. */
+export type RankCriterion =
+  | "points_pct"
+  | "sets_diff"
+  | "matches_won"
+  | "sets_won"
+  | "matches_played"
+  | "head_to_head";
+
+/** Orden por defecto: el de la 4ta edición. Un torneo sin configurar usa este. */
+export const DEFAULT_RANK_ORDER: RankCriterion[] = [
+  "points_pct",
+  "sets_diff",
+  "matches_won",
+  "matches_played",
+];
+
+const CRITERION_VALUE: Record<Exclude<RankCriterion, "head_to_head">, (s: Liga16PairStats) => number> = {
+  points_pct: (s) => s.RENDIMIENTO_PTS ?? 0,
+  sets_diff: (s) => (s.SETS_FAVOR ?? 0) - (s.SETS_CONTRA ?? 0),
+  matches_won: (s) => s.PG,
+  sets_won: (s) => s.SETS_FAVOR,
+  matches_played: (s) => s.PJ,
+};
+
+/** Compara dos estadísticas según `order` (descendente).
+ *  > 0 si `a` va por delante de `b`. */
+export function rankCompare(
+  a: Liga16PairStats,
+  b: Liga16PairStats,
+  order: RankCriterion[] = DEFAULT_RANK_ORDER,
+): number {
+  for (const c of order) {
+    if (c === "head_to_head") continue; // depende de partidos: ver partitionByOrder
+    const d = CRITERION_VALUE[c](a) - CRITERION_VALUE[c](b);
+    if (d !== 0) return d;
+  }
+  return 0;
 }
 
-export function computeJerarquiaLiga16(stats: Liga16PairStats[]): Liga16PairStats[] {
+/** Victorias directas de cada pareja del grupo contra las OTRAS del mismo grupo. */
+function headToHeadWins(group: Liga16PairStats[], matches: Match[]): Map<string, number> {
+  const ids = new Set(group.map((g) => g.pairId));
+  const wins = new Map(group.map((g) => [g.pairId, 0]));
+  for (const m of matches) {
+    if (m.status === "cancelled" || m.status === "walkover" || !m.winner) continue;
+    const a = m.side_a.pair_id;
+    const b = m.side_b.pair_id;
+    if (!a || !b || a === b || !ids.has(a) || !ids.has(b)) continue;
+    const w = m.winner === "a" ? a : b;
+    wins.set(w, (wins.get(w) ?? 0) + 1);
+  }
+  return wins;
+}
+
+/**
+ * Divide en grupos empatados, del mejor al peor, aplicando `order`. En
+ * "head_to_head" solo cuentan los partidos ENTRE las parejas empatadas en ese
+ * momento (mini-liga); lo que siga empatado pasa al siguiente criterio.
+ */
+function partitionByOrder(
+  group: Liga16PairStats[],
+  order: RankCriterion[],
+  matches: Match[],
+): Liga16PairStats[][] {
+  if (group.length < 2 || order.length === 0) return [group];
+  const [c, ...rest] = order;
+  const value: (s: Liga16PairStats) => number =
+    c === "head_to_head"
+      ? ((w) => (s) => w.get(s.pairId) ?? 0)(headToHeadWins(group, matches))
+      : CRITERION_VALUE[c];
+  const levels = [...new Set(group.map(value))].sort((x, y) => y - x);
+  return levels.flatMap((v) =>
+    partitionByOrder(group.filter((s) => value(s) === v), rest, matches),
+  );
+}
+
+export function computeJerarquiaLiga16(
+  stats: Liga16PairStats[],
+  order: RankCriterion[] = DEFAULT_RANK_ORDER,
+  matches: Match[] = [],
+): Liga16PairStats[] {
   const withRank = stats.filter((s) => s.RENDIMIENTO_PTS !== null);
   const withoutRank = stats.filter((s) => s.RENDIMIENTO_PTS === null);
 
-  // Ordenar descendente por todos los criterios (puntaje, sets, PG, PJ)
-  withRank.sort((a, b) => rankCompare(b, a));
-
-  // JERARQUIA estilo Excel RANK extendido: 1 + cuántos van estrictamente
-  // por delante según el mismo criterio de desempate.
-  for (const s of withRank) {
-    const higher = withRank.filter((other) => rankCompare(other, s) > 0).length;
-    s.JERARQUIA = 1 + higher;
+  // JERARQUIA estilo Excel RANK (1, 1, 3...): 1 + cuántas van por delante.
+  const buckets = partitionByOrder(withRank, order, matches);
+  const out: Liga16PairStats[] = [];
+  for (const bucket of buckets) {
+    for (const s of bucket) s.JERARQUIA = out.length + 1;
+    out.push(...bucket);
   }
 
   // Los sin partidos: JERARQUIA = 0 (comportamiento Excel con IFERROR)
-  for (const s of withoutRank) {
-    s.JERARQUIA = 0;
-  }
+  for (const s of withoutRank) s.JERARQUIA = 0;
 
-  // Retornar ordenados: primero los con ranking (por JERARQUIA), luego los sin partidos
-  return [...withRank.sort((a, b) => a.JERARQUIA - b.JERARQUIA), ...withoutRank];
+  return [...out, ...withoutRank];
 }
 
 /**

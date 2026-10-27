@@ -1,3 +1,4 @@
+import type { RankCriterion } from "@/lib/liga16-scoring";
 // Liga16 — modelo de dominio (alineado con supabase/schema.sql)
 
 export type UUID = string;
@@ -180,6 +181,8 @@ export interface Pair {
   player2_id: UUID;
   seed: number | null;
   group_name: string | null;
+  /** 'withdrawn' = baja. Cualquier otro valor (o ausente) = sigue en el torneo. */
+  status?: string;
 }
 
 export interface Registration {
@@ -241,6 +244,8 @@ export interface TournamentScoring {
   tie_break_points: number;
   win_by_two_tiebreak?: boolean;
   tie_breaker_rules?: TieBreakerRule[];
+  /** Orden de criterios del ranking (ver liga16-scoring RankCriterion). Ausente = orden estándar. */
+  rank_order?: RankCriterion[];
   ranking_method?: RankingMethod; // 'match_points' (3 pts/win) | 'points_percentage' (Liga16: pts_for/pts_total)
 }
 
@@ -303,6 +308,18 @@ export interface PlayerCard {
 }
 
 // En padel, un "equipo" es una pareja de 2 jugadores que compite en una división.
+/** Una inscripción de la pareja (pairs): un torneo concreto. */
+export interface TeamEntry {
+  pair_id: UUID;
+  tournament_id: UUID;
+  tournament_name: string;
+  scoring: TournamentScoring | null;
+  /** Cupos a semifinales del torneo; null = no definido. */
+  semifinal_slots: number | null;
+  /** La pareja se dio de baja de este torneo (pairs.status = 'withdrawn'). */
+  withdrawn?: boolean;
+}
+
 export interface Team {
   id: UUID;
   slug: string;
@@ -332,6 +349,8 @@ export interface Team {
   sets_for: number;
   sets_against: number;
   titles: number;
+  /** Torneos en los que está inscrita (por nombre de pareja). Vacío/ausente = sin dato. */
+  entries?: TeamEntry[];
   tied?: boolean;            // Indica empate en ranking dentro de división/sex
 }
 

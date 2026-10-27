@@ -13,6 +13,7 @@
 import type { QualificationView, StandingLike } from "@/lib/qualification";
 import { canStillPlay } from "@/lib/qualification-scenarios";
 import type { JevReading, QuestionIntent } from "@/lib/jev-question";
+import { crossAnswer, ownAnswer, type SimContext } from "@/lib/qualification-sim";
 
 interface Args {
   prompt: string;
@@ -23,6 +24,8 @@ interface Args {
   remainingMatches: number;
   /** Lectura semántica de JEV; si falta, se usan las palabras clave. */
   reading?: JevReading | null;
+  /** Torneo, partidos, orden y formato reales para simular el cruce. */
+  sim?: SimContext | null;
 }
 
 /** Sin acentos ni mayúsculas: "Julián" y "julian" son la misma persona. */
@@ -39,7 +42,7 @@ const fmt = (n: number) =>
 const short = (name: string) => name.split("/")[0].trim();
 
 /** Parejas nombradas en la pregunta, en el orden en que aparecen. */
-function teamsMentioned(prompt: string, rows: StandingLike[]): StandingLike[] {
+function teamsMentionedScored(prompt: string, rows: StandingLike[]): Array<{ row: StandingLike; score: number }> {
   const p = norm(prompt);
   const hits: Array<{ row: StandingLike; at: number; score: number }> = [];
 
@@ -66,7 +69,11 @@ function teamsMentioned(prompt: string, rows: StandingLike[]): StandingLike[] {
   }
 
   hits.sort((a, b) => a.at - b.at || b.score - a.score);
-  return hits
+  return hits.map((h) => ({ row: h.row, score: h.score }));
+}
+
+function teamsMentioned(prompt: string, rows: StandingLike[]): StandingLike[] {
+  return teamsMentionedScored(prompt, rows)
     .slice(0, 2)
     .map((h) => h.row);
 }
@@ -79,6 +86,7 @@ export function answerQualification({
   slots,
   remainingMatches,
   reading,
+  sim,
 }: Args): string {
   const p = norm(prompt);
   const myPoints = rows.find((r) => r.pairId === me.pairId)?.points ?? 0;
@@ -144,11 +152,33 @@ export function answerQualification({
     /gan|vence|derrot|pierd|le gana/.test(p) ||
     mentions.length === 2;
 
+  // Con torneo real: TODA conclusión sale de la simulación (orden y formato del
+  // torneo); no se usa el texto de % anterior, que no vale para otros órdenes.
+  if (sim) {
+    // Sin lectura de JEV, solo se aceptan parejas nombradas con una parte completa
+    // de su nombre (apellido o nombre y apellido); una palabra suelta ("julian")
+    // puede ser de varias parejas y no se adivina.
+    const scored = teamsMentionedScored(prompt, rows);
+    const strong = unique(scored.filter((h) => h.score >= 3).map((h) => h.row));
+    const simTeams = jevPair.length === 2 ? jevPair : strong.length === 2 ? strong : null;
+    if (simTeams && asksAboutResult) {
+      return crossAnswer({ sim, winnerId: simTeams[0].pairId, loserId: simTeams[1].pairId, meId: me.pairId });
+    }
+    if (asksAboutResult && scored.length >= 2) {
+      return `No identifiqué con seguridad las dos parejas del cruce${strong.length ? ` (entendí: ${strong.map((r) => r.name).join(" y ")})` : ""}. Dime sus nombres completos, por ejemplo "Fulano / Mengano le gana a Zutano / Perengano".`;
+    }
+    if (/probabilidad|posibilidad|chance|porcentaje/.test(p)) {
+      return `No estimo probabilidades: con el orden del torneo solo puedo mostrarte qué posición te queda según cada resultado.\n\n${ownAnswer({ sim, meId: me.pairId, mode: "both" })}`;
+    }
+    const mode = /pierd|perder|elimin/.test(p) ? "lose" : /gan|paso|clasific|semi|pr[oó]ximo/.test(p) ? "win" : "both";
+    return ownAnswer({ sim, meId: me.pairId, mode });
+  }
+
   if (teams.length === 2 && asksAboutResult) {
     const [winner, loser] = teams;
 
     const first = `Si ${winner.name} le gana a ${loser.name}:`;
-    const second = `Perder no resta: ${short(loser.name)} se queda con su ${fmt(loser.points)}% de rendimiento. ${short(winner.name)} sí suma y sube el suyo, pero cuánto depende de los juegos de ese partido.`;
+    const second = `El rendimiento de ${short(winner.name)} y de ${short(loser.name)} cambia según los juegos de ese partido: ${short(loser.name)} puede subir o bajar su ${fmt(loser.points)}% actual.`;
 
     let mine: string;
     if (q.inCut) {

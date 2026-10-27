@@ -9,8 +9,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { ArrowLeft, ChevronDown, TrendingUp, TrendingDown, Minus, Target, Activity, ExternalLink, CalendarDays, X } from "lucide-react";
 import ScenarioPanel from "@/components/scenarios/qualification-scenarios";
+import { orderText, type SimContext } from "@/lib/qualification-sim";
+import { withoutWithdrawn } from "@/lib/rank-simulator";
+import { isKnockoutRound } from "@/lib/groups";
+import { computePairStatsLiga16, computeJerarquiaLiga16 } from "@/lib/liga16-scoring";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
 import { MatchCard } from "@/components/cards/card-kit";
 import { formatPoints, initials, sexLabel, winRate } from "@/lib/format";
@@ -41,6 +46,7 @@ export default function TeamDetailPage() {
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [rolExpanded, setRolExpanded] = useState(false);
   const [compareName, setCompareName] = useState<string>("");
+  const [tournamentId, setTournamentId] = useState<string>("");
 
   useEffect(() => {
     if (!slug) return;
@@ -379,28 +385,95 @@ export default function TeamDetailPage() {
       {/* ====== ESCENARIOS DE CLASIFICACIÓN (reemplaza Próximos rivales) ====== */}
       {(() => {
         const full = [team, ...allTeams].filter(Boolean) as Team[];
-        const standingsData: StandingLike[] = full.map((t) => ({
-          pairId: t.id ?? t.name,
-          name: t.name,
-          position: t.position || 0,
-          points: t.points || 0,
-          played: t.played || 0,
-          remaining: remainingByPair.get(t.name) ?? 0,
-        }));
-        const meData: MyLine = {
-          pairId: team?.id ?? team?.name ?? "",
-          played: team?.played || 0,
-          setsWon: setStats.sf,
-        };
-        const ctxData: CutContext = { slots: 4, pointsPerWin: 3 };
-        const remainingMatches = remainingByPair.get(team?.name ?? "") ?? 0;
+        const entries = team?.entries ?? [];
+        // Torneo: el de la inscripción de la pareja (Pair.tournament_id). Si hay
+        // más de uno, se elige explícito; nunca se adivina por partidos pendientes.
+        const entry =
+          entries.length === 1
+            ? entries[0]
+            : entries.find((e) => e.tournament_id === tournamentId) ?? null;
+
+        const chooser =
+          entries.length > 1 ? (
+            <section className="mx-auto mb-3 max-w-7xl px-4 md:px-6">
+              <Label className="text-xs text-muted-foreground">Torneo para la clasificación</Label>
+              <Select value={tournamentId} onValueChange={setTournamentId}>
+                <SelectTrigger className="mt-1 h-9 w-72 max-w-full"><SelectValue placeholder="Elige el torneo…" /></SelectTrigger>
+                <SelectContent>
+                  {entries.map((e) => (
+                    <SelectItem key={e.tournament_id} value={e.tournament_id}>{e.tournament_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </section>
+          ) : null;
+
+        if (entries.length > 1 && !entry) return chooser;
+
+        let standingsData: StandingLike[];
+        let meData: MyLine;
+        let remainingMatches: number;
+        let sim: SimContext | null = null;
+
+        if (entry) {
+          // Tabla del torneo: sus partidos, su orden, las parejas inscritas en él.
+          const order = entry.scoring?.rank_order?.length ? entry.scoring.rank_order : undefined;
+          // Solo fase de grupos: la tabla y los cruces pendientes que se simulan son los de grupos.
+          const tMatches = allMatches.filter((m) => m.tournament_id === entry.tournament_id && !isKnockoutRound(m.round));
+          const withdrawn = new Set<string>();
+          const roster = full
+            .map((t) => {
+              const e = (t.entries ?? []).find((x) => x.tournament_id === entry.tournament_id);
+              if (e?.withdrawn) withdrawn.add(e.pair_id);
+              return e ? { id: e.pair_id, name: t.name } : null;
+            })
+            .filter((r): r is { id: string; name: string } => r !== null);
+          const stats = roster.map((r, i) => computePairStatsLiga16(r.id, i + 1, r.name, tMatches));
+          const ranked = computeJerarquiaLiga16(stats, order, tMatches);
+          const pending = new Map<string, number>();
+          for (const m of tMatches) {
+            const key = matchStatusKey(m);
+            if (key !== "scheduled" && key !== "live" && key !== "disputed") continue;
+            for (const n of [m.side_a.pair_name, m.side_b.pair_name]) pending.set(n, (pending.get(n) ?? 0) + 1);
+          }
+          // Las bajas cuentan en las estadísticas (sus resultados se conservan) pero no ocupan cupo.
+          const livePos = withoutWithdrawn(new Map(ranked.map((s) => [s.pairId, s.JERARQUIA])), withdrawn);
+          standingsData = ranked.filter((s) => !withdrawn.has(s.pairId)).map((s) => ({
+            pairId: s.pairId,
+            name: s.pairName,
+            position: livePos.get(s.pairId) ?? 0,
+            points: s.RENDIMIENTO_PTS == null ? 0 : Math.round(s.RENDIMIENTO_PTS * 1000) / 10,
+            played: s.PJ,
+            remaining: pending.get(s.pairName) ?? 0,
+          }));
+          const mine = ranked.find((s) => s.pairId === entry.pair_id);
+          meData = { pairId: entry.pair_id, played: mine?.PJ ?? 0, setsWon: mine?.SETS_FAVOR ?? 0 };
+          remainingMatches = pending.get(team?.name ?? "") ?? 0;
+          sim = { tournamentName: entry.tournament_name, roster, matches: tMatches, order, scoring: entry.scoring ?? undefined, slots: entry.semifinal_slots, withdrawn };
+        } else {
+          standingsData = full.map((t) => ({
+            pairId: t.id ?? t.name,
+            name: t.name,
+            position: t.position || 0,
+            points: t.points || 0,
+            played: t.played || 0,
+            remaining: remainingByPair.get(t.name) ?? 0,
+          }));
+          meData = { pairId: team?.id ?? team?.name ?? "", played: team?.played || 0, setsWon: setStats.sf };
+          remainingMatches = remainingByPair.get(team?.name ?? "") ?? 0;
+        }
+        // Cupos: los del torneo. Sin torneo (modo demo) queda el valor heredado de 4.
+        const ctxData: CutContext = { slots: sim ? (sim.slots ?? standingsData.length) : 4, pointsPerWin: 3 };
         return (
-          <ScenarioPanel
-            standings={standingsData}
-            me={meData}
-            ctx={ctxData}
-            remainingMatches={remainingMatches}
-          />
+          <>
+            {chooser}
+            {entry && (
+              <p className="mx-auto mb-2 max-w-7xl px-4 text-xs text-muted-foreground md:px-6">
+                Clasificación de {entry.tournament_name} · orden: {orderText(sim?.order)}
+              </p>
+            )}
+            <ScenarioPanel standings={standingsData} me={meData} ctx={ctxData} remainingMatches={remainingMatches} sim={sim} />
+          </>
         );
       })()}
 
