@@ -43,6 +43,11 @@ export function determineSetWinner(set: SetScore, config: TournamentScoring): "a
     // 7-5
     if (a === cfg.games_per_set + 1 && b === cfg.games_per_set - 1) return "a";
     if (b === cfg.games_per_set + 1 && a === cfg.games_per_set - 1) return "b";
+    // 7-6: el set se decidió en tie-break y el 7 ya lo ganó, se capturen o no
+    // los puntos del tie-break. Antes caía en null: el partido no cerraba, se
+    // guardaba con winner null y el ranking lo ignoraba en silencio.
+    if (a === cfg.games_per_set + 1 && b === cfg.tie_break_at) return "a";
+    if (b === cfg.games_per_set + 1 && a === cfg.tie_break_at) return "b";
     return null;
   }
 

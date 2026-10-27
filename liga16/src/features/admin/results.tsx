@@ -225,6 +225,11 @@ export default function AdminResults() {
         if (!durSaved) toast.warning("El partido se guardó, pero la duración no: falta aplicar la migración de la base (supabase/match-duration.sql).");
       }
       toast.success("Partido actualizado");
+      // Sin ganador (automático ni manual) el partido queda programado y el
+      // ranking no lo cuenta: mejor decirlo que dejarlo "guardado" en silencio.
+      if (autoWinner == null && manualWinner == null && form.sets.some((st) => (st.a ?? 0) + (st.b ?? 0) > 0)) {
+        toast.warning("El marcador todavía no cierra el partido: sigue programado y no mueve el ranking. Si ya terminó, elige el ganador en Ganador manual.");
+      }
       setEditingId(null);
       load();
     } catch (e) {
