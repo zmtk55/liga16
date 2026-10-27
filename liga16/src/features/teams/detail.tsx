@@ -14,6 +14,7 @@ import { ArrowLeft, ChevronDown, TrendingUp, TrendingDown, Minus, Target, Activi
 import ScenarioPanel from "@/components/scenarios/qualification-scenarios";
 import { orderText, type SimContext } from "@/lib/qualification-sim";
 import { withoutWithdrawn } from "@/lib/rank-simulator";
+import { categoryRoster } from "@/lib/tournament-ranking";
 import { isKnockoutRound } from "@/lib/groups";
 import { computePairStatsLiga16, computeJerarquiaLiga16 } from "@/lib/liga16-scoring";
 import type { StandingLike, MyLine, CutContext } from "@/lib/qualification";
@@ -420,14 +421,8 @@ export default function TeamDetailPage() {
           const order = entry.scoring?.rank_order?.length ? entry.scoring.rank_order : undefined;
           // Solo fase de grupos: la tabla y los cruces pendientes que se simulan son los de grupos.
           const tMatches = allMatches.filter((m) => m.tournament_id === entry.tournament_id && !isKnockoutRound(m.round));
-          const withdrawn = new Set<string>();
-          const roster = full
-            .map((t) => {
-              const e = (t.entries ?? []).find((x) => x.tournament_id === entry.tournament_id);
-              if (e?.withdrawn) withdrawn.add(e.pair_id);
-              return e ? { id: e.pair_id, name: t.name } : null;
-            })
-            .filter((r): r is { id: string; name: string } => r !== null);
+          // Solo las parejas de SU categoría en ese torneo (igual que /ranking).
+          const { roster, withdrawn } = categoryRoster(full, entry.tournament_id, team);
           const stats = roster.map((r, i) => computePairStatsLiga16(r.id, i + 1, r.name, tMatches));
           const ranked = computeJerarquiaLiga16(stats, order, tMatches);
           const pending = new Map<string, number>();
