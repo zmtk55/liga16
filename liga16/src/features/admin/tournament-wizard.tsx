@@ -25,6 +25,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, ChevronDown } from "lucide-react";
+import { RankOrderField } from "./rank-order-field";
+import type { RankCriterion } from "@/lib/liga16-scoring";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -241,6 +243,7 @@ export default function TournamentWizard() {
     tie_break_points: String(DEFAULT_SCORING.tie_break_points),
     win_by_two_tiebreak: String(DEFAULT_SCORING.win_by_two_tiebreak),
     ranking_method: DEFAULT_SCORING.ranking_method ?? "match_points",
+    rank_order: [] as RankCriterion[],
   });
 
   // Paso 3: categorías
@@ -367,6 +370,7 @@ export default function TournamentWizard() {
           tie_break_points: String(t.scoring?.tie_break_points ?? DEFAULT_SCORING.tie_break_points),
           win_by_two_tiebreak: String(t.scoring?.win_by_two_tiebreak ?? DEFAULT_SCORING.win_by_two_tiebreak),
           ranking_method: t.scoring?.ranking_method ?? DEFAULT_SCORING.ranking_method ?? "match_points",
+          rank_order: (t.scoring?.rank_order ?? []) as RankCriterion[],
         }));
         const [cats, saved, directory] = await Promise.all([
           db.getTournamentCategories(t.id), db.getTournamentPairs(t.id), db.listPlayers(),
@@ -494,6 +498,7 @@ export default function TournamentWizard() {
             win_by_two_tiebreak: tournament.win_by_two_tiebreak === "true",
             tie_breaker_rules: DEFAULT_SCORING.tie_breaker_rules,
             ranking_method: tournament.ranking_method || DEFAULT_SCORING.ranking_method,
+            ...(tournament.rank_order.length > 0 ? { rank_order: tournament.rank_order } : {}),
           },
         } as never;
         if (tournamentId || slug) {
@@ -978,9 +983,9 @@ teams.forEach((t) => {
                 <legend className="px-1 text-sm font-semibold">Sistema de puntuación</legend>
                 <p className="text-xs text-muted-foreground">
                   Un <strong>set</strong> se gana al llegar a los juegos indicados; si ambos llegan al
-                  «tie-break a», ese set se decide en un desempate a puntos. Estos cuatro números y las dos
-                  opciones de abajo definen cómo se juega y cómo se ordenan las parejas: si tu reglamento es el
-                  habitual, no toques nada.
+                  «tie-break a», ese set se decide en un desempate a puntos. Los cuatro números de arriba y el
+                  desempate definen el <strong>formato</strong>: cómo se juega y quién gana el partido. El{" "}
+                  <strong>orden del ranking</strong> (abajo) es aparte y decide cómo se ordenan las parejas.
                 </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {[
@@ -1017,10 +1022,12 @@ teams.forEach((t) => {
                     </p>
                   </div>
                 </div>
+                <div className="mt-3">
+                  <RankOrderField value={tournament.rank_order} onChange={(v) => setTournament((t) => ({ ...t, rank_order: v }))} />
+                </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Si no cambias nada, los valores de arriba ya quedan bien puestos: Liga16 4TA/5TA/6TA/SUMA9
-                  ordena por <strong>% Puntos</strong> y usa tie-break a <strong>10 pts</strong> (super TB);
-                  otros torneos ordenan por <strong>Puntos por partido</strong> con TB a 7 pts.
+                  Si no cambias nada, el formato queda con los valores que ves arriba y el ranking usa el orden
+                  estándar de la Liga16.
                 </p>
               </fieldset>
             </div>

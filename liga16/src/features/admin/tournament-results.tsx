@@ -12,7 +12,7 @@ import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { hasMatchActivity } from "@/lib/tournament-flow";
 import { isKnockoutRound, computeStandings, type Group } from "@/lib/groups";
-import { LIGA16_CATEGORIES, getLiga16Category } from "@/lib/liga16-scoring";
+import { getLiga16Category } from "@/lib/liga16-scoring";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -269,13 +269,10 @@ export function GroupStandingsCard({
       ? "PJ partidos jugados · PG ganados · %PG porcentaje de victorias · %PTS puntos ganados sobre el total de puntos jugados · Pos posición"
       : "PJ partidos jugados · Sets ganados-perdidos · %Pts porcentaje de puntos ganados · G/D en Forma = victoria/derrota";
 
-  let jornadaSummary: { JUEGOS_JUGADOS: number; TOTAL_JUEGOS: number; JUEGOS_FALTANTES: number } | null = null;
-  if (isLiga16) {
-    const totalPJ = standings.reduce((sum, s) => sum + s.played, 0);
-    const JUEGOS_JUGADOS = Math.floor(totalPJ / 2);
-    const TOTAL_JUEGOS = LIGA16_CATEGORIES[liga16Cat!].totalMatchesRoundRobin;
-    jornadaSummary = { JUEGOS_JUGADOS, TOTAL_JUEGOS, JUEGOS_FALTANTES: TOTAL_JUEGOS - JUEGOS_JUGADOS };
-  }
+  // Un solo concepto: partidos del grupo jugados / programados. Si faltan por
+  // programar (todos contra todos de las parejas del grupo), se dice aparte.
+  const esperados = (group.pairIds.length * (group.pairIds.length - 1)) / 2;
+  const porProgramar = Math.max(esperados - groupMatches.length, 0);
 
   return (
     <Card>
@@ -286,9 +283,9 @@ export function GroupStandingsCard({
             {liga16Cat && <Badge variant="secondary" className="text-xs">Liga16: {liga16Cat}</Badge>}
             <Badge variant="outline">{played}/{groupMatches.length} jugados</Badge>
           </span>
-          {jornadaSummary && (
+          {porProgramar > 0 && (
             <span className="text-xs text-muted-foreground">
-              Jornada: {jornadaSummary.JUEGOS_JUGADOS}/{jornadaSummary.TOTAL_JUEGOS} · Faltan {jornadaSummary.JUEGOS_FALTANTES}
+              {porProgramar} {porProgramar === 1 ? "partido" : "partidos"} por programar
             </span>
           )}
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setExpanded((e) => !e)}>
@@ -307,11 +304,11 @@ export function GroupStandingsCard({
                 // Columnas Liga16: PJ, PG, %PG, %PTS, JERARQUIA
                 !expanded && (
                   <>
-                    <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
-                    <TableHead className="text-end" title="Partidos ganados">PG</TableHead>
-                    <TableHead className="text-end" title="Porcentaje de partidos ganados">%PG</TableHead>
-                    <TableHead className="text-end" title="Puntos ganados sobre el total de puntos jugados">%PTS</TableHead>
-                    <TableHead className="text-end pe-4" title="Posición en la tabla">Pos</TableHead>
+                    <TableHead className="hidden sm:table-cell text-end" title="Partidos jugados">PJ</TableHead>
+                    <TableHead className="pe-4 text-end sm:pe-2" title="Partidos ganados">PG</TableHead>
+                    <TableHead className="hidden sm:table-cell text-end" title="Porcentaje de partidos ganados">%PG</TableHead>
+                    <TableHead className="hidden sm:table-cell text-end" title="Puntos ganados sobre el total de puntos jugados">%PTS</TableHead>
+                    <TableHead className="hidden sm:table-cell text-end pe-4" title="Posición en la tabla">Pos</TableHead>
                   </>
                 )
               ) : (
@@ -350,22 +347,25 @@ export function GroupStandingsCard({
               return (
                 <TableRow key={row.pairId} className={position === 1 ? "bg-primary/5" : ""}>
                   <TableCell className="ps-4 font-medium">{position}</TableCell>
-                  <TableCell className="font-medium min-w-0 truncate">{nameById[row.pairId] ?? "?"}</TableCell>
+                  <TableCell className="font-medium whitespace-nowrap">
+                    {nameById[row.pairId] ?? "?"}
+                    {pairs.find((p) => p.id === row.pairId)?.status === "withdrawn" && <span className="ml-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">Baja</span>}
+                  </TableCell>
                   {isLiga16 ? (
                     // Vista compacta Liga16
                     !expanded && (
                       <>
-                        <TableCell className="text-end tabular-nums">{row.played}</TableCell>
-                        <TableCell className="text-end tabular-nums text-success">{row.won}</TableCell>
-                        <TableCell className="text-end tabular-nums">
+                        <TableCell className="hidden text-end tabular-nums sm:table-cell">{row.played}</TableCell>
+                        <TableCell className="pe-4 text-end tabular-nums text-success sm:pe-2">{row.won}</TableCell>
+                        <TableCell className="hidden text-end tabular-nums sm:table-cell">
                           {row.played > 0 ? ((row.won / row.played) * 100).toFixed(1) + "%" : "—"}
                         </TableCell>
-                        <TableCell className="text-end tabular-nums">
+                        <TableCell className="hidden text-end tabular-nums sm:table-cell">
                           {row.gamesFor > 0 || row.gamesAgainst > 0
                             ? ((row.gamesFor / (row.gamesFor + row.gamesAgainst)) * 100).toFixed(1) + "%"
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-end pe-4 font-bold tabular-nums">{position}</TableCell>
+                        <TableCell className="hidden text-end pe-4 font-bold tabular-nums sm:table-cell">{position}</TableCell>
                       </>
                     )
                   ) : (
@@ -433,6 +433,9 @@ export function GroupStandingsCard({
             })}
           </TableBody>
         </Table>
+        {isLiga16 && !expanded && (
+          <p className="px-4 pb-2 text-xs text-muted-foreground sm:hidden">En celular: posición, pareja y PG. Pulsa «Ver completa» para PJ, %PG, %PTS y más.</p>
+        )}
         <p className="border-t px-4 py-2 text-xs leading-relaxed text-muted-foreground">
           {leyendaColumnas}
         </p>

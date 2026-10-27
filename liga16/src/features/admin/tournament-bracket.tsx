@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Pair, Match, TournamentCategory } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, Crown, RotateCcw, Trophy } from "lucide-react";
@@ -15,6 +15,7 @@ import { db } from "@/lib/data";
 import { toast } from "sonner";
 import { hasMatchActivity, knockoutDrafts, knockoutLabel, knockoutRoundName, reconcileMatches, resolvedKnockout } from "@/lib/tournament-flow";
 import { matchStatusKey } from "@/lib/match-state";
+import { isWithdrawn, skipWithdrawn, allWithdrawalWalkovers } from "@/lib/withdrawals";
 
 /**
  * Bracket de UNA categoría: siembra por puntos, con el primero plantado arriba.
@@ -43,17 +44,28 @@ function CategoryBracket({
   const [confirmStart, setConfirmStart] = useState(false);
   const [busy, setBusy] = useState(false);
   const locked = matches.some((m) => isKnockoutRound(m.round));
+  // Llave generada no es llave empezada: mientras ningún cruce tenga resultado ni estado
+  // distinto de programado, una baja todavía puede reemplazarse por la siguiente de la tabla.
+  const started = matches.some((m) => isKnockoutRound(m.round) && hasMatchActivity(m));
   const [ordenManual, setOrdenManual] = useState<BracketEntry[] | null>(null);
+  const [bajaId, setBajaId] = useState<string | null>(null);
+  // null = comprobando. false = la función SQL de bajas no está instalada: bajas bloqueadas.
+  const [bajasListas, setBajasListas] = useState<boolean | null>(null);
+  useEffect(() => { let on = true; db.withdrawalInstalled().then((v) => on && setBajasListas(v)).catch(() => on && setBajasListas(false)); return () => { on = false; }; }, []);
 
   const table = useMemo(() => {
     const ids = pairs.map((p) => p.id);
     const names = Object.fromEntries(pairs.map((p) => [p.id, p.name]));
+    const customOrder = !!scoring?.rank_order?.length;
     // computeStandings no numera posiciones: el orden lo hacemos aqui, con los
     // mismos criterios que usa la tabla de posiciones (puntos, sets, juegos).
     return computeStandings(ids, matches.filter((m) => !isKnockoutRound(m.round)), names, scoring ?? undefined)
       .slice()
       .sort(
         (a, b) =>
+          // Con orden propio del torneo (scoring.rank_order) manda la posición
+          // calculada con ese orden; sin él, el desempate de siempre.
+          (customOrder ? (a.jerarquia || 999) - (b.jerarquia || 999) : 0) ||
           b.points - a.points ||
           b.setsFor - a.setsFor ||
           b.gamesFor - a.gamesFor ||
@@ -64,7 +76,7 @@ function CategoryBracket({
   // Clasifican las primeras `slots`; el resto se queda esperando. Si la categoría
   // tiene menos parejas que el cupo, clasifican todas: no hay de dónde elegir.
   const clasificadas: BracketEntry[] = useMemo(() => {
-    const base = table.slice(0, slots).map((row) => {
+    const base = skipWithdrawn(table, pairs).slice(0, slots).map((row) => {
       const pair = pairs.find((p) => p.id === row.pairId);
       return {
         seed: 0,
@@ -106,8 +118,51 @@ function CategoryBracket({
       }
       if (plan.create.length) await db.createMatches(plan.create);
       for (const m of plan.remove) await db.deleteMatchById(m.id);
+      // Una pareja de baja que ya había avanzado (o un cruce nuevo suyo) se resuelve
+      // a favor del rival en cuanto el cruce existe: nunca queda un cruce sin camino.
+      const wd = pairs.filter(isWithdrawn).map((p) => p.id);
+      let porBaja = 0;
+      if (wd.length) {
+        for (let pass = 0; pass < 4; pass++) {
+          const fresh = await db.listMatchesByTournament(tournamentId);
+          const ws = allWithdrawalWalkovers(wd, fresh);
+          if (!ws.length) break;
+          for (const w of ws) await db.updateMatch(w.matchId, { status: w.status, winner: w.winner });
+          porBaja += ws.length;
+        }
+      }
       await onReload();
-      toast.success(plan.create.length ? `${plan.create.length} cruces creados. Captura los resultados para habilitar la siguiente ronda.` : "Eliminatorias al día");
+      toast.success(porBaja > 0
+        ? `Ronda creada. ${porBaja} ${porBaja === 1 ? "cruce se resolvió" : "cruces se resolvieron"} por baja (walkover); el rival avanza.`
+        : plan.create.length ? `${plan.create.length} cruces creados. Captura los resultados para habilitar la siguiente ronda.` : "Eliminatorias al día");
+    } catch (e) { toast.error((e as Error).message); await onReload(); }
+    finally { setBusy(false); }
+  }
+
+  // Baja: la pareja y sus resultados se conservan. Antes de eliminatorias entra la
+  // siguiente de la tabla; con la llave empezada su rival gana por walkover los
+  // cruces pendientes y la llave no se rehace.
+  async function darDeBaja(pairId: string) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      // Una sola llamada con solo el id: la función SQL withdraw_pair lee el estado
+      // actual bajo bloqueo, decide qué hacer y lo aplica TODO en una transacción.
+      // Si falla no cambia nada. No hay camino parcial por REST.
+      const r = await db.withdrawPair(pairId);
+      setOrdenManual(null);
+      await onReload();
+      toast.success(r.mode === "walkover" ? "Baja registrada: su rival avanza por walkover en los cruces pendientes." : r.mode === "rebuild" ? "Baja registrada. La llave sin jugar se deshizo: revisa la siembra y vuelve a crear eliminatorias." : "Baja registrada: entra la siguiente pareja de la tabla.");
+    } catch (e) { toast.error((e as Error).message); await onReload(); }
+    finally { setBusy(false); setBajaId(null); }
+  }
+  async function reincorporar(pairId: string) {
+    if (busy || started) return;
+    setBusy(true);
+    try {
+      await db.updatePair(pairId, { status: "confirmed" });
+      setOrdenManual(null);
+      await onReload();
     } catch (e) { toast.error((e as Error).message); await onReload(); }
     finally { setBusy(false); }
   }
@@ -121,6 +176,10 @@ function CategoryBracket({
       return moveSeed(base, idx + 1, destino + 1);
     });
   }
+
+  const gruposPendientes = bajaId
+    ? matches.filter((m) => !isKnockoutRound(m.round) && !m.winner && m.status !== "cancelled" && (m.side_a.pair_id === bajaId || m.side_b.pair_id === bajaId)).length
+    : 0;
 
   if (pairs.length < 2) return null;
 
@@ -201,9 +260,16 @@ function CategoryBracket({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{p.name}</p>
-                <p className="text-xs tabular-nums text-muted-foreground">{p.points} pts</p>
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  {p.points} pts{isWithdrawn(pairs.find((x) => x.id === p.pairId)) ? " · baja" : ""}
+                </p>
               </div>
               <div className="flex shrink-0 gap-0.5">
+                {!isWithdrawn(pairs.find((x) => x.id === p.pairId)) && !prog?.champion && (
+                  <Button variant="ghost" size="sm" className="h-8 rounded-full px-2 text-xs" disabled={busy || bajasListas !== true} title={bajasListas === false ? "Bajas bloqueadas: falta instalar supabase/pair-withdrawal.sql" : undefined} onClick={() => setBajaId(p.pairId)}>
+                    Baja
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -228,7 +294,38 @@ function CategoryBracket({
             </li>
           ))}
         </ol>
+        {bajasListas === false && (
+          <p className="border-t pt-3 text-xs text-muted-foreground">
+            Las bajas están bloqueadas: falta instalar <code>supabase/pair-withdrawal.sql</code> en la base de datos.
+          </p>
+        )}
+        {pairs.some(isWithdrawn) && (
+          <div className="flex flex-wrap items-center gap-2 border-t pt-3 text-sm text-muted-foreground">
+            <span>De baja (resultados conservados):</span>
+            {pairs.filter(isWithdrawn).map((p) => (
+              <span key={p.id} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-foreground">
+                {p.name}
+                {!started && (
+                  <button type="button" className="font-semibold text-primary disabled:opacity-50" disabled={busy} onClick={() => void reincorporar(p.id)}>
+                    Reincorporar
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
+
+      <ConfirmDialog open={bajaId !== null} onOpenChange={(o) => { if (!o) setBajaId(null); }}
+        title={`¿Dar de baja a ${pairs.find((x) => x.id === bajaId)?.name ?? "la pareja"}?`}
+        description={(started
+          ? "Sus resultados se conservan. Su rival gana por walkover los cruces pendientes y la llave no se rehace. No se puede deshacer desde aquí."
+          : locked
+            ? "Sus resultados se conservan. Como ningún cruce ha empezado, se deshace la llave sin jugar y entra la siguiente de la tabla; tendrás que volver a crear eliminatorias."
+            : "Sus resultados se conservan para las demás parejas. Sale de la clasificación a eliminatorias y entra la siguiente de la tabla.") + (gruposPendientes > 0
+          ? ` Tiene ${gruposPendientes} ${gruposPendientes === 1 ? "partido" : "partidos"} de grupo sin jugar: la baja NO los cancela ni los da por ganados; resuélvelos aparte (walkover o cancelar).`
+          : "")}
+        confirmLabel="Dar de baja" onConfirm={() => { if (bajaId) void darDeBaja(bajaId); }} />
 
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <p className="text-sm text-muted-foreground">{legacy ? "Eliminatorias antiguas sin siembra o identificador de cruce. Revisa estos partidos antes de continuar; no se cambiarán automáticamente." :
