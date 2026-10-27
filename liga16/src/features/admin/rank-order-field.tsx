@@ -28,7 +28,7 @@ export function RankOrderField({ value, onChange }: { value: RankCriterion[]; on
       <Label className="text-xs text-muted-foreground">Orden del ranking</Label>
       {!custom ? (
         <p className="text-xs text-muted-foreground">
-          Estándar: {DEFAULT_RANK_ORDER.map((c) => RANK_LABELS[c]).join(" → ")}.
+          General: {DEFAULT_RANK_ORDER.map((c) => RANK_LABELS[c]).join(" → ")}.
         </p>
       ) : (
         <ol className="grid gap-1" aria-label="Criterios en orden de prioridad">
