@@ -346,7 +346,7 @@ export default function RankingsPage() {
     <div className="animate-fade-in space-y-8">
       <PageHero
         title="Ranking"
-        subtitle="Parejas ordenadas por rendimiento: puntos ganados sobre el total de puntos jugados (%), dentro de su división y género. Criterio de desempate: diferencia de sets → PG → PJ. Es el ranking general del circuito; cada torneo puede usar otro orden en su clasificación."
+        subtitle="Parejas ordenadas dentro de su división y género: primero partidos ganados, luego dominio (el enfrentamiento directo) y luego % de puntos; después diferencia de sets y partidos jugados. Es el ranking general del circuito; cada torneo puede usar otro orden en su clasificación."
         ghost="16"
       />
 
@@ -362,7 +362,7 @@ export default function RankingsPage() {
             setParam("torneo", v);
           }}
           options={torneos.map((t) => ({ key: t.id, label: t.name, count: t.n }))}
-          allLabel="Global (orden estándar)"
+          allLabel="Global (orden general)"
           showCount
         />
         <FilterMenu
@@ -408,7 +408,7 @@ export default function RankingsPage() {
       <p className="-mt-4 text-xs text-muted-foreground">
         {torneoSel
           ? `Clasificación de ${torneoSel.name} · orden: ${orderText(torneoOrder)}. Solo fase de grupos; las bajas no ocupan posición.`
-          : "Ranking global: orden estándar, sin reglas de ningún torneo. Elige un torneo para ver su clasificación con su orden."}
+          : "Ranking global: orden general (partidos ganados, dominio, puntos), sin reglas propias de ningún torneo. Elige un torneo para ver su clasificación con su orden."}
       </p>
       {teams === null || (torneoSel && base === null) ? (
         <Skeleton className="h-96 w-full" />
