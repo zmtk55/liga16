@@ -8,7 +8,7 @@ import { emitMatchUpdated } from '@/lib/refresh';
 import type { DataProvider, RegisterPairInput } from './provider';
 import { buildPlayerRecords } from '@/lib/records';
 import type { TournamentFilters } from '@/types';
-import type { Team, PadelDivision, Sex, Match, Court, Sponsor, Pair, PlayerProfile, PlayerStatus, MyProfileInput, RegistrationStatus, PaymentMethod } from '@/types';
+import type { Team, TeamEntry, PadelDivision, Sex, Match, Court, Sponsor, Pair, PlayerProfile, PlayerStatus, MyProfileInput, RegistrationStatus, PaymentMethod } from '@/types';
 
 function client() {
   if (!supabase) throw new Error('Supabase no está configurado. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
@@ -64,13 +64,14 @@ interface PairRow {
   player2_id: string | null;
   crest_url: string | null;
   created_at: string | null;
+  status?: string | null;
   tournament_categories: {
     id: string;
     name: string;
     sex: string | null;
     category: string | null;
   } | null;
-  tournaments: { id: string; name: string; city: string | null } | null;
+  tournaments: { id: string; name: string; city: string | null; scoring?: unknown; semifinal_slots?: number | null } | null;
 }
 
 /**
@@ -83,11 +84,11 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
   const [pairsRes, matchesRes] = await Promise.all([
     client()
       .from('pairs')
-      .select('id, name, category_id, player1_id, player2_id, crest_url, created_at, tournament_categories(id, name, sex, category), tournaments(id, name, city)')
+      .select('id, name, category_id, status, player1_id, player2_id, crest_url, created_at, tournament_categories(id, name, sex, category), tournaments(id, name, city, scoring, semifinal_slots)')
       .order('created_at', { ascending: false }),
     client()
       .from('matches')
-      .select('id, status, winner, side_a_pair_id, side_b_pair_id, side_a_name, side_b_name, sets'),
+      .select('id, tournament_id, status, winner, side_a_pair_id, side_b_pair_id, side_a_name, side_b_name, sets'),
   ]);
   if (pairsRes.error) throw pairsRes.error;
   if (matchesRes.error) throw matchesRes.error;
@@ -135,7 +136,22 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
   const teams = new Map<string, Team>();
   for (const row of rows) {
     const slug = slugifyName(row.name);
-    if (teams.has(slug)) continue;
+    // Cada inscripción (pairs) se guarda en `entries`, aunque la pareja ya exista.
+    const entry = row.tournaments
+      ? {
+          pair_id: row.id,
+          tournament_id: row.tournaments.id,
+          tournament_name: row.tournaments.name,
+          scoring: (row.tournaments.scoring as TeamEntry['scoring']) ?? null,
+          semifinal_slots: row.tournaments.semifinal_slots ?? null,
+          withdrawn: row.status === 'withdrawn',
+        }
+      : null;
+    const known = teams.get(slug);
+    if (known) {
+      if (entry) known.entries = [...(known.entries ?? []), entry];
+      continue;
+    }
     const catName = row.tournament_categories?.name ?? null;
     const p1 = row.player1_id ? playersById.get(row.player1_id) : undefined;
     const p2 = row.player2_id ? playersById.get(row.player2_id) : undefined;
@@ -177,6 +193,7 @@ async function buildTeamsFromPairs(): Promise<Team[]> {
       sets_for: 0,
       sets_against: 0,
       titles: 0,
+      entries: entry ? [entry] : [],
     });
   }
 
@@ -387,7 +404,23 @@ export const supabaseProvider: DataProvider = {
     return result as never;
   },
 
-  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; group_name?: string | null; tournament_id?: string; crest_url?: string | null; player1_id?: string | null; player2_id?: string | null }) {
+  async withdrawalInstalled() {
+    const { error } = await client().rpc('withdraw_pair_installed');
+    return !error;
+  },
+
+  async withdrawPair(pairId: string) {
+    const { data, error } = await client().rpc('withdraw_pair', { p_pair_id: pairId });
+    if (error) {
+      if (error.code === 'PGRST202' || /could not find the function/i.test(error.message ?? '')) {
+        throw new Error('Las bajas están bloqueadas: falta instalar supabase/pair-withdrawal.sql en la base de datos.');
+      }
+      throw new Error(error.message);
+    }
+    return data as { mode: 'status_only' | 'rebuild' | 'walkover'; deleted: number; seeds_cleared: number; walkovers: number };
+  },
+
+  async updatePair(id: string, data: { name?: string; category_id?: string | null; seed?: number | null; group_name?: string | null; tournament_id?: string; crest_url?: string | null; player1_id?: string | null; player2_id?: string | null; status?: string }) {
     const patch: Record<string, unknown> = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.category_id !== undefined) patch.category_id = data.category_id;
@@ -397,6 +430,7 @@ export const supabaseProvider: DataProvider = {
     if (data.group_name !== undefined) patch.group_name = data.group_name;
     if (data.tournament_id !== undefined) patch.tournament_id = data.tournament_id;
     if (data.crest_url !== undefined) patch.crest_url = data.crest_url;
+    if (data.status !== undefined) patch.status = data.status;
     const { data: result, error } = await client()
       .from('pairs').update(patch).eq('id', id).select().single();
     if (error) throw error;
