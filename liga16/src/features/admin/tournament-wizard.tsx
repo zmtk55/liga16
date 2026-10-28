@@ -44,7 +44,7 @@ import CategoryMatrix, { type CategoryValue } from "@/components/ui/category-mat
 import { DatePicker } from "@/components/ui/date-picker";
 import { categoriasValidas, ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
-import { DEFAULT_SCORING } from "@/lib/scoring";
+import { DEFAULT_SCORING, SUPER_TIEBREAK_POINTS } from "@/lib/scoring";
 import { scheduleRounds, turnsUsed, drawGroupsByCategory, type Group, type DrawablePair } from "@/lib/groups";
 import { sexLabel } from "@/lib/format";
 import { toast } from "sonner";
@@ -242,6 +242,7 @@ export default function TournamentWizard() {
     tie_break_at: String(DEFAULT_SCORING.tie_break_at),
     tie_break_points: String(DEFAULT_SCORING.tie_break_points),
     win_by_two_tiebreak: String(DEFAULT_SCORING.win_by_two_tiebreak),
+    no_tie_break: String(DEFAULT_SCORING.no_tie_break ?? false),
     ranking_method: DEFAULT_SCORING.ranking_method ?? "match_points",
     rank_order: [] as RankCriterion[],
   });
@@ -369,6 +370,7 @@ export default function TournamentWizard() {
           tie_break_at: String(t.scoring?.tie_break_at ?? DEFAULT_SCORING.tie_break_at),
           tie_break_points: String(t.scoring?.tie_break_points ?? DEFAULT_SCORING.tie_break_points),
           win_by_two_tiebreak: String(t.scoring?.win_by_two_tiebreak ?? DEFAULT_SCORING.win_by_two_tiebreak),
+          no_tie_break: String(t.scoring?.no_tie_break ?? false),
           ranking_method: t.scoring?.ranking_method ?? DEFAULT_SCORING.ranking_method ?? "match_points",
           rank_order: (t.scoring?.rank_order ?? []) as RankCriterion[],
         }));
@@ -496,6 +498,7 @@ export default function TournamentWizard() {
             tie_break_at: Number(tournament.tie_break_at) || DEFAULT_SCORING.tie_break_at,
             tie_break_points: Number(tournament.tie_break_points) || DEFAULT_SCORING.tie_break_points,
             win_by_two_tiebreak: tournament.win_by_two_tiebreak === "true",
+            no_tie_break: tournament.no_tie_break === "true",
             tie_breaker_rules: DEFAULT_SCORING.tie_breaker_rules,
             ranking_method: tournament.ranking_method || DEFAULT_SCORING.ranking_method,
             ...(tournament.rank_order.length > 0 ? { rank_order: tournament.rank_order } : {}),
@@ -980,55 +983,199 @@ teams.forEach((t) => {
               </div>
 
               <fieldset className="rounded-lg border p-4">
-                <legend className="px-1 text-sm font-semibold">Sistema de puntuación</legend>
+                <legend className="px-1 text-sm font-semibold">Formato de juego y tabla</legend>
                 <p className="text-xs text-muted-foreground">
-                  Un <strong>set</strong> se gana al llegar a los juegos indicados; si ambos llegan al
-                  «tie-break a», ese set se decide en un desempate a puntos. Los cuatro números de arriba y el
-                  desempate definen el <strong>formato</strong>: cómo se juega y quién gana el partido. El{" "}
-                  <strong>orden del ranking</strong> (abajo) es aparte y decide cómo se ordenan las parejas.
+                  Contesta en palabras sencillas; los números se ajustan solos. Si no cambias nada, queda el
+                  formato de la Liga16: 2 sets de 6 juegos y, si empatan, super tie-break a {SUPER_TIEBREAK_POINTS}.
                 </p>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {[
-                    { k: "sets_to_win", l: "Sets para ganar", h: "Cuántos sets hay que ganar: 2, 3 o 5" },
-                    { k: "games_per_set", l: "Juegos por set", h: "A cuántos juegos se juega un set: 6, 7 u 11" },
-                    { k: "tie_break_at", l: "Tie-break a (juegos)", h: "Al llegar a estos juegos el set se decide en tie-break" },
-                    { k: "tie_break_points", l: "Puntos TB", h: "Cuántos puntos suma quien gana ese desempate" },
-                  ].map((f) => (
-                    <div key={f.k} className="grid gap-1">
-                      <Label htmlFor={`sc-${f.k}`} className="text-xs text-muted-foreground">{f.l}</Label>
-                      <Input
-                        id={`sc-${f.k}`}
-                        type="number"
-                        min={1}
-                        value={tournament[f.k as "sets_to_win"]}
-                        onChange={(e) => setTournament((t) => ({ ...t, [f.k]: e.target.value }))}
-                      />
-                      <p className="text-xs leading-snug text-muted-foreground/80">{f.h}</p>
+                {(() => {
+                  // Las respuestas se leen de los mismos campos de siempre: nada se guarda distinto,
+                  // solo se pregunta más fácil. Valores fuera de catálogo = "personalizado".
+                  const fmt = tournament.sets_to_win;
+                  const juegos = tournament.games_per_set;
+                  const tb = `${tournament.tie_break_points}-${tournament.win_by_two_tiebreak}`;
+                  const limite =
+                    tournament.no_tie_break === "true"
+                      ? "ventaja"
+                      : String(tournament.tie_break_at) === String(tournament.games_per_set)
+                        ? "clasico"
+                        : "";
+                  const EXCEL_ORDER: RankCriterion[] = ["points_pct", "matches_won", "head_to_head", "sets_diff", "matches_played"];
+                  const rankPreset =
+                    tournament.rank_order.length === 0
+                      ? "estandar"
+                      : EXCEL_ORDER.every((c, i) => tournament.rank_order[i] === c) && tournament.rank_order.length === EXCEL_ORDER.length
+                        ? "excel"
+                        : "custom";
+                  const opciones = (
+                    options: { v: string; l: string; d: string }[],
+                    current: string,
+                    pick: (v: string) => void,
+                    labelledby: string,
+                    disabled = false,
+                  ) => (
+                    <div className="flex flex-wrap gap-2" role="group" aria-labelledby={labelledby}>
+                      {options.map((o) => (
+                        <Button
+                          key={o.v}
+                          type="button"
+                          disabled={disabled}
+                          variant={current === o.v ? "default" : "outline"}
+                          size="sm"
+                          className="h-auto w-full flex-col items-start gap-0.5 py-2 text-left whitespace-normal sm:w-auto"
+                          onClick={() => pick(o.v)}
+                        >
+                          <span className="text-sm font-semibold">{o.l}</span>
+                          <span className={`text-xs font-normal ${current === o.v ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{o.d}</span>
+                        </Button>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div className="grid gap-1 sm:col-span-2">
-                    <Label htmlFor="sc-win_by_two" className="text-xs text-muted-foreground">Ganar TB por 2</Label>
-                    <Select value={tournament.win_by_two_tiebreak} onValueChange={(v) => setTournament((t) => ({ ...t, win_by_two_tiebreak: v }))}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">Sí — hay que ganar por 2 puntos</SelectItem>
-                        <SelectItem value="false">No — gana quien llegue primero a la meta</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs leading-snug text-muted-foreground/80">
-                      Si está en «Sí», el tie-break acaba cuando alguien va ganando por 2; si no, sigue hasta el punto exacto.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <RankOrderField value={tournament.rank_order} onChange={(v) => setTournament((t) => ({ ...t, rank_order: v }))} />
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Si no cambias nada, el formato queda con los valores que ves arriba y el ranking usa el orden
-                  estándar de la Liga16.
-                </p>
+                  );
+                  return (
+                    <div className="mt-3 grid gap-4">
+                      <div className="grid gap-1.5">
+                        <Label id="q-formato">1. ¿Cómo se gana un partido?</Label>
+                        {opciones(
+                          [
+                            { v: "2", l: "Al mejor de 3 sets", d: `Si quedan 1-1, super tie-break a ${SUPER_TIEBREAK_POINTS} puntos` },
+                            { v: "1", l: "A un solo set", d: "El partido se define en un set" },
+                            { v: "3", l: "Al mejor de 5 sets", d: `Si quedan 2-2, super tie-break a ${SUPER_TIEBREAK_POINTS} puntos` },
+                          ],
+                          fmt,
+                          (v) => setTournament((t) => ({ ...t, sets_to_win: v })),
+                          "q-formato",
+                        )}
+                        {!["1", "2", "3"].includes(fmt) && (
+                          <p className="text-xs text-warning-strong">Este torneo usa un formato personalizado (ver opciones avanzadas).</p>
+                        )}
+                        <p className="text-xs text-muted-foreground/80">El desempate del partido siempre es super tie-break a {SUPER_TIEBREAK_POINTS} (gana por 2): el modelo de la liga no admite un set completo como decisivo.</p>
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label id="q-juegos">2. ¿A cuántos juegos es cada set?</Label>
+                        {opciones(
+                          [
+                            { v: "6", l: "6 juegos", d: "El clásico (6-4, 7-5, 7-6)" },
+                            { v: "4", l: "4 juegos", d: "Sets cortos" },
+                            { v: "9", l: "9 juegos", d: "Set largo" },
+                          ],
+                          juegos,
+                          (v) => setTournament((t) => ({ ...t, games_per_set: v, tie_break_at: v })),
+                          "q-juegos",
+                        )}
+                        {!["4", "6", "9"].includes(juegos) && (
+                          <p className="text-xs text-warning-strong">Este torneo usa {juegos} juegos por set (personalizado, ver opciones avanzadas).</p>
+                        )}
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label id="q-limite">3. Si un set se empata, ¿hasta dónde puede llegar?</Label>
+                        {opciones(
+                          [
+                            { v: "clasico", l: "Con tie-break para cerrar", d: `Si empatan ${juegos}-${juegos}, tie-break; el set llega máximo a ${Number(juegos) + 1}-${juegos}` },
+                            { v: "ventaja", l: "Sin límite: gana por 2", d: "Sin tie-break de set: se sigue (8-6, 9-7, etc.) hasta que alguien gane por 2 juegos" },
+                          ],
+                          limite,
+                          (v) => setTournament((t) => ({ ...t, no_tie_break: v === "ventaja" ? "true" : "false", tie_break_at: v === "ventaja" ? t.tie_break_at : t.games_per_set })),
+                          "q-limite",
+                        )}
+                        {limite === "" && (
+                          <p className="text-xs text-warning-strong">Este torneo usa un límite personalizado (ver opciones avanzadas).</p>
+                        )}
+                      </div>
+                      <div className={`grid gap-1.5${limite === "ventaja" ? " opacity-60" : ""}`}>
+                        <Label id="q-tb">4. Si un set se empata, ¿cómo se decide?</Label>
+                        {opciones(
+                          [
+                            { v: "7-true", l: "Tie-break a 7, por 2", d: "Hasta que alguien gane por 2 puntos" },
+                            { v: "7-false", l: "Tie-break a 7 exactos", d: "Gana quien llegue primero a 7" },
+                            { v: "10-true", l: "Tie-break a 10, por 2", d: "Más largo, hasta ganar por 2" },
+                          ],
+                          tb,
+                          (v) => {
+                            const [pts, x2] = v.split("-");
+                            setTournament((t) => ({ ...t, tie_break_points: pts, win_by_two_tiebreak: x2 }));
+                          },
+                          "q-tb",
+                          limite === "ventaja",
+                        )}
+                        {!["7-true", "7-false", "10-true"].includes(tb) && (
+                          <p className="text-xs text-warning-strong">Este torneo usa un desempate personalizado (ver opciones avanzadas).</p>
+                        )}
+                        {limite === "ventaja" && (
+                          <p className="text-xs text-muted-foreground/80">No aplica mientras los sets se jueguen sin tie-break.</p>
+                        )}
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label id="q-orden">5. ¿Cómo se ordena la tabla?</Label>
+                        {opciones(
+                          [
+                            { v: "estandar", l: "Partidos ganados primero", d: "Si empatan, manda el resultado entre ellos y luego los puntos" },
+                            { v: "excel", l: "Porcentaje de puntos primero", d: "Como la hoja de Excel de la liga" },
+                          ],
+                          rankPreset === "custom" ? "" : rankPreset,
+                          (v) =>
+                            setTournament((t) => ({
+                              ...t,
+                              rank_order: v === "excel" ? EXCEL_ORDER : [],
+                            })),
+                          "q-orden",
+                        )}
+                        {rankPreset === "custom" && (
+                          <div className="mt-1 rounded-md border p-3">
+                            <RankOrderField value={tournament.rank_order} onChange={(v) => setTournament((t) => ({ ...t, rank_order: v }))} />
+                          </div>
+                        )}
+                        {rankPreset !== "excel" && /ranking por (rendimiento de )?puntos/i.test(tournament.rules_summary ?? "") && (
+                          <p className="text-xs text-warning-strong">
+                            Ojo: el reglamento resumido dice que el ranking es por rendimiento de puntos, pero esta tabla se ordena por partidos ganados. No se cambió nada; si la regla vigente es la de la tabla, conviene corregir el texto del reglamento.
+                          </p>
+                        )}
+                      </div>
+                      <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                        Se guardará: {fmt === "1" ? "a 1 set" : `${fmt} de ${Number(fmt) * 2 - 1} sets`} · {juegos} juegos por set ·{" "}
+                        {limite === "ventaja"
+                          ? "sets sin tie-break: gana por 2 juegos"
+                          : `empate a ${tournament.tie_break_at}-${tournament.tie_break_at} se decide en tie-break a ${tournament.tie_break_points}${tournament.win_by_two_tiebreak === "true" ? " (por 2)" : " exactos"}`}{" "}
+                        ·{" "}
+                        {rankPreset === "estandar" ? "tabla por partidos ganados, dominio y puntos" : rankPreset === "excel" ? "tabla por % de puntos" : "tabla con orden personalizado"}.
+                      </p>
+                      <details className="rounded-md border p-3">
+                        <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Opciones avanzadas (números exactos)</summary>
+                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          {[
+                            { k: "sets_to_win", l: "Sets para ganar", h: "Cuántos sets hay que ganar: 2, 3 o 5" },
+                            { k: "games_per_set", l: "Juegos por set", h: "A cuántos juegos se juega un set: 6, 7 u 11" },
+                            { k: "tie_break_at", l: "Tie-break a (juegos)", h: "Al llegar a estos juegos el set se decide en tie-break" },
+                            { k: "tie_break_points", l: "Puntos TB", h: "Cuántos puntos suma quien gana ese desempate" },
+                          ].map((f) => (
+                            <div key={f.k} className="grid gap-1">
+                              <Label htmlFor={`sc-${f.k}`} className="text-xs text-muted-foreground">{f.l}</Label>
+                              <Input
+                                id={`sc-${f.k}`}
+                                type="number"
+                                min={1}
+                                value={tournament[f.k as "sets_to_win"]}
+                                onChange={(e) => setTournament((t) => ({ ...t, [f.k]: e.target.value }))}
+                              />
+                              <p className="text-xs leading-snug text-muted-foreground/80">{f.h}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          <div className="grid gap-1 sm:col-span-2">
+                            <Label htmlFor="sc-win_by_two" className="text-xs text-muted-foreground">Ganar TB por 2</Label>
+                            <Select value={tournament.win_by_two_tiebreak} onValueChange={(v) => setTournament((t) => ({ ...t, win_by_two_tiebreak: v }))}>
+                              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">Sí — hay que ganar por 2 puntos</SelectItem>
+                                <SelectItem value="false">No — gana quien llegue primero a la meta</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  );
+                })()}
               </fieldset>
             </div>
           )}
@@ -1565,4 +1712,4 @@ function CoverUpload({
       )}
     </div>
   );
-                          }
+                                                                             }
