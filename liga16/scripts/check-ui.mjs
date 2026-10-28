@@ -92,6 +92,12 @@ const nodeBuiltins = new Set(builtinModules);
 // archivo de src" como entrada haría que el código muerto se autojustificara.
 const entryFile = path.join(srcRoot, "main.tsx");
 const entries = fs.existsSync(entryFile) ? [entryFile] : [];
+// Test files in components/ui are also valid entries (they import components directly).
+if (fs.existsSync(uiDir)) {
+  for (const f of fs.readdirSync(uiDir)) {
+    if (/\.test\.(tsx?|jsx?)$/.test(f)) entries.push(path.join(uiDir, f));
+  }
+}
 const reachable = new Set();
 const queue = [...entries];
 while (queue.length) {

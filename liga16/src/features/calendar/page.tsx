@@ -1,3 +1,4 @@
+import { ScrollFade } from "@animate-ui/react/primitives/effects/scroll-fade";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -274,7 +275,7 @@ export default function CalendarPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
+          <ScrollFade orientation="horizontal" size={16} shrink={0} blur={0} className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto">
             {days.map((d) => {
               const count = filtered.filter((m) => localDayKey(m.scheduled_at ?? "") === d).length;
               const active = d === day;
@@ -300,7 +301,7 @@ export default function CalendarPage() {
                 </button>
               );
             })}
-          </div>
+          </ScrollFade>
           <Button
             variant="outline"
             size="icon"

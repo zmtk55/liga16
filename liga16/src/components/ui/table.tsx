@@ -1,10 +1,33 @@
 import * as React from "react"
 
+import { ScrollFade } from "@animate-ui/react/primitives/effects/scroll-fade"
+import { StatHelp } from "@/components/ui/stat-help"
+
 import { cn } from "@/lib/utils"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const [overflows, setOverflows] = React.useState(false)
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const check = () => setOverflows(el.scrollWidth > el.clientWidth + 1)
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
+    check()
+    return () => observer.disconnect()
+  }, [])
   return (
-    <div
+    <ScrollFade
+      ref={scrollRef}
+      orientation="horizontal"
+      size={20}
+      shrink={0}
+      blur={0}
+      role={overflows ? "region" : undefined}
+      aria-label={overflows ? "Tabla: desplaza para ver más columnas" : undefined}
+      tabIndex={overflows ? 0 : undefined}
       data-slot="table-container"
       className="relative w-full overflow-x-auto"
     >
@@ -13,7 +36,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
-    </div>
+    </ScrollFade>
   )
 }
 
@@ -63,7 +86,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({ className, title, children, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
@@ -72,7 +95,9 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
         className
       )}
       {...props}
-    />
+    >
+      {title ? <StatHelp text={title}>{children}</StatHelp> : children}
+    </th>
   )
 }
 

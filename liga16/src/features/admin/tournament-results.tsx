@@ -308,7 +308,7 @@ export function GroupStandingsCard({
                   <TableCell className="ps-4 font-medium">{position}</TableCell>
                   <TableCell className="font-medium whitespace-nowrap">
                     {nameById[row.pairId] ?? "?"}
-                    {pairs.find((p) => p.id === row.pairId)?.status === "withdrawn" && <span className="ml-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">Baja</span>}
+                    {pairs.find((p) => p.id === row.pairId)?.status === "withdrawn" && <span className="ml-1.5 rounded-full border px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">Baja</span>}
                   </TableCell>
                   {isLiga16 ? (
                     // Vista compacta Liga16

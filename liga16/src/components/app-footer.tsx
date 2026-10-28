@@ -17,7 +17,7 @@ const community = [
 export function AppFooter() {
   return (
     <footer className="border-t bg-card">
-      <div className="mx-auto max-w-7xl px-4 pb-6 pt-6 md:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 md:px-6 md:pb-6">
         <div className="grid gap-6 md:grid-cols-[1.2fr_2fr] md:gap-10">
           <div>
             <div className="flex items-center justify-between gap-3">
