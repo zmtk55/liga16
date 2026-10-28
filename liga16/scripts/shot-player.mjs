@@ -1,5 +1,12 @@
 import { chromium } from "playwright";
 
+const EMAIL = process.env.SHOT_EMAIL;
+const PASSWORD = process.env.SHOT_PASSWORD;
+if (!EMAIL || !PASSWORD) {
+  console.error("Define SHOT_EMAIL y SHOT_PASSWORD en tu entorno (nunca en el repo).");
+  process.exit(1);
+}
+
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
 const ID = "ca5cab27-40aa-48f3-acf7-6ebcc42e0354";
 
@@ -9,8 +16,8 @@ async function shoot(tag, width, height) {
   page.on("pageerror", (e) => console.log(tag, "PAGEERROR:", e.message.slice(0, 160)));
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(1500);
-  await page.fill('input[type="email"]', "julian.blackflag@gmail.com");
-  await page.fill('input[type="password"]', "123456");
+  await page.fill('input[type="email"]', EMAIL);
+  await page.fill('input[type="password"]', PASSWORD);
   await page.locator('button[type="submit"]').click();
   await page.waitForTimeout(4000);
 
