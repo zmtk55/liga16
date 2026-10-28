@@ -57,6 +57,12 @@ function whereText(sim: SimContext, positions: number[]): string {
 const footer = (sim: SimContext, n: number) =>
   `Orden de ${sim.tournamentName}: ${orderText(sim.order)}.${n ? ` Muestra limitada: ${n} marcadores válidos revisados, no todos los posibles.` : ""}`;
 
+/** Sets sin tie-break: el simulador no tiene lista acotada de marcadores. */
+const noSim = (sim: SimContext) =>
+  sim.scoring?.no_tie_break
+    ? `No puedo simular escenarios en ${sim.tournamentName}: sus sets se juegan sin tie-break y los marcadores posibles no tienen tope, así que cualquier muestra acotada sería engañosa.`
+    : null;
+
 function run(sim: SimContext, a: string, b: string, winnerSide: "a" | "b", meId: string) {
   const r = simulateResult({
     roster: sim.roster,
@@ -88,6 +94,8 @@ export function crossAnswer(args: { sim: SimContext; winnerId: string; loserId: 
       ? `${wn} y ${ln} ya jugaron en ${sim.tournamentName} (ganó ${winnerName}) y no hay otro partido pendiente entre ellos en la fase de grupos, así que no hay un cruce que simular.`
       : `En ${sim.tournamentName} no hay un partido pendiente entre ${wn} y ${ln} en la fase de grupos, así que no hay un cruce que simular.`;
   }
+  const blocked = noSim(sim);
+  if (blocked) return blocked;
   const winnerSideInMatch = pending.side_a.pair_id === winnerId ? "a" : "b";
   const { mine, n } = run(sim, pending.side_a.pair_id as string, pending.side_b.pair_id as string, winnerSideInMatch, meId);
   if (mine.length === 0) return `Con ese resultado no puedo calcular tu posición todavía: aún no tienes partidos con marcador.`;
@@ -97,6 +105,8 @@ export function crossAnswer(args: { sim: SimContext; winnerId: string; loserId: 
 /** Tus partidos pendientes (ganar/perder) y los de otros que mueven tu lugar. */
 export function ownAnswer(args: { sim: SimContext; meId: string; mode: "win" | "lose" | "both" }): string {
   const { sim, meId, mode } = args;
+  const blocked = noSim(sim);
+  if (blocked) return blocked;
   const pend = sim.matches.filter(isPending);
   const mineP = pend.filter((m) => sidesOf(m).includes(meId));
   const lines: string[] = [];
