@@ -143,6 +143,9 @@ export interface SimulationResult {
   scoresChecked: number;
   /** Siempre false: el super tie-break no tiene tope real. */
   exhaustive: false;
+  /** true = no se simuló: sets sin tie-break (no_tie_break), los marcadores
+   * posibles no tienen tope y una muestra acotada sería engañosa. */
+  unavailable?: boolean;
 }
 
 /** `winnerSide` = lado que gana el partido hipotético entre `a` y `b`. */
@@ -159,6 +162,12 @@ export function simulateResult(args: {
   withdrawn?: ReadonlySet<string>;
 }): SimulationResult {
   const { roster, matches, a, b, winnerSide, order, scoring, withdrawn } = args;
+  if (scoring && normalizeScoring(scoring).no_tie_break) {
+    // Sets sin tie-break: no hay tope de juegos, así que no existe una lista
+    // acotada de marcadores que revisar. Mejor declararlo que presentar una
+    // muestra cortada como si fueran los escenarios.
+    return { positions: new Map(), scoresChecked: 0, exhaustive: false, unavailable: true };
+  }
   const plays = cachedPlays(winnerSide, scoring);
   const positions = new Map<string, Set<number>>(roster.map((r) => [r.id, new Set<number>()]));
   for (const play of plays) {
