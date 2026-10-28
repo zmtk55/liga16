@@ -34,6 +34,20 @@ describe("crossAnswer", () => {
   });
 });
 
+describe("sets sin tie-break: la simulación se declara no disponible", () => {
+  const ctxNTB = (matches: Match[]): SimContext => ({ tournamentName: "T", roster: R, matches, scoring: { ...fmt, no_tie_break: true }, slots: 2 });
+  it("crossAnswer no presenta una muestra acotada como escenarios", () => {
+    const s = crossAnswer({ sim: ctxNTB([done("B", "C", "a"), todo("A", "B")]), winnerId: "A", loserId: "B", meId: "A" });
+    expect(s).toContain("No puedo simular escenarios");
+    expect(s).not.toContain("Muestra limitada");
+  });
+  it("ownAnswer igual", () => {
+    const s = ownAnswer({ sim: ctxNTB([done("B", "C", "a"), todo("A", "B")]), meId: "A", mode: "both" });
+    expect(s).toContain("No puedo simular escenarios");
+    expect(s).not.toContain("si ganas");
+  });
+});
+
 describe("ownAnswer", () => {
   it("lista tus pendientes ganando y perdiendo", () => {
     const s = ownAnswer({ sim: ctx([done("B", "C", "a"), todo("A", "B")]), meId: "A", mode: "both" });
