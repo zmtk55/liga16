@@ -89,7 +89,7 @@ export default function TournamentsPage() {
       </div>
 
       {tournaments === null ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="aspect-square w-full" />
           ))}
@@ -103,9 +103,9 @@ export default function TournamentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((t) => (
-            <Link key={t.id} to={`/torneos/${t.slug}`} className="group">
+            <Link key={t.id} to={`/torneos/${t.slug}`} className="group min-w-0">
               <CardShell
                 banner={t.cover_url}
                 bannerAlt={`Portada del torneo ${t.name}`}

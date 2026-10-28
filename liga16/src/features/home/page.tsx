@@ -301,9 +301,9 @@ setStats({ tournaments, teams, matches, news, sponsors });
 
 
       {/* MARKETING — 1, 2 y 10 */}
-      <section aria-label="Estado del circuito" className="grid gap-6 md:grid-cols-3">
+      <section aria-label="Estado del circuito" className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {/* 1. Cuenta regresiva + inscripción */}
-        <div className="rounded-2xl bg-surface-inverse p-6 text-white md:p-8">
+        <div className="min-w-0 rounded-2xl bg-surface-inverse p-6 text-white md:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">Inscripción</p>
           <h3 className="mt-3 font-headline text-2xl uppercase leading-none tracking-tight">
             {featured ? "Próximo torneo" : "Agenda"}
@@ -328,7 +328,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
         </div>
 
         {/* 2. Top 3 parejas */}
-        <div className="rounded-2xl border bg-card p-6 md:p-8">
+        <div className="min-w-0 rounded-2xl border bg-card p-6 md:p-8">
           <div className="flex items-center justify-between">
             <h3 className="font-headline text-xl uppercase tracking-tight">Top parejas</h3>
             <Link to="/ranking" className="text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground">Ver todas →</Link>
@@ -353,11 +353,11 @@ setStats({ tournaments, teams, matches, news, sponsors });
         </div>
 
         {/* 10. Alarma / newsletter */}
-        <div className="rounded-2xl bg-primary/5 p-6 md:p-8 border border-primary/10">
+        <div className="min-w-0 rounded-2xl bg-primary/5 p-6 md:p-8 border border-primary/10">
           <h3 className="font-headline text-xl uppercase tracking-tight">Suscribirse para regalos y noticias</h3>
           <p className="mt-2 text-sm text-muted-foreground">Recibí regalos exclusivos y novedades del circuito.</p>
           <form onSubmit={(e) => { e.preventDefault(); setSubscribed(true); }} className="mt-5 flex gap-2">
-            <input type="email" required placeholder="tu@email.com" className="flex-1 rounded-none border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
+            <input type="email" required placeholder="tu@email.com" className="min-w-0 flex-1 rounded-none border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
             <Button type="submit" size="sm" className="h-11 rounded-none px-4 font-bold uppercase tracking-wide">Enviar</Button>
           </form>
           {subscribed && <p className="mt-3 text-xs font-bold text-primary">✓ ¡Listo! Te avisamos de los próximos regalos.</p>}
