@@ -47,6 +47,12 @@ describe("formato configurado", () => {
     const r = simulateResult({ roster: R, matches: [], a: R[0], b: R[1], winnerSide: "a", scoring: base });
     expect(r.positions.get("A")).toEqual([1]);
   });
+  it("no_tie_break: no simula y lo declara no disponible", () => {
+    const r = simulateResult({ roster: R, matches: [], a: R[0], b: R[1], winnerSide: "a", scoring: { ...base, no_tie_break: true } });
+    expect(r.unavailable).toBe(true);
+    expect(r.scoresChecked).toBe(0);
+    expect(r.positions.size).toBe(0);
+  });
 });
 
 describe("bajas: no ocupan cupo pero sus resultados cuentan", () => {
