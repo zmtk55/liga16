@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { hasMatchActivity } from "@/lib/tournament-flow";
 import { isKnockoutRound, computeStandings, type Group } from "@/lib/groups";
@@ -20,7 +20,7 @@ import type { Court } from "@/types";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { matchStatusKey } from "@/lib/match-state";
 import { isoToLocalInput, localInputToIso } from "@/lib/datetime";
-import { checkFinishedMatch, isPlayedSet } from "@/lib/match-result";
+import { checkFinishedMatch, isPlayedSet, maxSetsForMatch, isMatchDecided } from "@/lib/match-result";
 import type { SetScore } from "@/types";
 
 /** Captura y edición de marcador, cancha, fecha y hora desde el calendario del torneo. */
@@ -71,6 +71,10 @@ export function MatchResultDialog({
     }));
   const check = checkFinishedMatch(typedSets, scoring);
   const winner = check.ok ? check.winner : null;
+  // Más allá de `maxSets` (3 en un 2 de 3) o con el partido ya definido,
+  // "Añadir set" solo lleva al error "Hay sets de más…" al guardar: se apaga.
+  const maxSets = maxSetsForMatch(scoring);
+  const decided = isMatchDecided(typedSets, scoring);
 
   async function save(status: Match["status"]) {
     if (status === "finished" && !check.ok) {
@@ -119,9 +123,28 @@ export function MatchResultDialog({
         </DialogHeader>
         <div className="grid gap-3 py-2">
           {sets.map((s, i) => (
-            <div key={i} className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+            <div key={i} className="grid gap-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Set {i + 1}</span>
+                {/* La fila sobrante se quita a mano: con el partido ya definido
+                    "Añadir set" se apaga, y sin este botón una fila extra dejaba
+                    al usuario atrapado con el error "Hay sets de más…" al guardar. */}
+                {sets.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setSets((arr) => arr.filter((_, j) => j !== i))}
+                    aria-label={`Quitar set ${i + 1}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
               <div className="grid gap-1">
-                <Label className="text-xs">Set {i + 1} — {match.side_a.pair_name}</Label>
+                <Label className="text-xs">{match.side_a.pair_name}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -161,23 +184,28 @@ export function MatchResultDialog({
                 aria-label={`Tie-break de ${match.side_b.pair_name} en el set ${i + 1}`}
               />
             </div>
+            </div>
           ))}
           <div className="flex items-center justify-between">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setSets((arr) => [...arr, { a: "", b: "", tba: "", tbb: "" }])}
-              disabled={sets.length >= 5}
+              disabled={sets.length >= maxSets || decided}
+              title={decided ? "El partido ya quedó definido: no hacen falta más sets" : undefined}
             >
               <Plus className="h-4 w-4 ms-1" /> Añadir set
             </Button>
-{winner && (
+{winner ? (
                 <Badge variant="default">
                   Gana: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
                 </Badge>
-              )}
+              ) : null}
           </div>
-          <div className="grid grid-cols-2 gap-3 border-t pt-3">
+          {decided && (
+            <p className="text-xs text-muted-foreground">El partido ya quedó definido con estos sets: no hace falta capturar más.</p>
+          )}
+          <div className="grid grid-cols-1 gap-3 border-t pt-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label className="text-xs">Cancha</Label>
               <Select value={courtName} onValueChange={setCourtName}>
