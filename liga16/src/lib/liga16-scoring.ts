@@ -135,13 +135,30 @@ export function determineMatchWinnerLiga16(sets: Liga16MatchSets): "a" | "b" | n
 }
 
 /**
+ * Un set empatado decidido en tie-break se lee como 7-6 para el ganador del
+ * TB: la captura "6-6 + puntos TB" y la "7-6 directo" son el mismo resultado
+ * y deben valer IGUAL en sets ganados y en puntos (antes el 6-6+TB contaba
+ * el set para nadie y sumaba 6-6 en vez de 7-6). Es solo cómo se lee: los
+ * marcadores guardados no se tocan. Sin puntos TB (o empatados) no cambia.
+ */
+function resolveTieBreakSet(s: { a?: number | null; b?: number | null; tiebreak_a?: number | null; tiebreak_b?: number | null }): { a: number; b: number } {
+  const a = s.a ?? 0;
+  const b = s.b ?? 0;
+  if (a !== b) return { a, b };
+  const ta = s.tiebreak_a ?? 0;
+  const tb = s.tiebreak_b ?? 0;
+  if (ta === tb) return { a, b };
+  return ta > tb ? { a: a + 1, b } : { a, b: b + 1 };
+}
+
+/**
  * Convierte Match del sistema actual a Liga16MatchSets
  * El sistema actual usa SetScore[] con tiebreak_a/tiebreak_b opcionales
  */
 export function matchToLiga16Sets(match: Match): Liga16MatchSets {
   const sets = match.sets ?? [];
-  const set1 = sets[0] ?? { a: 0, b: 0 };
-  const set2 = sets[1] ?? { a: 0, b: 0 };
+  const set1 = resolveTieBreakSet(sets[0] ?? { a: 0, b: 0 });
+  const set2 = resolveTieBreakSet(sets[1] ?? { a: 0, b: 0 });
   const set3 = sets[2]; // super tie-break si existe
 
   let tiebreak: { a: number; b: number } | null = null;
@@ -161,8 +178,8 @@ export function matchToLiga16Sets(match: Match): Liga16MatchSets {
   }
 
   return {
-    set1: { a: set1.a ?? 0, b: set1.b ?? 0 },
-    set2: { a: set2.a ?? 0, b: set2.b ?? 0 },
+    set1,
+    set2,
     tiebreak,
   };
 }

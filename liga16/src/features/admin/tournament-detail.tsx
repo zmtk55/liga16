@@ -823,7 +823,11 @@ return (
                             <span className="text-xs tabular-nums text-muted-foreground">{timeDisplay}</span>
                             <Badge variant="secondary" className="text-xs font-normal">{courtDisplay}</Badge>
                           </span>
-                          <span className={`min-w-0 flex-1 truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
+                          {/* En móvil los nombres van en su propia línea (basis-full) y
+                              hasta dos renglones: con las columnas de badges + marcador
+                              en la misma línea, truncate los dejaba en "A..." y el
+                              partido no se podía identificar. En sm+ vuelve a una línea. */}
+                          <span className={`min-w-0 flex-1 basis-full whitespace-normal line-clamp-2 sm:basis-auto sm:whitespace-nowrap sm:truncate ${done ? "line-through decoration-border" : "font-medium"}`}>
                             {m.side_a.pair_name} <span className="text-muted-foreground"> vs </span> {m.side_b.pair_name}
                           </span>
                           {done ? (

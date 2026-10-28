@@ -27,3 +27,19 @@ export function checkFinishedMatch(sets: SetScore[], scoring?: TournamentScoring
   }
   return { ok: true, winner, sets: played };
 }
+
+/** Máximo de sets que tiene sentido capturar: 3 en un "2 de 3", 5 en un "3 de 5". */
+export function maxSetsForMatch(scoring?: TournamentScoring | null): number {
+  return normalizeScoring(scoring).sets_to_win * 2 - 1;
+}
+
+/**
+ * El marcador capturado ya define al ganador. Cuando es true, el formulario
+ * no debe ofrecer "Añadir set": cualquier set extra solo provoca el error
+ * "Hay sets de más después de que el partido ya terminó" al guardar.
+ */
+export function isMatchDecided(sets: SetScore[], scoring?: TournamentScoring | null): boolean {
+  const cfg = normalizeScoring(scoring);
+  const played = sets.filter(isPlayedSet);
+  return determineMatchWinner(played, cfg) != null;
+}

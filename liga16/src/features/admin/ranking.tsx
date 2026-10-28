@@ -15,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { PairAvatars } from "@/components/cards/card-kit";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AdminViewToggle, useAdminView } from "@/components/admin/view-toggle";
 import { sexLabel, winRate } from "@/lib/format";
 import {
   categoryFacet,
@@ -44,6 +46,8 @@ export default function AdminRanking() {
   };
   const [categoria, setCategoria] = useState("all");
   const [sex, setSex] = useState("all");
+  // Vista del ranking: cards o tabla. La elección se recuerda por sección.
+  const [view, setView] = useAdminView("ranking", ["cards", "tabla"]);
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const loadTeams = () => {
@@ -183,6 +187,9 @@ export default function AdminRanking() {
               />
             </AdminFacets>
           </FilterBar>
+          <div className="flex justify-end">
+            <AdminViewToggle value={view} onChange={setView} views={["cards", "tabla"]} />
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {teams === null && (
@@ -201,7 +208,47 @@ export default function AdminRanking() {
             />
           )}
 
-          {filtered.length > 0 && (
+          {filtered.length > 0 && view === "tabla" && (
+            <div className="space-y-8">
+              {groups.map(g => <section key={g.label} className="space-y-3">
+                <h2 className="flex items-center gap-2 text-sm font-semibold"><span className="h-2 w-2 rounded-full bg-primary" />{g.label}</h2>
+                <div className="overflow-x-auto rounded-3xl border bg-card">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12 ps-4">Pos</TableHead>
+                        <TableHead>Pareja</TableHead>
+                        <TableHead className="text-end" title="Partidos jugados">PJ</TableHead>
+                        <TableHead className="text-end" title="Partidos ganados">PG</TableHead>
+                        <TableHead className="text-end" title="Partidos perdidos">PP</TableHead>
+                        <TableHead className="text-end" title="Sets ganados / perdidos">Sets G/P</TableHead>
+                        <TableHead className="text-end">Efectividad</TableHead>
+                        <TableHead className="pe-4 text-end" title="Puntos ganados sobre el total de puntos jugados">%Pts</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {g.teams.map(t => (
+                        <TableRow key={t.id}>
+                          <TableCell className="ps-4 font-medium">{t.position > 0 ? `#${t.position}` : "–"}</TableCell>
+                          <TableCell>
+                            <span className="font-medium">{t.name}</span>
+                            <span className="block text-xs text-muted-foreground">{[t.player1?.name, t.player2?.name].filter(Boolean).join(" · ")}</span>
+                          </TableCell>
+                          <TableCell className="text-end tabular-nums">{t.played}</TableCell>
+                          <TableCell className="text-end tabular-nums">{t.won}</TableCell>
+                          <TableCell className="text-end tabular-nums">{t.lost}</TableCell>
+                          <TableCell className="text-end tabular-nums">{t.played > 0 ? `${t.sets_for} / ${t.sets_against}` : "–"}</TableCell>
+                          <TableCell className="text-end tabular-nums">{t.played > 0 ? `${winRate(t.played, t.won)}%` : "–"}</TableCell>
+                          <TableCell className="pe-4 text-end font-medium tabular-nums">{t.rendimiento_pct != null ? `${t.rendimiento_pct}%` : "–"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </section>)}
+            </div>
+          )}
+          {filtered.length > 0 && view === "cards" && (
             <div className="space-y-8">
               {groups.map(g => <section key={g.label} className="space-y-3">
                 <h2 className="flex items-center gap-2 text-sm font-semibold"><span className="h-2 w-2 rounded-full bg-primary" />{g.label}</h2>

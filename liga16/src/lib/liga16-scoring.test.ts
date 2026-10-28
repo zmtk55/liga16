@@ -297,3 +297,60 @@ describe("Liga16 Scoring Algorithm", () => {
     });
   });
 });
+describe("Set empatado decidido en tie-break (6-6 + TB)", () => {
+  const tbMatch = (sets: Array<{ a: number; b: number; tiebreak_a?: number | null; tiebreak_b?: number | null }>, winner: "a" | "b"): Match => ({
+    id: "tb1",
+    tournament_id: "test",
+    tournament_name: "Test",
+    category_name: "4TA",
+    round: "Grupo A · J1",
+    court_name: "Cancha 1",
+    scheduled_at: new Date().toISOString(),
+    status: "finished" as const,
+    side_a: { pair_id: "eqA", pair_name: "Equipo A" },
+    side_b: { pair_id: "eqB", pair_name: "Equipo B" },
+    sets: sets.map((s) => ({ a: s.a, b: s.b, tiebreak_a: s.tiebreak_a ?? null, tiebreak_b: s.tiebreak_b ?? null })),
+    winner,
+  });
+
+  it("6-6 con TB 7-5 cuenta el set para el ganador del TB", () => {
+    const m = tbMatch([{ a: 6, b: 6, tiebreak_a: 7, tiebreak_b: 5 }, { a: 6, b: 4 }], "a");
+    const sets = matchToLiga16Sets(m);
+    expect(sets.set1).toEqual({ a: 7, b: 6 });
+    expect(countSetsWonLiga16(sets)).toEqual({ a: 2, b: 0 });
+    expect(determineMatchWinnerLiga16(sets)).toBe("a");
+  });
+
+  it("6-6 + TB y 7-6 directo valen EXACTAMENTE lo mismo en sets y puntos", () => {
+    const conTb = tbMatch([{ a: 6, b: 6, tiebreak_a: 7, tiebreak_b: 5 }, { a: 6, b: 4 }], "a");
+    const directo = tbMatch([{ a: 7, b: 6 }, { a: 6, b: 4 }], "a");
+    const statsTb = computePairStatsLiga16("eqA", 1, "Equipo A", [conTb]);
+    const statsDirecto = computePairStatsLiga16("eqA", 1, "Equipo A", [directo]);
+    expect(statsTb.SETS_FAVOR).toBe(statsDirecto.SETS_FAVOR);
+    expect(statsTb.PUNTOS_A_FAVOR).toBe(statsDirecto.PUNTOS_A_FAVOR);
+    expect(statsTb.PUNTOS_TOTALES).toBe(statsDirecto.PUNTOS_TOTALES);
+    expect(statsTb.PG).toBe(statsDirecto.PG);
+  });
+
+  it("6-6 con TB 5-7 lo gana el lado B", () => {
+    const m = tbMatch([{ a: 6, b: 6, tiebreak_a: 5, tiebreak_b: 7 }, { a: 6, b: 4 }], "b");
+    const sets = matchToLiga16Sets(m);
+    expect(sets.set1).toEqual({ a: 6, b: 7 });
+    expect(countSetsWonLiga16(sets)).toEqual({ a: 1, b: 1 });
+  });
+
+  it("6-6 SIN puntos TB se queda como está (nadie se lleva el set)", () => {
+    const m = tbMatch([{ a: 6, b: 6 }, { a: 6, b: 4 }], "a");
+    const sets = matchToLiga16Sets(m);
+    expect(sets.set1).toEqual({ a: 6, b: 6 });
+    expect(countSetsWonLiga16(sets)).toEqual({ a: 1, b: 0 });
+  });
+
+  it("el desempate (3er set) no lo toca la normalización de sets 1-2", () => {
+    const m = tbMatch([{ a: 6, b: 6, tiebreak_a: 7, tiebreak_b: 5 }, { a: 4, b: 6 }, { a: 10, b: 8 }], "a");
+    const sets = matchToLiga16Sets(m);
+    expect(sets.tiebreak).toEqual({ a: 10, b: 8 });
+    expect(countSetsWonLiga16(sets)).toEqual({ a: 2, b: 1 });
+    expect(determineMatchWinnerLiga16(sets)).toBe("a");
+  });
+});
