@@ -13,14 +13,14 @@ import { toast } from "sonner";
 import { hasMatchActivity } from "@/lib/tournament-flow";
 import { isKnockoutRound, computeStandings, type Group } from "@/lib/groups";
 import { getLiga16Category } from "@/lib/liga16-scoring";
-import { DEFAULT_SCORING } from "@/lib/scoring";
+import { DEFAULT_SCORING, SUPER_TIEBREAK_POINTS } from "@/lib/scoring";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Court } from "@/types";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { matchStatusKey } from "@/lib/match-state";
 import { isoToLocalInput, localInputToIso } from "@/lib/datetime";
-import { checkFinishedMatch, isPlayedSet, maxSetsForMatch, isMatchDecided } from "@/lib/match-result";
+import { captureRowToSet, checkFinishedMatch, isPlayedSet, isSuperTieBreakRow, maxSetsForMatch, isMatchDecided, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
 import type { SetScore } from "@/types";
 
 /** Captura y edición de marcador, cancha, fecha y hora desde el calendario del torneo. */
@@ -46,15 +46,12 @@ export function MatchResultDialog({
   // cambia el partido: el diálogo se encadena al siguiente con `onAdvance` sin
   // cerrarse. Sin la `key` que se le pone arriba, los sets del partido anterior
   // se guardaban encima del nuevo.
-  const [sets, setSets] = useState<Array<{ a: string; b: string; tba: string; tbb: string }>>(() =>
+  // Filas estilo Excel: solo dos números por fila — juegos en los sets,
+  // puntos en el super tie-break. Un 6-6 + TB guardado se muestra como 7-6.
+  const [sets, setSets] = useState<Array<{ a: string; b: string }>>(() =>
     match.sets.length > 0
-      ? match.sets.map((s) => ({
-          a: String(s.a),
-          b: String(s.b),
-          tba: s.tiebreak_a != null ? String(s.tiebreak_a) : "",
-          tbb: s.tiebreak_b != null ? String(s.tiebreak_b) : "",
-        }))
-      : [{ a: "", b: "", tba: "", tbb: "" }],
+      ? match.sets.map((s, i) => setToCaptureRow(s, isSuperTieBreakRow(i, scoring)))
+      : [{ a: "", b: "" }],
   );
   const [courtName, setCourtName] = useState(match.court_name ?? "");
   // La BD guarda ISO en UTC; el campo trabaja en hora local.
@@ -62,19 +59,16 @@ export function MatchResultDialog({
   const [saving, setSaving] = useState(false);
 
   const typedSets: SetScore[] = sets
-    .filter((s) => s.a !== "" && s.b !== "")
-    .map((s) => ({
-      a: Number(s.a),
-      b: Number(s.b),
-      tiebreak_a: s.tba.trim() ? Number(s.tba) : null,
-      tiebreak_b: s.tbb.trim() ? Number(s.tbb) : null,
-    }));
+    .map((s, i) => ({ input: s, original: match.sets[i] }))
+    .filter((x) => x.input.a !== "" && x.input.b !== "")
+    .map((x) => captureRowToSet(x.input, x.original));
   const check = checkFinishedMatch(typedSets, scoring);
   const winner = check.ok ? check.winner : null;
   // Más allá de `maxSets` (3 en un 2 de 3) o con el partido ya definido,
   // "Añadir set" solo lleva al error "Hay sets de más…" al guardar: se apaga.
   const maxSets = maxSetsForMatch(scoring);
   const decided = isMatchDecided(typedSets, scoring);
+  const tbDirect = tieBreakDirectNotation(scoring);
 
   async function save(status: Match["status"]) {
     if (status === "finished" && !check.ok) {
@@ -122,10 +116,12 @@ export function MatchResultDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 py-2">
-          {sets.map((s, i) => (
+          {sets.map((s, i) => {
+            const esSuperTB = isSuperTieBreakRow(i, scoring);
+            return (
             <div key={i} className="grid gap-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Set {i + 1}</span>
+                <span className="text-xs font-medium text-muted-foreground">{esSuperTB ? `Super tie-break · puntos (a ${SUPER_TIEBREAK_POINTS}, gana por 2)` : `Set ${i + 1}`}</span>
                 {/* La fila sobrante se quita a mano: con el partido ya definido
                     "Añadir set" se apaga, y sin este botón una fila extra dejaba
                     al usuario atrapado con el error "Hay sets de más…" al guardar. */}
@@ -136,7 +132,7 @@ export function MatchResultDialog({
                     size="icon"
                     className="h-7 w-7"
                     onClick={() => setSets((arr) => arr.filter((_, j) => j !== i))}
-                    aria-label={`Quitar set ${i + 1}`}
+                    aria-label={esSuperTB ? "Quitar super tie-break" : `Quitar set ${i + 1}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -150,7 +146,7 @@ export function MatchResultDialog({
                   min={0}
                   value={s.a}
                   onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)))}
-                  aria-label={`Juegos de ${match.side_a.pair_name} en el set ${i + 1}`}
+                  aria-label={esSuperTB ? `Puntos de ${match.side_a.pair_name} en el super tie-break` : `Juegos de ${match.side_a.pair_name} en el set ${i + 1}`}
                 />
               </div>
               <span className="pb-2 text-muted-foreground">–</span>
@@ -161,40 +157,27 @@ export function MatchResultDialog({
                   min={0}
                   value={s.b}
                   onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, b: e.target.value } : x)))}
-                  aria-label={`Juegos de ${match.side_b.pair_name} en el set ${i + 1}`}
+                  aria-label={esSuperTB ? `Puntos de ${match.side_b.pair_name} en el super tie-break` : `Juegos de ${match.side_b.pair_name} en el set ${i + 1}`}
                 />
               </div>
-              <Input
-                type="number"
-                min={0}
-                placeholder="TB"
-                className="h-8 text-xs"
-                value={s.tba}
-                onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, tba: e.target.value } : x)))}
-                aria-label={`Tie-break de ${match.side_a.pair_name} en el set ${i + 1}`}
-              />
-              <span />
-              <Input
-                type="number"
-                min={0}
-                placeholder="TB"
-                className="h-8 text-xs"
-                value={s.tbb}
-                onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, tbb: e.target.value } : x)))}
-                aria-label={`Tie-break de ${match.side_b.pair_name} en el set ${i + 1}`}
-              />
             </div>
+            {esSuperTB ? (
+              <p className="text-xs text-muted-foreground">{`Solo si quedaron empatados en sets: anota los puntos del desempate (ej. ${SUPER_TIEBREAK_POINTS}-${SUPER_TIEBREAK_POINTS - 2}).`}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">{tbDirect ? `Juegos del set. Si se decidió en tie-break, anota ${tbDirect} directo.` : "Juegos del set. Sin tie-break: si se alarga, anota los juegos tal cual (gana por 2 de diferencia)."}</p>
+            )}
             </div>
-          ))}
+            );
+          })}
           <div className="flex items-center justify-between">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSets((arr) => [...arr, { a: "", b: "", tba: "", tbb: "" }])}
+              onClick={() => setSets((arr) => [...arr, { a: "", b: "" }])}
               disabled={sets.length >= maxSets || decided}
               title={decided ? "El partido ya quedó definido: no hacen falta más sets" : undefined}
             >
-              <Plus className="h-4 w-4 ms-1" /> Añadir set
+              <Plus className="h-4 w-4 ms-1" /> {sets.length === maxSets - 1 && maxSets > 1 ? "Añadir super tie-break" : "Añadir set"}
             </Button>
 {winner ? (
                 <Badge variant="default">

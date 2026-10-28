@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { maxSetsForMatch, isMatchDecided, isPlayedSet } from "@/lib/match-result";
+import { captureRowToSet, maxSetsForMatch, isMatchDecided, isPlayedSet, isSuperTieBreakRow, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 
 const S = (a: number, b: number, ta: number | null = null, tb: number | null = null) => ({ a, b, tiebreak_a: ta, tiebreak_b: tb });
@@ -51,5 +51,78 @@ describe("isPlayedSet", () => {
   });
   it("fila solo con TB capturado cuenta", () => {
     expect(isPlayedSet(S(0, 0, 10, 7))).toBe(true);
+  });
+});
+
+describe("isSuperTieBreakRow", () => {
+  it("en un 2 de 3 solo la tercera fila es super tie-break", () => {
+    expect(isSuperTieBreakRow(0, null)).toBe(false);
+    expect(isSuperTieBreakRow(1, null)).toBe(false);
+    expect(isSuperTieBreakRow(2, null)).toBe(true);
+  });
+
+  it("un partido a 1 set no tiene fila de super tie-break", () => {
+    const scoring = { ...DEFAULT_SCORING, sets_to_win: 1 };
+    expect(isSuperTieBreakRow(0, scoring)).toBe(false);
+  });
+});
+
+describe("setToCaptureRow (captura estilo Excel)", () => {
+  it("un set normal se muestra tal cual", () => {
+    expect(setToCaptureRow({ a: 6, b: 4 }, false)).toEqual({ a: "6", b: "4" });
+  });
+
+  it("un 6-6 con tie-break se muestra como 7-6 directo", () => {
+    expect(setToCaptureRow({ a: 6, b: 6, tiebreak_a: 7, tiebreak_b: 5 }, false)).toEqual({ a: "7", b: "6" });
+    expect(setToCaptureRow({ a: 6, b: 6, tiebreak_a: 3, tiebreak_b: 7 }, false)).toEqual({ a: "6", b: "7" });
+  });
+
+  it("un super tie-break guardado como juegos muestra los puntos", () => {
+    expect(setToCaptureRow({ a: 10, b: 8 }, true)).toEqual({ a: "10", b: "8" });
+  });
+
+  it("un super tie-break en formato viejo (puntos en tiebreak_a/b) muestra los puntos", () => {
+    expect(setToCaptureRow({ a: 0, b: 0, tiebreak_a: 10, tiebreak_b: 8 }, true)).toEqual({ a: "10", b: "8" });
+  });
+
+  it("fila de super tie-break vacía queda en blanco", () => {
+    expect(setToCaptureRow({ a: 0, b: 0 }, true)).toEqual({ a: "", b: "" });
+  });
+});
+
+describe("captureRowToSet", () => {
+  it("fila sin cambios conserva un tie-break parcial guardado", () => {
+    expect(captureRowToSet({ a: "6", b: "6" }, { a: 6, b: 6, tiebreak_a: 7, tiebreak_b: null }))
+      .toEqual({ a: 6, b: 6, tiebreak_a: 7, tiebreak_b: null });
+  });
+
+  it("fila sin cambios conserva el tie-break completo tal cual", () => {
+    expect(captureRowToSet({ a: "6", b: "6" }, { a: 6, b: 6, tiebreak_a: 7, tiebreak_b: 5 }))
+      .toEqual({ a: 6, b: 6, tiebreak_a: 7, tiebreak_b: 5 });
+  });
+
+  it("fila editada escribe tie-breaks en null", () => {
+    expect(captureRowToSet({ a: "7", b: "6" }, { a: 6, b: 6, tiebreak_a: 7, tiebreak_b: 5 }))
+      .toEqual({ a: 7, b: 6, tiebreak_a: null, tiebreak_b: null });
+  });
+
+  it("fila nueva sin original escribe tie-breaks en null", () => {
+    expect(captureRowToSet({ a: "6", b: "4" })).toEqual({ a: 6, b: 4, tiebreak_a: null, tiebreak_b: null });
+  });
+
+  it("super tie-break viejo (puntos en tiebreak) se normaliza a juegos", () => {
+    expect(captureRowToSet({ a: "10", b: "8" }, { a: 0, b: 0, tiebreak_a: 10, tiebreak_b: 8 }))
+      .toEqual({ a: 10, b: 8, tiebreak_a: null, tiebreak_b: null });
+  });
+});
+
+describe("tieBreakDirectNotation", () => {
+  it("deriva la notación directa del formato", () => {
+    expect(tieBreakDirectNotation(DEFAULT_SCORING)).toBe("7-6");
+    expect(tieBreakDirectNotation({ ...DEFAULT_SCORING, games_per_set: 4, tie_break_at: 4 })).toBe("5-4");
+    expect(tieBreakDirectNotation({ ...DEFAULT_SCORING, games_per_set: 9, tie_break_at: 9 })).toBe("10-9");
+    expect(tieBreakDirectNotation({ ...DEFAULT_SCORING, no_tie_break: true })).toBeNull();
+    expect(tieBreakDirectNotation({ ...DEFAULT_SCORING, tie_break_at: 99 })).toBeNull();
+    expect(tieBreakDirectNotation(null)).toBe("7-6");
   });
 });

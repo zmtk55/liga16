@@ -243,6 +243,9 @@ export interface TournamentScoring {
   tie_break_at: number;
   tie_break_points: number;
   win_by_two_tiebreak?: boolean;
+  /** true = sets sin tie-break: se gana por 2 juegos de diferencia, sin tope.
+   * Ausente/false = comportamiento de siempre (tie-break al llegar a tie_break_at). */
+  no_tie_break?: boolean;
   tie_breaker_rules?: TieBreakerRule[];
   /** Orden de criterios del ranking (ver liga16-scoring RankCriterion). Ausente = orden estándar. */
   rank_order?: RankCriterion[];
@@ -422,4 +425,4 @@ export interface AdminAlert {
   timestamp: string;
   /** Cuando la alerta agrupa varios ítems (p. ej. jugadores pendientes). */
   count?: number;
-  }
+}
