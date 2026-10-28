@@ -36,7 +36,7 @@ import { DateTimePicker } from "@/components/ui/date-picker";
 import { MatchScoreboard } from "@/components/match-scoreboard";
 // MatchCard no longer used — pair rows use inline layout
 import { matchBucket, matchState, type MatchBucket } from "@/lib/match-state";
-import { isMatchDecided, maxSetsForMatch } from "@/lib/match-result";
+import { captureRowToSet, isMatchDecided, isSuperTieBreakRow, maxSetsForMatch, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -48,6 +48,7 @@ import { jornadaKey, parseRound } from "@/lib/groups";
 import {
   determineMatchWinner,
   normalizeScoring,
+  SUPER_TIEBREAK_POINTS,
   validateScoring,
 } from "@/lib/scoring";
 import { ClipboardList, Eye, ChevronDown, ChevronUp, Calendar, MapPin, Trophy, Plus, Trash2 } from "lucide-react";
@@ -480,28 +481,30 @@ export default function AdminResults() {
   );
 }
 
-interface SetInput { a: string; b: string; tiebreak_a: string; tiebreak_b: string; }
+interface SetInput { a: string; b: string; }
 interface MatchFormData { tournament_id: string; status: string; round: string; court_name: string; scheduled_at: string; duration: string; winner: string; sets: SetScore[]; }
 
-function toSetInputs(sets: SetScore[]): SetInput[] {
-  return sets.map((s) => ({ a: String(s.a ?? 0), b: String(s.b ?? 0), tiebreak_a: s.tiebreak_a != null ? String(s.tiebreak_a) : "", tiebreak_b: s.tiebreak_b != null ? String(s.tiebreak_b) : "" }));
+function toSetInputs(sets: SetScore[], scoring: ReturnType<typeof normalizeScoring>): SetInput[] {
+  // Estilo Excel: juegos por set (7-6 directo) y super tie-break en puntos.
+  return sets.map((s, i) => setToCaptureRow(s, isSuperTieBreakRow(i, scoring)));
 }
-function fromSetInputs(inputs: SetInput[]): SetScore[] {
-  return inputs.map((s) => ({ a: Number(s.a) || 0, b: Number(s.b) || 0, tiebreak_a: s.tiebreak_a.trim() ? Number(s.tiebreak_a) : null, tiebreak_b: s.tiebreak_b.trim() ? Number(s.tiebreak_b) : null }));
+function fromSetInputs(inputs: SetInput[], originalSets: SetScore[]): SetScore[] {
+  return inputs.map((s, i) => captureRowToSet(s, originalSets[i]));
 }
 
 function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, onSave, submitting }: { match: Match; allMatches: Match[]; tournament: Tournament | undefined; open: boolean; onOpenChange: (open: boolean) => void; onSave: (id: string, data: MatchFormData) => void; submitting: boolean; }) {
   const scoring = normalizeScoring(tournament?.scoring);
+  const tbDirect = tieBreakDirectNotation(scoring);
   // Sin duración registrada se asume la del torneo (schedule_config) o 60:
   // es un supuesto visible, no un dato histórico.
   const defaultMinutes = tournament?.schedule_config?.minutesPerMatch || 60;
   const [form, setForm] = useState<MatchFormData>(() => ({ tournament_id: match.tournament_id, status: match.status, round: match.round, court_name: match.court_name ?? "", scheduled_at: isoToLocalInput(match.scheduled_at), duration: String(match.duration_minutes ?? defaultMinutes), winner: match.winner ?? "", sets: match.sets.length > 0 ? match.sets : [{ a: 0, b: 0, tiebreak_a: null, tiebreak_b: null }] }));
-  const [setInputs, setSetInputs] = useState<SetInput[]>(() => toSetInputs(form.sets));
+  const [setInputs, setSetInputs] = useState<SetInput[]>(() => toSetInputs(form.sets, scoring));
   const [showSlots, setShowSlots] = useState(false);
 
   const update = (field: keyof MatchFormData, value: string) => setForm((f) => ({ ...f, [field]: value }));
   function updateSet(index: number, field: keyof SetInput, value: string) { setSetInputs((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))); }
-  function addSet() { setSetInputs((prev) => [...prev, { a: "", b: "", tiebreak_a: "", tiebreak_b: "" }]); }
+  function addSet() { setSetInputs((prev) => [...prev, { a: "", b: "" }]); }
   function removeSet(index: number) { setSetInputs((prev) => prev.filter((_, i) => i !== index)); }
 
   // Huecos libres para el slot-picker de Kokonut: proximos 7 dias, ventana
@@ -529,7 +532,7 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
     });
   }, [allMatches, form.court_name, match.id, defaultMinutes]);
 
-  const currentSets = fromSetInputs(setInputs);
+  const currentSets = fromSetInputs(setInputs, form.sets);
   const winner = determineMatchWinner(currentSets, scoring);
   // Igual que en Jornada: con el partido definido (o el máximo de sets),
   // "Añadir set" solo lleva al error "Hay sets de más…" al guardar.
@@ -595,20 +598,23 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
             )}
           </div>
           <div className="rounded-lg border p-4 space-y-3">
-            <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">Sets</h3><p className="text-xs text-muted-foreground">{scoring.sets_to_win} de {scoring.sets_to_win * 2 - 1} sets · {scoring.games_per_set} juegos · tie-break a {scoring.tie_break_points} puntos</p></div><Button type="button" variant="outline" size="sm" onClick={addSet} disabled={setInputs.length >= maxSets || decided} title={decided ? "El partido ya quedó definido: no hacen falta más sets" : undefined}><Plus className="h-4 w-4 mr-1" /> Añadir set</Button></div>
-            {setInputs.map((set, i) => (
+            <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">Sets</h3><p className="text-xs text-muted-foreground">{scoring.sets_to_win} de {scoring.sets_to_win * 2 - 1} sets · {scoring.games_per_set} juegos · {tbDirect ? `tie-break a ${scoring.tie_break_points} puntos` : "sin tie-break de set"}</p></div><Button type="button" variant="outline" size="sm" onClick={addSet} disabled={setInputs.length >= maxSets || decided} title={decided ? "El partido ya quedó definido: no hacen falta más sets" : undefined}><Plus className="h-4 w-4 mr-1" /> {setInputs.length === maxSets - 1 && maxSets > 1 ? "Añadir super tie-break" : "Añadir set"}</Button></div>
+            {setInputs.map((set, i) => {
+              const esSuperTB = isSuperTieBreakRow(i, scoring);
+              return (
               <div key={i} className="rounded-lg bg-muted/30 p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wide">Set {i + 1}{i >= 2 && <span className="ml-2 text-xs font-normal normal-case text-warning-strong"> Super tie-break a 10 (dif. 2)</span>}</span>
-                  {setInputs.length > 1 && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSet(i)} aria-label={`Quitar set ${i + 1}`}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                  <span className="text-xs font-semibold uppercase tracking-wide">{esSuperTB ? "Super tie-break" : `Set ${i + 1}`}{esSuperTB && <span className="ml-2 text-xs font-normal normal-case text-warning-strong"> Puntos · a {SUPER_TIEBREAK_POINTS}, gana por 2</span>}</span>
+                  {setInputs.length > 1 && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSet(i)} aria-label={esSuperTB ? "Quitar super tie-break" : `Quitar set ${i + 1}`}><Trash2 className="h-3.5 w-3.5" /></Button>}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1.5"><p className="truncate text-xs font-bold text-primary" title={match.side_a.pair_name}>{match.side_a.pair_name}</p><Input type="text" inputMode="numeric" pattern="[0-9]*" aria-label={`Juegos de ${match.side_a.pair_name} en set ${i + 1}`} value={set.a} onChange={(e) => updateSet(i, "a", e.target.value.replace(/[^0-9]/g, ""))} /><Input type="text" inputMode="numeric" pattern="[0-9]*" aria-label={`Tie-break de ${match.side_a.pair_name} en set ${i + 1}`} placeholder="TB" className="h-8 text-xs" value={set.tiebreak_a} onChange={(e) => updateSet(i, "tiebreak_a", e.target.value.replace(/[^0-9]/g, ""))} /></div>
-                  <div className="space-y-1.5"><p className="truncate text-xs font-bold text-foreground" title={match.side_b.pair_name}>{match.side_b.pair_name}</p><Input type="text" inputMode="numeric" pattern="[0-9]*" aria-label={`Juegos de ${match.side_b.pair_name} en set ${i + 1}`} value={set.b} onChange={(e) => updateSet(i, "b", e.target.value.replace(/[^0-9]/g, ""))} /><Input type="text" inputMode="numeric" pattern="[0-9]*" aria-label={`Tie-break de ${match.side_b.pair_name} en set ${i + 1}`} placeholder="TB" className="h-8 text-xs" value={set.tiebreak_b} onChange={(e) => updateSet(i, "tiebreak_b", e.target.value.replace(/[^0-9]/g, ""))} /></div>
+                  <div className="space-y-1.5"><p className="truncate text-xs font-bold text-primary" title={match.side_a.pair_name}>{match.side_a.pair_name}</p><Input type="text" inputMode="numeric" pattern="[0-9]*" aria-label={esSuperTB ? `Puntos de ${match.side_a.pair_name} en el super tie-break` : `Juegos de ${match.side_a.pair_name} en set ${i + 1}`} value={set.a} onChange={(e) => updateSet(i, "a", e.target.value.replace(/[^0-9]/g, ""))} /></div>
+                  <div className="space-y-1.5"><p className="truncate text-xs font-bold text-foreground" title={match.side_b.pair_name}>{match.side_b.pair_name}</p><Input type="text" inputMode="numeric" pattern="[0-9]*" aria-label={esSuperTB ? `Puntos de ${match.side_b.pair_name} en el super tie-break` : `Juegos de ${match.side_b.pair_name} en set ${i + 1}`} value={set.b} onChange={(e) => updateSet(i, "b", e.target.value.replace(/[^0-9]/g, ""))} /></div>
                 </div>
-                <p className="mt-1.5 text-xs text-muted-foreground">Caja grande = juegos ganados · TB = tie-break (solo 6-6)</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">{esSuperTB ? `Puntos del desempate (ej. ${SUPER_TIEBREAK_POINTS}-${SUPER_TIEBREAK_POINTS - 2}). Solo se juega si quedaron empatados en sets.` : tbDirect ? `Juegos ganados en el set. Si se decidió en tie-break, anota ${tbDirect} directo.` : "Juegos ganados en el set. Sin tie-break: si se alarga, anota los juegos tal cual (gana por 2 de diferencia)."}</p>
               </div>
-            ))}
+              );
+            })}
             {decided && <p className="text-xs text-muted-foreground">El partido ya quedó definido con estos sets: no hace falta capturar más.</p>}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary/5 p-3"><MatchScoreboard sideA={match.side_a.pair_name} sideB={match.side_b.pair_name} sets={currentSets} winner={winner} size="md" />{winner ? <Badge variant="default">Ganador: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}</Badge> : <Badge variant="outline">Aún no hay ganador</Badge>}</div>
           </div>
