@@ -36,6 +36,7 @@ import { DateTimePicker } from "@/components/ui/date-picker";
 import { MatchScoreboard } from "@/components/match-scoreboard";
 // MatchCard no longer used — pair rows use inline layout
 import { matchBucket, matchState, type MatchBucket } from "@/lib/match-state";
+import { isMatchDecided, maxSetsForMatch } from "@/lib/match-result";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -530,6 +531,10 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
 
   const currentSets = fromSetInputs(setInputs);
   const winner = determineMatchWinner(currentSets, scoring);
+  // Igual que en Jornada: con el partido definido (o el máximo de sets),
+  // "Añadir set" solo lleva al error "Hay sets de más…" al guardar.
+  const maxSets = maxSetsForMatch(scoring);
+  const decided = isMatchDecided(currentSets, scoring);
   function submit() { onSave(match.id, { ...form, sets: currentSets }); }
 
   return (
@@ -590,7 +595,7 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
             )}
           </div>
           <div className="rounded-lg border p-4 space-y-3">
-            <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">Sets</h3><p className="text-xs text-muted-foreground">{scoring.sets_to_win} de {scoring.sets_to_win * 2 - 1} sets · {scoring.games_per_set} juegos · tie-break a {scoring.tie_break_points} puntos</p></div><Button type="button" variant="outline" size="sm" onClick={addSet}><Plus className="h-4 w-4 mr-1" /> Añadir set</Button></div>
+            <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">Sets</h3><p className="text-xs text-muted-foreground">{scoring.sets_to_win} de {scoring.sets_to_win * 2 - 1} sets · {scoring.games_per_set} juegos · tie-break a {scoring.tie_break_points} puntos</p></div><Button type="button" variant="outline" size="sm" onClick={addSet} disabled={setInputs.length >= maxSets || decided} title={decided ? "El partido ya quedó definido: no hacen falta más sets" : undefined}><Plus className="h-4 w-4 mr-1" /> Añadir set</Button></div>
             {setInputs.map((set, i) => (
               <div key={i} className="rounded-lg bg-muted/30 p-3">
                 <div className="mb-2 flex items-center justify-between">
@@ -604,6 +609,7 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
                 <p className="mt-1.5 text-xs text-muted-foreground">Caja grande = juegos ganados · TB = tie-break (solo 6-6)</p>
               </div>
             ))}
+            {decided && <p className="text-xs text-muted-foreground">El partido ya quedó definido con estos sets: no hace falta capturar más.</p>}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary/5 p-3"><MatchScoreboard sideA={match.side_a.pair_name} sideB={match.side_b.pair_name} sets={currentSets} winner={winner} size="md" />{winner ? <Badge variant="default">Ganador: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}</Badge> : <Badge variant="outline">Aún no hay ganador</Badge>}</div>
           </div>
           <div className="grid gap-1.5"><Label htmlFor="ganador-manual-opcional">Ganador manual (opcional)</Label><Select value={form.winner || "none"} onValueChange={(v) => update("winner", v === "none" ? "" : v)}><SelectTrigger id="ganador-manual-opcional"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Automático por sets</SelectItem><SelectItem value="a">{match.side_a.pair_name}</SelectItem><SelectItem value="b">{match.side_b.pair_name}</SelectItem></SelectContent></Select></div>
