@@ -1,5 +1,7 @@
 "use client";
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScoreGrid } from "@/components/admin/score-grid";
 import { isoToLocalInput, localInputToIso } from "@/lib/datetime";
 import SlotPicker, { type SlotDay } from "@/components/kokonutui/slot-picker";
 import { effectiveDurationMinutes } from "@/lib/match-duration";
@@ -33,10 +35,9 @@ import { toast } from "sonner";
 import type { MatchStatus } from "@/types";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
-import { MatchScoreboard } from "@/components/match-scoreboard";
 // MatchCard no longer used — pair rows use inline layout
 import { matchBucket, matchState, type MatchBucket } from "@/lib/match-state";
-import { captureRowToSet, isMatchDecided, isSuperTieBreakRow, maxSetsForMatch, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
+import { historicTieBreakNote, captureRowToSet, isMatchDecided, isSuperTieBreakRow, maxSetsForMatch, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
@@ -51,7 +52,7 @@ import {
   SUPER_TIEBREAK_POINTS,
   validateScoring,
 } from "@/lib/scoring";
-import { ClipboardList, Eye, ChevronDown, ChevronUp, Calendar, MapPin, Trophy, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, Eye, ChevronDown, ChevronUp, Calendar, MapPin, Trophy } from "lucide-react";
 
 const STATUS_OPTIONS = Object.entries(matchStatusLabel).map(([value, label]) => ({ value, label }));
 
@@ -542,7 +543,7 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90dvh] overflow-y-auto grid-cols-[minmax(0,1fr)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Trophy className="h-5 w-5" /> Editar resultado</DialogTitle>
           <DialogDescription>{match.side_a.pair_name} vs {match.side_b.pair_name} · {match.tournament_name}</DialogDescription>
@@ -565,20 +566,21 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
               )}
             </div>
           </div>
-          <div className="grid gap-1.5">
+          <Collapsible open={showSlots} onOpenChange={setShowSlots} className="grid gap-1.5">
+            <CollapsibleTrigger asChild>
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="justify-start gap-2"
               aria-expanded={showSlots}
-              onClick={() => setShowSlots((s) => !s)}
             >
               <Calendar className="h-4 w-4" />
               Explorar horarios en calendario
               <ChevronDown className={cn("h-4 w-4 transition-transform", showSlots && "rotate-180")} />
             </Button>
-            {showSlots && (
+            </CollapsibleTrigger>
+            <CollapsibleContent className="grid gap-1.5">
               <>
                 <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                   Ventana de exploración 9:00-21:00 en bloques de 60 o 90 min (hay partidos de hora y media). Solo marca cruces con partidos ya registrados{form.court_name.trim() ? " en esta cancha" : ""}: cada uno ocupa su duración registrada, y los que no la tienen se suponen de {defaultMinutes} min. No es disponibilidad confirmada de la sede. Al confirmar un hueco solo se llenan Fecha y hora y Duración: nada se guarda hasta Guardar.
@@ -595,28 +597,26 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
                   }}
                 />
               </>
-            )}
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
           <div className="rounded-lg border p-4 space-y-3">
-            <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">Sets</h3><p className="text-xs text-muted-foreground">{scoring.sets_to_win} de {scoring.sets_to_win * 2 - 1} sets · {scoring.games_per_set} juegos · {tbDirect ? `tie-break a ${scoring.tie_break_points} puntos` : "sin tie-break de set"}</p></div><Button type="button" variant="outline" size="sm" onClick={addSet} disabled={setInputs.length >= maxSets || decided} title={decided ? "El partido ya quedó definido: no hacen falta más sets" : undefined}><Plus className="h-4 w-4 mr-1" /> {setInputs.length === maxSets - 1 && maxSets > 1 ? "Añadir super tie-break" : "Añadir set"}</Button></div>
-            {setInputs.map((set, i) => {
-              const esSuperTB = isSuperTieBreakRow(i, scoring);
-              return (
-              <div key={i} className="rounded-lg bg-muted/30 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wide">{esSuperTB ? "Super tie-break" : `Set ${i + 1}`}{esSuperTB && <span className="ml-2 text-xs font-normal normal-case text-warning-strong"> Puntos · a {SUPER_TIEBREAK_POINTS}, gana por 2</span>}</span>
-                  {setInputs.length > 1 && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSet(i)} aria-label={esSuperTB ? "Quitar super tie-break" : `Quitar set ${i + 1}`}><Trash2 className="h-3.5 w-3.5" /></Button>}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1.5"><p className="truncate text-xs font-bold text-primary" title={match.side_a.pair_name}>{match.side_a.pair_name}</p><Input type="text" inputMode="numeric" pattern="[0-9]*" aria-label={esSuperTB ? `Puntos de ${match.side_a.pair_name} en el super tie-break` : `Juegos de ${match.side_a.pair_name} en set ${i + 1}`} value={set.a} onChange={(e) => updateSet(i, "a", e.target.value.replace(/[^0-9]/g, ""))} /></div>
-                  <div className="space-y-1.5"><p className="truncate text-xs font-bold text-foreground" title={match.side_b.pair_name}>{match.side_b.pair_name}</p><Input type="text" inputMode="numeric" pattern="[0-9]*" aria-label={esSuperTB ? `Puntos de ${match.side_b.pair_name} en el super tie-break` : `Juegos de ${match.side_b.pair_name} en set ${i + 1}`} value={set.b} onChange={(e) => updateSet(i, "b", e.target.value.replace(/[^0-9]/g, ""))} /></div>
-                </div>
-                <p className="mt-1.5 text-xs text-muted-foreground">{esSuperTB ? `Puntos del desempate (ej. ${SUPER_TIEBREAK_POINTS}-${SUPER_TIEBREAK_POINTS - 2}). Solo se juega si quedaron empatados en sets.` : tbDirect ? `Juegos ganados en el set. Si se decidió en tie-break, anota ${tbDirect} directo.` : "Juegos ganados en el set. Sin tie-break: si se alarga, anota los juegos tal cual (gana por 2 de diferencia)."}</p>
-              </div>
-              );
-            })}
+            <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">Sets</h3><p className="text-xs text-muted-foreground">{scoring.sets_to_win} de {scoring.sets_to_win * 2 - 1} sets · {scoring.games_per_set} juegos · {tbDirect ? `tie-break a ${scoring.tie_break_points} puntos` : "sin tie-break de set"}</p></div></div>
+            <ScoreGrid
+              sideA={match.side_a.pair_name}
+              sideB={match.side_b.pair_name}
+              rows={setInputs}
+              superTbIndex={(i) => isSuperTieBreakRow(i, scoring)}
+              superTbTo={SUPER_TIEBREAK_POINTS}
+              notes={setInputs.map((r, i) => historicTieBreakNote(match.sets[i], r, isSuperTieBreakRow(i, scoring)))}
+              hint={tbDirect ? `Juegos por set. Si hubo tie-break, anota ${tbDirect}.` : "Juegos por set. Sin tie-break: anota los juegos tal cual."}
+              onChange={(i, side, v) => updateSet(i, side, v)}
+              onRemove={removeSet}
+              onAdd={addSet}
+              addLabel={setInputs.length === maxSets - 1 && maxSets > 1 ? "Super tie-break" : "Set"}
+              canAdd={!(setInputs.length >= maxSets || decided)}
+            />
             {decided && <p className="text-xs text-muted-foreground">El partido ya quedó definido con estos sets: no hace falta capturar más.</p>}
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary/5 p-3"><MatchScoreboard sideA={match.side_a.pair_name} sideB={match.side_b.pair_name} sets={currentSets} winner={winner} size="md" />{winner ? <Badge variant="default">Ganador: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}</Badge> : <Badge variant="outline">Aún no hay ganador</Badge>}</div>
+            <div className="flex">{winner ? <Badge variant="default" className="h-auto max-w-full whitespace-normal text-left">Ganador: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}</Badge> : <Badge variant="outline">Aún no hay ganador</Badge>}</div>
           </div>
           <div className="grid gap-1.5"><Label htmlFor="ganador-manual-opcional">Ganador manual (opcional)</Label><Select value={form.winner || "none"} onValueChange={(v) => update("winner", v === "none" ? "" : v)}><SelectTrigger id="ganador-manual-opcional"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Automático por sets</SelectItem><SelectItem value="a">{match.side_a.pair_name}</SelectItem><SelectItem value="b">{match.side_b.pair_name}</SelectItem></SelectContent></Select></div>
         </div>
@@ -624,4 +624,4 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
       </DialogContent>
     </Dialog>
   );
-}
+                                        }
