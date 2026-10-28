@@ -528,11 +528,19 @@ export default function SmoothTab({
   return (
     <div className={cn("flex w-full max-w-md flex-col gap-3", className)}>
       <div className="flex justify-center">
+        {/* Contenedor con scroll horizontal: las pestañas son shrink-0 y con
+            varias secciones largas (Jornada, Grupos, Bracket, Calendario…)
+            desbordaban la página entera en móvil. El espejo del indicador va
+            dentro del contenido desplazable para que se mueva con las
+            pestañas y el clip siga alineado en cualquier scroll. */}
         <div
           aria-label={label}
-          className="relative inline-flex max-w-full rounded-full bg-zinc-100 p-1 dark:bg-zinc-900"
-          ref={tablistRef}
+          className="max-w-full overflow-x-auto rounded-full bg-zinc-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:bg-zinc-900"
           role="tablist"
+        >
+        <div
+          className="relative inline-flex p-1"
+          ref={tablistRef}
         >
           {items.map((item, i) => {
             const Icon = item.icon;
@@ -590,6 +598,7 @@ export default function SmoothTab({
               );
             })}
           </div>
+        </div>
         </div>
       </div>
 
