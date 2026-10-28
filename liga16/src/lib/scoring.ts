@@ -9,6 +9,7 @@ export const DEFAULT_SCORING: TournamentScoring = {
   tie_break_at: 6,
   tie_break_points: 7,
   win_by_two_tiebreak: true,
+  no_tie_break: false,
   tie_breaker_rules: ["points", "sets_diff", "games_diff", "head_to_head"],
 };
 
@@ -19,6 +20,7 @@ export function normalizeScoring(scoring?: TournamentScoring | null): Tournament
     tie_break_at: scoring?.tie_break_at ?? DEFAULT_SCORING.tie_break_at,
     tie_break_points: scoring?.tie_break_points ?? DEFAULT_SCORING.tie_break_points,
     win_by_two_tiebreak: scoring?.win_by_two_tiebreak ?? DEFAULT_SCORING.win_by_two_tiebreak,
+    no_tie_break: scoring?.no_tie_break ?? DEFAULT_SCORING.no_tie_break,
     tie_breaker_rules: scoring?.tie_breaker_rules?.length
       ? scoring.tie_breaker_rules
       : DEFAULT_SCORING.tie_breaker_rules!,
@@ -27,6 +29,8 @@ export function normalizeScoring(scoring?: TournamentScoring | null): Tournament
 
 /** Determina si un set llegó a tie-break. */
 export function isTieBreakSet(set: SetScore, config: TournamentScoring): boolean {
+  // no_tie_break: el formato no tiene tie-break de set, NUNCA hay set de TB.
+  if (config.no_tie_break) return false;
   return set.a === config.tie_break_at && set.b === config.tie_break_at;
 }
 
@@ -46,8 +50,11 @@ export function determineSetWinner(set: SetScore, config: TournamentScoring): "a
     // 7-6: el set se decidió en tie-break y el 7 ya lo ganó, se capturen o no
     // los puntos del tie-break. Antes caía en null: el partido no cerraba, se
     // guardaba con winner null y el ranking lo ignoraba en silencio.
-    if (a === cfg.games_per_set + 1 && b === cfg.tie_break_at) return "a";
-    if (b === cfg.games_per_set + 1 && a === cfg.tie_break_at) return "b";
+    // Con no_tie_break un 7-6 NO cierra: se sigue hasta ganar por 2.
+    if (!cfg.no_tie_break) {
+      if (a === cfg.games_per_set + 1 && b === cfg.tie_break_at) return "a";
+      if (b === cfg.games_per_set + 1 && a === cfg.tie_break_at) return "b";
+    }
     return null;
   }
 
@@ -135,15 +142,23 @@ export function validateScoring(sets: SetScore[], config: TournamentScoring): st
     if ((set.tiebreak_a ?? 0) < 0 || (set.tiebreak_b ?? 0) < 0) {
       return `El set ${i + 1} tiene puntos de tie-break negativos`;
     }
-    // El tie-break sólo existe en sets empatados (6-6) o decididos en TB (7-6);
-    // en cualquier otro set (ej. 6-4 con TB 7-3) es dato inválido.
+    // El tie-break sólo existe en sets empatados al límite (N-N) o decididos
+    // en TB (N+1 a N); en cualquier otro set (ej. 6-4 con TB 7-3) es dato inválido.
     const hasTb = set.tiebreak_a != null || set.tiebreak_b != null;
     if (hasTb && set.a !== set.b) {
       const max = Math.max(set.a, set.b);
       const isSuper = max >= SUPER_TIEBREAK_POINTS; // super tie-break guardado como set
-      const isDecidedTbSet = max === cfg.games_per_set + 1 && Math.abs(set.a - set.b) === 1; // 7-6
-      if (!isSuper && !isDecidedTbSet) {
-        return `El set ${i + 1} tiene tie-break pero el marcador no está 6-6`;
+      if (cfg.no_tie_break) {
+        // El formato no tiene tie-break de set: los puntos de TB no aplican
+        // (se tolera el super tie-break viejo guardado con puntos en tiebreak).
+        if (!isSuper) {
+          return `El set ${i + 1} tiene puntos de tie-break pero este formato no usa tie-break de set`;
+        }
+      } else {
+        const isDecidedTbSet = max === cfg.games_per_set + 1 && Math.abs(set.a - set.b) === 1; // 7-6
+        if (!isSuper && !isDecidedTbSet) {
+          return `El set ${i + 1} tiene tie-break pero el marcador no está ${cfg.tie_break_at}-${cfg.tie_break_at} ni ${cfg.games_per_set + 1}-${cfg.tie_break_at}`;
+        }
       }
     }
     if (aWon >= cfg.sets_to_win || bWon >= cfg.sets_to_win) {
@@ -153,9 +168,11 @@ export function validateScoring(sets: SetScore[], config: TournamentScoring): st
     // con diferencia 2. Antes no se miraba y pasaban cualquier cosa —un 6-3, un
     // 7-5, incluso un 9-7— porque `determineSetWinner` los resolvía con la regla
     // de set normal (10 >= 6 y 10 >= 8+2) sin preguntar si ese set debería
-    // existir. Si aparece un tercer set es porque los dos primeros quedaron
-    // empatados; entonces el desempate va a 10.
-    if (i === cfg.sets_to_win && aWon === cfg.sets_to_win - 1 && bWon === cfg.sets_to_win - 1) {
+    // existir. Si aparece un último set es porque los anteriores quedaron
+    // empatados; entonces el desempate va a 10. El decisivo es el último set
+    // posible del formato: el 3º en un 2 de 3 (índice 2) y el 5º en un 3 de 5
+    // (índice 4). A 1 set no hay desempate: el único set es un set normal.
+    if (cfg.sets_to_win > 1 && i === 2 * cfg.sets_to_win - 2 && aWon === cfg.sets_to_win - 1 && bWon === cfg.sets_to_win - 1) {
       const hi = Math.max(set.a, set.b);
       const lo = Math.min(set.a, set.b);
       if (hi < SUPER_TIEBREAK_POINTS) {
