@@ -3,7 +3,7 @@
 // La elección se guarda en localStorage por sección: sobrevive a recargas.
 import { useState, type ReactNode } from "react";
 import { LayoutGrid, List, Table2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export type AdminViewKey = "cards" | "tabla" | "compacta";
 
@@ -53,25 +53,24 @@ export function AdminViewToggle({
   views: AdminViewKey[];
 }) {
   return (
-    <div
-      className="flex items-center gap-1 rounded-lg border p-1"
-      role="group"
+    <ToggleGroup
+      type="single"
+      value={value}
+      onValueChange={(v) => v && onChange(v as AdminViewKey)}
+      className="gap-1 rounded-lg border p-1"
       aria-label="Tipo de vista"
     >
       {views.map((v) => (
-        <Button
+        <ToggleGroupItem
           key={v}
-          type="button"
-          size="sm"
-          variant={value === v ? "secondary" : "ghost"}
-          className="h-7 gap-1.5 text-xs"
-          aria-pressed={value === v}
-          onClick={() => onChange(v)}
+          value={v}
+          className="h-7 gap-1.5 rounded-md px-2.5 text-xs data-[state=on]:bg-secondary"
+          aria-label={VIEW_META[v].label}
         >
           {VIEW_META[v].icon}
           {VIEW_META[v].label}
-        </Button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }

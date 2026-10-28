@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useNavigate, useParams } from "react-router";
 import { db } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
@@ -1014,22 +1016,24 @@ teams.forEach((t) => {
                     labelledby: string,
                     disabled = false,
                   ) => (
-                    <div className="flex flex-wrap gap-2" role="group" aria-labelledby={labelledby}>
+                    <RadioGroup
+                      className="flex flex-wrap gap-2"
+                      aria-labelledby={labelledby}
+                      value={current}
+                      onValueChange={pick}
+                      disabled={disabled}
+                    >
                       {options.map((o) => (
-                        <Button
+                        <RadioGroupItem
                           key={o.v}
-                          type="button"
-                          disabled={disabled}
-                          variant={current === o.v ? "default" : "outline"}
-                          size="sm"
-                          className="h-auto w-full flex-col items-start gap-0.5 py-2 text-left whitespace-normal sm:w-auto"
-                          onClick={() => pick(o.v)}
+                          value={o.v}
+                          className="group flex w-full flex-col items-start gap-0.5 rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground sm:w-auto"
                         >
                           <span className="text-sm font-semibold">{o.l}</span>
-                          <span className={`text-xs font-normal ${current === o.v ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{o.d}</span>
-                        </Button>
+                          <span className="text-xs font-normal text-muted-foreground group-data-[state=checked]:text-primary-foreground/80">{o.d}</span>
+                        </RadioGroupItem>
                       ))}
-                    </div>
+                    </RadioGroup>
                   );
                   return (
                     <div className="mt-3 grid gap-4">
@@ -1138,9 +1142,12 @@ teams.forEach((t) => {
                         ·{" "}
                         {rankPreset === "estandar" ? "tabla por partidos ganados, dominio y puntos" : rankPreset === "excel" ? "tabla por % de puntos" : "tabla con orden personalizado"}.
                       </p>
-                      <details className="rounded-md border p-3">
-                        <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Opciones avanzadas (números exactos)</summary>
-                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <Collapsible className="rounded-md border p-3">
+                        <CollapsibleTrigger className="group flex w-full cursor-pointer items-center justify-between gap-2 text-left text-xs font-semibold text-muted-foreground">
+                          Opciones avanzadas (números exactos)
+                          <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                           {[
                             { k: "sets_to_win", l: "Sets para ganar", h: "Cuántos sets hay que ganar: 2, 3 o 5" },
                             { k: "games_per_set", l: "Juegos por set", h: "A cuántos juegos se juega un set: 6, 7 u 11" },
@@ -1172,7 +1179,7 @@ teams.forEach((t) => {
                             </Select>
                           </div>
                         </div>
-                      </details>
+                      </CollapsibleContent></Collapsible>
                     </div>
                   );
                 })()}
@@ -1712,4 +1719,4 @@ function CoverUpload({
       )}
     </div>
   );
-                                                                             }
+                      }

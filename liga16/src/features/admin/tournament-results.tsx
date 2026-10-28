@@ -4,11 +4,10 @@ import type { Pair, Match, Tournament, TournamentCategory } from "@/types";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BentoCard as Card } from "@/components/admin/bento-card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { hasMatchActivity } from "@/lib/tournament-flow";
 import { isKnockoutRound, computeStandings, type Group } from "@/lib/groups";
@@ -20,8 +19,9 @@ import type { Court } from "@/types";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { matchStatusKey } from "@/lib/match-state";
 import { isoToLocalInput, localInputToIso } from "@/lib/datetime";
-import { captureRowToSet, checkFinishedMatch, isPlayedSet, isSuperTieBreakRow, maxSetsForMatch, isMatchDecided, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
+import { historicTieBreakNote, captureRowToSet, checkFinishedMatch, isPlayedSet, isSuperTieBreakRow, maxSetsForMatch, isMatchDecided, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
 import type { SetScore } from "@/types";
+import { ScoreGrid } from "@/components/admin/score-grid";
 
 /** Captura y edición de marcador, cancha, fecha y hora desde el calendario del torneo. */
 export function MatchResultDialog({
@@ -116,75 +116,23 @@ export function MatchResultDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 py-2">
-          {sets.map((s, i) => {
-            const esSuperTB = isSuperTieBreakRow(i, scoring);
-            return (
-            <div key={i} className="grid gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">{esSuperTB ? `Super tie-break · puntos (a ${SUPER_TIEBREAK_POINTS}, gana por 2)` : `Set ${i + 1}`}</span>
-                {/* La fila sobrante se quita a mano: con el partido ya definido
-                    "Añadir set" se apaga, y sin este botón una fila extra dejaba
-                    al usuario atrapado con el error "Hay sets de más…" al guardar. */}
-                {sets.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setSets((arr) => arr.filter((_, j) => j !== i))}
-                    aria-label={esSuperTB ? "Quitar super tie-break" : `Quitar set ${i + 1}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-              <div className="grid gap-1">
-                <Label className="text-xs">{match.side_a.pair_name}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={s.a}
-                  onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)))}
-                  aria-label={esSuperTB ? `Puntos de ${match.side_a.pair_name} en el super tie-break` : `Juegos de ${match.side_a.pair_name} en el set ${i + 1}`}
-                />
-              </div>
-              <span className="pb-2 text-muted-foreground">–</span>
-              <div className="grid gap-1">
-                <Label className="text-xs">{match.side_b.pair_name}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={s.b}
-                  onChange={(e) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, b: e.target.value } : x)))}
-                  aria-label={esSuperTB ? `Puntos de ${match.side_b.pair_name} en el super tie-break` : `Juegos de ${match.side_b.pair_name} en el set ${i + 1}`}
-                />
-              </div>
-            </div>
-            {esSuperTB ? (
-              <p className="text-xs text-muted-foreground">{`Solo si quedaron empatados en sets: anota los puntos del desempate (ej. ${SUPER_TIEBREAK_POINTS}-${SUPER_TIEBREAK_POINTS - 2}).`}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">{tbDirect ? `Juegos del set. Si se decidió en tie-break, anota ${tbDirect} directo.` : "Juegos del set. Sin tie-break: si se alarga, anota los juegos tal cual (gana por 2 de diferencia)."}</p>
-            )}
-            </div>
-            );
-          })}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSets((arr) => [...arr, { a: "", b: "" }])}
-              disabled={sets.length >= maxSets || decided}
-              title={decided ? "El partido ya quedó definido: no hacen falta más sets" : undefined}
-            >
-              <Plus className="h-4 w-4 ms-1" /> {sets.length === maxSets - 1 && maxSets > 1 ? "Añadir super tie-break" : "Añadir set"}
-            </Button>
-{winner ? (
-                <Badge variant="default">
-                  Gana: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}
-                </Badge>
-              ) : null}
-          </div>
+          <ScoreGrid
+            sideA={match.side_a.pair_name}
+            sideB={match.side_b.pair_name}
+            rows={sets}
+            superTbIndex={(i) => isSuperTieBreakRow(i, scoring)}
+            superTbTo={SUPER_TIEBREAK_POINTS}
+            notes={sets.map((r, i) => historicTieBreakNote(match.sets[i], r, isSuperTieBreakRow(i, scoring)))}
+            hint={tbDirect ? `Juegos por set. Si hubo tie-break, anota ${tbDirect}.` : "Juegos por set."}
+            onChange={(i, side, v) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, [side]: v } : x)))}
+            onRemove={(i) => setSets((arr) => arr.filter((_, j) => j !== i))}
+            onAdd={() => setSets((arr) => [...arr, { a: "", b: "" }])}
+            addLabel={sets.length === maxSets - 1 && maxSets > 1 ? "Super tie-break" : "Set"}
+            canAdd={!(sets.length >= maxSets || decided)}
+          />
+          {winner ? (
+            <Badge variant="default" className="h-auto w-fit max-w-full whitespace-normal text-left">Gana: {winner === "a" ? match.side_a.pair_name : match.side_b.pair_name}</Badge>
+          ) : null}
           {decided && (
             <p className="text-xs text-muted-foreground">El partido ya quedó definido con estos sets: no hace falta capturar más.</p>
           )}

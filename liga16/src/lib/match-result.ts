@@ -112,3 +112,24 @@ export function captureRowToSet(
   }
   return { a, b, tiebreak_a: null, tiebreak_b: null };
 }
+
+/**
+ * Nota de solo lectura para un set con puntos de tie-break guardados ("TB 7-5").
+ * Se muestra mientras la fila siga igual a lo que se mostró al abrir; si la
+ * persona cambia el set, la nota desaparece (el guardado ya reemplaza esos
+ * puntos igual que antes). No toca el guardado.
+ */
+export function historicTieBreakNote(
+  original: SetScore | undefined,
+  row: { a: string; b: string },
+  superTB: boolean,
+): string | null {
+  if (!original || superTB) return null;
+  const ta = original.tiebreak_a;
+  const tb = original.tiebreak_b;
+  if (ta == null && tb == null) return null;
+  if ((original.a ?? 0) !== (original.b ?? 0) && !(ta != null && tb != null)) return null;
+  const shown = setToCaptureRow(original, false);
+  if (shown.a !== row.a || shown.b !== row.b) return null;
+  return `TB ${ta ?? "–"}-${tb ?? "–"}`;
+}

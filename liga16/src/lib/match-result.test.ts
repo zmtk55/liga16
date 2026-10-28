@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { captureRowToSet, maxSetsForMatch, isMatchDecided, isPlayedSet, isSuperTieBreakRow, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
+import { historicTieBreakNote, captureRowToSet, maxSetsForMatch, isMatchDecided, isPlayedSet, isSuperTieBreakRow, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
 import { DEFAULT_SCORING } from "@/lib/scoring";
 
 const S = (a: number, b: number, ta: number | null = null, tb: number | null = null) => ({ a, b, tiebreak_a: ta, tiebreak_b: tb });
@@ -124,5 +124,44 @@ describe("tieBreakDirectNotation", () => {
     expect(tieBreakDirectNotation({ ...DEFAULT_SCORING, no_tie_break: true })).toBeNull();
     expect(tieBreakDirectNotation({ ...DEFAULT_SCORING, tie_break_at: 99 })).toBeNull();
     expect(tieBreakDirectNotation(null)).toBe("7-6");
+  });
+});
+
+describe("ida y vuelta de la captura con tie-break histórico", () => {
+  it("6-6 con TB parcial sin tocar: se muestra 6-6 y al guardar conserva los puntos de TB", () => {
+    const orig = S(6, 6, 7, null);
+    const row = setToCaptureRow(orig, false);
+    expect(row).toEqual({ a: "6", b: "6" });
+    expect(captureRowToSet(row, orig)).toEqual(orig);
+  });
+  it("6-6 con TB 7-5: el campo muestra 7-6 (normalización de PR21) y guarda 7-6", () => {
+    const orig = S(6, 6, 7, 5);
+    const row = setToCaptureRow(orig, false);
+    expect(row).toEqual({ a: "7", b: "6" });
+    expect(captureRowToSet(row, orig)).toEqual(S(7, 6));
+  });
+  it("set 7-6 ya normalizado sin tocar se conserva igual", () => {
+    const orig = S(7, 6);
+    expect(captureRowToSet(setToCaptureRow(orig, false), orig)).toEqual(orig);
+  });
+});
+
+describe("historicTieBreakNote", () => {
+  it("6-6 con TB 7-5 sin tocar: nota TB 7-5", () => {
+    const o = S(6, 6, 7, 5);
+    expect(historicTieBreakNote(o, setToCaptureRow(o, false), false)).toBe("TB 7-5");
+  });
+  it("TB parcial: muestra guion en el faltante", () => {
+    const o = S(6, 6, 7, null);
+    expect(historicTieBreakNote(o, setToCaptureRow(o, false), false)).toBe("TB 7-–");
+  });
+  it("si el set se edita, la nota desaparece", () => {
+    const o = S(6, 6, 7, 5);
+    expect(historicTieBreakNote(o, { a: "6", b: "4" }, false)).toBeNull();
+  });
+  it("sin TB, super tie-break o sin set original: sin nota", () => {
+    expect(historicTieBreakNote(S(6, 4), { a: "6", b: "4" }, false)).toBeNull();
+    expect(historicTieBreakNote(S(0, 0, 10, 8), { a: "10", b: "8" }, true)).toBeNull();
+    expect(historicTieBreakNote(undefined, { a: "6", b: "4" }, false)).toBeNull();
   });
 });
