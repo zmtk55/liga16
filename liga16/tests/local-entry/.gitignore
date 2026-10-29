@@ -1,0 +1,10 @@
+node_modules/
+before.png
+success.png
+*-desktop.png
+*-mobile.png
+
+*.png
+
+*.webm
+video/

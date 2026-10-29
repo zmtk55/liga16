@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MapPin, Phone, Pencil, Plus, Trash2, ImagePlus, X } from "lucide-react";
+import { MapPin, Phone, Pencil, Plus, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -18,7 +18,6 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
 import { AdminEmptyState, AdminLoadFailed } from "@/components/admin/empty-state";
-import { RowActionsMenu } from "@/components/admin/row-actions";
 import { formatCity } from "@/lib/format";
 
 export default function AdminClubs() {
@@ -378,10 +377,7 @@ export default function AdminClubs() {
                   <span className="font-display text-xl font-semibold">{c.name}</span>
                   <span className="flex items-center gap-2">
                     {c.surface && <Badge variant="outline">{c.surface}</Badge>}
-                    <RowActionsMenu
-                      label={`Acciones para ${c.name}`}
-                      actions={[{ label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onSelect: () => setDeletingCourt({ id: c.id, name: c.name }), destructive: true }]}
-                    />
+                    <Button variant="ghost" size="sm" className="min-h-11" onClick={()=>setDeletingCourt({id:c.id,name:c.name})}>Eliminar</Button>
                   </span>
                 </li>
               ))}

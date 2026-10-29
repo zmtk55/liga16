@@ -9,6 +9,7 @@ import AppLayout from "./layout";
 import { RouteErrorElement } from "@/components/app-error-boundary";
 import Home from "../features/home/page";
 import { lazy } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { RequireAuth, RequireRole } from "@/components/auth/guards";
 
 // Lazy-loaded routes for performance
@@ -62,6 +63,14 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function GlobalAdminRoute({ children }: { children: React.ReactNode }) {
+  return <RequireRole roles={["admin"]} message="Esta sección es del administrador general.">{children}</RequireRole>;
+}
+function AdminStart() {
+  const {user} = useAuth();
+  return user?.role === "organizer" ? <Navigate to="/admin/torneos" replace /> : <AdminDashboard />;
+}
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -108,21 +117,21 @@ export const router = createBrowserRouter([
     ),
     errorElement: <RouteErrorElement />,
     children: [
-      { index: true, element: <AdminDashboard /> },
-      { path: "estado", element: <SystemStatus /> },
+      { index: true, element: <AdminStart /> },
+      { path: "estado", element: <GlobalAdminRoute><SystemStatus /></GlobalAdminRoute> },
       { path: "torneos", element: <AdminTournaments /> },
       { path: "torneos/nuevo", element: <AdminTournamentWizard /> },
       { path: "torneos/:slug", element: <AdminTournamentDetail /> },
       { path: "torneos/:slug/editar", element: <AdminTournamentWizard /> },
       { path: "torneos/:slug/bracket", element: <BracketShortcut /> },
-      { path: "equipos", element: <AdminTeams /> },
+      { path: "equipos", element: <GlobalAdminRoute><AdminTeams /></GlobalAdminRoute> },
       { path: "participantes", element: <AdminParticipants /> },
-      { path: "jugadores", element: <AdminPlayers /> },
-      { path: "ranking", element: <AdminRanking /> },
-      { path: "inbox", element: <AdminInbox /> },
-      { path: "resultados", element: <AdminResults /> },
-      { path: "padel", element: <AdminClubs /> },
-      { path: "noticias", element: <AdminNews /> },
+      { path: "jugadores", element: <GlobalAdminRoute><AdminPlayers /></GlobalAdminRoute> },
+      { path: "ranking", element: <GlobalAdminRoute><AdminRanking /></GlobalAdminRoute> },
+      { path: "inbox", element: <GlobalAdminRoute><AdminInbox /></GlobalAdminRoute> },
+      { path: "resultados", element: <GlobalAdminRoute><AdminResults /></GlobalAdminRoute> },
+      { path: "padel", element: <GlobalAdminRoute><AdminClubs /></GlobalAdminRoute> },
+      { path: "noticias", element: <GlobalAdminRoute><AdminNews /></GlobalAdminRoute> },
       {
         path: "onboarding",
         element: <Navigate to="/admin/torneos/nuevo" replace />,

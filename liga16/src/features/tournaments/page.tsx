@@ -1,3 +1,4 @@
+import { FilterBar } from "@/components/ui/filter-bar";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -54,14 +55,14 @@ export default function TournamentsPage() {
   }, [tournaments, status, format, q]);
 
   return (
-    <div className="animate-fade-in space-y-8">
+    <div className="animate-fade-in space-y-5">
       <PageHero
         title="Torneos"
         subtitle="Las fechas del circuito. Inscripciones abiertas, sedes y formatos de cada evento."
         ghost="16"
       />
 
-      <div className="relative z-10 -mt-4 flex flex-wrap items-center gap-2">
+      <FilterBar search={q} onSearch={(v) => setParam("q", v)} searchPlaceholder="Buscar torneo…" resultCount={filtered.length} resultLabel="torneos" activeCount={Number(status !== "all") + Number(format !== "all")} onClear={() => { const next = new URLSearchParams(params); ["q", "status", "format"].forEach((k) => next.delete(k)); setParams(next, { replace: true }); }}>
         <FilterMenu
           label="Estado"
           value={status}
@@ -86,7 +87,7 @@ export default function TournamentsPage() {
           ]}
           allLabel="Todos los formatos"
         />
-      </div>
+      </FilterBar>
 
       {tournaments === null ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

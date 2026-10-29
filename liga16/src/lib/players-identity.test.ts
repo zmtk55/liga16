@@ -1,0 +1,10 @@
+import {it,expect,vi} from 'vitest';
+vi.mock('./supabase',()=>({supabase:null}));
+vi.mock('./data',()=>({db:{}}));
+import {resolveTournamentPlayer} from './players';
+import type {PlayerProfile} from '@/types';
+const players=[{id:'a',display_name:'Ana'},{id:'b',display_name:'Ana'}] as PlayerProfile[];
+it('name alone never selects first homonym',async()=>{await expect(resolveTournamentPlayer('Ana',undefined,players,'t',true)).rejects.toThrow('Selecciona');});
+it('an explicit no-account player ID selects the correct homonym',async()=>{await expect(resolveTournamentPlayer('Ana','b',players,'t',true)).resolves.toBe(players[1]);});
+it('changed name invalidates selected identity',async()=>{await expect(resolveTournamentPlayer('Otra','b',players,'t',true)).rejects.toThrow('seleccionar');});
+it('stale missing ID is not replaced with similar name',async()=>{await expect(resolveTournamentPlayer('Ana','gone',players,'t',true)).rejects.toThrow('seleccionar');});

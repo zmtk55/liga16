@@ -31,7 +31,7 @@ export default function PlayerSlot({
   label: string;
   value: string;
   players: PlayerProfile[];
-  onPick: (name: string) => void;
+  onPick: (name: string, playerId: string) => void;
   onType: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -79,7 +79,7 @@ export default function PlayerSlot({
         onValueChange={(pl) => {
           if (!pl) return;
           setQuery("");
-          onPick(pl.display_name);
+          onPick(pl.display_name,pl.id);
         }}
       >
         <div className="relative">

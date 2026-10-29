@@ -1,4 +1,6 @@
 // Registro perezoso de jugadores: busca por nombre y crea el perfil si no existe.
+import { supabase } from "@/lib/supabase";
+import {entryPaymentRelease,createEntryResource} from "./entry-payment-service";
 import { db } from "@/lib/data";
 import type { PlayerProfile } from "@/types";
 
@@ -98,4 +100,25 @@ export async function ensurePlayer(name: string, division?: string): Promise<Pla
       );
     }
   }
+}
+
+/** Organizer path: the DB checks the owner and accepts no privileged profile fields. */
+export async function ensureTournamentPlayer(name: string, tournamentId: string): Promise<PlayerProfile | null> {
+  if (!supabase) return ensurePlayer(name);
+  const { data, error } = await supabase.rpc('organizer_player', {tid: tournamentId, player_name: name.trim()});
+  if (error) throw error;
+  return (data as PlayerProfile[] | null)?.[0] ?? null;
+}
+
+/** Stable explicit selection wins; a name is never proof of an existing identity. */
+export async function resolveTournamentPlayer(name:string,selectedId:string|undefined,players:PlayerProfile[],tournamentId:string,organizer:boolean,division?:string,requestId?:string):Promise<PlayerProfile|null>{
+ const normalized=normalizePlayerName(name);
+ if(selectedId){
+  const selected=players.find(p=>p.id===selectedId) ?? (db.getPlayer?await db.getPlayer(selectedId):null);
+  if(!selected || normalizePlayerName(selected.display_name)!==normalized)throw new Error('Vuelve a seleccionar el jugador del directorio');
+  return selected;
+ }
+ if(entryPaymentRelease.available){if(!requestId)throw new Error("Falta clave de alta");return await createEntryResource(tournamentId,requestId,'player',{display_name:name.trim()}) as PlayerProfile;}
+ if(players.some(p=>normalizePlayerName(p.display_name)===normalized))throw new Error('Selecciona el jugador del directorio para confirmar su identidad');
+ return organizer?ensureTournamentPlayer(name,tournamentId):ensurePlayer(name,division);
 }

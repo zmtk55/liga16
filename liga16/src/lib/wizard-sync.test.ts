@@ -22,6 +22,7 @@ function fixture() {
  return {db,categories,teams,cats,pairs,matches,player,run,addMatch};
 }
 describe("wizard sync por ID",()=>{
+ it("no vuelve a subir escudo cuando falla guardar pareja",async()=>{const f=fixture();f.teams[0].logo="data:image/png;base64,fixture";const upload=vi.fn(async(url:string)=>url.startsWith("data:")?"https://fixture.invalid/crest.png":url);f.db.updatePair.mockRejectedValueOnce(Error("revoked"));const run=()=>syncWizard(f.db as unknown as DataProvider,"t",f.categories,f.teams,true,999,f.player,upload);await expect(run()).rejects.toThrow("revoked");expect(f.teams[0].logo).toBe("https://fixture.invalid/crest.png");await run();expect(upload.mock.calls.filter(c=>c[0].startsWith("data:"))).toHaveLength(1);});
  it("renombra pareja y cambia jugadores sin crear duplicado ni perder grupo/seed",async()=>{const f=fixture();f.teams[0].name="Nuevo nombre";f.teams[0].player2="carla";await f.run();expect(f.db.updatePair).toHaveBeenCalledWith("p",expect.objectContaining({name:"Nuevo nombre",player2_id:"carla"}));expect(f.db.createPair).not.toHaveBeenCalled();expect(f.pairs[0]).toMatchObject({seed:2,group_name:"Grupo A"});});
  it("renombra categoría in situ y conserva precio y campos no editados",async()=>{const f=fixture();f.categories[0].label="Open";await f.run(false);expect(f.db.deleteTournamentCategory).not.toHaveBeenCalled();expect(f.db.createTournamentCategory).not.toHaveBeenCalled();expect(f.cats[0]).toMatchObject({id:"c",name:"Open",category:"5ta",max_pairs:16,min_level:2,price_cents:500});});
  it("nueva categoría guarda división y cupo y enlaza pareja al ID nuevo",async()=>{const f=fixture();f.categories.push({id:"fresh",label:"Suma 9",sex:"M",division:"6ta",max_pairs:12});f.teams[0].categoryKey="fresh";await f.run();expect(f.db.createTournamentCategory).toHaveBeenCalledWith(expect.objectContaining({category:"6ta",max_pairs:12}));expect(f.db.updatePair).toHaveBeenCalledWith("p",expect.objectContaining({category_id:"new-c"}));});
@@ -33,4 +34,18 @@ describe("wizard sync por ID",()=>{
  it("renombrar categoría con resultados actualiza solo etiqueta del partido",async()=>{const f=fixture();f.addMatch("finished");f.categories[0].label="Open";await f.run(false);expect(f.db.updateMatch).toHaveBeenCalledWith("m",{category_name:"Open"});});
  it("fallo de directorio no reemplaza jugadores por null ni continúa",async()=>{const f=fixture();f.player.mockRejectedValueOnce(new Error("red"));await expect(f.run()).rejects.toThrow("red");expect(f.db.updatePair).not.toHaveBeenCalled();expect(f.db.updateTournamentCategory).not.toHaveBeenCalled();});
  it("reintentar tras fallo conserva IDs creados y no duplica",async()=>{const f=fixture();f.categories.push({id:"fresh",label:"Nueva",sex:"F"});f.teams.push({...f.teams[0],id:undefined,name:"Nueva pareja"});f.db.deletePair.mockRejectedValueOnce(new Error("red"));f.pairs.push({...f.pairs[0],id:"remove"});await expect(f.run()).rejects.toThrow("red");await f.run();expect(f.db.createTournamentCategory).toHaveBeenCalledTimes(1);expect(f.db.createPair).toHaveBeenCalledTimes(1);});
+});
+it('entry failure retries same pair and explicit player IDs, never copies price into payment',async()=>{
+ const f=fixture();f.teams[0].id=undefined;f.pairs.length=0;
+ const entry=vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(Error('entry failed')).mockResolvedValue(undefined);
+ const run=()=>syncWizard(f.db as unknown as DataProvider,'t',f.categories,f.teams,true,999,f.player,async u=>u,entry);
+ await expect(run()).rejects.toThrow('entry failed');expect(f.teams[0].id).toBe('new-p');expect(f.teams[0].player1Id).toBe('ana');
+ await run();expect(f.db.createPair).toHaveBeenCalledTimes(1);expect(entry.mock.calls.every(c=>c.length===2)).toBe(true);
+});
+
+it('keeps first pair-create operation after unknown response, replay never creates a second pair',async()=>{
+ const f=fixture();f.teams[0].id=undefined;f.pairs.length=0;let commits=0;let stored:Pair|null=null;
+ const create=vi.fn(async(data:Parameters<DataProvider['createPair']>[0],_key:string)=>{if(!stored){stored={...data,id:'committed'} as Pair;commits++;throw Error('response lost');}return stored;});
+ const run=()=>syncWizard(f.db as unknown as DataProvider,'t',f.categories,f.teams,true,999,f.player,async u=>u,undefined,create);
+ await expect(run()).rejects.toThrow('response lost');const key=f.teams[0].pairOperation;await run();expect(commits).toBe(1);expect(create.mock.calls[1][1]).toBe(key);expect(f.teams[0].id).toBe('committed');
 });

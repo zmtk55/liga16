@@ -1,3 +1,10 @@
+import { motion, useReducedMotion } from "motion/react";
+import { RowActions } from "@/components/admin/row-actions";
+import { TeamSections } from "@/components/admin/team-sections";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { AdminViewToggle, useAdminView } from "@/components/admin/view-toggle";
+import { FilterMenu } from "@/components/ui/filter-menu";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -8,12 +15,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { AlertTriangle, Pencil, Plus, Repeat, Trash2, Trophy, Users } from "lucide-react";
+import { AlertTriangle, Plus, Repeat, Trophy, Users } from "lucide-react";
 import { checkLevelSum } from "@/lib/qualification";
 import { ramaLabel } from "@/lib/categories";
 import PlayerSlot from "@/components/players/player-slot";
 import { ensurePlayer } from "@/lib/players";
-import { AdminSearchPill, BENTO_CARD, BENTO_DARK, BENTO_LIGHT, BENTO_METRIC, BENTO_METRIC_MD } from "@/components/admin/bento";
+import { BENTO_CARD, BENTO_LIGHT } from "@/components/admin/bento";
 import { cn } from "@/lib/utils";
 import { formatCity, formatDateRange, SIN_CATEGORIA } from "@/lib/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -25,7 +32,6 @@ import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
-const SIN_TORNEO = "__sin_torneo__";
 interface EquipoForm {
   name: string; category_id: string; player1_name: string; player2_name: string; crest_url: string | null;
 }
@@ -35,11 +41,13 @@ function autoName(f: { player1_name: string; player2_name: string }): string {
 }
 
 export default function AdminTeams() {
+  const reduced=useReducedMotion();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [tid, setTidState] = useState<string>("");
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
   const [pairs, setPairs] = useState<PairRow[] | null>(null);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
+  const [protectedTournaments, setProtectedTournaments] = useState<Set<string> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<PairRow | null>(null);
@@ -52,6 +60,7 @@ export default function AdminTeams() {
     setParams(next, { replace: true });
   };
   const [cat, setCat] = useState("all");
+  const [view, setView] = useAdminView("equipos", ["cards", "tabla", "compacta"], "compacta");
 
   // Cambiar de torneo: se guarda en ?torneo= y se limpian búsqueda y filtro,
   // para no filtrar el torneo nuevo con el texto del anterior.
@@ -81,6 +90,7 @@ export default function AdminTeams() {
 
   useEffect(() => {
     cargarTorneos();
+    db.listIndividualRegistrations().then(rows=>setProtectedTournaments(new Set(rows.map(r=>r.tournament_id)))).catch(()=>setProtectedTournaments(null));
     db.listPlayers().then((p) => setPlayers(p)).catch(() => setPlayers([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -228,13 +238,6 @@ export default function AdminTeams() {
     for (const p of pairs ?? []) m.set(p.category_id ?? "", (m.get(p.category_id ?? "") ?? 0) + 1);
     return m;
   }, [pairs]);
-  const chip = (active: boolean) =>
-    cn(
-      "inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
-      active
-        ? "border-primary/40 bg-primary/10 font-medium text-primary-strong"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    );
 
   return (
     <div className="space-y-6">
@@ -243,71 +246,16 @@ export default function AdminTeams() {
         description="Las parejas inscritas viven dentro de cada torneo."
         action={
           <>
-            <AdminSearchPill value={query} onChange={setQuery} placeholder="Buscar pareja…" label="Buscar pareja" />
             <Button disabled={!tid} onClick={() => openDialog(null)}><Plus className="h-4 w-4" /> Inscribir pareja</Button>
           </>
         }
       />
 
-      {/* Fila 1: el torneo en un póster oscuro y, al lado, la cifra de parejas. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <section aria-label="Contexto del torneo" className={cn(BENTO_CARD, BENTO_DARK, "flex flex-col justify-between gap-6 lg:col-span-8")}>
-          <div className="liga16-stripe" aria-hidden />
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-caption uppercase text-white/60">Torneo</p>
-            {torneoEstado && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 px-2.5 py-1 text-caption text-primary">
-                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
-                {torneoEstado}
-              </span>
-            )}
-          </div>
-          <div className="space-y-2">
-            <p className={cn(BENTO_METRIC_MD, "break-words")}>{torneo?.name ?? "Elige un torneo"}</p>
-            {torneo && (
-              <p className="text-sm text-white/60">
-                {formatDateRange(torneo.start_date, torneo.end_date)} · {torneo.club_name ?? formatCity(torneo.city)}
-              </p>
-            )}
-          </div>
-          <Select value={tid || SIN_TORNEO} onValueChange={(v) => { if (v !== SIN_TORNEO) setTid(v); }}>
-            <SelectTrigger aria-label="Torneo" className="h-10 w-full rounded-full border-white/20 bg-white/10 px-4 text-sm text-white sm:w-80">
-              <SelectValue placeholder="Elige un torneo" />
-            </SelectTrigger>
-            <SelectContent>
-              {tournaments.length === 0 && <SelectItem value={SIN_TORNEO}>Elige un torneo</SelectItem>}
-              {tournaments.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </section>
+      <TeamSections />
 
-        <section aria-label="Parejas inscritas" className={cn(BENTO_CARD, "flex flex-col justify-between gap-8 bg-primary text-primary-foreground lg:col-span-4")}>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-caption uppercase">Parejas</p>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/15"><Users className="h-4 w-4" aria-hidden /></span>
-          </div>
-          <div className="space-y-3">
-            <p className={BENTO_METRIC}>{pairs === null && tid ? "–" : resumen.parejas}</p>
-            <span className="inline-flex rounded-full bg-black/15 px-2.5 py-1 text-caption">inscritas en el torneo</span>
-          </div>
-        </section>
-      </div>
-
-      {/* Fila 2: tres cifras, una por tarjeta. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {[
-          { label: "Categorías", value: resumen.categorias, pill: "en este torneo", dark: false },
-          { label: "Categorías con rival", value: resumen.completas, pill: "con 2 o más parejas", dark: false },
-          { label: "Con escudo", value: resumen.conEscudo, pill: "foto o logo cargado", dark: true },
-        ].map((m) => (
-          <section key={m.label} aria-label={m.label} className={cn(BENTO_CARD, m.dark ? BENTO_DARK : BENTO_LIGHT, "flex flex-col justify-between gap-8")}>
-            <p className={cn("text-caption uppercase", m.dark ? "text-white/60" : "text-muted-foreground")}>{m.label}</p>
-            <div className="space-y-3">
-              <p className={BENTO_METRIC}>{pairs === null && tid ? "–" : m.value}</p>
-              <span className={cn("inline-flex rounded-full px-2.5 py-1 text-caption", m.dark ? "bg-white/10 text-white/70" : "bg-muted text-muted-foreground")}>{m.pill}</span>
-            </div>
-          </section>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+        <div className="min-w-0"><p className="text-xs uppercase tracking-wide text-muted-foreground">Torneo seleccionado</p><h2 className="break-words font-sans text-base font-semibold">{torneo?.name ?? "Elige un torneo"}</h2><p className="text-xs text-muted-foreground">{torneo ? `${formatDateRange(torneo.start_date, torneo.end_date)} · ${torneo.club_name ?? formatCity(torneo.city)}` : "Cada torneo conserva sus propias parejas"}</p></div>
+        <div className="flex flex-wrap gap-4 text-sm"><span><strong className="tabular-nums">{resumen.parejas}</strong> parejas</span><span><strong className="tabular-nums">{resumen.categorias}</strong> categorías</span><span><strong className="tabular-nums">{resumen.completas}</strong> categorías con rival</span><span><strong className="tabular-nums">{resumen.conEscudo}</strong> con escudo</span>{torneoEstado && <span className="text-primary-strong">{torneoEstado}</span>}</div>
       </div>
 
       {error ? (
@@ -325,20 +273,12 @@ export default function AdminTeams() {
         </section>
       ) : (
         <section aria-label="Equipos del torneo" className="space-y-4">
-          {categories.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrar por categoría">
-              <button type="button" aria-pressed={cat === "all"} className={chip(cat === "all")} onClick={() => setCat("all")}>
-                Todas <span className="tabular-nums text-xs opacity-70">{pairs?.length ?? 0}</span>
-              </button>
-              {categories.map((c) => (
-                <button key={c.id} type="button" aria-pressed={cat === c.id} className={chip(cat === c.id)} onClick={() => setCat(c.id)}>
-                  {c.name} <span className="tabular-nums text-xs opacity-70">{conteoPorCategoria.get(c.id) ?? 0}</span>
-                </button>
-              ))}
-              <p className="ml-auto text-xs text-muted-foreground tabular-nums">{filtered.length} de {pairs?.length ?? 0} parejas</p>
-            </div>
-          )}
+          <FilterBar className="rounded-none border-0 bg-transparent p-0" search={query} onSearch={setQuery} searchPlaceholder="Buscar pareja…" resultCount={filtered.length} resultLabel="parejas" activeCount={Number(cat !== "all")} onClear={() => { setQuery(""); setCat("all"); }} controls={<AdminViewToggle value={view} onChange={setView} views={["cards", "tabla", "compacta"]} />}>
+            <FilterMenu label="Torneo" value={tid || "all"} onChange={(v) => { if (v !== "all") setTid(v); }} options={tournaments.map((t) => ({ key: t.id, label: t.name }))} allLabel="Elegir torneo" />
+            <FilterMenu label="Categoría" value={cat} onChange={setCat} options={categories.map((c) => ({ key: c.id, label: c.name, n: conteoPorCategoria.get(c.id) ?? 0 }))} allLabel="Todas" />
+          </FilterBar>
 
+          <motion.div key={view} initial={reduced ? false : {opacity:0,y:4}} animate={{opacity:1,y:0}} transition={{duration:0.14}}>
           {pairs === null && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Cargando parejas">
               {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-3xl" />)}
@@ -354,7 +294,7 @@ export default function AdminTeams() {
               <AdminEmptyState title="Sin coincidencias" description="Ninguna pareja coincide con la búsqueda o el filtro." action={<Button variant="outline" size="sm" onClick={() => { setQuery(""); setCat("all"); }}>Limpiar</Button>} />
             </div>
           )}
-          {filtered.length > 0 && (
+          {filtered.length > 0 && view === "cards" && (
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((p) => {
                 const [p1, p2] = p.name.split(" / ");
@@ -416,10 +356,7 @@ export default function AdminTeams() {
                               <dd className="font-medium">{p.crest_url ? "Con escudo" : "Sin escudo"}</dd>
                             </div>
                           </dl>
-                          <div className="mt-auto flex gap-2">
-                            <Button type="button" size="sm" className="flex-1" onClick={() => openDialog(p)}><Pencil className="h-4 w-4" /> Editar</Button>
-                            <Button type="button" size="sm" variant="outline" className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-red-400/40 dark:text-red-400 dark:hover:bg-red-400/10 dark:hover:text-red-300" onClick={() => setDeleting({ id: p.id, name: p.name })}><Trash2 className="h-4 w-4" /> Eliminar</Button>
-                          </div>
+                          <div className="mt-auto flex justify-end"><RowActions name={p.name} onEdit={()=>openDialog(p)} onDelete={()=>setDeleting({id:p.id,name:p.name})} deleteDisabled={!protectedTournaments || protectedTournaments.has(tid)}/></div>
                         </div>
                       )}
                     />
@@ -428,6 +365,17 @@ export default function AdminTeams() {
               })}
             </ul>
           )}
+          {filtered.length > 0 && view === "tabla" && (
+            <div className="overflow-hidden rounded-2xl border bg-card">
+              <Table aria-label="Equipos del torneo"><TableHeader><TableRow><TableHead>Pareja</TableHead><TableHead>Categoría</TableHead><TableHead>Partidos</TableHead><TableHead>Escudo</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+                <TableBody>{filtered.map((p) => <TableRow key={p.id}><TableCell className="min-w-48 font-medium">{p.name}</TableCell><TableCell>{categoryOf(p.category_id)}</TableCell><TableCell>{matchCount?.get(p.id) ?? (matchCount ? 0 : "–")}</TableCell><TableCell>{p.crest_url ? "Con escudo" : "Sin escudo"}</TableCell><TableCell><div className="flex justify-end"><RowActions name={p.name} onEdit={()=>openDialog(p)} onDelete={()=>setDeleting({id:p.id,name:p.name})} deleteDisabled={!protectedTournaments || protectedTournaments.has(tid)}/></div></TableCell></TableRow>)}</TableBody>
+              </Table>
+            </div>
+          )}
+          {filtered.length > 0 && view === "compacta" && (
+            <ul className="divide-y overflow-hidden rounded-2xl border bg-card">{filtered.map((p) => <li key={p.id} className="flex flex-wrap items-center gap-3 p-3"><span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 font-semibold text-primary">{p.crest_url ? <img src={p.crest_url} alt="" className="h-full w-full object-cover" /> : p.name.slice(0, 2).toUpperCase()}</span><div className="min-w-0 flex-1"><p className="break-words text-sm font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{categoryOf(p.category_id)} · {matchCount?.get(p.id) ?? (matchCount ? 0 : "–")} partidos</p></div><RowActions name={p.name} onEdit={()=>openDialog(p)} onDelete={()=>setDeleting({id:p.id,name:p.name})} deleteDisabled={!protectedTournaments || protectedTournaments.has(tid)}/></li>)}</ul>
+          )}
+          </motion.div>
         </section>
       )}
 

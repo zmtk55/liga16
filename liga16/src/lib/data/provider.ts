@@ -1,3 +1,5 @@
+import type { PaymentOperation } from '@/lib/payment-operation';
+import type { IndividualRegistrationRow } from "@/lib/individual-registrations";
 // Interfaz única de acceso a datos de Liga16.
 // Las páginas consumen `db`, sin saber si detrás hay datos demo o Supabase.
 import type { PlayerRecord } from '@/lib/records';
@@ -59,6 +61,8 @@ export interface AllPair {
 }
 
 export interface DataProvider {
+  /** Raw individual registrations, no reduction by pair or inferred fee unit. */
+  listIndividualRegistrations(tournamentId?: string): Promise<IndividualRegistrationRow[]>;
   // Torneos
   listTournaments(filters?: Omit<TournamentFilters, 'city'>): Promise<Tournament[]>;
   getTournament(slug: string): Promise<Tournament | null>;
@@ -99,6 +103,7 @@ export interface DataProvider {
   updateRegistrationPayment(
     registrationId: UUID,
     data: { status?: RegistrationStatus; payment_method?: PaymentMethod; amount_cents?: number | null; paid_at?: string | null },
+    operation: PaymentOperation,
   ): Promise<void>;
   listMatchesByTournament(tournamentId: string): Promise<Match[]>;
   createMatches(matches: Array<Omit<Match, 'id'>>): Promise<Match[]>;

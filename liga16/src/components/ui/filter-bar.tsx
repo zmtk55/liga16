@@ -87,6 +87,7 @@ export function FilterBar({
   searchPlaceholder = "Buscar…",
   selects = [],
   children,
+  controls,
   resultCount,
   resultLabel = "resultados",
   onClear,
@@ -98,6 +99,8 @@ export function FilterBar({
   searchPlaceholder?: string;
   selects?: FilterSelect[];
   children?: React.ReactNode;
+  /** Cambio de vista y acciones de la lista, siempre junto a la búsqueda. */
+  controls?: React.ReactNode;
   resultCount?: number;
   resultLabel?: string;
   /** Se muestra solo si hay filtros activos. */
@@ -129,6 +132,8 @@ export function FilterBar({
   /** Último valor que ENVIAMOS al padre: sirve para reconocer su propio eco. */
   const sentRef = React.useRef<string | null>(null);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onSearchRef = React.useRef(onSearch);
+  React.useEffect(() => { onSearchRef.current = onSearch; }, [onSearch]);
 
   // Cambio externo (botón "Limpiar", navegación, filtro que resetea la URL):
   // el padre manda y el input se acomoda. Si lo que llega es nuestro propio
@@ -137,6 +142,7 @@ export function FilterBar({
     const incoming = search ?? "";
     if (incoming === sentRef.current) return;
     sentRef.current = incoming;
+    if (timerRef.current) clearTimeout(timerRef.current);
     setText(incoming);
   }, [search]);
 
@@ -154,10 +160,10 @@ export function FilterBar({
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         sentRef.current = value;
-        onSearch?.(value);
+        onSearchRef.current?.(value);
       }, 180);
     },
-    [onSearch],
+    [],
   );
 
   const collapsed = selects.length > MAX_INLINE;
@@ -175,7 +181,7 @@ export function FilterBar({
       variant="ghost"
       size="sm"
       className="h-8 shrink-0 text-xs text-muted-foreground"
-      onClick={onClear}
+      onClick={() => { if (timerRef.current) clearTimeout(timerRef.current); sentRef.current = ""; setText(""); onClear?.(); }}
     >
       <X className="mr-1 h-3.5 w-3.5" /> Limpiar
     </Button>
@@ -185,24 +191,29 @@ export function FilterBar({
     // min-w-0 en la raíz: la barra vive en un `grid` (CardHeader) y sus
     //tracks se dimensionan por contenido. Sin esto, la fila de píldoras
     //empujaba la columna y la página entera se iba de ancho en el móvil.
-    <div className={cn("min-w-0 space-y-2", className)}>
+    <div className={cn("min-w-0 space-y-2 rounded-2xl border bg-card/60 p-3", className)}>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         {onSearch && (
-          <div className="relative min-w-0 flex-1 sm:max-w-80">
+          <div className="flex min-w-0 basis-full items-center gap-2 sm:basis-64 sm:flex-1">
+            <div className="relative min-w-0 flex-1 sm:max-w-96">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={text}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder={searchPlaceholder}
-              className="h-11 w-full rounded-full bg-card pl-11"
+              type="search"
+              onKeyDown={(e) => { if (e.key === "Escape") handleSearch(""); }}
+              className="h-10 w-full rounded-xl bg-background pl-11"
               aria-label={searchPlaceholder}
             />
+            </div>
+            {meta}
           </div>
         )}
         {inlineSelects.map((s) => (
           <Select key={s.key} value={s.value} onValueChange={s.onChange}>
             <SelectTrigger
-              className={cn("h-9 w-full sm:w-44", s.className)}
+              className={cn("h-10 w-full rounded-xl sm:w-44", s.className)}
               aria-label={s.ariaLabel}
             >
               <SelectValue placeholder={s.placeholder ?? s.ariaLabel} />
@@ -272,10 +283,11 @@ export function FilterBar({
         {/* La cuenta y el "Limpiar" viven siempre en esta fila: el número de
             resultados que quedan es el dato que dice si el filtro funciona, y
             no debe desaparecer en cuanto se activa uno. */}
-        <div className="ms-auto flex shrink-0 items-center gap-2">
-          {meta}
+        {((!onSearch && meta) || clearBtn) && <div className="flex shrink-0 items-center gap-2 sm:ms-auto">
+          {!onSearch && meta}
           {clearBtn}
-        </div>
+        </div>}
+        {controls && <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ms-auto">{controls}</div>}
       </div>
 
       {active.length > 0 && (
@@ -291,7 +303,7 @@ export function FilterBar({
         </div>
       )}
 
-      {children}
+      {children && <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-border/60 pt-2">{children}</div>}
     </div>
   );
 }

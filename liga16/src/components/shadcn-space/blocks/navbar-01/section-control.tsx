@@ -1,23 +1,5 @@
-// El control de la sección, por TIPO y no por excepción (ADR-0009).
-//
-// Lo usan el SiteHeader público y el shell del admin: es la misma pieza en
-// ambos, que es el punto. Si el admin dibujara su propio buscador volvería
-// la duplicación que la regla vino a quitar —dos buscadores en la misma
-// pantalla, uno arriba y otro en la página—.
-//
-// El filtro de BÚSQUEDA vive en la URL (?q=): sobrevive al ir y venir y un
-// enlace ya filtrado se puede compartir.
-//
-// UNA pieza, no dos. Antes el header la llamaba dos veces —`only="search"` y
-// `only="pills"`— y cada llamada decidía por su cuenta qué dibujar. El
-// resultado: /ranking pintaba el input Y las ocho pills sueltas en la fila, la
-// barra crecía a 84px de alto y a 1024px de ancho la página se salía de lado.
-//
-// Aquí ya no hay filtro de categoría, solo el buscador. El popover "División"
-// que quedaba en el header ofrecía una lista de divisiones escrita a mano —
-// ofrecía 2da y 5ta aunque el circuito no las tenga, y no ofrecía "Suma 9" ni
-// "Mixtos", que sí existen—. Armar el filtro con los datos es trabajo de la
-// página, que es quien los carga: ver `FilterNav` y `categoryFacet`.
+// Las listas tienen búsqueda junto a sus filtros. En fichas, este control
+// permite volver a la lista con una búsqueda aplicada sin duplicar inputs.
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { Search as SearchIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -67,7 +49,7 @@ export function SectionControl({ className }: { className?: string }) {
   }
 
   // "browse" no busca ni filtra: nada que dibujar.
-  if (type === "browse") return null;
+  if (type === "browse" || onSectionRoot) return null;
 
   const placeholder = SEARCH_PLACEHOLDER[sectionRoot] ?? "Buscar…";
   const buscador = (

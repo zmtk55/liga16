@@ -156,6 +156,7 @@ export default function AdminRanking() {
             filtros se leen de un vistazo. */}
         <CardHeader>
           <FilterBar
+            controls={<AdminViewToggle value={view} onChange={setView} views={["cards", "tabla"]} />}
             search={query}
             onSearch={setQuery}
             searchPlaceholder="Buscar pareja o jugador…"
@@ -187,9 +188,6 @@ export default function AdminRanking() {
               />
             </AdminFacets>
           </FilterBar>
-          <div className="flex justify-end">
-            <AdminViewToggle value={view} onChange={setView} views={["cards", "tabla"]} />
-          </div>
         </CardHeader>
         <CardContent className="p-0">
           {teams === null && (

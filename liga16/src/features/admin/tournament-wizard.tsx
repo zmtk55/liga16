@@ -1,10 +1,14 @@
+import { createOnce } from '@/lib/retryable-create';
+import { requireOrganizerBackend } from '@/lib/organizer-readiness';
+import { savePendingCover, type PendingCoverUpload } from "@/lib/pending-cover";
+import { useAuth } from "@/contexts/AuthContext";
+import { canManageTournament } from "@/lib/access";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useNavigate, useParams } from "react-router";
 import { db } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
-import { deleteStoredImage } from "@/lib/storage";
 import type { Club, Court, PadelDivision, Sex, Tournament, PlayerProfile, Pair, Match } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,8 +54,9 @@ import { DEFAULT_SCORING, SUPER_TIEBREAK_POINTS } from "@/lib/scoring";
 import { scheduleRounds, turnsUsed, drawGroupsByCategory, type Group, type DrawablePair } from "@/lib/groups";
 import { sexLabel } from "@/lib/format";
 import { toast } from "sonner";
+import {entryPaymentRelease,createEntryResource,ensureTournamentEntry} from "@/lib/entry-payment-service";
 import { syncWizard } from "@/lib/wizard-sync";
-import { ensurePlayer, normalizePlayerName } from "@/lib/players";
+import { resolveTournamentPlayer } from "@/lib/players";
 import {
   Building2,
   Check,
@@ -103,6 +108,9 @@ interface TeamInput {
   name: string;
   player1: string;
   player2: string;
+  player1Id?: string;
+  player2Id?: string;
+  player1Operation?:string;player2Operation?:string;pairOperation?:string;
   logo: string | null;
   group: string | null; // "Grupo A"… si el admin lo asigna a mano
   /** id real en BD cuando el equipo ya fue persistido (modo edición). */
@@ -125,21 +133,20 @@ function addDays(date: string, days: number) {
  * Si no hay Supabase (modo demo) devuelve el data URL tal cual: que se vea en la
  * sesión es mejor que perderlo, y no hay bucket al que subirlo.
  */
-async function uploadCrest(dataUrl: string, slug: string): Promise<string | null> {
+async function uploadCrest(dataUrl: string, slug: string, tournamentId?: string): Promise<string | null> {
   if (!supabase) return dataUrl;
   if (!dataUrl.startsWith("data:")) return dataUrl; // ya es una URL
   try {
     const blob = await (await fetch(dataUrl)).blob();
     const safe = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "equipo";
-    const objPath = `${safe}/${Date.now()}.png`;
+    const objPath = `${tournamentId ? `tournaments/${tournamentId}` : safe}/${crypto.randomUUID()}.png`;
     const { error } = await supabase.storage
       .from("team-crests")
       .upload(objPath, blob, { contentType: blob.type || "image/png", upsert: true });
     if (error) throw error;
     return supabase.storage.from("team-crests").getPublicUrl(objPath).data.publicUrl;
-  } catch {
-    // Sin bucket o sin permisos, mejor un data URL que ningún escudo.
-    return dataUrl;
+  } catch (error) {
+    throw new Error(`No se pudo guardar el escudo: ${(error as Error).message}`);
   }
 }
 
@@ -210,6 +217,7 @@ function SortablePairCard({
 }
 
 export default function TournamentWizard() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const editMode = Boolean(slug);
@@ -220,11 +228,17 @@ export default function TournamentWizard() {
   // Paso 1: sede y canchas
   const [club, setClub] = useState({ name: "", city: "Ciudad de México", state: "CDMX", address: "", phone: "" });
   const [clubId, setClubId] = useState<string | null>(null);
+  const [availableClubs, setAvailableClubs] = useState<Club[]>([]);
+  const venueSelection = useRef(0);
+  const selectedClub = availableClubs.find(c=>c.id===clubId);
+  const sharedVenue = user?.role === "organizer" && !!selectedClub && selectedClub.created_by !== user.id;
   const [courts, setCourts] = useState<Court[]>([]);
   const [newCourt, setNewCourt] = useState("");
 
   // Paso 2: torneo
   const [tournamentId, setTournamentId] = useState<string | null>(null);
+  const pendingCoverUpload = useRef<PendingCoverUpload | null>(null);
+  const savedTournament = useRef<{id: string; slug: string} | null>(null);
   const [tournament, setTournament] = useState({
     name: "",
     cover_url: null as string | null,
@@ -272,9 +286,9 @@ export default function TournamentWizard() {
   const draftWasManual = useRef(false);
 
   /** Auto-nombre del draft con los jugadores; respeta edición manual. */
-  function updateDraftPlayers(slot: 1 | 2, name: string) {
+  function updateDraftPlayers(slot: 1 | 2, name: string, playerId?:string) {
     setDraft((d) => {
-      const next = { ...d, [slot === 1 ? "player1" : "player2"]: name };
+      const next = { ...d, [slot === 1 ? "player1" : "player2"]: name, [slot === 1 ? "player1Id" : "player2Id"]:playerId };
       const auto = [next.player1.trim(), next.player2.trim()].filter(Boolean).join(" / ");
       return { ...next, name: draftWasManual.current ? next.name : auto };
     });
@@ -284,15 +298,14 @@ export default function TournamentWizard() {
   function commitDraft() {
     const t = { ...draft, name: draft.name.trim() || [draft.player1.trim(), draft.player2.trim()].filter(Boolean).join(" / ") };
     if (!t.player1.trim() || !t.player2.trim() || !t.division) return;
-    if (t.player1.trim().toLowerCase() === t.player2.trim().toLowerCase()) {
+    if ((t.player1Id&&t.player2Id)?t.player1Id===t.player2Id:t.player1.trim().toLowerCase() === t.player2.trim().toLowerCase()) {
       toast.warning("El mismo jugador no puede estar 2 veces en el equipo");
       return;
     }
     // Un jugador no puede repetirse entre equipos del torneo
     const dup = teams.find((x, i) => {
       if (i === editingIndex) return false;
-      const roster = [x.player1.trim().toLowerCase(), x.player2.trim().toLowerCase()];
-      return roster.includes(t.player1.trim().toLowerCase()) || roster.includes(t.player2.trim().toLowerCase());
+      return [[x.player1,x.player1Id],[x.player2,x.player2Id]].some(([name,id])=>[[t.player1,t.player1Id],[t.player2,t.player2Id]].some(([next,nextId])=>id&&nextId?id===nextId:name?.trim().toLowerCase()===next?.trim().toLowerCase()));
     });
     if (dup) {
       toast.warning(`"${dup.name}" ya tiene a uno de estos jugadores en el torneo`);
@@ -300,8 +313,8 @@ export default function TournamentWizard() {
     }
     // Rama: si el draft no es mixto, los jugadores registrados deben coincidir
     if (t.sex !== "X") {
-      for (const nombre of [t.player1.trim(), t.player2.trim()]) {
-        const prof = players.find((pl) => pl.display_name.trim().toLowerCase() === nombre.toLowerCase());
+      for (const [nombre,id] of [[t.player1.trim(),t.player1Id],[t.player2.trim(),t.player2Id]]) {
+        const prof = id?players.find((pl) => pl.id===id):undefined;
         if (prof && prof.sex !== "X" && prof.sex !== t.sex) {
           // "Femenil"/"Varonil" son las ramas, no adjetivos: "jugadora femenina"
           // metía una palabra que no existe en el vocabulario del circuito.
@@ -330,7 +343,8 @@ export default function TournamentWizard() {
   // Cargar contexto (sede, canchas, jugadores) y, en edición, el torneo completo
   useEffect(() => {
     db.listClubs().then((clubs: Club[]) => {
-      if (clubs[0]) {
+      setAvailableClubs(clubs.filter(c=>user?.role !== "organizer" || !c.created_by || c.created_by===user.id));
+      if (!slug && clubs[0] && user?.role !== "organizer") {
         setClubId(clubs[0].id);
         setClub({
           name: clubs[0].name,
@@ -341,17 +355,24 @@ export default function TournamentWizard() {
         });
       }
     });
-    db.listCourts().then(setCourts).catch(() => setCourts([]));
+    db.listCourts().then(rows => { if (!slug) setCourts(user?.role === "organizer" ? [] : rows); }).catch(() => setCourts([]));
     db.listPlayers().then(setPlayers).catch(() => setPlayers([]));
 
     if (slug) {
       db.getTournament(slug).then(async (t: Tournament | null) => {
-        if (!t) {
-          toast.error("Torneo no encontrado");
+        if (!t || !canManageTournament(user, t)) {
+          toast.error("Torneo no encontrado o sin permiso para administrarlo");
           navigate("/admin/torneos");
           return;
         }
         setTournamentId(t.id);
+        setClubId(t.club_id ?? null);
+        if (t.club_id) {
+          const [allClubs, allCourts] = await Promise.all([db.listClubs(), db.listCourts()]);
+          const venue = allClubs.find(c => c.id === t.club_id);
+          if (venue) setClub({name: venue.name, city: venue.city, state: venue.state, address: venue.address ?? "", phone: venue.phone ?? ""});
+          setCourts(allCourts.filter(c => c.club_id === t.club_id));
+        }
         setTournament((prev) => ({
           ...prev,
           name: t.name,
@@ -391,7 +412,7 @@ export default function TournamentWizard() {
         const loaded: TeamInput[] = saved.map((p) => {
           const c = rows.find((c) => c.id === p.category_id);
           return {
-            id: p.id, categoryKey: c?.id ?? "", division: (c?.label ?? "") as PadelDivision,
+            id: p.id, player1Id:p.player1_id??undefined,player2Id:p.player2_id??undefined,categoryKey: c?.id ?? "", division: (c?.label ?? "") as PadelDivision,
             sex: c?.sex ?? "M", name: p.name,
             player1: directory.find((x) => x.id === p.player1_id)?.display_name ?? p.name.split(" / ")[0] ?? "",
             player2: directory.find((x) => x.id === p.player2_id)?.display_name ?? p.name.split(" / ").slice(1).join(" / "),
@@ -402,7 +423,7 @@ export default function TournamentWizard() {
 
       }).catch((e: Error) => toast.error(`No se pudo cargar el torneo: ${e.message}`));
     }
-  }, [slug, navigate]);
+  }, [slug, navigate, user]);
 
   /** Qué falta en el paso actual — para avisar al usuario en vez de dejar el botón mudo. */
   const missingReason = useMemo(() => {
@@ -433,23 +454,37 @@ export default function TournamentWizard() {
     if (await persistStep(step + 1)) setStep((s) => Math.min(STEPS.length - 1, s + 1));
   }
 
-  function addCourt() {
+  async function addCourt() {
     const name = newCourt.trim();
     if (!name) return;
+    if (sharedVenue) { toast.info("La sede compartida se usa sin modificar sus canchas"); return; }
     setSaving(true);
-    db.createCourt({ club_id: clubId ?? "", name, surface: "Sintética" } as never)
-      .then((c) => {
-        setCourts((prev) => [...prev, c]);
-        setNewCourt("");
-        toast.success(`Cancha "${name}" registrada`);
-      })
-      .catch((e: Error) => toast.error(e.message ?? "No se pudo crear la cancha"))
-      .finally(() => setSaving(false));
+    try {
+      await requireOrganizerBackend(user?.role);
+      let venueId = clubId;
+      if (!venueId && user?.role === "organizer" && supabase) {
+        if (!club.name.trim()) throw new Error("Escribe el nombre de la sede");
+        const { data, error } = await supabase.from("clubs").insert({
+          ...club, name: club.name.trim(), slug: `sede-${crypto.randomUUID()}`,
+        }).select("id").single();
+        if (error) throw error;
+        venueId = data.id;
+        setClubId(venueId);
+      }
+      if (!venueId) throw new Error("Selecciona o guarda una sede antes de agregar canchas");
+      const court = await db.createCourt({club_id: venueId, name, surface: "Sintética"} as never);
+      setCourts(prev => [...prev, court]);
+      setNewCourt("");
+      toast.success(`Cancha "${name}" registrada`);
+    } catch (e) {
+      toast.error((e as Error).message ?? "No se pudo crear la cancha");
+    } finally { setSaving(false); }
   }
 
   function removeCourt(id: string) {
+    if (sharedVenue) { toast.info("La sede compartida se usa sin modificar sus canchas"); return; }
     setSaving(true);
-    db.deleteCourt(id)
+    requireOrganizerBackend(user?.role).then(() => db.deleteCourt(id))
       .then(() => setCourts((prev) => prev.filter((c) => c.id !== id)))
       .catch((e: Error) => toast.error(e.message ?? "No se pudo quitar la cancha"))
       .finally(() => setSaving(false));
@@ -463,6 +498,7 @@ export default function TournamentWizard() {
   async function persistStep(target: number) {
     setSaving(true);
     try {
+      await requireOrganizerBackend(user?.role);
       await doPersistStep(target);
       return true;
     } catch (e) {
@@ -474,13 +510,27 @@ export default function TournamentWizard() {
     }
   }
 
+  async function persistPendingCover(id: string, savedSlug: string) {
+    if (!supabase || !tournament.cover_url?.startsWith("data:")) return;
+    const coverUrl = await savePendingCover(tournament.cover_url, id, pendingCoverUpload,
+      async (source, tid) => {
+        const blob = await (await fetch(source)).blob();
+        const path = `tournaments/${tid}/${crypto.randomUUID()}.jpg`;
+        const {error} = await supabase!.storage.from("tournament-covers").upload(path,blob,{contentType:"image/jpeg"});
+        if (error) throw error;
+        return supabase!.storage.from("tournament-covers").getPublicUrl(path).data.publicUrl;
+      },
+      url => db.updateTournament(savedSlug,{cover_url:url}));
+    setTournament(t=>({...t,cover_url:coverUrl}));
+  }
+
   async function doPersistStep(target: number) {
     // En modo edición (slug) el torneo ya existe: cada pasada por el paso 2
     // debe actualizar sus campos (antes solo se creaba y la edición era código muerto).
     if (target >= 2) {
       const payload = {
           name: tournament.name,
-          cover_url: tournament.cover_url,
+          cover_url: tournament.cover_url?.startsWith("data:") ? null : tournament.cover_url,
           club_id: clubId,
           city: club.city,
           state: club.state,
@@ -506,20 +556,23 @@ export default function TournamentWizard() {
             ...(tournament.rank_order.length > 0 ? { rank_order: tournament.rank_order } : {}),
           },
         } as never;
-        if (tournamentId || slug) {
-          const t = await db.getTournament(String(tournamentId ?? slug));
-          await db.updateTournament((t as unknown as { slug: string }).slug, payload);
+        if (savedTournament.current || tournamentId || slug) {
+          const t = await db.getTournament(String(savedTournament.current?.id ?? tournamentId ?? slug));
+          if (!t || !canManageTournament(user, t)) throw new Error("No tienes permiso para administrar este torneo");
+          await db.updateTournament(t.slug, payload);
+          if (t && tournament.cover_url?.startsWith("data:")) await persistPendingCover(t.id, t.slug);
         } else {
-          const created = await db.createTournament(payload);
-          setTournamentId((created as unknown as { id: string }).id);
+          const createdTournament = await createOnce(savedTournament, () => db.createTournament(payload));
+          setTournamentId(createdTournament.id);
+          if (tournament.cover_url?.startsWith("data:")) await persistPendingCover(createdTournament.id, createdTournament.slug);
         }
       }
       if (target >= 3 && tournamentId) {
         try {
           await syncWizard(db, tournamentId, categories, teams, target >= 4,
             Math.round(tournament.price_mxn * 100),
-            async (name, division) => players.find((p) => normalizePlayerName(p.display_name) === normalizePlayerName(name)) ?? ensurePlayer(name, division),
-            uploadCrest);
+            async (name, division,selectedId,requestId) => resolveTournamentPlayer(name,selectedId,players,tournamentId,user?.role==="organizer",division,requestId),
+            (url, name) => uploadCrest(url, name, tournamentId),ensureTournamentEntry,async(data,key)=>entryPaymentRelease.available?await createEntryResource(tournamentId,key,"pair",{name:data.name,category_id:data.category_id,player1_id:data.player1_id,player2_id:data.player2_id,crest_url:data.crest_url}) as Pair:db.createPair(data));
         } finally {
           // Keep successful IDs even when a later write failed. Retrying cannot duplicate them.
           setCategories([...categories]);
@@ -848,22 +901,43 @@ teams.forEach((t) => {
           {step === 0 && (
             <div className="space-y-5">
               <h2 className="text-lg font-bold">Sede y canchas</h2>
+              {user?.role === "organizer" && <div className="grid gap-1.5">
+                <Label>Sede</Label>
+                <Select value={clubId ?? "new"} onValueChange={async (id)=>{
+                  const selection=++venueSelection.current;
+                  if (id === "new") {
+                    setClubId(null); setCourts([]); setClub({name:"",city:"Ciudad de México",state:"CDMX",address:"",phone:""}); return;
+                  }
+                  const venue = availableClubs.find(c=>c.id===id);
+                  if (!venue) return;
+                  setClubId(id); setClub({name:venue.name,city:venue.city,state:venue.state,address:venue.address ?? "",phone:venue.phone ?? ""});
+                  setCourts([]);
+                  try { const rows=await db.listCourts(); if (selection===venueSelection.current) setCourts(rows.filter(c=>c.club_id===id)); }
+                  catch (e) { if (selection===venueSelection.current) toast.error((e as Error).message); }
+                }}>
+                  <SelectTrigger aria-label="Elegir sede"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="new">Crear sede propia</SelectItem>
+                    {availableClubs.map(c=><SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {sharedVenue && <p className="text-xs text-muted-foreground">Sede compartida: puedes usar sus canchas, no editar el catálogo.</p>}
+              </div>}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-1.5 sm:col-span-2">
                   <Label htmlFor="club-name">Nombre del club</Label>
-                  <Input id="club-name" value={club.name} onChange={(e) => setClub((c) => ({ ...c, name: e.target.value }))} placeholder="Club Pádel Reforma" />
+                  <Input readOnly={sharedVenue || (user?.role === "organizer" && !!clubId)} id="club-name" value={club.name} onChange={(e) => setClub((c) => ({ ...c, name: e.target.value }))} placeholder="Club Pádel Reforma" />
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="club-city">Ciudad</Label>
-                  <Input id="club-city" value={club.city} onChange={(e) => setClub((c) => ({ ...c, city: e.target.value }))} />
+                  <Input readOnly={sharedVenue || (user?.role === "organizer" && !!clubId)} id="club-city" value={club.city} onChange={(e) => setClub((c) => ({ ...c, city: e.target.value }))} />
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="club-state">Estado</Label>
-                  <Input id="club-state" value={club.state} onChange={(e) => setClub((c) => ({ ...c, state: e.target.value }))} />
+                  <Input readOnly={sharedVenue || (user?.role === "organizer" && !!clubId)} id="club-state" value={club.state} onChange={(e) => setClub((c) => ({ ...c, state: e.target.value }))} />
                 </div>
                 <div className="grid gap-1.5 sm:col-span-2">
                   <Label htmlFor="club-address">Dirección</Label>
-                  <Input id="club-address" value={club.address} onChange={(e) => setClub((c) => ({ ...c, address: e.target.value }))} />
+                  <Input readOnly={sharedVenue || (user?.role === "organizer" && !!clubId)} id="club-address" value={club.address} onChange={(e) => setClub((c) => ({ ...c, address: e.target.value }))} />
                 </div>
               </div>
 
@@ -879,6 +953,7 @@ teams.forEach((t) => {
                           size="icon"
                           className="h-6 w-6"
                           onClick={() => removeCourt(c.id)}
+                          disabled={sharedVenue}
                           aria-label={`Quitar ${c.name}`}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -895,7 +970,7 @@ teams.forEach((t) => {
                     placeholder="Nombre de la cancha (ej. Cancha Central)"
                     className="max-w-xs"
                   />
-                  <Button type="button" variant="outline" onClick={addCourt} disabled={saving || !newCourt.trim()}>
+                  <Button type="button" variant="outline" onClick={addCourt} disabled={sharedVenue || saving || !newCourt.trim()}>
                     <Plus className="h-4 w-4 ms-1" /> Añadir
                   </Button>
                 </div>
@@ -921,7 +996,8 @@ teams.forEach((t) => {
                   <CoverUpload
                     value={tournament.cover_url}
                     onChange={(v) => setTournament((t) => ({ ...t, cover_url: v }))}
-                    path={slug ?? "nuevo"}
+                    path={tournamentId ? `tournaments/${tournamentId}` : slug ?? "nuevo"}
+                    defer={!tournamentId && user?.role === "organizer"}
                   />
                 </div>
                 <div className="grid gap-1.5">
@@ -1240,14 +1316,14 @@ teams.forEach((t) => {
                       label="Jugador 1"
                       value={draft.player1}
                       players={players}
-                      onPick={(name) => updateDraftPlayers(1, name)}
+                      onPick={(name,id) => updateDraftPlayers(1, name,id)}
                       onType={(name) => updateDraftPlayers(1, name)}
                     />
                     <PlayerSlot
                       label="Jugador 2"
                       value={draft.player2}
                       players={players}
-                      onPick={(name) => updateDraftPlayers(2, name)}
+                      onPick={(name,id) => updateDraftPlayers(2, name,id)}
                       onType={(name) => updateDraftPlayers(2, name)}
                     />
                   </div>
@@ -1613,19 +1689,22 @@ function CoverUpload({
   value,
   onChange,
   path = "nuevo",
+  defer = false,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
   /** Carpeta dentro del bucket, p. ej. el slug del torneo. */
   path?: string;
+  defer?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** Reemplaza la URL y limpia el objeto anterior del bucket (best-effort). */
+  /** Update the draft only; do not delete the still-persisted image. */
   function commit(next: string | null) {
-    void deleteStoredImage(value, "tournament-covers");
+    // The prior image may still be the saved cover if a later step fails or is cancelled.
+    // Keep it. Cleanup requires confirmation that no saved row still references it.
     onChange(next);
   }
 
@@ -1639,6 +1718,16 @@ function CoverUpload({
     setError(null);
     try {
       const blob = await fileToCoverBlob(file);
+      if (defer) {
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+          reader.readAsDataURL(blob);
+        });
+        onChange(dataUrl);
+        return;
+      }
       const objPath = `${path}/${Date.now()}.jpg`;
       const { error: upErr } = await supabase.storage
         .from("tournament-covers")

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { User, UserRole } from "@/types";
+import type { User } from "@/types";
+import { sessionRole } from "@/lib/access";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface AuthContextType {
@@ -19,10 +20,7 @@ async function resolveUser(sessionUser: { id: string; app_metadata?: Record<stri
   }
   try {
     // El rol ya viene en la sesión: no hace falta otro viaje de red con getUser()
-    const role =
-      (sessionUser.app_metadata?.role as UserRole | undefined) ||
-      (sessionUser.user_metadata?.role as UserRole | undefined) ||
-      "player";
+    const role = sessionRole(sessionUser.app_metadata);
 
     // Buscar el perfil de jugador asociado al usuario auth
     const { data: profile } = await supabase

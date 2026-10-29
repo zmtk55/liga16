@@ -1,3 +1,4 @@
+import { FilterBar } from "@/components/ui/filter-bar";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -343,17 +344,37 @@ export default function RankingsPage() {
       .sort((a, b) => b.n - a.n);
   }, [teams]);
   return (
-    <div className="animate-fade-in space-y-8">
+    <div className="animate-fade-in space-y-5">
       <PageHero
         title="Ranking"
         subtitle="Parejas ordenadas dentro de su división y género: primero partidos ganados, luego dominio (el enfrentamiento directo) y luego % de puntos; después diferencia de sets y partidos jugados. Es el ranking general del circuito; cada torneo puede usar otro orden en su clasificación."
         ghost="16"
       />
 
-      {/* El buscador vive en el header (ADR-0009). Los filtros van aquí porque
-          se arman con los equipos cargados: las categorías que existen de
-          verdad —"Suma 9", "Mixtos"— y solo esas. */}
-      <div className="relative z-10 -mt-4 flex flex-wrap items-center gap-2">
+      <FilterBar search={query} onSearch={(v) => setParam("q", v)} searchPlaceholder="Buscar pareja o jugador…" resultCount={filtered.length} resultLabel="parejas" activeCount={Number(categoria !== "all") + Number(sex !== "all") + Number(!!torneoSel)} onClear={() => { const next = new URLSearchParams(params); ["q", "categoria", "sex", "torneo"].forEach((k) => next.delete(k)); setParams(next, { replace: true }); }} controls={(
+        <>
+        <ToggleGroup
+          type="single"
+          value={view}
+          onValueChange={(v) => v && setView(v as typeof view)}
+          variant="outline"
+          size="sm"
+          className="w-fit justify-start"
+        >
+          <ToggleGroupItem value="table"><List className="h-4 w-4" /> Tabla</ToggleGroupItem>
+          <ToggleGroupItem value="cards"><LayoutGrid className="h-4 w-4" /> Tarjetas</ToggleGroupItem>
+          <ToggleGroupItem value="chart"><BarChart3 className="h-4 w-4" /> Gráfico</ToggleGroupItem>
+        </ToggleGroup>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCompareOpen(true)}
+          disabled={!compare[0] && !compare[1]}
+        >
+          <GitCompare className="h-4 w-4" /> Comparar {compare[0] && compare[1] ? "✓" : ""}
+        </Button>
+        </>
+      )}>
         <FilterMenu
           label="Torneo"
           value={torneoSel ? torneoSel.id : "all"}
@@ -379,31 +400,7 @@ export default function RankingsPage() {
           options={ramas.length > 1 ? ramas : []}
           showCount
         />
-      </div>
-
-      {/* Selector de vista: tabla · cards · gráfico, y comparar 2 parejas */}
-      <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup
-          type="single"
-          value={view}
-          onValueChange={(v) => v && setView(v as typeof view)}
-          variant="outline"
-          size="sm"
-          className="w-fit justify-start"
-        >
-          <ToggleGroupItem value="table"><List className="h-4 w-4" /> Tabla</ToggleGroupItem>
-          <ToggleGroupItem value="cards"><LayoutGrid className="h-4 w-4" /> Cards</ToggleGroupItem>
-          <ToggleGroupItem value="chart"><BarChart3 className="h-4 w-4" /> Gráfico</ToggleGroupItem>
-        </ToggleGroup>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCompareOpen(true)}
-          disabled={!compare[0] && !compare[1]}
-        >
-          <GitCompare className="h-4 w-4" /> Comparar {compare[0] && compare[1] ? "✓" : ""}
-        </Button>
-      </div>
+      </FilterBar>
 
       <p className="-mt-4 text-xs text-muted-foreground">
         {torneoSel
