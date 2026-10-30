@@ -1,5 +1,5 @@
 /** Deployment review gate, not a server capability claim or an authorization check. */
-export const organizerRelease = { available: false };
+export const organizerRelease = { available: true };
 export async function requireOrganizerBackend(role: string | undefined, release = organizerRelease) {
   if (role !== 'organizer') return;
   if (!release.available) {
