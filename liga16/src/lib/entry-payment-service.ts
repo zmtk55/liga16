@@ -1,7 +1,7 @@
 import {pendingCreates,rememberCreate,forgetCreate,type PendingCreate} from './create-journal';
 import {supabase} from './supabase';
 import type {PaymentOperation} from './payment-operation';
-export const entryPaymentRelease={available:false};
+export const entryPaymentRelease={available:true};
 export interface EntryPayment {
  entry_id:string; status:'payment_pending'|'payment_review'|'paid'|'cancelled'|'refunded';
  payment_method:'cash'|'transfer'|'stripe'|'mercado_pago'|null; amount_cents:number|null; paid_at:string|null; revision:number;
