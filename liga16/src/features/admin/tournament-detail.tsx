@@ -1,3 +1,5 @@
+import { useAuth } from "@/contexts/AuthContext";
+import { canManageTournament } from "@/lib/access";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -21,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { drawGroupsByCategory, isKnockoutRound, parseRound, type Group, type AvailabilityConfig } from "@/lib/groups";
 import { groupsFromPairs, groupMatchDrafts, hasMatchActivity, reconcileMatches } from "@/lib/tournament-flow";
-import { ensurePlayer } from "@/lib/players";
+import { ensureTournamentPlayer, ensurePlayer } from "@/lib/players";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Court } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,6 +41,7 @@ import { findScheduleIssues, isSlotFree, localDayKey, localTimeHHMM, rescheduleT
 
 
 export default function AdminTournamentDetail() {
+  const { user } = useAuth();
   const { slug } = useParams<{ slug: string }>();
   // La pestaña viva en la URL: cualquier vista es enlazable y se abre directa.
   const [params, setParams] = useSearchParams();
@@ -139,6 +142,7 @@ export default function AdminTournamentDetail() {
   useEffect(() => {
     if (!slug) return;
     db.getTournament(slug).then((t) => {
+      if (!t || !canManageTournament(user, t)) { setTournament(null); return; }
       setTournament(t);
       // La disponibilidad guardada del torneo es la que manda: es lo que el
       // organizador definió para ESTE torneo. Si no hay ninguna, se deja la que
@@ -156,7 +160,7 @@ export default function AdminTournamentDetail() {
     });
     db.listClubs().then(setClubs);
     db.listCourts().then(setCourts).catch(() => setCourts([]));
-  }, [slug]);
+  }, [slug, user]);
 
   async function reload() {
     if (!tournament) return;
@@ -431,7 +435,9 @@ export default function AdminTournamentDetail() {
     setSaving(true);
     try {
       // Perfiles de jugador nuevos se crean si no existen
-      const [prof1, prof2] = await Promise.all([ensurePlayer(parts[0]).catch(() => null), ensurePlayer(parts[1]).catch(() => null)]);
+      const resolve = (name: string) => user?.role === "organizer" ? ensureTournamentPlayer(name, tournament.id) : ensurePlayer(name);
+      const [prof1, prof2] = await Promise.all([resolve(parts[0]), resolve(parts[1])]);
+      if (!prof1 || !prof2) throw new Error("No se pudieron resolver los jugadores");
       await db.createPair({
         tournament_id: tournament.id,
         category_id: newPairCategory || categories[0]?.id || null,
@@ -593,7 +599,7 @@ export default function AdminTournamentDetail() {
       setScheduleOpen(false);
       toast.success(
         `Calendario listo: ${assignments.length} partidos repartidos en ${scheduleConfig.days.length} día(s), ${scheduleConfig.hours.length} hora(s) y ${courtNames.length} cancha(s). Los resultados se conservaron.${
-          guardado ? "" : " La disponibilidad no se pudo guardar (falta aplicar la migración de la base)."
+          guardado ? "" : " La disponibilidad no se confirmó. Recarga y revisa permisos o conexión antes de reintentar."
         }`,
       );
     } catch (e) {

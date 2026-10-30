@@ -1,3 +1,4 @@
+import { FilterBar } from "@/components/ui/filter-bar";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -34,7 +35,6 @@ import {
   LayoutGrid,
   Rows3,
   Table2,
-  X,
   Users,
 } from "lucide-react";
 
@@ -52,9 +52,7 @@ function levelOf(p: PlayerProfile): number {
 }
 
 export default function PlayersPage() {
-  // El buscador del header (variante "search", ADR-0009) escribe aquí. La
-  // URL manda sobre el useState, o el header escribiría a un sitio y la
-  // página leería de otro.
+  // La búsqueda local usa la URL para conservar enlaces y navegación.
   const [searchParams, setSearchParams] = useSearchParams();
   const [players, setPlayers] = useState<PlayerProfile[] | null>(null);
   const [stats, setStats] = useState<Record<string, DirStats> | null>(null);
@@ -155,19 +153,14 @@ export default function PlayersPage() {
   };
 
   return (
-    <div className="animate-fade-in space-y-8">
+    <div className="animate-fade-in space-y-5">
       <PageHero
         title="Jugadores"
         subtitle="El directorio del circuito: nivel, puntos y rumbo al muro de campeones."
         ghost="16"
       />
 
-      {/* El buscador vive en el header (variante "search", ADR-0009). Aquí solo
-          lo propio de la sección —la vista—, que no aplica a las demás. */}
-      <div className="relative z-10 -mt-4 space-y-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2 sm:ml-auto">
-            <span className="hidden text-xs uppercase tracking-widest text-muted-foreground md:inline">Vista</span>
+      <FilterBar search={query} onSearch={setQuery} searchPlaceholder="Buscar jugador…" resultCount={filtered.length} resultLabel="jugadores" activeCount={Number(hasFilters)} onClear={clearFilters} controls={(
             <ToggleGroup
               type="single"
               value={view}
@@ -176,19 +169,16 @@ export default function PlayersPage() {
               className="rounded-lg border"
             >
               <ToggleGroupItem value="grid" aria-label="Vista tarjetas" className="px-2.5">
-                <LayoutGrid className="h-4 w-4" />
+                <LayoutGrid className="h-4 w-4" /><span className="text-xs">Tarjetas</span>
               </ToggleGroupItem>
               <ToggleGroupItem value="compact" aria-label="Vista compacta" className="px-2.5">
-                <Rows3 className="h-4 w-4" />
+                <Rows3 className="h-4 w-4" /><span className="text-xs">Compacta</span>
               </ToggleGroupItem>
               <ToggleGroupItem value="table" aria-label="Vista tabla" className="px-2.5">
-                <Table2 className="h-4 w-4" />
+                <Table2 className="h-4 w-4" /><span className="text-xs">Tabla</span>
               </ToggleGroupItem>
             </ToggleGroup>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+      )}>
           <FilterMenu
             label="Categoría"
             value={cat}
@@ -205,7 +195,7 @@ export default function PlayersPage() {
             showCount
           />
 
-          <div className="flex flex-wrap items-center gap-2">
+
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Ordenar por" />
@@ -217,19 +207,12 @@ export default function PlayersPage() {
               </SelectContent>
             </Select>
 
-            <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
+            <label className="flex h-9 items-center gap-2 text-sm">
               <Switch checked={onlyPlayed} onCheckedChange={setOnlyPlayed} aria-label="Solo con partidos" />
               Solo con partidos
             </label>
 
-            {hasFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
-                <X className="h-3.5 w-3.5" /> Limpiar
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+      </FilterBar>
 
       {players === null ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

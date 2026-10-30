@@ -1,5 +1,7 @@
+import { useAuth } from "@/contexts/AuthContext";
+import { canManageTournament } from "@/lib/access";
 import { tournamentPhase } from "@/lib/tournament-phase";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminLoadFailed } from "@/components/admin/empty-state";
 import { Link, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -53,6 +55,7 @@ const STATUS_TRANSITIONS: Record<Tournament["status"], { label: string; target: 
 };
 
 export default function AdminTournaments() {
+  const { user } = useAuth();
   const [list, setList] = useState<Tournament[] | null>(null);
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
@@ -65,14 +68,14 @@ export default function AdminTournaments() {
   const [status, setStatus] = useState("all");
 
   const [loadError, setLoadError] = useState<string | null>(null);
-  const load = () =>
+  const load = useCallback(() =>
     db.listTournaments()
-      .then((l) => { setList(l); setLoadError(null); })
-      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar los torneos"));
+      .then((l) => { setList(l.filter(t => canManageTournament(user, t))); setLoadError(null); })
+      .catch((e) => setLoadError((e as Error)?.message || "Error al cargar los torneos")), [user]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const filtered = (list ?? []).filter((t) => {
     const q = query.trim().toLowerCase();
@@ -135,7 +138,7 @@ export default function AdminTournaments() {
     return (
       <AdminLoadFailed
         title="Torneos"
-        description="Crea, publica y administra los torneos del circuito."
+        description={user?.role === "organizer" ? "Crea y administra tus torneos." : "Crea, publica y administra los torneos del circuito."}
         what="los torneos"
         message={loadError}
         onRetry={load}
@@ -147,7 +150,7 @@ export default function AdminTournaments() {
     <div className="space-y-5">
       <AdminPageHeader
         title="Torneos"
-        description="Crea, publica y administra los torneos del circuito."
+        description={user?.role === "organizer" ? "Crea y administra tus torneos." : "Crea, publica y administra los torneos del circuito."}
         action={
           <Button asChild size="sm">
             <Link to="/admin/torneos/nuevo">

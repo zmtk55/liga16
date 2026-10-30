@@ -9,6 +9,9 @@ export interface WizardTeam {
   name: string;
   player1: string;
   player2: string;
+  player1Id?: string;
+  player2Id?: string;
+  player1Operation?:string; player2Operation?:string; pairOperation?:string;
   logo: string | null;
   group: string | null;
   division: string;
@@ -19,8 +22,10 @@ export interface WizardTeam {
 export async function syncWizard(
   db: DataProvider, tournamentId: string, categories: CategoryValue[], teams: WizardTeam[],
   saveTeams: boolean, price: number,
-  player: (name: string, division: string) => Promise<{ id: string } | null>,
+  player: (name: string, division: string, selectedId?:string,requestId?:string) => Promise<{ id: string } | null>,
   crest: (url: string, name: string) => Promise<string | null>,
+  entry?: (tournamentId:string,playerId:string)=>Promise<void>,
+  createPair?: (data:Parameters<DataProvider["createPair"]>[0],requestId:string)=>ReturnType<DataProvider["createPair"]>,
 ) {
   const [savedCats, savedPairs, matches] = await Promise.all([
     db.getTournamentCategories(tournamentId), db.getTournamentPairs(tournamentId), db.listMatchesByTournament(tournamentId),
@@ -50,11 +55,13 @@ export async function syncWizard(
   // Resolve players before changing categories, and never swallow directory errors.
   const resolved = saveTeams ? await Promise.all(teams.map(async (t) => {
     const cat = categories.find((c) => c.id === t.categoryKey)!;
-    const [a, b] = await Promise.all([player(t.player1, cat.division ?? divisionFromCategory(cat.label)), player(t.player2, cat.division ?? divisionFromCategory(cat.label))]);
+    t.player1Operation??=crypto.randomUUID();t.player2Operation??=crypto.randomUUID();
+    const [a, b] = await Promise.all([player(t.player1, cat.division ?? divisionFromCategory(cat.label),t.player1Id,t.player1Operation), player(t.player2, cat.division ?? divisionFromCategory(cat.label),t.player2Id,t.player2Operation)]);
     if (!a || !b) throw new Error(`Faltan jugadores en "${t.name}"`);
     if (a.id === b.id) throw new Error(`"${t.name}" repite al mismo jugador`);
     const old = savedPairs.find((p) => p.id === t.id);
     if (old && associated(old) && (old.player1_id !== a.id || old.player2_id !== b.id)) throw new Error(`"${t.name}" tiene partidos: no se pueden cambiar sus integrantes`);
+    t.player1Id=a.id; t.player2Id=b.id;
     return { a, b };
   })) : [];
   for (const c of categories) {
@@ -91,8 +98,11 @@ export async function syncWizard(
       const t = teams[i], cat = categories.find((c) => c.id === t.categoryKey)!;
       const payload = { category_id: cat.persistedId!, name: t.name.trim(), player1_id: resolved[i].a.id,
         player2_id: resolved[i].b.id, crest_url: t.logo ? await crest(t.logo, t.name) : null };
+      // Remember uploaded URL before a later pair write fails, so retry cannot upload twice.
+      if (t.logo && payload.crest_url) t.logo = payload.crest_url;
       if (t.id) await db.updatePair(t.id, payload);
-      else t.id = (await db.createPair({ ...payload, tournament_id: tournamentId })).id;
+      else {t.pairOperation??=crypto.randomUUID();const data={...payload,tournament_id:tournamentId};t.id=(await (createPair?createPair(data,t.pairOperation):db.createPair(data))).id;}
+      if(entry){await entry(tournamentId,resolved[i].a.id);await entry(tournamentId,resolved[i].b.id);}
     }
     for (const p of savedPairs) if (!teams.some((t) => t.id === p.id)) await db.deletePair(p.id);
   }

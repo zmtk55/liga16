@@ -1,3 +1,6 @@
+import { entryPaymentRelease } from '../entry-payment-service';
+import type { PaymentOperation } from '../payment-operation';
+import { requireWrittenRow } from '../confirmed-write';
 // Implementación Supabase del DataProvider.
 // Activa cuando VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY están definidas.
 // Requiere aplicar supabase/schema.sql en el proyecto (ver README.md).
@@ -339,17 +342,19 @@ export const supabaseProvider: DataProvider = {
    * en los partidos, así que el trabajo no se pierde.
    */
   async saveTournamentScheduleConfig(id: string, config: import('@/types').TournamentScheduleConfig) {
-    const { error } = await client()
+    const { data, error } = await client()
       .from('tournaments')
       .update({ schedule_config: config } as never)
-      .eq('id', id);
+      .eq('id', id).select('id');
     if (error) return false;
+    if (!data || data.length !== 1 || data[0].id !== id) return false;
     return true;
   },
 
   async deleteTournament(slug: string) {
-    const { error } = await client().from('tournaments').delete().eq('slug', slug);
+    const { data, error } = await client().from('tournaments').delete().eq('slug', slug).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
     return true;
   },
 
@@ -383,9 +388,10 @@ export const supabaseProvider: DataProvider = {
   },
 
   async deleteTournamentCategory(id: string) {
-    const { error } = await client()
-      .from('tournament_categories').delete().eq('id', id);
+    const { data, error } = await client()
+      .from('tournament_categories').delete().eq('id', id).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
   },
 
   async getTournamentPairs(tournamentId: string) {
@@ -438,25 +444,34 @@ export const supabaseProvider: DataProvider = {
   },
 
   async deletePair(id: string) {
-    const { error } = await client().from('pairs').delete().eq('id', id);
+    const { data, error } = await client().from('pairs').delete().eq('id', id).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
     return true;
   },
 
   async updateRegistrationPayment(
     registrationId: string,
     data: { status?: RegistrationStatus; payment_method?: PaymentMethod; amount_cents?: number | null; paid_at?: string | null },
+    _operation?: PaymentOperation,
   ) {
+    // Before the coordinated cutover preserve the existing registrations workflow.
+    // Never use this route as a fallback for an entries RPC failure.
+    if (entryPaymentRelease.available) throw new Error('Los registros anteriores son solo historial. No se cambió el pago.');
     const patch: Record<string, unknown> = {};
     if (data.status !== undefined) patch.status = data.status;
     if (data.payment_method !== undefined) patch.payment_method = data.payment_method;
-    if (data.amount_cents !== undefined) patch.amount_cents = data.amount_cents;
-    if (data.paid_at !== undefined) patch.paid_at = data.paid_at;
-    const { error } = await client()
-      .from('registrations')
-      .update(patch)
-      .eq('id', registrationId);
+    if (data.amount_cents !== undefined) {
+      if (data.amount_cents !== null && (!Number.isInteger(data.amount_cents) || data.amount_cents < 0 || data.amount_cents > 2147483647)) throw new Error('Importe inválido');
+      patch.amount_cents = data.amount_cents;
+    }
+    if (data.paid_at !== undefined) {
+      if (data.paid_at !== null && !Number.isFinite(Date.parse(data.paid_at))) throw new Error('Fecha de pago inválida');
+      patch.paid_at = data.paid_at;
+    }
+    const { data: rows, error } = await client().from('registrations').update(patch).eq('id', registrationId).select('id');
     if (error) throw error;
+    requireWrittenRow(rows, registrationId);
   },
 
   async listMatchesByTournament(tournamentId: string) {
@@ -467,8 +482,9 @@ export const supabaseProvider: DataProvider = {
   },
 
   async deleteMatchById(id: string) {
-    const { error } = await client().from('matches').delete().eq('id', id);
+    const { data, error } = await client().from('matches').delete().eq('id', id).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
     return true;
   },
 
@@ -526,8 +542,9 @@ export const supabaseProvider: DataProvider = {
   },
 
   async deleteCourt(id: string) {
-    const { error } = await client().from('courts').delete().eq('id', id);
+    const { data, error } = await client().from('courts').delete().eq('id', id).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
     return true;
   },
 
@@ -592,8 +609,9 @@ export const supabaseProvider: DataProvider = {
   },
 
   async deletePlayer(id: string) {
-    const { error } = await client().from('player_profiles').delete().eq('id', id);
+    const { data, error } = await client().from('player_profiles').delete().eq('id', id).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
     return true;
   },
 
@@ -737,6 +755,14 @@ export const supabaseProvider: DataProvider = {
 
   // Equipos: leen de `pairs` (equipos POR TORNEO). La tabla global `teams` quedó obsoleta.
   // slug se deriva del nombre; player1_id/player2_id de pairs ligan al perfil real.
+  async listIndividualRegistrations(tournamentId?: string) {
+    let query=client().from('registrations').select('id,tournament_id,category_id,pair_id,user_id,status,payment_method,amount_cents,paid_at,created_at').order('created_at',{ascending:false});
+    if (tournamentId) query=query.eq('tournament_id',tournamentId);
+    const {data,error}=await query;
+    if (error) throw error;
+    return (data ?? []) as unknown as import('../individual-registrations').IndividualRegistrationRow[];
+  },
+
   async listAllPairs() {
     const { data, error } = await client()
       .from('pairs')
@@ -835,8 +861,9 @@ export const supabaseProvider: DataProvider = {
   },
 
   async deleteTeam(slug: string) {
-    const { error } = await client().from('teams').delete().eq('slug', slug);
+    const { data, error } = await client().from('teams').delete().eq('slug', slug).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
     return true;
   },
 
@@ -886,11 +913,12 @@ export const supabaseProvider: DataProvider = {
    * devuelve false en vez de romper: el resto del partido ya quedó guardado.
    */
   async saveMatchDuration(id: string, minutes: number) {
-    const { error } = await client()
+    const { data, error } = await client()
       .from('matches')
       .update({ duration_minutes: minutes } as never)
-      .eq('id', id);
+      .eq('id', id).select('id');
     if (error) return false;
+    if (!data || data.length !== 1 || data[0].id !== id) return false;
     return true;
   },
 
@@ -950,8 +978,9 @@ export const supabaseProvider: DataProvider = {
   },
 
   async deleteNews(id: string) {
-    const { error } = await client().from('news').delete().eq('id', id);
+    const { data, error } = await client().from('news').delete().eq('id', id).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
     return true;
   },
 
@@ -975,8 +1004,9 @@ export const supabaseProvider: DataProvider = {
   },
 
   async deleteSponsor(id: string) {
-    const { error } = await client().from('sponsors').delete().eq('id', id);
+    const { data, error } = await client().from('sponsors').delete().eq('id', id).select('id');
     if (error) throw error;
+    requireWrittenRow(data);
     return true;
   },
 

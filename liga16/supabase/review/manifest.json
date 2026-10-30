@@ -1,0 +1,10 @@
+{
+ "deployable":false,
+ "contract":"tournament_entries(player_id,tournament_id)",
+ "precondition":"integrated-baseline-precondition.sql",
+ "orderedReview":["organizer-isolation.sql","individual-entries.sql","legacy-entrypoint-audit.sql"],
+ "inverseBeforeActivity":["individual-entries-inverse.sql","organizer-isolation-inverse.sql"],
+ "excluded":["archive/legacy-payment-atomic.sql","archive/legacy-payment-atomic-inverse.sql"],
+ "legacy":"history and reconciliation only; no money backfill",
+ "releaseFlags":"organizerRelease.available=false; entryPaymentRelease.available=false"
+}

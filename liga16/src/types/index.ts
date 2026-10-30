@@ -90,6 +90,7 @@ export interface PlayerProfile {
 }
 
 export interface Club {
+  created_by?: UUID | null;
   id: UUID;
   name: string;
   slug: string;

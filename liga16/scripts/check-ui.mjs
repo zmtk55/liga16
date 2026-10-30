@@ -92,12 +92,10 @@ const nodeBuiltins = new Set(builtinModules);
 // archivo de src" como entrada haría que el código muerto se autojustificara.
 const entryFile = path.join(srcRoot, "main.tsx");
 const entries = fs.existsSync(entryFile) ? [entryFile] : [];
-// Test files in components/ui are also valid entries (they import components directly).
-if (fs.existsSync(uiDir)) {
-  for (const f of fs.readdirSync(uiDir)) {
-    if (/\.test\.(tsx?|jsx?)$/.test(f)) entries.push(path.join(uiDir, f));
-  }
-}
+// Los tests se ejecutan con Vitest, no son entradas del bundle productivo.
+// Se excluyen solo de la lista de componentes candidatos; sus imports no
+// pueden convertir un componente muerto en código alcanzable de la app.
+const isTestFile = (file) => /\.(test|spec)\.(tsx?|jsx?)$/.test(file);
 const reachable = new Set();
 const queue = [...entries];
 while (queue.length) {
@@ -111,7 +109,7 @@ while (queue.length) {
 }
 
 const uiFiles = fs.existsSync(uiDir) ? fs.readdirSync(uiDir).filter((f) => /\.(tsx?|jsx?)$/.test(f)) : [];
-const unused = uiFiles.filter((f) => !reachable.has(path.join(uiDir, f)));
+const unused = uiFiles.filter((f) => !isTestFile(f) && !reachable.has(path.join(uiDir, f)));
 
 // ── 2 y 3. Paquetes: usados vs declarados ─────────────────────────────────
 const importedPackages = new Set();

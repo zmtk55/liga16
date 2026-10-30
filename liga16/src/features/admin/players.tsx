@@ -356,7 +356,7 @@ export default function AdminPlayers() {
                       ]
                     : []),
                   {
-                    label: "Editar",
+                    label: "Editar perfil",
                     icon: <Pencil className="h-4 w-4" />,
                     onSelect: () => {
                       setEditing(p);
@@ -382,7 +382,7 @@ export default function AdminPlayers() {
                         <Badge variant="outline" className="rounded-full">{isPending ? "Por verificar" : status === "rechazado" ? "Rechazado" : "Verificado"}</Badge>
                         <h2 className="font-display text-2xl font-semibold">{p.display_name}</h2>
                         <p className="text-sm text-muted-foreground">{[p.city, sexLabel(p.sex)].filter(Boolean).join(" · ")}</p><p className="text-xs text-muted-foreground">{stats[p.id] ? `${stats[p.id].played} partidos · ${stats[p.id].won} ganados` : "Récord no disponible"}</p>
-                        <div className="flex items-end justify-between border-t pt-4"><div><p className="text-xs text-muted-foreground">Nivel declarado</p><p className="font-display text-3xl font-bold tabular-nums">{p.declared_level.toFixed(1)}</p></div><Button size="sm" variant="outline" className="rounded-full" onClick={() => {setEditing(p); setOpenCreate(true);}}>Editar</Button></div>
+                        <div className="flex items-end justify-between border-t pt-4"><div><p className="text-xs text-muted-foreground">Nivel declarado</p><p className="font-display text-3xl font-bold tabular-nums">{p.declared_level.toFixed(1)}</p></div></div>
                       </div>
                     </article>
                   </RowContextMenu>

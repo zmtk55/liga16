@@ -13,8 +13,8 @@ import { TeamCrest } from "@/components/cards/card-image";
 import { PageHero } from "@/components/page-hero";
 import { FilterMenu } from "@/components/ui/filter-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ArrowRight, LayoutGrid, Rows3, Search, Table2, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { ArrowRight, LayoutGrid, Rows3, Table2 } from "lucide-react";
+import { FilterBar } from "@/components/ui/filter-bar";
 import {
   Table,
   TableBody,
@@ -33,7 +33,7 @@ type View = "grid" | "compact" | "table";
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[] | null>(null);
-  // El buscador del header (variante "search", ADR-0009) escribe aquí: una sola
+  // El buscador de la sección escribe aquí: una sola
   // búsqueda, en un solo sitio, y la URL la hace compartible.
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
@@ -52,7 +52,6 @@ export default function TeamsPage() {
   const navigate = useNavigate();
   const [view, setView] = useState<View>("grid");
   const setSex = (v: string) => setParam("sex", v);
-  // view mantenido para futuras expansiones; sin control de vista visible por ahora
 
   /**
    * Limpia varios filtros de una vez.
@@ -138,28 +137,32 @@ export default function TeamsPage() {
   }, [teams]);
 
   return (
-    <div className="animate-fade-in space-y-8">
+    <div className="animate-fade-in space-y-5">
       <PageHero
         title="Equipos"
-        subtitle="Las parejas de Liga16, división por división. Récord y puntos calculados de los partidos reales del circuito, con el orden general (partidos ganados, dominio, puntos); la clasificación de cada torneo está en la página de la pareja."
+        subtitle="Parejas y récord del circuito. Consulta la clasificación de cada torneo en el detalle del equipo."
       />
 
-      {/* El buscador vive en el header (variante "search", ADR-0009): una sola
-          búsqueda por sección, siempre en el mismo sitio. Aquí solo lo propio de
-          la sección —la categoría en la que compiten y la rama—, que no aplica a
-          las demás. */}
-      <div className="relative z-10 -mt-4 flex flex-col gap-3">
-        {/* Buscador visible + filtros claros */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-0 flex-1 sm:max-w-72">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setParam("q", e.target.value)}
-              placeholder="Buscar equipo o jugador…"
-              className="h-9 w-full pl-8"
-            />
-          </div>
+      <div className="relative z-10 -mt-4 space-y-3">
+        <FilterBar search={q} onSearch={(v) => setParam("q", v)} searchPlaceholder="Buscar equipo o jugador…" resultCount={filtered.length} resultLabel="equipos" activeCount={Number(categoria !== "all") + Number(sex !== "all")} onClear={() => clearParams("q", "categoria", "sex")} controls={(
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={(v) => { if (v) setView(v as View); }}
+            variant="outline"
+            className="rounded-lg border"
+          >
+            <ToggleGroupItem value="grid" aria-label="Vista tarjetas" className="px-2.5">
+              <LayoutGrid className="h-4 w-4" /><span className="text-xs">Tarjetas</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="compact" aria-label="Vista compacta" className="px-2.5">
+              <Rows3 className="h-4 w-4" /><span className="text-xs">Compacta</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Vista tabla" className="px-2.5">
+              <Table2 className="h-4 w-4" /><span className="text-xs">Tabla</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}>
           <FilterMenu
             label="Categoría"
             value={categoria}
@@ -176,34 +179,7 @@ export default function TeamsPage() {
             allLabel="Todas"
             showCount
           />
-          {(categoria !== "all" || sex !== "all" || q) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => clearParams("q", "categoria", "sex")}
-            >
-              <X className="h-3.5 w-3.5" /> Limpiar
-            </Button>
-          )}
-          <ToggleGroup
-            type="single"
-            value={view}
-            onValueChange={(v) => { if (v) setView(v as View); }}
-            variant="outline"
-            className="rounded-lg border"
-          >
-            <ToggleGroupItem value="grid" aria-label="Vista tarjetas" className="px-2.5">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="compact" aria-label="Vista compacta" className="px-2.5">
-              <Rows3 className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Vista tabla" className="px-2.5">
-              <Table2 className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
+        </FilterBar>
         {categorias.length > 1 && (
           <p className="text-xs text-muted-foreground">
             Las categorías son las del torneo ("Suma 9", "4ta Varonil"), no la

@@ -1,3 +1,4 @@
+import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/data';
 import { generateAdminAlerts, type AlertCtx } from '@/lib/alerts';
@@ -14,11 +15,15 @@ interface Loadable {
  * (lista completa) como en el layout (solo el conteo del badge).
  */
 export function useAdminAlerts(): Loadable & { refresh: () => void } {
+  const { user } = useAuth();
   const [state, setState] = useState<Loadable>({ alerts: [], loading: true, error: null });
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
+    if (user?.role === "organizer") {
+      return;
+    }
 
     Promise.all([db.listTournaments(), db.listPlayers(), db.listRecentMatches()])
       .then(([tournaments, players, matches]: [Tournament[], PlayerProfile[], Match[]]) => {
@@ -36,9 +41,9 @@ export function useAdminAlerts(): Loadable & { refresh: () => void } {
     return () => {
       active = false;
     };
-  }, [version]);
+  }, [version, user?.role]);
 
   const refresh = () => setVersion((v) => v + 1);
 
-  return { ...state, refresh };
+  return user?.role === "organizer" ? {alerts: [], loading: false, error: null, refresh} : { ...state, refresh };
 }

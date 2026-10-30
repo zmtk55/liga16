@@ -8,7 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 export type AdminViewKey = "cards" | "tabla" | "compacta";
 
 const VIEW_META: Record<AdminViewKey, { label: string; icon: ReactNode }> = {
-  cards: { label: "Cards", icon: <LayoutGrid className="h-3.5 w-3.5" /> },
+  cards: { label: "Tarjetas", icon: <LayoutGrid className="h-3.5 w-3.5" /> },
   tabla: { label: "Tabla", icon: <Table2 className="h-3.5 w-3.5" /> },
   compacta: { label: "Compacta", icon: <List className="h-3.5 w-3.5" /> },
 };
@@ -57,14 +57,14 @@ export function AdminViewToggle({
       type="single"
       value={value}
       onValueChange={(v) => v && onChange(v as AdminViewKey)}
-      className="gap-1 rounded-lg border p-1"
+      className="gap-0 rounded-lg border p-0.5"
       aria-label="Tipo de vista"
     >
-      {views.map((v) => (
+      {(["cards", "compacta", "tabla"] as AdminViewKey[]).filter((v) => views.includes(v)).map((v) => (
         <ToggleGroupItem
           key={v}
           value={v}
-          className="h-7 gap-1.5 rounded-md px-2.5 text-xs data-[state=on]:bg-secondary"
+          className="h-9 gap-1.5 rounded-md px-2 text-xs data-[state=on]:bg-secondary"
           aria-label={VIEW_META[v].label}
         >
           {VIEW_META[v].icon}

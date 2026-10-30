@@ -1,4 +1,6 @@
-"use client";
+import { useSearchParams } from "react-router";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { FilterMenu } from "@/components/ui/filter-menu";
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/data";
@@ -21,6 +23,10 @@ const tagColors: Record<string, "default" | "secondary" | "destructive" | "outli
 };
 
 export default function NewsPage() {
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q") ?? "";
+  const tag = params.get("tag") ?? "all";
+  const setParam = (key: string, value: string) => { const next = new URLSearchParams(params); if (!value || value === "all") next.delete(key); else next.set(key, value); setParams(next, { replace: true }); };
   const [news, setNews] = useState<NewsItem[] | null>(null);
 
   useEffect(() => {
@@ -39,29 +45,33 @@ export default function NewsPage() {
     };
   }, []);
 
+  const filtered = (news ?? []).filter((n) => (tag === "all" || n.tag === tag) && `${n.title} ${n.excerpt}`.toLowerCase().includes(query.trim().toLowerCase()));
   return (
-    <div className="animate-fade-in space-y-8">
+    <div className="animate-fade-in space-y-5">
       <PageHero
         title="Noticias"
         subtitle="Novedades, resultados y las historias que mueven a Liga16."
         ghost="16"
       />
 
+      <FilterBar search={query} onSearch={(v) => setParam("q", v)} searchPlaceholder="Buscar noticia…" resultCount={filtered.length} resultLabel="noticias" activeCount={Number(tag !== "all")} onClear={() => { const next = new URLSearchParams(params); next.delete("q"); next.delete("tag"); setParams(next, { replace: true }); }}>
+        <FilterMenu label="Tema" value={tag} onChange={(v) => setParam("tag", v)} options={[...new Set((news ?? []).map((n) => n.tag))].map((t) => ({ key: t, label: t }))} allLabel="Todos" />
+      </FilterBar>
       {news === null ? (
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-40 w-full" />
           ))}
         </div>
-      ) : news.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            Todavía no hay noticias publicadas.
+            No hay noticias con estos filtros.
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {news.map((n) => (
+          {filtered.map((n) => (
             <Card
               key={n.id}
               className="group flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md animate-slide-up"

@@ -1,5 +1,7 @@
+import {CreateRecovery} from "@/components/admin/create-recovery";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { Suspense } from "react";
-import { Link, NavLink, Outlet } from "react-router";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { RouteFallback } from "@/app/layout";
 import {
   Activity,
@@ -15,7 +17,6 @@ import {
   Trophy,
   User,
   Users,
-  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -35,6 +36,8 @@ import {
 import { cn } from "@/lib/utils";
 
 /** Todos los items comparten forma; `end` y `badge` son opcionales. */
+const ORGANIZER_ROUTES = new Set(["/admin/torneos", "/admin/participantes"]);
+
 type NavItem = {
   to: string;
   label: string;
@@ -50,7 +53,6 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { to: "/admin", label: "Panel", icon: LayoutDashboard, end: true },
       { to: "/admin/torneos", label: "Torneos", icon: Trophy },
       { to: "/admin/equipos", label: "Equipos", icon: Users },
-      { to: "/admin/participantes", label: "Participantes", icon: UsersRound },
       { to: "/admin/resultados", label: "Resultados", icon: ClipboardList },
     ],
   },
@@ -92,9 +94,13 @@ function AdminBrand({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function AdminNav({ onNavigate, alertCount }: { onNavigate?: () => void; alertCount?: number }) {
+  const { user } = useAuth();
+  const groups = user?.role === "organizer" ? navGroups.map(g=>({...g,items:g.items.flatMap(i=>i.to==="/admin/equipos" ? [{...i,to:"/admin/participantes",label:"Inscripciones y pagos"}] : ORGANIZER_ROUTES.has(i.to) ? [i] : [])})).filter(g=>g.items.length) : navGroups;
+  const { pathname } = useLocation();
+  const reduced=useReducedMotion();
   return (
-    <nav className="space-y-5 px-3 py-4" aria-label="Navegación del admin">
-      {navGroups.map((group) => (
+    <LayoutGroup><nav className="space-y-5 px-3 py-4" aria-label="Navegación del admin">
+      {groups.map((group) => (
         <div key={group.label}>
           <p className="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>
           <div className="space-y-0.5">
@@ -106,15 +112,16 @@ function AdminNav({ onNavigate, alertCount }: { onNavigate?: () => void; alertCo
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary/10 text-primary-strong"
+                    "relative flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    (isActive || (to === "/admin/equipos" && pathname === "/admin/participantes"))
+                      ? "text-primary-strong"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )
                 }
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{label}</span>
+                {(pathname===to || (!end && pathname.startsWith(to+"/")) || (to==="/admin/equipos" && pathname==="/admin/participantes")) && <motion.span aria-hidden layoutId="admin-nav-active" className="absolute inset-0 rounded-md bg-primary/10" transition={reduced ? {duration:0} : {type:"spring",stiffness:500,damping:40}}/>}
+                <Icon className="relative h-4 w-4 shrink-0" />
+                <span className="relative">{label}</span>
                 {badge === "alerts" && alertCount && alertCount > 0 && (
                   <Badge
                     variant="secondary"
@@ -128,7 +135,7 @@ function AdminNav({ onNavigate, alertCount }: { onNavigate?: () => void; alertCo
           </div>
         </div>
       ))}
-    </nav>
+    </nav></LayoutGroup>
   );
 }
 
@@ -157,13 +164,16 @@ function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export default function AdminLayout() {
+  const reduced=useReducedMotion();
+  const location=useLocation();
   const [openNav, setOpenNav] = useState(false);
-  const { loading, isConfigured } = useAuth();
+  const { loading, isConfigured, user } = useAuth();
   const { alerts: adminAlerts } = useAdminAlerts();
   const alertCount = adminAlerts.length;
 
   return (
     <div className="min-h-dvh bg-background">
+      <CreateRecovery actorId={user?.id}/>
       <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-card/95 backdrop-blur lg:flex">
           <div className="flex h-16 shrink-0 items-center border-b px-5">
@@ -196,7 +206,7 @@ export default function AdminLayout() {
               </SheetContent>
             </Sheet>
             <AdminBrand />
-            <Button asChild variant="ghost" size="icon" className="relative" aria-label={`Bandeja de entrada (${alertCount})`}>
+            {user?.role !== "organizer" && <Button asChild variant="ghost" size="icon" className="relative" aria-label={`Bandeja de entrada (${alertCount})`}>
               <Link to="/admin/inbox">
                 <Bell className="h-5 w-5" />
                 {alertCount > 0 && (
@@ -208,7 +218,7 @@ export default function AdminLayout() {
                   </Badge>
                 )}
               </Link>
-            </Button>
+            </Button>}
             <Button asChild variant="ghost" size="sm">
               <Link to="/">Salir</Link>
             </Button>
@@ -246,7 +256,7 @@ export default function AdminLayout() {
                     leía ninguna página del admin; quitarlo deja un solo control
                     por sección, junto a lo que filtra. */}
                 <Suspense fallback={<RouteFallback />}>
-                  <Outlet />
+                  <motion.div key={location.pathname} initial={reduced ? false : {opacity:0,y:4}} animate={{opacity:1,y:0}} transition={{duration:0.16,ease:"easeOut"}}><Outlet /></motion.div>
                 </Suspense>
               </>
             )}

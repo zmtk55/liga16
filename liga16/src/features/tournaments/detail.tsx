@@ -1,3 +1,5 @@
+import IndividualTournamentDetailPage from "./detail-individual.preview";
+import {tournamentEntryService} from "@/lib/tournament-entry-service";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
 import { ArrowLeft, CalendarDays, MapPin, Trophy, Users, Check, ChevronRight, ChevronLeft, CreditCard, User } from "lucide-react";
@@ -23,7 +25,7 @@ import { toast } from "sonner";
 
 type PairsMap = Record<string, Pair[]>;
 
-export default function TournamentDetailPage() {
+function LegacyTournamentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
@@ -476,3 +478,4 @@ export default function TournamentDetailPage() {
     </section>
   );
 }
+export default function TournamentDetailPage(){return tournamentEntryService.available?<IndividualTournamentDetailPage/>:<LegacyTournamentDetailPage/>;}

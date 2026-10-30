@@ -1,14 +1,21 @@
+import { preparePaymentOperation, type PendingPaymentOperation } from '@/lib/payment-operation';
+import {createEntryResource,ensureTournamentEntry,entryPaymentRelease,listEntryPayments,recordEntryPayment,type IndividualEntryRecord,type EntryPayment} from '@/lib/entry-payment-service';
+import { parsePaymentCents } from '@/lib/payment-input';
+import { RowActions } from "@/components/admin/row-actions";
+import { identifyIndividualRegistrations, groupRegistrationCandidates, type IndividualRegistrationRow } from "@/lib/individual-registrations";
+import { useAuth } from "@/contexts/AuthContext";
+import { canManageTournament } from "@/lib/access";
+import { TeamSections } from "@/components/admin/team-sections";
 // Admin -> Participantes: todas las parejas de TODOS los torneos en una sola vista.
 // Categorias como se registran (5ta, 4ta, Suma 9...), jugadores visibles y
 // gestion de pagos desde aqui. Nada se renombra: lo que el torneo guardó es
 // lo que se muestra.
 import { AdminLoadFailed } from "@/components/admin/empty-state";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { db } from "@/lib/data";
 import type { AllPair } from "@/lib/data/provider";
-import type { PaymentMethod, PlayerProfile, RegistrationStatus, Tournament, TournamentCategory } from "@/types";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import type { Pair,PaymentMethod, PlayerProfile, RegistrationStatus, Tournament, TournamentCategory } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,18 +38,15 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { AdminFacet, AdminFacets } from "@/components/admin/filter-facets";
 import { countActive } from "@/lib/filters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { PairAvatar, CardShell, CardIdentity } from "@/components/cards/card-kit";
-import { cn } from "@/lib/utils";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
+import { AdminPageHeader } from "@/components/admin/page-header";
 import { formatMoney, registrationStatusLabel, SIN_CATEGORIA } from "@/lib/format";
-import { FolderInput, Trash2, UsersRound, UserPlus, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { FolderInput, UsersRound, UserPlus, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import PlayerSlot from "@/components/players/player-slot";
-import { ensurePlayer } from "@/lib/players";
+import { resolveTournamentPlayer } from "@/lib/players";
 
-const AMBER = "text-warning-strong";
 
 /** Estado de pago de un registro, para el badge de la fila. */
 function paymentBadge(pair: AllPair) {
@@ -60,7 +64,11 @@ function categoryDisplay(pair: AllPair): string {
   return pair.category_name?.trim() || SIN_CATEGORIA;
 }
 export default function AdminParticipants() {
+  const { user } = useAuth();
   const [pairs, setPairs] = useState<AllPair[] | null>(null);
+  const [entryRecords,setEntryRecords]=useState<IndividualEntryRecord[]>([]);
+  const [selectedEntry,setSelectedEntry]=useState<IndividualEntryRecord|null>(null);
+  const [registrations, setRegistrations] = useState<IndividualRegistrationRow[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [categories, setCategories] = useState<TournamentCategory[]>([]);
@@ -81,35 +89,43 @@ export default function AdminParticipants() {
   const [busy, setBusy] = useState(false);
   // Crear pareja desde esta misma vista (el hueco que faltaba).
   const [openCreate, setOpenCreate] = useState(false);
-  const [draft, setDraft] = useState({ name: "", category_id: "", player1: "", player2: "" });
+  const [draft, setDraft] = useState({ name: "", category_id: "", player1: "", player2: "",player1Id:"",player2Id:"" });
   const [draftTournament, setDraftTournament] = useState("");
   const [creating, setCreating] = useState(false);
+  const createOperations=useRef({player1:crypto.randomUUID(),player2:crypto.randomUUID(),pair:crypto.randomUUID()});
+  const pendingPair=useRef<{id:string,signature:string}|null>(null);
   // Gestionar pago de un registro (flujo público).
+  const paymentOperation = useRef<PendingPaymentOperation | null>(null);
+  const openedPaymentRevision = useRef<number | undefined>(undefined);
   const [paying, setPaying] = useState<AllPair | null>(null);
   const [payForm, setPayForm] = useState<{ method: PaymentMethod; status: RegistrationStatus; amount: string }>({
     method: "cash",
     status: "paid",
     amount: "",
   });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
-      const [allPairs, ts, ps] = await Promise.all([db.listAllPairs(), db.listTournaments(), db.listPlayers()]);
-      setPairs(allPairs);
-      setTournaments(ts);
+      const [allPairs, ts, ps, rs, entries] = await Promise.all([db.listAllPairs(), db.listTournaments(), db.listPlayers(), db.listIndividualRegistrations(),listEntryPayments()]);
+
+      const owned = ts.filter(t => canManageTournament(user, t));
+      const ids = new Set(owned.map(t=>t.id));
+      setEntryRecords(user?.role==="organizer"?entries.filter(e=>ids.has(e.tournament_id)):entries);
+      setPairs(user?.role === "organizer" ? allPairs.filter(p=>p.tournament_id && ids.has(p.tournament_id)) : allPairs);
+      setTournaments(owned);
+      setRegistrations(user?.role === "organizer" ? rs.filter(r=>ids.has(r.tournament_id)) : rs);
       setPlayers(ps);
       setLoadError(null);
     } catch (e) {
       setLoadError((e as Error)?.message || "Error al cargar las parejas");
     }
-  }
+  }, [user]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   /**
    * Categorías de TODOS los torneos, no solo de los que ya tienen parejas.
@@ -131,6 +147,7 @@ export default function AdminParticipants() {
     return categories.filter((c) => c.tournament_id === fTournament);
   }, [categories, fTournament]);
 
+  const filteredEntries=entryRecords.filter(e=>{const p=players.find(p=>p.id===e.player_id),t=tournaments.find(t=>t.id===e.tournament_id);return (fTournament==="all"||e.tournament_id===fTournament)&&(!query.trim()||`${p?.display_name??""} ${t?.name??""}`.toLowerCase().includes(query.trim().toLowerCase()));});
   const filtered = (pairs ?? []).filter((p) => {
     const q = query.trim().toLowerCase();
     if (q && !p.name.toLowerCase().includes(q) && !(p.tournament_name ?? "").toLowerCase().includes(q)) return false;
@@ -146,11 +163,12 @@ export default function AdminParticipants() {
    */
   const tournamentOptions = useMemo(() => {
     const all = pairs ?? [];
+    if(entryPaymentRelease.available)return tournaments.map(t=>({key:t.id,label:t.name,n:entryRecords.filter(e=>e.tournament_id===t.id).length})).filter(o=>o.n>0);
     return tournaments
       .map((t) => ({ key: t.id, label: t.name, n: all.filter((p) => p.tournament_id === t.id).length }))
       .filter((o) => o.n > 0)
       .sort((a, b) => b.n - a.n);
-  }, [pairs, tournaments]);
+  }, [pairs, tournaments,entryRecords]);
 
   const categoryOptions = useMemo(() => {
     const all = pairs ?? [];
@@ -167,19 +185,20 @@ export default function AdminParticipants() {
   const resumen = useMemo(() => {
     const all = pairs ?? [];
     const conTorneo = all.filter((p) => Boolean(p.tournament_id));
-    const conRegistro = all.filter((p) => p.registration_status);
+    const individual = groupRegistrationCandidates(identifyIndividualRegistrations(registrations, players)).filter(g=>!g.needsReview);
     return {
       parejas: all.length,
       torneos: new Set(conTorneo.map((p) => p.tournament_id)).size,
       sinTorneo: all.length - conTorneo.length,
       sinCategoria: all.filter((p) => !p.category_id).length,
       sinJugadores: all.filter((p) => !p.player1_id && !p.player2_id).length,
-      pagadas: conRegistro.filter((p) => p.registration_status === "paid").length,
-      pendientes: conRegistro.filter((p) => p.registration_status && p.registration_status !== "paid").length,
+      pagadas: entryPaymentRelease.available?entryRecords.filter(e=>e.payment.status==="paid").length:individual.filter(g=>g.records[0].status === "paid").length,
+      pendientes: entryPaymentRelease.available?entryRecords.filter(e=>["payment_pending","payment_review"].includes(e.payment.status)).length:individual.filter(g=>["payment_pending","payment_review"].includes(g.records[0].status)).length,
     };
-  }, [pairs]);
+  }, [pairs, registrations, players,entryRecords]);
 
   async function handleDelete(p: AllPair) {
+    if(registrations.some(r=>r.tournament_id===p.tournament_id)||entryRecords.some(e=>e.tournament_id===p.tournament_id)){toast.error("Se conserva el historial de pagos; borrado no habilitado");return;}
     setBusy(true);
     try {
       await db.deletePair(p.id);
@@ -194,6 +213,7 @@ export default function AdminParticipants() {
   }
 
   function openMove(p: AllPair) {
+    if (user?.role === "organizer") { toast.info("Los cambios de torneo los hace el administrador general"); return; }
     setMoving(p);
     setMoveTarget("");
   }
@@ -226,7 +246,7 @@ export default function AdminParticipants() {
       toast.error("Captura ambos jugadores");
       return;
     }
-    if (p1.toLowerCase() === p2.toLowerCase()) {
+    if ((draft.player1Id&&draft.player2Id)?draft.player1Id===draft.player2Id:p1.toLowerCase() === p2.toLowerCase()) {
       toast.error("El mismo jugador no puede estar 2 veces en el equipo");
       return;
     }
@@ -246,17 +266,26 @@ export default function AdminParticipants() {
     }
     setCreating(true);
     try {
-      const [prof1, prof2] = await Promise.all([ensurePlayer(p1).catch(() => null), ensurePlayer(p2).catch(() => null)]);
-      await db.createPair({
+      const resolve = (name:string,id:string,key:string) => resolveTournamentPlayer(name,id||undefined,players,draftTournament,user?.role==="organizer",undefined,key);
+      const [prof1, prof2] = await Promise.all([resolve(p1,draft.player1Id,createOperations.current.player1), resolve(p2,draft.player2Id,createOperations.current.player2)]);
+      if (!prof1 || !prof2) throw new Error("No se pudieron resolver los jugadores");
+      setPlayers(existing=>[...existing.filter(p=>p.id!==prof1.id&&p.id!==prof2.id),prof1,prof2]);
+      setDraft(existing=>({...existing,player1Id:prof1.id,player2Id:prof2.id}));
+      const signature=JSON.stringify([draftTournament,draft.category_id,draft.name,prof1.id,prof2.id]);
+      if(pendingPair.current&&pendingPair.current.signature!==signature)throw new Error('Reintenta el alta pendiente antes de cambiar los datos');
+      if(!pendingPair.current){const data={
         tournament_id: draftTournament,
         category_id: draft.category_id || null,
         name: draft.name.trim() || (p1 + " / " + p2),
         player1_id: prof1?.id ?? null,
         player2_id: prof2?.id ?? null,
-      });
+      };const created=entryPaymentRelease.available?await createEntryResource(draftTournament,createOperations.current.pair,"pair",{name:data.name,category_id:data.category_id,player1_id:data.player1_id,player2_id:data.player2_id}) as Pair:await db.createPair(data);pendingPair.current={id:created.id,signature};}
+      await ensureTournamentEntry(draftTournament,prof1.id);
+      await ensureTournamentEntry(draftTournament,prof2.id);
+      pendingPair.current=null;createOperations.current={player1:crypto.randomUUID(),player2:crypto.randomUUID(),pair:crypto.randomUUID()};
       toast.success("Equipo inscrito");
       setOpenCreate(false);
-      setDraft({ name: "", category_id: "", player1: "", player2: "" });
+      setDraft({ name: "", category_id: "", player1: "", player2: "",player1Id:"",player2Id:"" });
       setDraftTournament("");
       load();
     } catch (e) {
@@ -266,28 +295,38 @@ export default function AdminParticipants() {
     }
   }
 
-  function openPay(p: AllPair) {
+  function openPay(p: AllPair, entry?:IndividualEntryRecord) {
+    if(paymentOperation.current && selectedEntry?.id!==entry?.id){toast.error("Confirma primero el guardado pendiente del otro jugador");return;}
+    setSelectedEntry(entry ?? null);
+    openedPaymentRevision.current = entry?.payment.revision;
     setPaying(p);
     setPayForm({
       method: p.payment_method ?? "cash",
       status: p.registration_status ?? "payment_pending",
-      amount: p.amount_cents ? String(p.amount_cents / 100) : "",
+      amount: p.amount_cents == null ? "" : String(p.amount_cents / 100),
     });
   }
 
   async function handleMarkPaid() {
     if (!paying || !paying.registration_id) {
-      toast.error("Esta pareja no tiene registro de inscripción (se creó desde el admin).");
+      toast.error("Este jugador no tiene una inscripción individual vinculada.");
       return;
     }
     setBusy(true);
     try {
-      await db.updateRegistrationPayment(paying.registration_id, {
-        status: payForm.status,
-        payment_method: payForm.method,
-        amount_cents: payForm.amount ? Math.round(Number(payForm.amount) * 100) : null,
-        paid_at: payForm.status === "paid" ? new Date().toISOString() : null,
-      });
+      const amountCents = parsePaymentCents(payForm.amount);
+      if (entryPaymentRelease.available) {
+      if (!selectedEntry) throw new Error('Falta la inscripción individual. No se cambió el pago.');
+      const operation = preparePaymentOperation(paymentOperation, openedPaymentRevision.current, {id:selectedEntry.id,status:payForm.status,method:payForm.method,amount:amountCents});
+      await recordEntryPayment(selectedEntry.id, {status:payForm.status as EntryPayment['status'],payment_method:payForm.method,amount_cents:amountCents}, operation);
+      paymentOperation.current = null;
+      } else {
+        if (selectedEntry) throw new Error('El modo de pagos cambió. Recarga antes de guardar.');
+        await db.updateRegistrationPayment(paying.registration_id, {
+          status: payForm.status, payment_method: payForm.method, amount_cents: amountCents,
+          paid_at: payForm.status === 'paid' ? new Date().toISOString() : null,
+        });
+      }
       toast.success("Estado de pago actualizado");
       setPaying(null);
       load();
@@ -301,8 +340,8 @@ export default function AdminParticipants() {
   if (loadError && pairs === null) {
     return (
       <AdminLoadFailed
-        title="Participantes"
-        description="Todas las parejas de todos los torneos, en una sola vista."
+        title="Equipos"
+        description="Inscripciones y pagos individuales por torneo."
         what="las parejas"
         message={loadError}
         onRetry={() => { load(); }}
@@ -311,50 +350,31 @@ export default function AdminParticipants() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <AdminPageHeader
-        title="Participantes"
-        description="Todas las parejas de todos los torneos, en una sola vista."
+        title="Equipos"
+        description="Inscripciones y pagos individuales por torneo."
         action={
-          <Button size="sm" onClick={() => { setDraft({ name: "", category_id: "", player1: "", player2: "" }); setDraftTournament(""); setOpenCreate(true); }}>
+          <Button size="sm" onClick={() => { setDraft({ name: "", category_id: "", player1: "", player2: "",player1Id:"",player2Id:"" }); setDraftTournament(""); setOpenCreate(true); }}>
             <UserPlus className="h-4 w-4" /> Inscribir pareja
           </Button>
         }
       >
-        <AdminStatStrip loading={pairs === null}>
-          <AdminStat value={resumen.parejas} label="Parejas" />
-          <AdminStat value={resumen.torneos} label="Torneos" />
-          <AdminStat
-            value={resumen.sinTorneo}
-            label="Sin torneo"
-            tone={resumen.sinTorneo > 0 ? AMBER : undefined}
-          />
-          <AdminStat
-            value={resumen.sinJugadores}
-            label="Sin jugadores"
-            tone={resumen.sinJugadores > 0 ? AMBER : undefined}
-          />
-          <AdminStat
-            value={resumen.pagadas}
-            label="Pagadas"
-            tone={resumen.pagadas > 0 ? "text-success" : undefined}
-          />
-          <AdminStat
-            value={resumen.pendientes}
-            label="Por cobrar"
-            tone={resumen.pendientes > 0 ? AMBER : undefined}
-          />
-        </AdminStatStrip>
       </AdminPageHeader>
+      <TeamSections />
+      <div aria-label="Resumen de inscripciones" className="flex flex-wrap gap-x-5 gap-y-2 border-b pb-3">{(entryPaymentRelease.available?[["Inscripciones",entryRecords.length],["Torneos",new Set(entryRecords.map(e=>e.tournament_id)).size],["Pagadas",resumen.pagadas],["Pago pendiente",resumen.pendientes],["Canceladas",entryRecords.filter(e=>e.payment.status==="cancelled").length],["Reembolsadas",entryRecords.filter(e=>e.payment.status==="refunded").length]]:[
+        ["Parejas", resumen.parejas], ["Torneos", resumen.torneos], ["Sin torneo", resumen.sinTorneo], ["Sin jugadores", resumen.sinJugadores], ["Jugadores pagados", resumen.pagadas], ["Por cobrar", resumen.pendientes],
+      ]).map(([label, value]) => <div key={label} className="flex items-baseline gap-2"><p className="text-xs text-muted-foreground">{label}</p><p className="font-sans text-base font-semibold tabular-nums">{pairs === null ? "–" : value}</p></div>)}</div>
 
-      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
-        <CardHeader className="gap-3 px-0">
+      <section className="space-y-3">
+        <div>
           <FilterBar
+            className="rounded-none border-0 bg-transparent p-0"
             search={query}
             onSearch={setQuery}
-            searchPlaceholder="Buscar pareja o torneo…"
-            resultCount={filtered.length}
-            resultLabel="parejas"
+            searchPlaceholder={entryPaymentRelease.available?"Buscar jugador o torneo…":"Buscar pareja o torneo…"}
+            resultCount={entryPaymentRelease.available?filteredEntries.length:filtered.length}
+            resultLabel={entryPaymentRelease.available?"inscripciones":"parejas"}
             activeCount={countActive(fTournament, fCategory)}
             onClear={() => { setQuery(""); setFTournament("all"); setFCategory("all"); }}
           >
@@ -366,17 +386,34 @@ export default function AdminParticipants() {
                 options={tournamentOptions}
                 allLabel="Todos"
               />
-              <AdminFacet
+              {!entryPaymentRelease.available&&<AdminFacet
                 label="Categoría"
                 value={fCategory}
                 onChange={setFCategory}
                 options={categoryOptions}
                 allLabel="Todas"
-              />
+              />}
             </AdminFacets>
           </FilterBar>
-        </CardHeader>
-        <CardContent className="p-0">
+        </div>
+        <div>
+          {entryPaymentRelease.available && <div className="divide-y border-y" aria-label="Pagos individuales por torneo">
+            {filteredEntries.map(entry=>{
+              const person=players.find(p=>p.id===entry.player_id);
+              const tournament=tournaments.find(t=>t.id===entry.tournament_id);
+              const contexts=(pairs??[]).filter(p=>p.tournament_id===entry.tournament_id&&(p.player1_id===entry.player_id||p.player2_id===entry.player_id));
+              const display={id:entry.id,name:person?.display_name??"Jugador sin perfil visible",tournament_id:entry.tournament_id,registration_id:entry.id,registration_status:entry.payment.status,payment_method:entry.payment.payment_method,amount_cents:entry.payment.amount_cents} as AllPair;
+              return <div key={entry.id} className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-3 sm:grid-cols-[minmax(140px,1fr)_minmax(110px,1fr)_minmax(130px,1fr)_auto]">
+                <div className="min-w-0"><p className="text-sm font-medium">{display.name}</p><p className="text-xs text-muted-foreground">{tournament?.name??"Torneo"}{contexts.length?` · ${contexts.map(p=>p.name).join(", ")}`:" · Sin pareja asignada"}</p></div>
+                <div>{paymentBadge(display)}</div>
+                <p className="text-xs text-muted-foreground">{entry.payment.amount_cents==null?"Monto sin registrar":formatMoney(entry.payment.amount_cents,tournament?.currency??"MXN")}{entry.payment.payment_method?` · ${entry.payment.payment_method==="cash"?"Efectivo":entry.payment.payment_method==="transfer"?"Transferencia":entry.payment.payment_method}`:""}</p>
+                <Button size="sm" variant="ghost" className="min-h-11 justify-self-end" aria-label={`Gestionar pago de ${display.name}`} onClick={()=>openPay(display,entry)}>Gestionar</Button>
+              </div>;
+            })}
+            {pairs!==null&&filteredEntries.length===0&&<p className="py-4 text-sm text-muted-foreground">Sin inscripciones individuales. El historial anterior no se convierte en pagos nuevos.</p>}
+            {registrations.length>0&&<p className="py-3 text-xs text-muted-foreground">Hay registros anteriores conservados para conciliación. No se copiaron sus importes.</p>}
+          </div>}
+
           {pairs === null && (
             <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -385,7 +422,7 @@ export default function AdminParticipants() {
             </div>
           )}
 
-          {pairs !== null && pairs.length === 0 && (
+          {!entryPaymentRelease.available && pairs !== null && pairs.length === 0 && (
             <AdminEmptyState
               icon={<UsersRound className="h-5 w-5" />}
               title="No hay participantes todavía"
@@ -393,7 +430,7 @@ export default function AdminParticipants() {
             />
           )}
 
-          {pairs !== null && pairs.length > 0 && filtered.length === 0 && (
+          {!entryPaymentRelease.available && pairs !== null && pairs.length > 0 && filtered.length === 0 && (
             <AdminEmptyState
               icon={<UsersRound className="h-5 w-5" />}
               title="Sin coincidencias"
@@ -401,106 +438,37 @@ export default function AdminParticipants() {
             />
           )}
 
-          {filtered.length > 0 && (() => {
-            const sel = filtered.find((p) => p.id === selectedId) ?? null;
-            const selP1 = sel?.name.split(" / ")[0] ?? "";
-            const selP2 = sel?.name.split(" / ")[1] ?? "";
-            const prof1 = sel ? players.find((pl) => pl.id === sel.player1_id) : undefined;
-            const prof2 = sel ? players.find((pl) => pl.id === sel.player2_id) : undefined;
-            return (
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(260px,360px)_1fr]">
-                <div className="max-h-[80vh] space-y-3 overflow-y-auto p-1">
-                  {filtered.map((p) => {
-                    const [p1, p2] = p.name.split(" / ");
-                    const active = p.id === selectedId;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setSelectedId(p.id)}
-                        className="w-full text-left"
-                      >
-                        <CardShell
-                          className={cn(
-                            "min-h-36 rounded-3xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40",
-                            active && "accent ring-2 ring-primary/40"
-                          )}
-                          accent={active}
-                        >
-                          <CardIdentity
-                            lead={<PairAvatar p1={p1} p2={p2} />}
-                            title={`${p1} / ${p2 ?? "—"}`}
-                            meta={`${categoryDisplay(p)} · ${p.tournament_name ?? "Sin torneo"}`}
-                          />
-                          <div className="mt-2 flex items-center justify-end">
-                            {paymentBadge(p)}
-                          </div>
-                        </CardShell>
-                      </button>
-                    );
-                  })}
-                </div>
+          {!entryPaymentRelease.available && filtered.length > 0 && <div className="divide-y border-y" aria-label="Inscripciones individuales">
+            {filtered.map(pair => <section key={pair.id} className="py-2" aria-label={pair.name}>
+              <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 px-1">
+                <div className="min-w-0"><h3 className="font-sans text-sm font-semibold">{pair.name}</h3><p className="text-xs text-muted-foreground">{pair.tournament_name ?? "Sin torneo"} · {categoryDisplay(pair)}</p></div>
+                <div className="flex flex-wrap items-center gap-2">
+                {user?.role === "admin" && pair.registration_id && <Button size="sm" variant="outline" onClick={()=>openPay(pair)} aria-label={`Gestionar pago de ${pair.name}`}>Gestionar pago</Button>}
+                <RowActions name={pair.name} onMove={user?.role === "admin" ? ()=>openMove(pair) : undefined} onDelete={()=>setDeleting(pair)} deleteDisabled={registrations.some(r=>r.tournament_id===pair.tournament_id)||entryRecords.some(e=>e.tournament_id===pair.tournament_id)}/></div>
 
-                <div className="p-4">
-                  {!sel ? (
-                    <AdminEmptyState
-                      className="h-full border-0 py-10"
-                      icon={<UsersRound className="h-5 w-5" />}
-                      title="Ninguna pareja seleccionada"
-                      description="Elige una pareja de la lista para ver su ficha, su inscripción y su pago."
-                    />
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="text-base font-semibold">{selP1} / {selP2 || "—"}</h3>
-                          <p className="text-xs text-muted-foreground">{categoryDisplay(sel)} · {sel.tournament_name ?? "Sin torneo"}</p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {[
-                              { name: selP1, level: prof1 ? (prof1.official_level ?? prof1.declared_level) : null },
-                              { name: selP2, level: prof2 ? (prof2.official_level ?? prof2.declared_level) : null },
-                            ].filter((c) => c.name).map((c) => (
-                              <span key={c.name} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs">
-                                <PairAvatar p1={c.name} className="h-6 w-6 border text-xs" />
-                                <span className="font-medium">{c.name}</span>
-                                {c.level != null && <span className="text-muted-foreground">Nv {c.level}</span>}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <span className="shrink-0">{paymentBadge(sel)}</span>
-                      </div>
-
-                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
-                        <div><dt className="text-xs text-muted-foreground">Torneo</dt><dd className="truncate">{sel.tournament_name ?? "—"}</dd></div>
-                        <div><dt className="text-xs text-muted-foreground">Categoría</dt><dd className="truncate">{categoryDisplay(sel)}</dd></div>
-                        <div><dt className="text-xs text-muted-foreground">Monto</dt><dd>{sel.amount_cents != null ? formatMoney(sel.amount_cents, sel.currency) : "—"}</dd></div>
-                        <div><dt className="text-xs text-muted-foreground">Método</dt><dd>{sel.payment_method ?? "—"}</dd></div>
-                        <div><dt className="text-xs text-muted-foreground">Jugador 1</dt><dd className="truncate">{prof1?.display_name ?? selP1}</dd></div>
-                        <div><dt className="text-xs text-muted-foreground">Jugador 2</dt><dd className="truncate">{prof2?.display_name ?? selP2 ?? "—"}</dd></div>
-                      </dl>
-
-                      <div className="flex flex-wrap gap-2 border-t pt-3">
-                        {sel.registration_id && (
-                          <Button size="sm" variant="outline" onClick={() => openPay(sel)}>
-                            <CheckCircle2 className="h-4 w-4" /> Gestionar pago
-                          </Button>
-                        )}
-                        <Button size="sm" variant="outline" onClick={() => openMove(sel)}>
-                          <FolderInput className="h-4 w-4" /> Mover a otro torneo
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => setDeleting(sel)}>
-                          <Trash2 className="h-4 w-4" /> Eliminar
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
-            );
-          })()}
-        </CardContent>
-      </Card>
+              {[pair.player1_id,pair.player2_id].map((id,index)=>{
+                const person=players.find(p=>p.id===id);
+                const name=person?.display_name ?? pair.name.split(" / ")[index] ?? `Jugador ${index+1}`;
+                const candidate=groupRegistrationCandidates(identifyIndividualRegistrations(registrations,players)).find(g=>g.records.some(r=>r.tournament_id===pair.tournament_id && r.player_id===id && id));
+                const history=candidate?.records[0];
+                const matches=entryRecords.filter(e=>e.tournament_id===pair.tournament_id&&e.player_id===id);
+                const current=matches.length===1?matches[0]:null;
+                const record=entryPaymentRelease.available?(current?{...current.payment,status:current.payment.status}:undefined):history;
+                return <div key={id ?? index} className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-t border-dashed px-1 py-2 sm:grid-cols-[minmax(140px,1fr)_minmax(150px,1fr)_minmax(130px,1fr)_auto]">
+                  <p className="text-sm font-medium">{name}</p>
+                  <div className="justify-self-end sm:justify-self-start">{!record ? <span className="text-xs text-muted-foreground">Sin registro</span> : candidate?.needsReview ? <span className="text-xs text-warning-strong">Revisar registros</span> : paymentBadge({...pair,registration_status:record.status})}</div>
+                  <p className="text-xs text-muted-foreground">{!record ? "Sin pago vinculado" : candidate?.needsReview ? "No combinar importes" : `${record.amount_cents==null ? "Monto sin registrar" : formatMoney(record.amount_cents,pair.currency)}${record.payment_method ? ` · ${record.payment_method === "cash" ? "Efectivo" : record.payment_method === "transfer" ? "Transferencia" : record.payment_method}` : ""}`}</p>
+                  {entryRecords.filter(e=>e.tournament_id===pair.tournament_id&&e.player_id===id).map(entry=><Button key={entry.id} size="sm" variant="ghost" className="min-h-11 justify-self-end" aria-label={`Gestionar pago de ${name}`} onClick={()=>openPay({...pair,name,registration_id:entry.id,registration_status:entry.payment.status,payment_method:entry.payment.payment_method,amount_cents:entry.payment.amount_cents},entry)}>Gestionar</Button>)}
+                  {history&&<span className="text-xs text-muted-foreground">Registro anterior al corte individual</span>}
+                </div>;
+              })}
+              {identifyIndividualRegistrations(registrations,players).some(r=>r.pair_id===pair.id && r.identity_status!=="linked") && <p className="py-2 text-xs text-warning-strong">Hay pagos sin jugador identificado. Revisar vínculo.</p>}
+            </section>)}
+          </div>}
+
+        </div>
+      </section>
 
       <ConfirmDialog
         open={!!deleting}
@@ -593,15 +561,15 @@ export default function AdminParticipants() {
               label="Jugador 1"
               value={draft.player1}
               players={players}
-              onType={(v) => setDraft((d) => ({ ...d, player1: v }))}
-              onPick={(v) => setDraft((d) => ({ ...d, player1: v }))}
+              onType={(v) => setDraft((d) => ({ ...d, player1: v,player1Id:"" }))}
+              onPick={(v,id) => setDraft((d) => ({ ...d, player1: v,player1Id:id }))}
             />
             <PlayerSlot
               label="Jugador 2"
               value={draft.player2}
               players={players}
-              onType={(v) => setDraft((d) => ({ ...d, player2: v }))}
-              onPick={(v) => setDraft((d) => ({ ...d, player2: v }))}
+              onType={(v) => setDraft((d) => ({ ...d, player2: v,player2Id:"" }))}
+              onPick={(v,id) => setDraft((d) => ({ ...d, player2: v,player2Id:id }))}
             />
           </div>
           <DialogFooter>
@@ -616,7 +584,7 @@ export default function AdminParticipants() {
       <Dialog open={!!paying} onOpenChange={(o) => { if (!o) setPaying(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Gestionar pago</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> {entryPaymentRelease.available ? "Gestionar pago individual" : "Gestionar pago"}</DialogTitle>
             <DialogDescription>
               {paying?.name} — {paying?.tournament_name ?? "Sin torneo"}
             </DialogDescription>
