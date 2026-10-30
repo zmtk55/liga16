@@ -295,10 +295,10 @@ export default function AdminParticipants() {
     }
   }
 
-  function openPay(p: AllPair, entry:IndividualEntryRecord) {
-    if(paymentOperation.current && selectedEntry?.id!==entry.id){toast.error("Confirma primero el guardado pendiente del otro jugador");return;}
-    setSelectedEntry(entry);
-    openedPaymentRevision.current = entry.payment.revision;
+  function openPay(p: AllPair, entry?:IndividualEntryRecord) {
+    if(paymentOperation.current && selectedEntry?.id!==entry?.id){toast.error("Confirma primero el guardado pendiente del otro jugador");return;}
+    setSelectedEntry(entry ?? null);
+    openedPaymentRevision.current = entry?.payment.revision;
     setPaying(p);
     setPayForm({
       method: p.payment_method ?? "cash",
@@ -314,11 +314,19 @@ export default function AdminParticipants() {
     }
     setBusy(true);
     try {
-      if (!entryPaymentRelease.available || !selectedEntry) throw new Error('La edición segura de pagos aún no está habilitada. No se cambió el pago.');
       const amountCents = parsePaymentCents(payForm.amount);
+      if (entryPaymentRelease.available) {
+      if (!selectedEntry) throw new Error('Falta la inscripción individual. No se cambió el pago.');
       const operation = preparePaymentOperation(paymentOperation, openedPaymentRevision.current, {id:selectedEntry.id,status:payForm.status,method:payForm.method,amount:amountCents});
       await recordEntryPayment(selectedEntry.id, {status:payForm.status as EntryPayment['status'],payment_method:payForm.method,amount_cents:amountCents}, operation);
       paymentOperation.current = null;
+      } else {
+        if (selectedEntry) throw new Error('El modo de pagos cambió. Recarga antes de guardar.');
+        await db.updateRegistrationPayment(paying.registration_id, {
+          status: payForm.status, payment_method: payForm.method, amount_cents: amountCents,
+          paid_at: payForm.status === 'paid' ? new Date().toISOString() : null,
+        });
+      }
       toast.success("Estado de pago actualizado");
       setPaying(null);
       load();
@@ -434,7 +442,9 @@ export default function AdminParticipants() {
             {filtered.map(pair => <section key={pair.id} className="py-2" aria-label={pair.name}>
               <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 px-1">
                 <div className="min-w-0"><h3 className="font-sans text-sm font-semibold">{pair.name}</h3><p className="text-xs text-muted-foreground">{pair.tournament_name ?? "Sin torneo"} · {categoryDisplay(pair)}</p></div>
-                <RowActions name={pair.name} onMove={user?.role === "admin" ? ()=>openMove(pair) : undefined} onDelete={()=>setDeleting(pair)} deleteDisabled={registrations.some(r=>r.tournament_id===pair.tournament_id)||entryRecords.some(e=>e.tournament_id===pair.tournament_id)}/>
+                <div className="flex flex-wrap items-center gap-2">
+                {user?.role === "admin" && pair.registration_id && <Button size="sm" variant="outline" onClick={()=>openPay(pair)} aria-label={`Gestionar pago de ${pair.name}`}>Gestionar pago</Button>}
+                <RowActions name={pair.name} onMove={user?.role === "admin" ? ()=>openMove(pair) : undefined} onDelete={()=>setDeleting(pair)} deleteDisabled={registrations.some(r=>r.tournament_id===pair.tournament_id)||entryRecords.some(e=>e.tournament_id===pair.tournament_id)}/></div>
 
               </div>
               {[pair.player1_id,pair.player2_id].map((id,index)=>{
@@ -450,7 +460,7 @@ export default function AdminParticipants() {
                   <div className="justify-self-end sm:justify-self-start">{!record ? <span className="text-xs text-muted-foreground">Sin registro</span> : candidate?.needsReview ? <span className="text-xs text-warning-strong">Revisar registros</span> : paymentBadge({...pair,registration_status:record.status})}</div>
                   <p className="text-xs text-muted-foreground">{!record ? "Sin pago vinculado" : candidate?.needsReview ? "No combinar importes" : `${record.amount_cents==null ? "Monto sin registrar" : formatMoney(record.amount_cents,pair.currency)}${record.payment_method ? ` · ${record.payment_method === "cash" ? "Efectivo" : record.payment_method === "transfer" ? "Transferencia" : record.payment_method}` : ""}`}</p>
                   {entryRecords.filter(e=>e.tournament_id===pair.tournament_id&&e.player_id===id).map(entry=><Button key={entry.id} size="sm" variant="ghost" className="min-h-11 justify-self-end" aria-label={`Gestionar pago de ${name}`} onClick={()=>openPay({...pair,name,registration_id:entry.id,registration_status:entry.payment.status,payment_method:entry.payment.payment_method,amount_cents:entry.payment.amount_cents},entry)}>Gestionar</Button>)}
-                  {history&&<span className="text-xs text-muted-foreground">Historial anterior, solo lectura</span>}
+                  {history&&<span className="text-xs text-muted-foreground">Registro anterior al corte individual</span>}
                 </div>;
               })}
               {identifyIndividualRegistrations(registrations,players).some(r=>r.pair_id===pair.id && r.identity_status!=="linked") && <p className="py-2 text-xs text-warning-strong">Hay pagos sin jugador identificado. Revisar vínculo.</p>}
@@ -574,7 +584,7 @@ export default function AdminParticipants() {
       <Dialog open={!!paying} onOpenChange={(o) => { if (!o) setPaying(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Gestionar pago individual</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> {entryPaymentRelease.available ? "Gestionar pago individual" : "Gestionar pago"}</DialogTitle>
             <DialogDescription>
               {paying?.name} — {paying?.tournament_name ?? "Sin torneo"}
             </DialogDescription>

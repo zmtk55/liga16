@@ -103,7 +103,7 @@ export interface DataProvider {
   updateRegistrationPayment(
     registrationId: UUID,
     data: { status?: RegistrationStatus; payment_method?: PaymentMethod; amount_cents?: number | null; paid_at?: string | null },
-    operation: PaymentOperation,
+    operation?: PaymentOperation,
   ): Promise<void>;
   listMatchesByTournament(tournamentId: string): Promise<Match[]>;
   createMatches(matches: Array<Omit<Match, 'id'>>): Promise<Match[]>;

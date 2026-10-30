@@ -1,3 +1,4 @@
+import { entryPaymentRelease } from '../entry-payment-service';
 import type { PaymentOperation } from '../payment-operation';
 import { requireWrittenRow } from '../confirmed-write';
 // Implementación Supabase del DataProvider.
@@ -450,11 +451,27 @@ export const supabaseProvider: DataProvider = {
   },
 
   async updateRegistrationPayment(
-    _registrationId: string,
-    _data: { status?: RegistrationStatus; payment_method?: PaymentMethod; amount_cents?: number | null; paid_at?: string | null },
-    _operation: PaymentOperation,
+    registrationId: string,
+    data: { status?: RegistrationStatus; payment_method?: PaymentMethod; amount_cents?: number | null; paid_at?: string | null },
+    _operation?: PaymentOperation,
   ) {
-    throw new Error('Los registros anteriores son solo historial. No se cambió el pago.');
+    // Before the coordinated cutover preserve the existing registrations workflow.
+    // Never use this route as a fallback for an entries RPC failure.
+    if (entryPaymentRelease.available) throw new Error('Los registros anteriores son solo historial. No se cambió el pago.');
+    const patch: Record<string, unknown> = {};
+    if (data.status !== undefined) patch.status = data.status;
+    if (data.payment_method !== undefined) patch.payment_method = data.payment_method;
+    if (data.amount_cents !== undefined) {
+      if (data.amount_cents !== null && (!Number.isInteger(data.amount_cents) || data.amount_cents < 0 || data.amount_cents > 2147483647)) throw new Error('Importe inválido');
+      patch.amount_cents = data.amount_cents;
+    }
+    if (data.paid_at !== undefined) {
+      if (data.paid_at !== null && !Number.isFinite(Date.parse(data.paid_at))) throw new Error('Fecha de pago inválida');
+      patch.paid_at = data.paid_at;
+    }
+    const { data: rows, error } = await client().from('registrations').update(patch).eq('id', registrationId).select('id');
+    if (error) throw error;
+    requireWrittenRow(rows, registrationId);
   },
 
   async listMatchesByTournament(tournamentId: string) {
