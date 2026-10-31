@@ -251,6 +251,19 @@ export interface TournamentScoring {
   /** Orden de criterios del ranking (ver liga16-scoring RankCriterion). Ausente = orden estándar. */
   rank_order?: RankCriterion[];
   ranking_method?: RankingMethod; // 'match_points' (3 pts/win) | 'points_percentage' (Liga16: pts_for/pts_total)
+  /**
+   * Ajuste opcional de los puntos del RANKING INDIVIDUAL para ESTE torneo
+   * (ver lib/individual-ranking). Ausente o inválido = tabla estándar de la liga.
+   */
+  individual_points?: Partial<{
+    groupWin: number;
+    groupLoss: number;
+    champion: number;
+    finalist: number;
+    semifinalist: number;
+    quarterfinalist: number;
+    roundOf16: number;
+  }>;
 }
 
 /**

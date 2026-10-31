@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, Users, Zap, Activity, Target, Shirt, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3, ImagePlus } from "lucide-react";
+import { ArrowLeft, Users, Zap, Activity, Target, Shirt, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3, ImagePlus, Trophy, Medal } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, Team } from "@/types";
@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
 import { MatchCard, PairAvatar } from "@/components/cards/card-kit";
 import { toast } from "sonner";
 import { analyzePlayerLocal, derivedFromRecord, type JevAnalysis } from "@/lib/jev";
-import { type PlayerRecord } from "@/lib/records";
+import { buildPlayerRecords, type PlayerRecord } from "@/lib/records";
+import { buildIndividualStandings, buildPlayerHonors, type TournamentHonor } from "@/lib/individual-ranking";
 import { qualificationFor, type QualificationView } from "@/lib/qualification";
 
 const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
@@ -146,6 +147,9 @@ export default function PlayerDetailPage() {
     won: number;
   } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  // Palmarés y posición en el ranking individual, derivados de los mismos partidos.
+  const [honors, setHonors] = useState<TournamentHonor[]>([]);
+  const [rankingIndividual, setRankingIndividual] = useState<{ position: number; points: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const { user, isConfigured } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "organizer";
@@ -229,6 +233,14 @@ export default function PlayerDetailPage() {
           )
           .sort((a, b) => String(b.scheduled_at).localeCompare(String(a.scheduled_at)));
         setMyMatches(mine);
+
+        // Palmarés y ranking individual: se derivan de los partidos ya cargados,
+        // nada se guarda aparte (lib/individual-ranking).
+        const records = buildPlayerRecords(allMatches, allPairs as never, pls);
+        const standings = buildIndividualStandings(allMatches, allPairs, pls, tournaments, records);
+        const mine2 = standings.find((st) => st.playerId === p.id);
+        setRankingIndividual(mine2 ? { position: mine2.position, points: mine2.points } : null);
+        setHonors(buildPlayerHonors(p.id, allMatches, allPairs, pls, tournaments));
         // Rivales = los demás jugadores de SU CATEGORÍA.
         //
         // Antes filtraba las parejas del mismo torneo en las que ESTÁ el jugador,
@@ -342,7 +354,8 @@ export default function PlayerDetailPage() {
   const currentPartner = record?.partners[0]?.partnerName ?? partner;
   // Categoría real: la del último torneo (pair) o la división del equipo.
   const category = pairInfo?.category ?? team?.division ?? null;
-  const titles = card?.titles ?? 0;
+  // Títulos derivados de las finales capturadas; player_cards.titles siempre fue 0.
+  const titles = honors.filter((h) => h.kind === "title").length;
   const metaLine = [
     [player.city, player.state].filter(Boolean).join(", "),
     `Nivel ${(player.official_level ?? player.declared_level).toFixed(1)}${player.official_level != null ? " oficial" : " declarado"}`,
@@ -512,6 +525,81 @@ export default function PlayerDetailPage() {
           onOpenChange={setEditOpen}
           onSaved={(p) => setPlayer(p)}
         />
+      )}
+
+      {/* ====== Palmarés: títulos, finales y semis derivados de las llaves ====== */}
+      {(honors.length > 0 || (rankingIndividual?.points ?? 0) > 0) && (
+        <section className="mx-auto max-w-7xl px-4 md:px-6">
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-primary" /> Palmarés
+              </CardTitle>
+              {rankingIndividual && (
+                <Button asChild variant="outline" size="sm" className="h-7 text-xs tabular-nums">
+                  <Link to="/ranking?vista=individual">
+                    #{rankingIndividual.position} · {rankingIndividual.points.toLocaleString("es-MX")} pts del circuito
+                  </Link>
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-3 divide-x divide-border rounded-xl border bg-muted/30">
+                {[
+                  { k: "Títulos", v: honors.filter((h) => h.kind === "title").length },
+                  { k: "Finales", v: honors.filter((h) => h.kind === "final").length },
+                  { k: "Semifinales", v: honors.filter((h) => h.kind === "semi").length },
+                ].map((s) => (
+                  <div key={s.k} className="px-2 py-2.5 text-center">
+                    <p className="text-xl font-extrabold leading-none tabular-nums">{s.v}</p>
+                    <p className="mt-1 text-2xs font-bold uppercase tracking-widest text-muted-foreground">{s.k}</p>
+                  </div>
+                ))}
+              </div>
+              {honors.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Aún sin finales jugadas — sus resultados por torneo aparecen aquí solos.
+                </p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {honors.map((h, i) => (
+                    <li key={`${h.tournamentId}-${h.kind}-${i}`} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                          h.kind === "title" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {h.kind === "title" ? <Trophy className="h-4 w-4" /> : <Medal className="h-4 w-4" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {h.kind === "title" ? "Campeón" : h.kind === "final" ? "Finalista" : "Semifinalista"}
+                          {" · "}
+                          {h.tournamentSlug ? (
+                            <Link to={`/torneos/${h.tournamentSlug}`} className="hover:underline">
+                              {h.tournamentName}
+                            </Link>
+                          ) : (
+                            h.tournamentName
+                          )}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[h.category, h.partnerName ? `con ${h.partnerName}` : null].filter(Boolean).join(" · ")}
+                        </p>
+                      </div>
+                      {h.date && (
+                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                          {h.date.slice(0, 4)}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       {/* ====== Estadísticas: gráficas del historial derivado ====== */}
@@ -1043,4 +1131,4 @@ function ProfileEditDialog({
       </DialogContent>
     </Dialog>
   );
-}
+            }
