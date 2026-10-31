@@ -14,6 +14,7 @@ export default defineConfig({
       transformIndexHtml(html: string) {
         return html.replace(
           "</head>",
+          "<script>if(new URLSearchParams(location.search).get('theme')==='dark')localStorage.setItem('theme','dark');</script>" +
           "<style>[style*=opacity]{opacity:1!important;transform:none!important}*{animation:none!important;transition:none!important}</style></head>",
         );
       },
