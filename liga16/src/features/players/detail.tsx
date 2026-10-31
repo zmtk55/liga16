@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { analyzePlayerLocal, derivedFromRecord, type JevAnalysis } from "@/lib/jev";
 import { buildPlayerRecords, type PlayerRecord } from "@/lib/records";
 import { buildIndividualStandings, buildPlayerHonors, type TournamentHonor } from "@/lib/individual-ranking";
+import { buildPlayerMedals, type MedalState } from "@/lib/medals";
+import { MedalShelf } from "./medal-shelf";
 import { qualificationFor, type QualificationView } from "@/lib/qualification";
 
 const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
@@ -149,6 +151,7 @@ export default function PlayerDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   // Palmarés y posición en el ranking individual, derivados de los mismos partidos.
   const [honors, setHonors] = useState<TournamentHonor[]>([]);
+  const [medals, setMedals] = useState<MedalState[]>([]);
   const [rankingIndividual, setRankingIndividual] = useState<{ position: number; points: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const { user, isConfigured } = useAuth();
@@ -241,6 +244,7 @@ export default function PlayerDetailPage() {
         const mine2 = standings.find((st) => st.playerId === p.id);
         setRankingIndividual(mine2 ? { position: mine2.position, points: mine2.points } : null);
         setHonors(buildPlayerHonors(p.id, allMatches, allPairs, pls, tournaments));
+        setMedals(buildPlayerMedals(p.id, allMatches, allPairs, pls, tournaments, records));
         // Rivales = los demás jugadores de SU CATEGORÍA.
         //
         // Antes filtraba las parejas del mismo torneo en las que ESTÁ el jugador,
@@ -525,6 +529,13 @@ export default function PlayerDetailPage() {
           onOpenChange={setEditOpen}
           onSaved={(p) => setPlayer(p)}
         />
+      )}
+
+      {/* ====== Repisa de medallas: logros derivados, con nivel y progreso ====== */}
+      {medals.length > 0 && ((record?.played ?? 0) > 0 || (rankingIndividual?.points ?? 0) > 0) && (
+        <section className="mx-auto max-w-7xl px-4 md:px-6">
+          <MedalShelf medals={medals} />
+        </section>
       )}
 
       {/* ====== Palmarés: títulos, finales y semis derivados de las llaves ====== */}
