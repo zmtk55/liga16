@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Menu,
   Newspaper,
+  ShieldCheck,
   Trophy,
   User,
   Users,
@@ -60,6 +61,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: "Directorio",
     items: [
       { to: "/admin/jugadores", label: "Jugadores", icon: User },
+      { to: "/admin/organizadores", label: "Organizadores", icon: ShieldCheck },
       { to: "/admin/ranking", label: "Ranking", icon: BarChart3 },
     ],
   },
