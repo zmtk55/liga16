@@ -345,4 +345,4 @@ export function buildPlayerMedals(
       lockedNote: ineligible ? `mínimo ${EFFECTIVENESS_MIN_MATCHES} partidos` : undefined,
     };
   });
-      }
+}
