@@ -238,6 +238,7 @@ export default function PlayersPage() {
                 played={st?.played}
                 won={st?.won}
                 division={divisions[p.id]}
+                to={`/jugadores/${p.id}`}
               />
             );
           })}
@@ -314,4 +315,4 @@ export default function PlayersPage() {
       )}
     </div>
   );
-}
+                                 }
