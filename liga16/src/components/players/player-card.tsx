@@ -32,6 +32,12 @@ export interface PlayerCardProps {
   division?: string | null;
   className?: string;
   footer?: ReactNode;
+  /**
+   * Destino de la card completa (p. ej. `/jugadores/<id>`). Sin `to` la card
+   * es estática: fue la regresión de /jugadores —las tarjetas se veían pero
+   * el click no abría el perfil porque ninguna envolvía en `<Link>`.
+   */
+  to?: string;
 }
 
 export function PlayerCard({
@@ -41,6 +47,7 @@ export function PlayerCard({
   division,
   className,
   footer,
+  to,
 }: PlayerCardProps) {
   const level = player.official_level ?? player.declared_level ?? null;
   const hasStats = (played ?? 0) > 0;
@@ -49,7 +56,7 @@ export function PlayerCard({
   const record =
     hasStats ? `${won}–${(played ?? 0) - (won ?? 0)}` : "—";
 
-  return (
+  const card = (
     <CardShell accent className={cn("h-full", className)}>
       <CardContent className="p-4">
         <CardIdentity
@@ -91,6 +98,15 @@ export function PlayerCard({
         {footer}
       </CardContent>
     </CardShell>
+  );
+  // La card entera navega; dentro no hay controles interactivos, así que el
+  // `<Link>` envolvente no captura clicks ajenos. `block h-full` conserva la
+  // celda de la grilla igual que cuando la card era la hija directa.
+  if (!to) return card;
+  return (
+    <Link to={to} className="block h-full">
+      {card}
+    </Link>
   );
 }
 
