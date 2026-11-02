@@ -57,14 +57,14 @@ export function AdminViewToggle({
       type="single"
       value={value}
       onValueChange={(v) => v && onChange(v as AdminViewKey)}
-      className="gap-0 rounded-lg border p-0.5"
+      className="w-full gap-0 rounded-lg border p-0.5 sm:w-auto"
       aria-label="Tipo de vista"
     >
       {(["cards", "compacta", "tabla"] as AdminViewKey[]).filter((v) => views.includes(v)).map((v) => (
         <ToggleGroupItem
           key={v}
           value={v}
-          className="h-9 gap-1.5 rounded-md px-2 text-xs data-[state=on]:bg-secondary"
+          className="h-9 flex-1 gap-1.5 rounded-md px-2 text-xs data-[state=on]:bg-secondary sm:flex-none"
           aria-label={VIEW_META[v].label}
         >
           {VIEW_META[v].icon}
