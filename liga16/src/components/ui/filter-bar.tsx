@@ -287,7 +287,7 @@ export function FilterBar({
           {!onSearch && meta}
           {clearBtn}
         </div>}
-        {controls && <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ms-auto">{controls}</div>}
+        {controls && <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:ms-auto sm:w-auto">{controls}</div>}
       </div>
 
       {active.length > 0 && (
@@ -303,7 +303,7 @@ export function FilterBar({
         </div>
       )}
 
-      {children && <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-border/60 pt-2">{children}</div>}
+      {children && <div className="grid min-w-0 grid-cols-2 gap-2 [&>*:only-child]:col-span-2 sm:flex sm:flex-wrap sm:items-center sm:border-t sm:border-border/60 sm:pt-2">{children}</div>}
     </div>
   );
 }
