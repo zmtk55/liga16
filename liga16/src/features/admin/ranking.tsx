@@ -154,7 +154,7 @@ export default function AdminRanking() {
         {/* Buscador + las dos barras de filtro debajo. El FilterBar envuelve a las
             barras como `children`, así que el buscador sigue arriba y los
             filtros se leen de un vistazo. */}
-        <CardHeader>
+        <CardHeader className="gap-3 px-0">
           <FilterBar
             controls={<AdminViewToggle value={view} onChange={setView} views={["cards", "tabla"]} />}
             search={query}

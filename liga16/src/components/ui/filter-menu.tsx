@@ -67,14 +67,14 @@ export function FilterMenu({
           variant="outline"
           size="sm"
           className={cn(
-            "h-9 shrink-0 justify-start gap-2 px-3",
+            "h-9 min-w-0 shrink-0 justify-start gap-1 px-2.5 sm:gap-2 sm:px-3",
             active &&
               "border-primary/40 bg-primary/10 text-primary-strong hover:bg-primary/15 hover:text-primary-strong",
             className,
           )}
         >
-          {label && <span className="text-muted-foreground">{label}</span>}
-          <span className="max-w-[12rem] truncate font-semibold text-foreground">
+          {label && <span className="shrink-0 text-muted-foreground">{label}</span>}
+          <span className="min-w-0 max-w-[12rem] truncate font-semibold text-foreground">
             {current.label}
           </span>          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
