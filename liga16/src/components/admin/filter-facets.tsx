@@ -4,7 +4,7 @@ import { FilterMenu, type FacetOption } from "@/components/ui/filter-menu";
 
 /** Los filtros se acomodan en varias líneas cuando falta ancho. */
 export function AdminFacets({ children }: { children: ReactNode }) {
-  return <div className="flex min-w-0 flex-wrap items-center gap-2">{children}</div>;
+  return <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*:nth-child(odd):last-child]:col-span-2 sm:flex sm:flex-wrap sm:items-center">{children}</div>;
 }
 
 export function AdminFacet({
@@ -24,6 +24,6 @@ export function AdminFacet({
   showCount?: boolean;
 }) {
   return (
-    <FilterMenu label={label} value={value} onChange={onChange} options={options} allLabel={allLabel} showCount={showCount} className="min-w-0 rounded-xl" />
+    <FilterMenu label={label} value={value} onChange={onChange} options={options} allLabel={allLabel} showCount={showCount} className="w-full min-w-0 rounded-xl sm:w-auto" />
   );
 }
