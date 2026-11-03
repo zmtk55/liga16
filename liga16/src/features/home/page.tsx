@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import {
-  ArrowRight,
-  ChevronRight,
-  Clock,
-  Flame,
-} from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import { db } from "@/lib/data";
 import type {
   Match,
@@ -15,10 +10,9 @@ import type {
   Tournament,
 } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  matchStatusLabel,
+  formatDate,
   formatDateRange,
   formatMatchDateTime,
   formatCity,
@@ -51,6 +45,8 @@ function initialsOf(name: string) {
     .toUpperCase();
 }
 
+/** Encabezado de sección: una línea, peso semibold, enlace discreto.
+    Nada de display uppercase — el único momento de marca es el hero. */
 function SectionHeading({
   title,
   to,
@@ -61,22 +57,14 @@ function SectionHeading({
   action: string;
 }) {
   return (
-    <div className="mb-4 flex items-end justify-between gap-4">
-      <div>
-        <h2 className="font-headline text-3xl uppercase leading-none tracking-tight sm:text-4xl">
-          {title}
-        </h2>
-      </div>
-      <Button
-        asChild
-        variant="ghost"
-        size="sm"
-        className="shrink-0 rounded-none px-1"
+    <div className="mb-4 flex items-center justify-between gap-4">
+      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+      <Link
+        to={to}
+        className="inline-flex min-h-8 shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
       >
-        <Link to={to}>
-          {action} <ChevronRight className="ml-1 h-3.5 w-3.5" />
-        </Link>
-      </Button>
+        {action} <ChevronRight className="h-3.5 w-3.5" />
+      </Link>
     </div>
   );
 }
@@ -126,7 +114,7 @@ export default function Home() {
       db.listSponsors(),
     ]).then(([tournaments, teams, matches, news, sponsors]) => {
       if (active)
-setStats({ tournaments, teams, matches, news, sponsors });
+        setStats({ tournaments, teams, matches, news, sponsors });
       })
       // Sin `catch` la home se quedaba en esqueletos para siempre si una de las
       // cinco peticiones fallaba (o si una sola —por ejemplo noticias— daba
@@ -148,12 +136,9 @@ setStats({ tournaments, teams, matches, news, sponsors });
 
   // Parejas: top 2 de CADA CATEGORÍA REAL del circuito.
   //
-  // Se agrupa por `teamCategoryKey` —el nombre que el torneo le puso al
-  // Inscripción, con respaldo en la división—, igual que hace /equipos. Antes
-  // esta página agrupaba por el enum de divisiones, y eso rompía en dos
-  // direcciones: el filtro ofrecía divisiones que la liga no tiene, y no podía
-  // ofrecer categorías que sí existen ("Suma 9"). Tampoco hay lista blanca: se
-  // arma desde los datos.
+  // Se agrupa por `teamCategoryKey` —el nombre que el torneo le puso a la
+  // inscripción, con respaldo en la división—, igual que hace /equipos. La
+  // lista de filtros se arma desde los datos, sin lista blanca.
   const teamGroups = useMemo(() => {
     if (!stats) return [];
     const byKey = new Map<string, Team[]>();
@@ -186,8 +171,6 @@ setStats({ tournaments, teams, matches, news, sponsors });
   }, [stats]);
 
   const [cat, setCat] = useState("");
-  // El filtro filtra por CATEGORÍA, no por división: la lista sale de las que
-  // existen de verdad, no del enum.
   const shownGroups = useMemo(
     () => (cat ? teamGroups.filter((g) => g.key === cat) : teamGroups),
     [teamGroups, cat],
@@ -196,28 +179,33 @@ setStats({ tournaments, teams, matches, news, sponsors });
   if (!stats) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-[620px] w-full rounded-b-[2rem]" />
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
-          <Skeleton className="h-[420px] rounded-2xl lg:col-span-3" />
-          <Skeleton className="h-[420px] rounded-2xl lg:col-span-2" />
+        <Skeleton className="h-[340px] w-full rounded-b-[2rem] md:rounded-3xl" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Skeleton className="h-[220px] rounded-3xl md:col-span-2" />
+          <Skeleton className="h-[220px] rounded-3xl" />
         </div>
       </div>
     );
   }
 
   /**
- * "Próximo torneo" tiene que ser el más PRÓXIMO, no el primero de la lista.
- *
- * `listTournaments` ordena ascendente por `start_date`, así que `[0]` era el
- * torneo más viejo: en la home salió de titular un torneo abierto whose
- * registration deadline ya había pasado, con el botón "Ver inscripción" y el
- * cartel "Próximo torneo". Y el fallback `stats.tournaments[0]` cuando no había
- * ninguno abierto era directamente un torneo `finished`.
- *
- * Un torneo cuenta como "próximo" si todavía no termina. Primero el que está
- * abierto, y dentro de él el más cercano en el calendario.
- */
-  const today = new Date().toISOString().slice(0, 10);
+   * "Próximo torneo" tiene que ser el más PRÓXIMO, no el primero de la lista:
+   * un torneo cuenta si todavía no termina, y dentro de los abiertos gana el
+   * más cercano en el calendario.
+   *
+   * `today` es la fecha LOCAL del visitante (no UTC): en MST el corte de
+   * "empieza hoy / cierran mañana" debe cambiar a medianoche local.
+   */
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const daysUntil = (iso: string) =>
+    Math.max(
+      0,
+      Math.round(
+        (Date.parse(`${iso.slice(0, 10)}T00:00:00`) - Date.parse(`${today}T00:00:00`)) / 86400000,
+      ),
+    );
+
   const notFinishedYet = stats.tournaments.filter((t) => (t.end_date ?? t.start_date) >= today);
   const openTournaments = notFinishedYet
     .filter((t) => t.status === "registration_open" || t.status === "in_progress")
@@ -225,184 +213,236 @@ setStats({ tournaments, teams, matches, news, sponsors });
   const featured = openTournaments[0] ?? notFinishedYet[0] ?? null;
 
   const liveCount = stats.matches.filter((m) => m.status === "live").length;
-  // Un partido "scheduled" con fecha pasada esta olvidado: no cuenta.
+  // Un partido "scheduled" con fecha pasada está olvidado: no cuenta.
   const isUpcoming = (m: (typeof stats.matches)[number]) =>
     m.status === "live" || (m.status === "scheduled" && (m.scheduled_at ?? "").slice(0, 10) >= today);
   const featuredMatch =
     stats.matches.find((m) => m.status === "live") ??
-    stats.matches.find(isUpcoming) ??
+    stats.matches.filter(isUpcoming).sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? ""))[0] ??
     null;
-  const activityMatches = stats.matches
-    .filter((m) => m.id !== featuredMatch?.id)
-    .slice(0, 2);
   const featuredIsOpen =
     featured?.status === "registration_open" &&
     (featured.registration_deadline ?? featured.end_date) >= today;
+  // Torneo con inscripción abierta distinto del que anuncia el hero: es la
+  // única acción urgente de la página, por eso es la que lleva el naranja.
+  const regOpen =
+    openTournaments.find(
+      (t) =>
+        t.status === "registration_open" &&
+        (t.registration_deadline ?? t.end_date) >= today,
+    ) ?? null;
+  const showRegCard = regOpen !== null && regOpen.id !== featured?.id;
+
   // Sede REAL: ciudad del torneo destacado (única fuente, sin inventar)
   const sedeLabel = formatCity(featured?.city || stats.tournaments[0]?.city) || "Liga16";
 
+  // El hero dice el estado del torneo en UNA línea y ofrece UNA acción.
+  // Antes el countdown caía en "0 días" cuando el torneo ya había empezado:
+  // la cuenta solo aplica a algo que está en el futuro.
+  let heroStatus: string | null = null;
+  let ctaLabel = "Ver torneos";
+  let ctaHref = "/torneos";
+  if (featured) {
+    ctaHref = `/torneos/${featured.slug}`;
+    if (featured.status === "in_progress") {
+      heroStatus = `En curso · hasta el ${formatDate(featured.end_date ?? featured.start_date)}`;
+      ctaLabel = "Ver torneo";
+    } else if (featuredIsOpen) {
+      const d = daysUntil(featured.registration_deadline ?? featured.end_date);
+      heroStatus = `Inscripciones abiertas · ${d === 0 ? "cierran hoy" : d === 1 ? "cierran mañana" : `cierran en ${d} días`}`;
+      ctaLabel = "Inscribirme";
+    } else {
+      const d = daysUntil(featured.start_date);
+      heroStatus = d === 0 ? "Empieza hoy" : d === 1 ? "Empieza mañana" : `Empieza en ${d} días`;
+      ctaLabel = "Ver torneo";
+    }
+  }
+
   return (
-    <div className="space-y-16 md:space-y-20">
-      {/* HERO — una sola composición, sin dashboard */}
-      <section className="relative -mx-4 -mt-8 overflow-hidden bg-surface-inverse text-white md:-mx-6 md:rounded-b-[2rem]">
-        {/* El fondo es la FOTO de la cancha, no el póster del torneo. El póster
-            lleva el nombre del torneo escrito encima y ese texto se cruzaba
-            con el titular del torneo encima de "LIGA16 4TA EDICIÓN",
-            dos tipografías peleando por el mismo sitio. Ahora el póster
-            aparece, pequeño y con su marco, dentro del bloque del torneo. */}
+    <div className="space-y-10 md:space-y-14">
+      {/* HERO — foto de cancha + estado del torneo + una sola acción.
+          Compacto a propósito: la pantalla es una experiencia con scroll,
+          no un póster. El nombre del torneo ya no compite con la marca:
+          la marca vive en la navbar. */}
+      <section className="relative -mx-4 -mt-8 overflow-hidden rounded-b-[2rem] bg-surface-inverse text-white md:mx-0 md:mt-0 md:rounded-3xl">
         <img
           src={HERO_IMAGE}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-center opacity-70"
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-60"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/65 to-black/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
 
-        <div className="relative mx-auto flex min-h-[440px] md:min-h-[480px] max-w-7xl flex-col justify-between px-4 pt-4 pb-6 md:px-8 md:pt-6 md:pb-6">
-          {/* La sede aparece UNA vez, y solo cuando no hay partido en vivo:
-              cuando lo hay, el eyebrow lo ocupa el estado, que es lo que la
-              gente viene a mirar. Antes se repetía tres veces (aquí, en el
-              póster y en la barra de cifras). */}
-          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.24em] text-white/70">
-            <Flame className="h-3.5 w-3.5 text-primary" />
-            {liveCount > 0
-              ? `${liveCount} ${liveCount === 1 ? "partido en vivo" : "partidos en vivo"}`
-              : `Circuito de pádel · ${sedeLabel}`}
+        <div className="relative flex min-h-[340px] flex-col justify-end px-5 pb-6 pt-16 md:min-h-[380px] md:px-8 md:pb-8">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
+            {liveCount > 0 ? (
+              <>
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                {liveCount === 1 ? "1 partido en vivo" : `${liveCount} partidos en vivo`}
+              </>
+            ) : (
+              `Circuito de pádel · ${sedeLabel}`
+            )}
           </p>
-
-          <div className="max-w-3xl py-6 sm:py-10 md:py-14">
-
-            {/* PRUEBA DE FUENTE: solo este titular usa la display nueva
-                (token `poster` = Barlow Condensed). El resto de la app
-                sigue con Anton, hasta que se decida. */}
-            <h1 className="font-poster text-[2.5rem] font-extrabold uppercase leading-[0.88] tracking-[-0.02em] sm:text-[3rem] md:text-[4rem] text-white/90">
-              Liga16
-              <br />
-              <span className="text-primary-strong">4ta Edición</span>
-            </h1>
-
-
-            {/* La ficha del torneo se fue del hero.
-                Era una miniatura de la tarjeta "INSCRIPCIÓN · PRÓXIMO TORNEO"
-                de la banda de abajo, justo debajo: el mismo póster, el mismo
-                nombre, las mismas fechas y la misma acción. La misma
-                información dos veces en la misma pantalla, y la versión
-                pequeña encima. Aquí solo queda el escape al catálogo. */}
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <h1 className="mt-3 max-w-2xl font-poster text-4xl font-extrabold uppercase leading-[0.92] tracking-[-0.01em] text-white sm:text-5xl md:text-6xl">
+            {featured?.name ?? "Liga16"}
+          </h1>
+          {heroStatus && <p className="mt-2 text-sm text-white/70">{heroStatus}</p>}
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <Button asChild size="lg" className="rounded-xl bg-white font-semibold text-neutral-900 hover:bg-white/90">
+              <Link to={ctaHref}>
+                {ctaLabel} <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
+            </Button>
+            {featured && (
               <Link
                 to="/torneos"
-                className="inline-flex h-11 items-center justify-center border-b border-white/25 text-sm font-semibold uppercase tracking-wide text-white/75 transition-colors hover:border-white hover:text-white sm:justify-start"
+                className="text-sm font-medium text-white/60 transition-colors hover:text-white"
               >
                 Todos los torneos
               </Link>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* BENTO — una idea por tarjeta: el partido que importa, quién va
+          arriba, y la suscripción. Sin tarjeta de "próximo torneo": eso ya
+          lo dice el hero. */}
+      <section aria-label="Estado del circuito" className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {featuredMatch && (
+          <div className="flex flex-col rounded-3xl border bg-card p-5 md:col-span-2 md:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {featuredMatch.tournament_name} · {featuredMatch.round}
+              </p>
+              {featuredMatch.status === "live" ? (
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary-strong">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                  En vivo
+                </span>
+              ) : (
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                  {featuredMatch.scheduled_at
+                    ? formatMatchDateTime(featuredMatch.scheduled_at)
+                    : "Por definir"}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-1 flex-col justify-center py-2">
+            <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
+              <p className="text-base font-semibold leading-tight sm:text-lg">
+                {featuredMatch.side_a.pair_name}
+              </p>
+              <span className="font-headline text-lg text-muted-foreground">VS</span>
+              <p className="text-right text-base font-semibold leading-tight sm:text-lg">
+                {featuredMatch.side_b.pair_name}
+              </p>
+            </div>
+            {featuredMatch.sets.length > 0 ? (
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {featuredMatch.sets.map((set, index) => (
+                  <li
+                    key={index}
+                    className="rounded-lg bg-muted px-3 py-1.5 font-headline text-xl tabular-nums leading-none"
+                  >
+                    {set.a}–{set.b}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">Por comenzar</p>
+            )}
+            </div>
+            <div className="pt-5">
+              <Link
+                to="/calendario"
+                className="inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Ver agenda <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </div>
-        </div>
-      </section>
+        )}
 
-
-      {/* MARKETING — 1, 2 y 10 */}
-      <section aria-label="Estado del circuito" className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {/* 1. Cuenta regresiva + inscripción */}
-        <div className="min-w-0 rounded-2xl bg-surface-inverse p-6 text-white md:p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/45">Inscripción</p>
-          <h3 className="mt-3 font-headline text-2xl uppercase leading-none tracking-tight">
-            {featured ? "Próximo torneo" : "Agenda"}
-          </h3>
-          {featured && (
-            <>
-              <p className="mt-4 text-sm text-white/70">{featured.name} · {featured.club_name ?? featured.city}</p>
-              <p className="mt-1 text-sm text-white/70">{formatDateRange(featured.start_date, featured.end_date)}</p>
-              <div className="mt-5 flex items-baseline gap-2">
-                <span className="font-headline text-4xl tabular-nums text-primary">
-                  {Math.max(0, Math.ceil((new Date(featured.start_date + "T00:00:00Z").getTime() - new Date(new Date().toISOString().slice(0,10) + "T00:00:00Z").getTime()) / 86400000))}
-                </span>
-                <span className="text-sm text-white/60">días</span>
-              </div>
-            </>
-          )}
-          <Button asChild size="lg" className="mt-6 h-11 w-full rounded-none font-bold uppercase tracking-wide">
-            <Link to={featuredIsOpen ? `/torneos/${featured?.slug}` : "/torneos"}>
-              {featuredIsOpen ? "Inscribirme" : "Ver torneo"} <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-
-        {/* 2. Top 3 parejas */}
-        <div className="min-w-0 rounded-2xl border bg-card p-6 md:p-8">
-          <div className="flex items-center justify-between">
-            <h3 className="font-headline text-xl uppercase tracking-tight">Top parejas</h3>
-            <Link to="/ranking" className="text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground">Ver todas →</Link>
+        {regOpen && regOpen.id !== featured?.id && (
+          <div className="flex flex-col rounded-3xl border bg-card p-5 md:p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Inscripciones abiertas
+            </p>
+            <h3 className="mt-2 text-base font-semibold leading-tight">{regOpen.name}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formatDateRange(regOpen.start_date, regOpen.end_date)}
+            </p>
+            <p className="mt-4">
+              <span className="font-headline text-4xl tabular-nums leading-none">
+                {daysUntil(regOpen.registration_deadline ?? regOpen.end_date)}
+              </span>{" "}
+              <span className="text-sm text-muted-foreground">
+                {daysUntil(regOpen.registration_deadline ?? regOpen.end_date) === 1
+                  ? "día para inscribirte"
+                  : "días para inscribirte"}
+              </span>
+            </p>
+            <div className="mt-auto pt-4">
+              <Button asChild className="w-full rounded-xl font-semibold">
+                <Link to={`/torneos/${regOpen.slug}`}>Inscribirme</Link>
+              </Button>
+            </div>
           </div>
-          <div className="mt-5 space-y-3">
-            {stats ? (
-              [...(stats.teams || [])]
-                .sort((a,b) => (a.position || 999) - (b.position || 999))
-                .slice(0,3)
-                .map((team) => (
-                  <Link key={team.id} to={`/equipos/${team.slug}`} className="group flex items-center gap-3 rounded-xl border bg-background p-3 transition-colors hover:bg-muted/60">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 font-headline text-lg text-primary">{team.position}</span>
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{team.name}</span>
-                      <span className="text-2xs text-muted-foreground">{team.category_name ?? `División ${team.division}`}</span>
-                    </div>
-                    <span className="text-right font-headline text-lg text-primary">{team.points}%</span>
-                  </Link>
-                ))
-            ) : <p className="text-sm text-muted-foreground">Cargando parejas…</p>}
-          </div>
-        </div>
+        )}
 
-        {/* 10. Alarma / newsletter */}
-        <div className="min-w-0 rounded-2xl bg-primary/5 p-6 md:p-8 border border-primary/10">
-          <h3 className="font-headline text-xl uppercase tracking-tight">Suscribirse para regalos y noticias</h3>
-          <p className="mt-2 text-sm text-muted-foreground">Recibí regalos exclusivos y novedades del circuito.</p>
-          <form onSubmit={(e) => { e.preventDefault(); setSubscribed(true); }} className="mt-5 flex gap-2">
-            <input type="email" required placeholder="tu@email.com" className="min-w-0 flex-1 rounded-none border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
-            <Button type="submit" size="sm" className="h-11 rounded-none px-4 font-bold uppercase tracking-wide">Enviar</Button>
+        {/* Suscripción — una línea, sin párrafo de relleno. */}
+        <div className={`rounded-3xl border bg-card p-5 md:p-6 ${showRegCard ? "md:col-span-3 md:flex md:items-center md:justify-between md:gap-6" : ""}`}>
+          <h3 className="shrink-0 text-sm font-semibold">Regalos y noticias del circuito</h3>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setSubscribed(true);
+            }}
+            className={`mt-4 flex gap-2 md:max-w-md ${showRegCard ? "md:mt-0 md:w-full" : ""}`}
+          >
+            <input
+              type="email"
+              required
+              placeholder="tu@email.com"
+              className="min-w-0 flex-1 rounded-xl border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+            />
+            <Button type="submit" className="rounded-xl font-semibold">
+              Enviar
+            </Button>
           </form>
-          {subscribed && <p className="mt-3 text-xs font-bold text-primary">✓ ¡Listo! Te avisamos de los próximos regalos.</p>}
+          {subscribed && (
+            <p className="mt-3 text-xs font-semibold text-primary">
+              ✓ Listo, te avisamos.
+            </p>
+          )}
         </div>
       </section>
 
-      {/* PAREJAS — una sola sección.
-          Antes había dos: "Pareja destacada" con una tarjeta naranja y "Top por
-          categoría" con la lista. La tarjeta mostraba la pareja #1 del primer
-          grupo, que es exactamente la primera fila de la lista de abajo. Se fue:
-          el mismo dato dos veces, y con el filtro puesto la tarjeta además
-          señalaba una categoría que el filtro podía haber dejado fuera. */}
-      <section className="space-y-5">
-        <SectionHeading
-          title="En dupla"
-          to="/equipos"
-          action="Ver todas"
+      {/* PAREJAS — top 2 por categoría real del circuito */}
+      <section>
+        <SectionHeading title="Parejas" to="/equipos" action="Ver todas" />
+        <GroupFilterBar
+          className="mb-4"
+          divisions={teamGroups.map((g) => ({ value: g.key, label: g.label }))}
+          value={cat}
+          onChange={setCat}
         />
-
-        {/* El filtro declara su alcance: filtra ESTA lista y nada más. Antes
-            flotaba entre secciones, sin dueño, y se leía como otra pieza. */}
-        <div className="flex items-center justify-between gap-3 pt-3">
-          <GroupFilterBar
-            divisions={teamGroups.map((g) => ({ value: g.key, label: g.label }))}
-            value={cat}
-            onChange={setCat}
-          />
-        </div>
         <div className="space-y-3">
           {shownGroups.map((group) => (
             <div
               key={group.key}
-              className="overflow-hidden rounded-xl border bg-card"
+              className="overflow-hidden rounded-2xl border bg-card"
             >
-              <div className="flex items-center justify-between gap-3 border-b bg-muted/50 px-4 py-2.5">
-                <p className="truncate text-caption font-bold uppercase tracking-[0.14em] text-foreground/80">
+              <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
+                <p className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   {group.label}
                 </p>
                 <Link
                   to="/ranking"
-                  // El link se dimensionaba solo por su texto (14px de alto), por
-                  // debajo del mínimo de 24px de WCAG 2.2. El relleno vertical
-                  // amplía el área de toque; el margen negativo lo compensa para
-                  // que la fila no crezca.
-                  className="-my-1.5 inline-flex min-h-8 shrink-0 items-center px-1 text-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
+                  // El relleno vertical amplía el área de toque (mínimo 24px
+                  // de WCAG 2.2); el margen negativo compensa la fila.
+                  className="-my-1.5 inline-flex min-h-8 shrink-0 items-center gap-0.5 px-1 text-2xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Tabla <ChevronRight className="h-3 w-3" />
                 </Link>
@@ -412,23 +452,14 @@ setStats({ tournaments, teams, matches, news, sponsors });
                   <Link
                     key={team.id}
                     to={`/equipos/${team.slug}`}
-                    className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60"
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60"
                   >
-                    <TeamCrest
-                      team={team}
-                      sizeClass="h-9 w-9"
-                      textClass="text-2xs"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold leading-tight">
-                        {team.name}
-                      </span>
-                      <span className="mt-0.5 block truncate text-caption text-muted-foreground">
-                        {team.category_name ?? `División ${team.division}`}
-                      </span>
+                    <TeamCrest team={team} sizeClass="h-9 w-9" textClass="text-2xs" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                      {team.name}
                     </span>
                     <span className="shrink-0 text-right">
-                      <span className="block font-headline text-lg leading-none text-primary">
+                      <span className="block font-headline text-lg leading-none">
                         {team.position > 0 ? `#${team.position}` : "—"}
                       </span>
                       <span className="mt-0.5 block text-2xs text-muted-foreground">
@@ -441,18 +472,17 @@ setStats({ tournaments, teams, matches, news, sponsors });
             </div>
           ))}
           {shownGroups.length === 0 && (
-            <div className="rounded-xl border bg-card p-8 text-center">
+            <div className="rounded-2xl border bg-card p-8">
               <p className="text-sm text-muted-foreground">
                 {cat
                   ? "No hay parejas inscritas en esta categoría."
                   : "Las parejas inscritas aparecerán aquí, organizadas por categoría."}
               </p>
               {cat && (
-                // El vacío ofrece la salida, no solo la ausencia.
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="mt-3 rounded-none"
+                  className="mt-3"
                   onClick={() => setCat("")}
                 >
                   Ver todas
@@ -463,110 +493,14 @@ setStats({ tournaments, teams, matches, news, sponsors });
         </div>
       </section>
 
-      {/* CANCHA — un partido protagonista, no una tabla de partidos */}
-      {featuredMatch && (
-        <section>
-          <SectionHeading
-            title={
-              featuredMatch.status === "live" ? "Ahora en juego" : "En la cancha"
-            }
-            to="/calendario"
-            action="Ver agenda"
-          />
-          <div className="grid overflow-hidden rounded-2xl bg-surface-inverse text-white lg:grid-cols-[1.45fr_0.55fr]">
-            <div className="p-6 sm:p-8 lg:p-10">
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">
-                  {featuredMatch.tournament_name} · {featuredMatch.round}
-                </p>
-                {featuredMatch.status === "live" && (
-                  <Badge className="animate-pulse rounded-none bg-primary text-xs uppercase tracking-widest">
-                    {matchStatusLabel.live}
-                  </Badge>
-                )}
-              </div>
-              {/* El score es el sujeto de la tarjeta, no una nota al pie al
-                  final de un bloque vacío: cada set es una cifra grande y
-                  rotulada. Sin sets dice "Por comenzar" en vez de inventar. */}
-              <div className="mt-7 border-t border-white/15 pt-6">
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-8">
-                  <p className="text-lg font-semibold leading-tight sm:text-2xl">
-                    {featuredMatch.side_a.pair_name}
-                  </p>
-                  <span className="font-headline text-lg text-primary sm:text-2xl">
-                    VS
-                  </span>
-                  <p className="text-right text-lg font-semibold leading-tight sm:text-2xl">
-                    {featuredMatch.side_b.pair_name}
-                  </p>
-                </div>
-                {featuredMatch.sets.length > 0 ? (
-                  <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
-                    {featuredMatch.sets.map((set, index) => (
-                      <li key={index} className="text-center">
-                        <span className="block font-headline text-3xl tabular-nums leading-none sm:text-4xl">
-                          {set.a}–{set.b}
-                        </span>
-                        <span className="mt-1.5 block text-2xs font-bold uppercase tracking-[0.22em] text-white/45">
-                          Set {index + 1}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-6 font-mono text-sm uppercase tracking-[0.18em] text-white/45">
-                    Por comenzar
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t border-white/10 lg:border-l lg:border-t-0">
-              {activityMatches.map((match) => (
-                <div
-                  key={match.id}
-                  className="flex min-h-28 flex-col justify-center border-b border-white/10 p-5 last:border-b-0 sm:p-6"
-                >
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">
-                    {match.tournament_name}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold leading-snug">
-                    {match.side_a.pair_name} vs {match.side_b.pair_name}
-                  </p>
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-white/45">
-                    <Clock className="h-3 w-3" />
-                    {match.scheduled_at
-                      ? formatMatchDateTime(match.scheduled_at)
-                      : "Por definir"}
-                  </p>
-                </div>
-              ))}
-              {activityMatches.length === 0 && (
-                <div className="flex min-h-28 items-center p-6 text-sm text-white/45">
-                  La agenda del circuito aparecerá aquí.
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* NOTICIAS — imágenes cuando existan, marca editorial cuando no */}
+      {/* NOTICIAS */}
       {stats.news.length > 0 && (
         <section>
-          <SectionHeading
-
-            title="Últimas noticias"
-            to="/noticias"
-            action="Ver todas"
-          />
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <SectionHeading title="Noticias" to="/noticias" action="Ver todas" />
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
             {stats.news.slice(0, 3).map((item) => (
-              <article
-                key={item.id}
-                className="group border-t-2 border-foreground pt-3"
-              >
-                <div className="relative mb-4 aspect-[16/9] overflow-hidden rounded-xl bg-muted">
+              <article key={item.id} className="group">
+                <div className="relative mb-3 aspect-[16/9] overflow-hidden rounded-2xl bg-muted">
                   {item.image_url ? (
                     <img
                       src={item.image_url}
@@ -575,27 +509,27 @@ setStats({ tournaments, teams, matches, news, sponsors });
                     />
                   ) : (
                     <div className="relative h-full w-full overflow-hidden bg-neutral-900 text-white">
-                      <span className="absolute -bottom-8 -right-1 font-headline text-[9rem] leading-none text-primary/35">
+                      <span className="absolute -bottom-8 -right-1 font-headline text-[7rem] leading-none text-primary/35">
                         16
                       </span>
-                      <span className="absolute left-4 top-4 text-xs font-bold uppercase tracking-[0.24em] text-white/45">
+                      <span className="absolute left-4 top-4 text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
                         Liga16
                       </span>
                     </div>
                   )}
                 </div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
                     {item.tag}
                   </span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {new Date(item.published_at).getFullYear()}
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(item.published_at)}
                   </span>
                 </div>
-                <h3 className="text-lg font-semibold leading-tight">
+                <h3 className="text-base font-semibold leading-snug">
                   {item.title}
                 </h3>
-                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                   {item.excerpt}
                 </p>
               </article>
@@ -608,4 +542,4 @@ setStats({ tournaments, teams, matches, news, sponsors });
       <SponsorMarquee sponsors={stats?.sponsors ?? []} />
     </div>
   );
-}
+          }
