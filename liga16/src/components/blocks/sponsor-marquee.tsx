@@ -9,6 +9,9 @@ const TIER_ORDER: Record<Sponsor["tier"], number> = {
 };
 
 export default function SponsorMarquee({ sponsors }: { sponsors: Sponsor[] }) {
+  // Sin patrocinadores con logo no se renderiza nada: la sección vacía
+  // dejaba dos líneas sueltas al pie de la home.
+  if (!sponsors.some((s) => !!s.logo_url)) return null;
   // Al menos 8 logos: duplicamos la lista si es corta.
   const base = [...sponsors]
     .filter((s) => !!s.logo_url)
