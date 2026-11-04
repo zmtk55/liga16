@@ -329,7 +329,7 @@ export default function Home() {
     <div className="-mx-4 -mt-8 md:-mx-6">
       {/* PANTALLA 1 — la foto ES la pantalla (ref Tennis Zone): chip del
           torneo sobre la foto, píldoras de días y pizarra glass del día. */}
-      <section className="relative min-h-[88svh] overflow-clip bg-surface-inverse text-surface-inverse-foreground md:min-h-[80vh]">
+      <section className="relative min-h-[72svh] overflow-clip bg-surface-inverse text-surface-inverse-foreground md:min-h-[80vh]">
         <motion.img
           src={HERO_IMAGE}
           alt=""
@@ -340,7 +340,7 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30" />
 
-        <div className="relative flex min-h-[88svh] flex-col justify-end gap-6 px-4 pb-10 pt-24 md:min-h-[80vh] md:px-8 md:pb-12 md:pt-32">
+        <div className="relative flex min-h-[72svh] flex-col justify-end gap-6 px-4 pb-10 pt-16 md:min-h-[80vh] md:px-8 md:pb-12 md:pt-32">
           {/* Zona superior sobre la foto: nombre del torneo, estado y CTA —
               la pantalla ya no queda vacía arriba (ref Tennis Zone). */}
           {featured && (
@@ -644,7 +644,7 @@ export default function Home() {
         </Reveal>
 
         {/* Banner rotativo de patrocinadores — se administra en /admin/sponsors */}
-        <SponsorMarquee sponsors={stats?.sponsors ?? []} />
+        {stats?.sponsors.some((s) => !!s.logo_url) && <SponsorMarquee sponsors={stats.sponsors} />}
       </div>
     </div>
   );
