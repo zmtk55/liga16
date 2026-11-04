@@ -303,7 +303,7 @@ export function FilterBar({
         </div>
       )}
 
-      {children && <div className="grid min-w-0 grid-cols-2 gap-2 [&>*:only-child]:col-span-2 sm:flex sm:flex-wrap sm:items-center sm:border-t sm:border-border/60 sm:pt-2">{children}</div>}
+      {children && <div className="grid min-w-0 grid-cols-2 gap-2 [&>*:only-child]:col-span-2 [&>div:has(>button)]:col-span-2 sm:flex sm:flex-wrap sm:items-center sm:border-t sm:border-border/60 sm:pt-2">{children}</div>}
     </div>
   );
 }

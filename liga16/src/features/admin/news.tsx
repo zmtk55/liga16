@@ -169,7 +169,7 @@ export default function AdminNews() {
           />
         </AdminStatStrip>
       </AdminPageHeader>
-      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+      <Card className="gap-3 rounded-3xl border-0 bg-transparent py-0 shadow-none">
         <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}
@@ -230,15 +230,15 @@ export default function AdminNews() {
                 ];
                 return (
                 <RowContextMenu key={n.id} actions={actions}>
-<article className="group h-full overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
-                    <div className="relative flex h-44 items-center justify-center overflow-hidden bg-zinc-950 text-primary">
-                      {n.image_url ? <img src={n.image_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <Newspaper className="h-16 w-16 opacity-60" strokeWidth={1} />}
-                      <Badge className="absolute bottom-4 left-4 rounded-full bg-card text-foreground">{n.tag}</Badge>
-                      <div className="absolute right-3 top-3 rounded-full bg-card/95 text-foreground"><RowActionsMenu actions={actions} label={`Acciones para ${n.title}`} /></div>
+<article className="group grid h-full grid-cols-[80px_minmax(0,1fr)] overflow-hidden rounded-2xl sm:block sm:rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                    <div className="relative flex min-h-24 items-center justify-center sm:h-44 overflow-hidden bg-zinc-950 text-primary">
+                      {n.image_url ? <img src={n.image_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <Newspaper className="h-8 w-8 opacity-60 sm:h-16 sm:w-16" strokeWidth={1} />}
+                      <Badge className="absolute bottom-4 left-4 hidden rounded-full sm:inline-flex bg-card text-foreground">{n.tag}</Badge>
+                      <div className="absolute right-1 top-1 rounded-full sm:right-3 sm:top-3 bg-card/95 text-foreground"><RowActionsMenu actions={actions} label={`Acciones para ${n.title}`} /></div>
                     </div>
-                    <div className="space-y-3 p-5">
-                      <p className="text-xs text-muted-foreground">{formatDate(n.published_at)}</p>
-                      <h2 className="font-display text-xl font-semibold leading-snug">{n.title}</h2>
+                    <div className="min-w-0 space-y-2 p-3 sm:space-y-3 sm:p-5">
+                      <p className="text-xs text-muted-foreground"><span className="sm:hidden">{n.tag} · </span>{formatDate(n.published_at)}</p>
+                      <h2 className="font-display text-base font-semibold leading-snug sm:text-xl">{n.title}</h2>
                       <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{n.excerpt}</p>
                       <Button variant="ghost" size="sm" className="px-0" onClick={() => { setEditing(n); setOpenCreate(true); }}>Editar noticia <Pencil className="ml-2 h-3 w-3" /></Button>
                     </div>

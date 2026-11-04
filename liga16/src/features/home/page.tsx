@@ -1,3 +1,4 @@
+import { PublicLoadError } from "@/components/public-load-error";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight, ChevronRight } from "lucide-react";
@@ -124,10 +125,9 @@ function TeamCrest({ team }: { team: Team }) {
 }
 
 export default function Home() {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [stats, setStats] = useState<HomeData | null>(null);
-  // Estado del formulario de alarmas: la confirmación es local, no hay
-  // backend de suscripciones todavía.
-  const [subscribed, setSubscribed] = useState(false);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -146,6 +146,7 @@ export default function Home() {
       // cinco peticiones fallaba (o si una sola —por ejemplo noticias— daba
       // error por RLS): el `Promise.all` se rechazaba y no se seteaba nada.
       .catch(() => {
+        if (active) setLoadFailed(true);
         if (active)
           setStats({
             tournaments: [],
@@ -158,7 +159,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   // Parejas: top 2 de CADA CATEGORÍA REAL del circuito.
   //
@@ -208,6 +209,7 @@ export default function Home() {
   if (!stats) {
     return (
       <div className="space-y-6">
+
         <Skeleton className="h-[380px] w-full rounded-b-[2rem] md:rounded-3xl" />
         <Skeleton className="h-20 rounded-2xl" />
         <Skeleton className="h-28 w-full" />
@@ -306,6 +308,7 @@ export default function Home() {
 
   return (
     <div className="-mx-4 -mt-8 md:-mx-6">
+      {loadFailed && <PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} />}
       {/* PANTALLA 1 — la foto ES la pantalla (ref Tennis Zone): chip del
           torneo sobre la foto, píldoras de días y pizarra glass del día. */}
       <section className="relative min-h-[60svh] overflow-clip bg-surface-inverse text-surface-inverse-foreground md:min-h-[80vh]">
@@ -594,33 +597,12 @@ export default function Home() {
           </section>
         )}
 
-        {/* SUSCRIPCIÓN — una línea y el campo, sin caja. */}
-        <Reveal>
-          <section aria-label="Regalos y noticias del circuito" className="border-t border-border/70 pb-2 pt-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-              <h2 className="shrink-0 text-xl font-bold tracking-tight">
-                Regalos y noticias
-              </h2>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setSubscribed(true);
-                }}
-                className="flex w-full gap-2 sm:max-w-md"
-              >
-                <input
-                  type="email"
-                  required
-                  placeholder="tu@email.com"
-                  className="h-11 min-w-0 flex-1 rounded-full border bg-background px-4 text-sm outline-none transition-colors focus:border-primary"
-                />
-                <Button type="submit" className="h-11 rounded-full px-5 font-semibold" disabled={subscribed}>
-                  {subscribed ? "Listo" : "Enviar"}
-                </Button>
-              </form>
-            </div>
-          </section>
-        </Reveal>
+        <section aria-label="Noticias del circuito" className="flex items-center justify-between gap-4 border-t border-border/70 py-4">
+          <h2 className="text-lg font-bold tracking-tight">Noticias del circuito</h2>
+          <Button asChild variant="outline" className="min-h-11 shrink-0 rounded-full">
+            <Link to="/noticias">Ver noticias <ChevronRight className="h-4 w-4" /></Link>
+          </Button>
+        </section>
 
         {/* Banner rotativo de patrocinadores — se administra en /admin/sponsors */}
         {stats?.sponsors.some((s) => !!s.logo_url) && <SponsorMarquee sponsors={stats.sponsors} />}

@@ -133,6 +133,13 @@ const real: Record<string, unknown> = {
       { id: "n-3", tag: "Circuito", title: "Nueva sede confirmada para enero", excerpt: "El circuito suma una segunda ciudad para la temporada 2027. Detalles en la próxima asamblea.", image_url: null, published_at: "2026-10-20T15:00:00Z" },
     ];
   },
+  async getTournament(slug: string) { return TOURNAMENTS.find(t=>t.slug===slug) ?? null; },
+  async getTournamentPairs(id: string) {return PAIRS.filter(p=>p.tournament_id===id);},
+  async getTournamentMatches(id: string) {return MATCHES.filter(m=>m.tournament_id===id);},
+  async getTournamentCategories(id: string) {return [{id:`cat-${id}`,tournament_id:id,name:"Suma 11",sex:"X",division:"3ra"}];},
+  async getTeam(slug: string) {return TEAMS.find(t=>t.slug===slug)??null;},
+  async listClubs(){return [{id:"c-1",name:"Caborca Pádel",city:"Caborca",state:"Sonora",address:"Sede de prueba",description:"Club de prueba",photo_url:null,phone:null}];},
+  async listCourts(){return [{id:"court-1",club_id:"c-1",name:"Cancha 1",surface:"Sintética",is_active:true}];},
   async listSponsors() { return []; },
   async listPlayerDivisions() {
     return Object.fromEntries(PLAYERS.map((p) => [p.id, TEAMS.find((t) => t.player1.player_id === p.id || t.player2.player_id === p.id)?.division ?? "3ra"]));

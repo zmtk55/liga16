@@ -1,3 +1,4 @@
+import { PublicLoadError } from "@/components/public-load-error";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { db } from "@/lib/data";
@@ -32,6 +33,8 @@ import {
 type View = "grid" | "compact" | "table";
 
 export default function TeamsPage() {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [teams, setTeams] = useState<Team[] | null>(null);
   // El buscador de la sección escribe aquí: una sola
   // búsqueda, en un solo sitio, y la URL la hace compartible.
@@ -50,7 +53,7 @@ export default function TeamsPage() {
     setParams(next, { replace: true });
   };
   const navigate = useNavigate();
-  const [view, setView] = useState<View>("grid");
+  const [view, setView] = useState<View>("compact");
   const setSex = (v: string) => setParam("sex", v);
 
   /**
@@ -72,7 +75,7 @@ export default function TeamsPage() {
   useMatchUpdated(() => {
     db.listTeams()
       .then((data) => setTeams(data))
-      .catch(() => setTeams([]));
+      .catch(() => setLoadFailed(true));
   });
 
   useEffect(() => {
@@ -86,12 +89,12 @@ export default function TeamsPage() {
         if (active) setTeams(data);
       })
       .catch(() => {
-        if (active) setTeams([]);
+        if (active) { setLoadFailed(true); setTeams([]); }
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   const filtered = useMemo(() => {
     if (!teams) return [];
@@ -180,21 +183,10 @@ export default function TeamsPage() {
             showCount
           />
         </FilterBar>
-        {categorias.length > 1 && (
-          <p className="text-xs text-muted-foreground">
-            Las categorías son las del torneo ("Suma 9", "4ta Varonil"), no la
-            división en la que caen. Solo aparecen las que existen.{" "}
-            <Link
-              to="/torneos"
-              className="inline-flex min-h-6 items-center underline underline-offset-4 hover:text-foreground"
-            >
-              Ver los torneos
-            </Link>
-          </p>
-        )}
+
       </div>
 
-      {teams === null ? (
+      {loadFailed ? <PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} /> : teams === null ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-24 w-full" />

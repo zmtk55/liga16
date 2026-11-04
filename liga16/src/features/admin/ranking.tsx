@@ -47,7 +47,7 @@ export default function AdminRanking() {
   const [categoria, setCategoria] = useState("all");
   const [sex, setSex] = useState("all");
   // Vista del ranking: cards o tabla. La elección se recuerda por sección.
-  const [view, setView] = useAdminView("ranking", ["cards", "tabla"]);
+  const [view, setView] = useAdminView("ranking", ["cards", "tabla"], "tabla");
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const loadTeams = () => {
@@ -150,7 +150,7 @@ export default function AdminRanking() {
         </Link>
       </div>
 
-      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+      <Card className="gap-3 rounded-3xl border-0 bg-transparent py-0 shadow-none">
         {/* Buscador + las dos barras de filtro debajo. El FilterBar envuelve a las
             barras como `children`, así que el buscador sigue arriba y los
             filtros se leen de un vistazo. */}

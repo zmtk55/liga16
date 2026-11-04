@@ -74,7 +74,7 @@ export function FilterMenu({
           )}
         >
           {label && <span className="shrink-0 text-muted-foreground">{label}</span>}
-          <span className="min-w-0 max-w-[12rem] truncate font-semibold text-foreground">
+          <span title={current.label} className="min-w-0 max-w-[12rem] truncate font-semibold text-foreground">
             {current.label}
           </span>          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>

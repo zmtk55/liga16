@@ -1,3 +1,4 @@
+import { PublicLoadError } from "@/components/public-load-error";
 import { ScrollFade } from "@animate-ui/react/primitives/effects/scroll-fade";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -54,6 +55,8 @@ function dayLabel(day: string): string {
  * ninguna de las dos preguntas.
  */
 export default function CalendarPage() {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [myPairIds, setMyPairIds] = useState<Set<string> | null>(null);
@@ -94,13 +97,14 @@ export default function CalendarPage() {
       // petición fallaba.
       .catch(() => {
         if (active) {
+          setLoadFailed(true);
           setMatches([]);
           setDay(todayKey());
         }
       });
     db.getMyProfile().then((p) => { if (active) setProfile(p); }).catch(() => undefined);
     return () => { active = false; };
-  }, []);
+  }, [loadAttempt]);
 
   // "Mis partidos": el partido trae el id de la pareja, no del jugador, así que
   // hay que preguntar por las parejas de los torneos que aparecen en la agenda.
@@ -192,6 +196,7 @@ export default function CalendarPage() {
 
   return (
     <div className="animate-fade-in space-y-6">
+      {loadFailed && <PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} />}
       <PageHero
         title="Calendario"
         subtitle="Qué juega hoy y cuándo es el próximo partido del circuito."

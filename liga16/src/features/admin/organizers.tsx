@@ -294,7 +294,7 @@ export default function AdminOrganizers() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+      <Card className="gap-3 rounded-3xl border-0 bg-transparent py-0 shadow-none">
         <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}

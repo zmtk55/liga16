@@ -1,4 +1,4 @@
-"use client";
+import { PublicLoadError } from "@/components/public-load-error";
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHero } from "@/components/page-hero";
 
 export default function ClubsPage() {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [clubs, setClubs] = useState<Club[] | null>(null);
   const [courts, setCourts] = useState<Court[] | null>(null);
 
@@ -24,19 +26,21 @@ export default function ClubsPage() {
       .catch(() => {
         // Sin esto, `clubs` se quedaba en `null` y la página colgaba en el
         // esqueleto "Cargando sede…" para siempre, sin error ni reintento.
-        if (active) setClubs([]);
+        if (active) { setLoadFailed(true); setClubs([]); }
       });
       db.listCourts()
       .then((cs) => {
         if (active) setCourts(cs);
       })
       .catch(() => {
-        if (active) setCourts([]);
+        if (active) { setLoadFailed(true); setCourts([]); }
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
+
+  if (loadFailed) return <div className="space-y-4"><PageHero title="Sede" /><PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} /></div>;
 
   if (clubs === null) {
     return <Skeleton className="h-56 w-full" />;
