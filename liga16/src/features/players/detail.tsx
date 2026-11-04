@@ -1,21 +1,23 @@
-import { useEffect, useState, Suspense, lazy, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, Users, Zap, Activity, Target, Shirt, Sparkles, ShieldAlert, Pencil, HelpCircle, Swords, BarChart3, ImagePlus, Trophy, Medal } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ArrowDown, ChevronDown, Users, Target, ShieldAlert, Pencil, ImagePlus, Trophy, Medal, CalendarClock, Flame } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/data";
 import type { Match, PlayerCard, PlayerProfile, Team } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { initials, SEX_BRANCHES, sexLabel } from "@/lib/format";
+import { initials, SEX_BRANCHES, sexLabel, formatMatchTime, formatMatchDay, formatMatchMonth } from "@/lib/format";
+import { matchState, matchWinner } from "@/lib/match-state";
+import { parseRound } from "@/lib/groups";
 import { cn } from "@/lib/utils";
-import { MatchCard, PairAvatar } from "@/components/cards/card-kit";
+import { PairAvatar } from "@/components/cards/card-kit";
 import { toast } from "sonner";
 import { analyzePlayerLocal, derivedFromRecord, type JevAnalysis } from "@/lib/jev";
 import { buildPlayerRecords, type PlayerRecord } from "@/lib/records";
@@ -24,30 +26,12 @@ import { buildPlayerMedals, type MedalState } from "@/lib/medals";
 import { MedalShelf } from "./medal-shelf";
 import { qualificationFor, type QualificationView } from "@/lib/qualification";
 
-const LevelTrendChart = lazy(() => import("./level-trend-chart").then((m) => ({ default: m.LevelTrendChart })));
-const PlayerStatsCharts = lazy(() => import("./stats-charts").then((m) => ({ default: m.PlayerStatsCharts })));
 
 const handLabel: Record<PlayerProfile["dominant_hand"], string> = { right: "Diestro", left: "Zurdo", both: "Ambidiestro" };
 const positionLabel: Record<PlayerProfile["preferred_position"], string> = { drive: "Drive", reves: "Revés", both: "Ambos" };
 function cardWon(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; won?: number })?.record?.won ?? (c as unknown as { won?: number })?.won ?? 0; }
 function cardPlayed(c: PlayerCard | null | undefined) { return (c as unknown as { record?: { won: number; played: number }; played?: number })?.record?.played ?? (c as unknown as { played?: number })?.played ?? 0; }
 function cardPartner(c: PlayerCard | null | undefined) { return (c as unknown as { frequent_partner?: string; partner?: string })?.frequent_partner ?? (c as unknown as { partner?: string })?.partner ?? null; }
-
-// Tooltip component for player metrics
-function Tooltip({ children, content }: { children: React.ReactNode; content: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative inline-flex" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      {children}
-      {open && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 rounded-lg bg-surface-inverse px-3 py-2 text-xs text-surface-inverse-foreground shadow-lg animate-fade-in">
-          {content}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-surface-inverse" />
-        </div>
-      )}
-    </div>
-  );
-}
 
 // Animated bar component
 function AnimatedBar({ value, max = 100, color = "primary", className = "" }: { value: number; max?: number; color?: string; className?: string }) {
@@ -131,6 +115,83 @@ function CompareCard({
 
 
 
+/** Anillo de arcos por dimensión con el % protagonista al centro — la pieza
+    central de la referencia (cada arco = una dimensión del índice). */
+function DimensionRing({
+  center,
+  centerLabel,
+  arcs,
+  className,
+}: {
+  center: string;
+  centerLabel: string;
+  arcs: { label: string; value: number; className: string }[];
+  className?: string;
+}) {
+  const size = 230;
+  const r = 84;
+  const c = 2 * Math.PI * r;
+  const n = arcs.length;
+  const seg = c / n;
+  const gap = 16;
+  return (
+    <div className={cn("relative mx-auto h-60 w-60", className)}>
+      <svg viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 h-full w-full -rotate-90">
+        {arcs.map((arc, i) => {
+          const val = Math.max(0, Math.min(100, arc.value));
+          const len = ((seg - gap) * val) / 100;
+          return (
+            <g key={arc.label}>
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                strokeWidth={9}
+                strokeLinecap="round"
+                className="stroke-muted"
+                strokeDasharray={`${seg - gap} ${c - (seg - gap)}`}
+                strokeDashoffset={-i * seg}
+              />
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                strokeWidth={9}
+                strokeLinecap="round"
+                stroke="currentColor"
+                className={arc.className}
+                strokeDasharray={`${len} ${c - len}`}
+                strokeDashoffset={-i * seg}
+              />
+            </g>
+          );
+        })}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-poster text-6xl font-bold tabular-nums leading-none">{center}</span>
+        <span className="mt-1 text-xs text-muted-foreground">{centerLabel}</span>
+      </div>
+      {arcs.map((arc, i) => {
+        const theta = (((i + 0.5) * 360) / n - 90) * (Math.PI / 180);
+        const x = 50 + 46 * Math.cos(theta);
+        const y = 50 + 46 * Math.sin(theta);
+        return (
+          <div
+            key={arc.label}
+            className="absolute w-20 -translate-x-1/2 -translate-y-1/2 text-center"
+            style={{ left: `${x}%`, top: `${y}%` }}
+          >
+            <p className="text-xs font-bold tabular-nums leading-tight">{arc.value}%</p>
+            <p className="text-xs leading-tight text-muted-foreground">{arc.label}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
@@ -140,6 +201,7 @@ export default function PlayerDetailPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [myMatches, setMyMatches] = useState<Match[]>([]);
   const [compareId, setCompareId] = useState<string>("");
+  const [compareOpen, setCompareOpen] = useState(false);
   const [rivals, setRivals] = useState<PlayerProfile[]>([]);
   const [pairInfo, setPairInfo] = useState<{ tournament: string | null; tournamentSlug: string | null; category: string | null } | null>(null);
   const [compareData, setCompareData] = useState<{
@@ -364,8 +426,6 @@ export default function PlayerDetailPage() {
     [player.city, player.state].filter(Boolean).join(", "),
     `Nivel ${(player.official_level ?? player.declared_level).toFixed(1)}${player.official_level != null ? " oficial" : " declarado"}`,
     sexLabel(player.sex),
-    positionLabel[player.preferred_position],
-    handLabel[player.dominant_hand],
     titles > 0 ? `${titles} título${titles === 1 ? "" : "s"}` : null,
   ].filter(Boolean).join(" · ");
 
@@ -378,148 +438,172 @@ export default function PlayerDetailPage() {
   })();
   const canEditPhoto = !isConfigured || isAdmin || user?.player_id === player.id;
 
+  const normName = (s: string) => s.trim().toLowerCase();
+  const mySideOf = (m: Match): "a" | "b" => {
+    const inA = (m.side_a.pair_name ?? "").split("/").some((n) => normName(n) === normName(player.display_name));
+    const inB = (m.side_b.pair_name ?? "").split("/").some((n) => normName(n) === normName(player.display_name));
+    return inA ? "a" : inB ? "b" : "a";
+  };
+  const setsFor = record?.setsFor ?? 0;
+  const setsAgainst = record?.setsAgainst ?? 0;
+  const setsPct = setsFor + setsAgainst > 0 ? Math.round((setsFor / (setsFor + setsAgainst)) * 100) : 0;
+  // Las 4 dimensiones del índice: las mismas del anillo y de la card flotante.
+  const dims = [
+    { label: "Forma", value: Math.min(100, jev.forma.score * 20) },
+    { label: "Consistencia", value: jev.consistencia.score },
+    { label: "Sets", value: setsPct },
+    { label: "Rivales", value: jev.rival?.score ?? 0 },
+  ];
+  const upcoming = myMatches
+    .filter((m) => matchState(m) !== "finished")
+    .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+  const nextMatch = upcoming.find((m) => matchState(m) === "live") ?? upcoming[0] ?? null;
+  const trendMax = Math.max(1, ...trendData.map((d) => d.v));
+
   return (
-    <div className="space-y-6 -mx-4 -mt-8 md:-mx-6">
-      <section className="bg-surface-inverse text-white">
-        <div className="mx-auto max-w-7xl px-4 pt-6 pb-8 md:px-6 md:pt-8 md:pb-10">
-          <div className="flex items-center justify-between gap-3">
-            <Button asChild variant="ghost" size="sm" className="-ms-2 text-white/70 hover:bg-white/10 hover:text-white">
-              <Link to="/jugadores"><ArrowLeft className="h-4 w-4" /> Todos los jugadores</Link>
+    <div className="space-y-10 -mx-4 -mt-8 md:-mx-6">
+      {/* HERO — foto con la card flotante del índice (como la referencia),
+          nombre en display y la métrica protagonista. */}
+      <section className="mx-auto max-w-7xl px-4 pt-2 md:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <Button asChild variant="ghost" size="sm" className="-ms-2">
+            <Link to="/jugadores"><ArrowLeft className="h-4 w-4" /> Jugadores</Link>
+          </Button>
+          {canEditPhoto && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 rounded-full font-semibold"
+              onClick={() => setEditOpen(true)}
+            >
+              <Pencil className="h-4 w-4" /> Editar perfil
             </Button>
+          )}
+        </div>
+
+        <div className="mt-6 grid gap-8 md:grid-cols-[minmax(0,320px)_1fr] md:gap-12">
+          <div className="relative mx-auto w-full max-w-[300px] md:mx-0">
+            {player.photo_url ? (
+              <img src={player.photo_url} alt={player.display_name} className="aspect-[3/4] w-full rounded-[2rem] object-cover object-top" />
+            ) : (
+              <div className="flex aspect-[3/4] w-full items-center justify-center rounded-[2rem] bg-surface-inverse text-surface-inverse-foreground">
+                <span className="font-poster text-8xl font-bold text-white/80">{initials(player.display_name)}</span>
+              </div>
+            )}
+            {/* Card flotante sobre la foto: el índice en 4 mini-barras con el
+                botón circular que lleva al rendimiento. */}
+            <div className="absolute inset-x-3 -bottom-6 rounded-2xl border bg-background/95 p-3.5 shadow-lg backdrop-blur">
+              <div className="flex items-center justify-between">
+                <p className="text-caption font-bold uppercaser text-muted-foreground">Índice</p>
+                <a
+                  href="#rendimiento"
+                  aria-label="Ver rendimiento"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-300 hover:scale-105"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </a>
+              </div>
+              <dl className="mt-2 space-y-1.5">
+                {dims.map((d) => (
+                  <div key={d.label} className="grid grid-cols-[68px_1fr_auto] items-center gap-2">
+                    <dt className="truncate text-xs text-muted-foreground">{d.label}</dt>
+                    <dd className="h-1 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, d.value))}%` }} />
+                    </dd>
+                    <dd className="text-xs font-semibold tabular-nums">{d.value}%</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
             {canEditPhoto && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0 border-white/20 bg-transparent font-semibold text-white hover:bg-white/10 hover:text-white"
-                onClick={() => setEditOpen(true)}
-              >
-                <Pencil className="h-4 w-4" /> Editar perfil
-              </Button>
+              <div className="mt-10">
+                <input
+                  id="player-photo"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const dataUrl = String(reader.result);
+                      setPlayer({ ...player, photo_url: dataUrl });
+                      db.updatePlayer(player.id, { photo_url: dataUrl })
+                        .then(() => toast.success("Foto de perfil actualizada"))
+                        .catch((err: Error) => toast.error(err.message ?? "No se pudo guardar la foto"));
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }}
+                />
+                <Button asChild size="sm" variant="ghost" className="w-full font-semibold text-muted-foreground">
+                  <label htmlFor="player-photo" className="cursor-pointer">
+                    <ImagePlus className="h-4 w-4" /> Cambiar foto
+                  </label>
+                </Button>
+              </div>
             )}
           </div>
 
-          <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
-            <div className="min-w-0 space-y-5">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
-                  {record && record.played > 0
-                  ? `${record.won} victorias de ${record.played} · Liga16`
-                  : "Liga16"}
-                </p>
-                <h1 className="mt-2 text-4xl font-black tracking-tight text-white md:text-5xl">
-                  {player.display_name}
-                </h1>
-                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-                  {category && (
-                    <span className="rounded-md bg-white px-2 py-0.5 text-xs font-extrabold tracking-wide text-black">
-                      {category}
-                    </span>
-                  )}
-                  <p className="text-sm text-white/70">{metaLine}</p>
-                </div>
-              </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              {category && (
+                <span className="rounded-full bg-foreground px-3 py-1 text-xs font-bold tracking-wide text-background">
+                  {category}
+                </span>
+              )}
+              {titles > 0 && (
+                <span className="rounded-full border px-3 py-1 text-xs font-semibold">
+                  {titles} {titles === 1 ? "título" : "títulos"}
+                </span>
+              )}
+            </div>
+            <h1 className="mt-3 font-poster text-6xl font-bold uppercase leading-[0.9] tracking-tight md:text-8xl">
+              {player.display_name}
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground">{metaLine}</p>
 
-              {(() => {
-                const mate = team
-                  ? (team.player1?.player_id === player.id ? team.player2?.name : team.player1?.name) ?? currentPartner
-                  : currentPartner;
-                const [m1, m2] = (team?.name ?? "").split(" / ");
-                return (
-                  <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <PairAvatar p1={m1 || player.display_name} p2={m2} className="h-10 w-10 border-white/20 bg-white/10 text-sm [&>span]:bg-white/10 [&>span]:text-white" />
-                      <div className="min-w-0">
-                        <p className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Pareja actual</p>
-                        <p className="truncate text-sm font-semibold text-white">
-                          {team?.name ?? (mate ? `con ${mate}` : "Sin equipo")}
-                        </p>
-                        <p className="truncate text-xs text-white/50">
-                          {[pairInfo?.tournament, pairInfo?.category ?? team?.division].filter(Boolean).join(" · ") || "Sin torneo activo"}
-                        </p>
-                      </div>
-                    </div>
-                    {pairInfo?.tournamentSlug ? (
-                      <Button asChild size="sm" variant="secondary" className="shrink-0">
-                        <Link to={`/torneos/${pairInfo.tournamentSlug}`}>Ver torneo</Link>
-                      </Button>
-                    ) : (
-                      <Button asChild size="sm" variant="secondary" className="shrink-0">
-                        <Link to="/torneos">Ver torneos</Link>
-                      </Button>
-                    )}
+            {/* La métrica protagonista en gigante, como el 82% de la referencia. */}
+            <div className="mt-8">
+              <p className="flex items-baseline gap-1.5">
+                <span className="font-poster text-[6rem] font-bold tabular-nums leading-[0.85] md:text-[8.5rem]">{winPct}</span>
+                <span className="font-poster text-4xl font-bold text-muted-foreground md:text-5xl">%</span>
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                efectividad · {won} ganados de {played}
+              </p>
+            </div>
+
+            {/* Pareja actual: fila limpia con botón circular de flecha. */}
+            {(() => {
+              const mate = team
+                ? (team.player1?.player_id === player.id ? team.player2?.name : team.player1?.name) ?? currentPartner
+                : currentPartner;
+              const [m1, m2] = (team?.name ?? "").split(" / ");
+              return (
+                <div className="mt-8 flex items-center gap-3 rounded-2xl border p-4 transition-shadow duration-300 hover:shadow-md">
+                  <PairAvatar p1={m1 || player.display_name} p2={m2} className="h-11 w-11 text-sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">
+                      {team?.name ?? (mate ? `con ${mate}` : "Sin equipo")}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[pairInfo?.tournament, pairInfo?.category ?? team?.division].filter(Boolean).join(" · ") || "Sin torneo activo"}
+                    </p>
                   </div>
-                );
-              })()}
-
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-white/10 py-4 sm:grid-cols-4">
-                <div>
-                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Juegos a favor</dt>
-                  <dd className="mt-1 text-2xl font-extrabold tabular-nums text-white md:text-3xl">
-                    {record?.setsFor ?? 0}
-                  </dd>
-                  <dd className="mt-0.5 text-xs text-white/60">de {record ? record.setsFor + record.setsAgainst : 0} jugados</dd>
+                  <Link
+                    to={pairInfo?.tournamentSlug ? `/torneos/${pairInfo.tournamentSlug}` : "/torneos"}
+                    aria-label="Ver torneo"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-300 hover:scale-105"
+                  >
+                    <ArrowUpRight className="h-5 w-5" />
+                  </Link>
                 </div>
-                <div>
-                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Efectividad</dt>
-                  <dd className="mt-1 text-2xl font-extrabold tabular-nums text-white md:text-3xl">{winPct}%</dd>
-                  <dd className="mt-0.5 text-xs text-white/60">{won} ganados de {played}</dd>
-                </div>
-                <div>
-                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Racha</dt>
-                  <dd className={cn("mt-1 text-2xl font-extrabold tabular-nums md:text-3xl", streak > 0 ? "text-emerald-400" : "text-white")}>
-                    {streak > 0 ? `${streak}G` : "—"}
-                  </dd>
-                  <dd className="mt-0.5 text-xs text-white/60">{streak > 0 ? "victorias seguidas" : "sin racha activa"}</dd>
-                </div>
-                <div>
-                  <dt className="text-2xs font-bold uppercase tracking-[0.16em] text-white/60">Partidos</dt>
-                  <dd className="mt-1 text-2xl font-extrabold tabular-nums text-white md:text-3xl">{played}</dd>
-                  <dd className="mt-0.5 text-xs text-white/60">en el circuito</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="mx-auto w-full max-w-[260px] shrink-0 lg:mx-0 lg:w-[240px]">
-              {player.photo_url ? (
-                <img src={player.photo_url} alt={player.display_name} className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover object-top" />
-              ) : (
-                <div className="flex aspect-[3/4] w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-                  <span className="text-6xl font-black text-white/70">{initials(player.display_name)}</span>
-                </div>
-              )}
-              {canEditPhoto && (
-                <div className="mt-3">
-                  <input
-                    id="player-photo"
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const dataUrl = String(reader.result);
-                        setPlayer({ ...player, photo_url: dataUrl });
-                        db.updatePlayer(player.id, { photo_url: dataUrl })
-                          .then(() => toast.success("Foto de perfil actualizada"))
-                          .catch((err: Error) => toast.error(err.message ?? "No se pudo guardar la foto"));
-                      };
-                      reader.readAsDataURL(file);
-                      e.target.value = "";
-                    }}
-                  />
-                  <Button asChild size="sm" variant="outline" className="w-full border-white/20 bg-transparent font-semibold text-white hover:bg-white/10 hover:text-white">
-                    <label htmlFor="player-photo" className="cursor-pointer">
-                      <ImagePlus className="h-4 w-4" /> Cambiar foto
-                    </label>
-                  </Button>
-                </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
         </div>
-        <div aria-hidden className="h-1 bg-primary" />
       </section>
 
       {editOpen && (
@@ -531,442 +615,444 @@ export default function PlayerDetailPage() {
         />
       )}
 
-      {/* ====== Repisa de medallas: logros derivados, con nivel y progreso ====== */}
-      {medals.length > 0 && ((record?.played ?? 0) > 0 || (rankingIndividual?.points ?? 0) > 0) && (
-        <section className="mx-auto max-w-7xl px-4 md:px-6">
-          <MedalShelf medals={medals} />
-        </section>
-      )}
+      {/* Navegación interna: pill sticky en vez de 10 pantallas de scroll. */}
+      <nav className="sticky top-2 z-30 mx-auto max-w-7xl px-4 md:px-6">
+        <div className="flex gap-1.5 rounded-full border bg-background/85 p-1.5 shadow-sm backdrop-blur">
+          {([
+            ["#resumen", "Resumen"],
+            ["#rendimiento", "Rendimiento"],
+            ["#partidos", "Partidos"],
+          ] as const).map(([href, label]) => (
+            <a
+              key={href}
+              href={href}
+              className="flex-1 whitespace-nowrap rounded-full px-4 py-1.5 text-center text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      </nav>
 
-      {/* ====== Palmarés: títulos, finales y semis derivados de las llaves ====== */}
-      {(honors.length > 0 || (rankingIndividual?.points ?? 0) > 0) && (
-        <section className="mx-auto max-w-7xl px-4 md:px-6">
-          <Card className="overflow-hidden">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-primary" /> Palmarés
-              </CardTitle>
-              {rankingIndividual && (
-                <Button asChild variant="outline" size="sm" className="h-7 text-xs tabular-nums">
-                  <Link to="/ranking?vista=individual">
-                    #{rankingIndividual.position} · {rankingIndividual.points.toLocaleString("es-MX")} pts del circuito
-                  </Link>
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-3 divide-x divide-border rounded-xl border bg-muted/30">
-                {[
-                  { k: "Títulos", v: honors.filter((h) => h.kind === "title").length },
-                  { k: "Finales", v: honors.filter((h) => h.kind === "final").length },
-                  { k: "Semifinales", v: honors.filter((h) => h.kind === "semi").length },
-                ].map((s) => (
-                  <div key={s.k} className="px-2 py-2.5 text-center">
-                    <p className="text-xl font-extrabold leading-none tabular-nums">{s.v}</p>
-                    <p className="mt-1 text-2xs font-bold uppercase tracking-widest text-muted-foreground">{s.k}</p>
+      {/* RESUMEN — tarjetas de estado con color por categoría, en carrusel
+          horizontal (mobile) / fila de 3 (desktop). */}
+      <section id="resumen" className="mx-auto max-w-7xl scroll-mt-20 px-4 md:px-6">
+        <div className="flex snap-x gap-3 overflow-x-auto pb-1 md:grid md:snap-none md:grid-cols-3 md:overflow-visible md:pb-0">
+          {/* Próximo partido: la tarjeta de acción, en negro. */}
+          {nextMatch ? (
+            (() => {
+              const live = matchState(nextMatch) === "live";
+              const mySide = mySideOf(nextMatch);
+              const opp = mySide === "a" ? nextMatch.side_b.pair_name : nextMatch.side_a.pair_name;
+              const { jornada } = parseRound(nextMatch.round ?? "");
+              const when = nextMatch.scheduled_at
+                ? `${new Intl.DateTimeFormat("es-MX", { weekday: "short", day: "numeric", month: "short" }).format(new Date(nextMatch.scheduled_at))} · ${formatMatchTime(nextMatch.scheduled_at)}`
+                : "Por programar";
+              const court = nextMatch.court_name?.trim();
+              return (
+                <Link
+                  to={pairInfo?.tournamentSlug ? `/torneos/${pairInfo.tournamentSlug}` : "/torneos"}
+                  className="flex min-w-[240px] flex-1 snap-start flex-col justify-between rounded-3xl bg-surface-inverse p-5 text-surface-inverse-foreground transition-transform duration-300 hover:-translate-y-0.5 md:min-w-0"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="rounded-full bg-primary px-2.5 py-1 text-caption font-bold uppercase text-primary-foreground">
+                      {live ? "En vivo" : "Próximo"}
+                    </span>
+                    <CalendarClock className="h-4 w-4 text-white/50" />
                   </div>
-                ))}
+                  <div className="mt-8">
+                    <p className="font-poster text-3xl font-bold uppercase leading-none">
+                      {jornada ? `Jornada ${jornada}` : "Partido"}
+                    </p>
+                    <p className="mt-1.5 truncate text-sm font-medium text-white/80">vs {opp}</p>
+                    <p className="mt-1 truncate text-xs text-white/50">{[when, court].filter(Boolean).join(" · ")}</p>
+                  </div>
+                </Link>
+              );
+            })()
+          ) : (
+            <div className="flex min-w-[240px] flex-1 snap-start flex-col justify-between rounded-3xl bg-surface-inverse p-5 text-surface-inverse-foreground md:min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="rounded-full bg-white/15 px-2.5 py-1 text-caption font-bold uppercase">Agenda</span>
+                <CalendarClock className="h-4 w-4 text-white/50" />
               </div>
-              {honors.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Aún sin finales jugadas — sus resultados por torneo aparecen aquí solos.
-                </p>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {honors.map((h, i) => (
-                    <li key={`${h.tournamentId}-${h.kind}-${i}`} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                      <span
-                        className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                          h.kind === "title" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {h.kind === "title" ? <Trophy className="h-4 w-4" /> : <Medal className="h-4 w-4" />}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">
-                          {h.kind === "title" ? "Campeón" : h.kind === "final" ? "Finalista" : "Semifinalista"}
-                          {" · "}
-                          {h.tournamentSlug ? (
-                            <Link to={`/torneos/${h.tournamentSlug}`} className="hover:underline">
-                              {h.tournamentName}
-                            </Link>
-                          ) : (
-                            h.tournamentName
-                          )}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {[h.category, h.partnerName ? `con ${h.partnerName}` : null].filter(Boolean).join(" · ")}
-                        </p>
-                      </div>
-                      {h.date && (
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                          {h.date.slice(0, 4)}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-      )}
+              <p className="mt-8 text-sm text-white/60">Sin partidos programados todavía.</p>
+            </div>
+          )}
 
-      {/* ====== Estadísticas: gráficas del historial derivado ====== */}
-      <section className="mx-auto max-w-7xl px-4 md:px-6">
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" /> Estadísticas
-            </CardTitle>
-            {record && record.played > 0 && (
-              <Badge variant="outline">{record.played} partidos en el historial</Badge>
+          {/* Camino a semifinales: verde si está dentro del corte. */}
+          {qualification && (
+            <div
+              className={cn(
+                "flex min-w-[240px] flex-1 snap-start flex-col justify-between rounded-3xl border p-5 md:min-w-0",
+                qualification.reliable && qualification.inCut
+                  ? "border-success/30 bg-success/10"
+                  : qualification.reliable
+                    ? "border-warning/30 bg-warning/10"
+                    : "border-border bg-muted/50",
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-caption font-bold uppercase text-muted-foreground">
+                  <Target className="h-3.5 w-3.5" /> Camino a semis
+                </span>
+                {qualification.reliable && (
+                  <span className="font-display text-2xl tabular-nums text-primary">{qualification.semifinalProbability}%</span>
+                )}
+              </div>
+              <div className="mt-8">
+                <p className="font-poster text-3xl font-bold leading-none">{qualification.position}º</p>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  {!qualification.reliable
+                    ? "Falta muestra para estimar el corte"
+                    : qualification.inCut
+                      ? "Dentro del corte. A mantener el lugar."
+                      : `A ${qualification.pointsNeeded} pts del corte.`}
+                </p>
+                {qualification.reliable && !qualification.inCut && qualification.mustBeat[0] && (
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    Gánale a {qualification.mustBeat[0].name} (+{qualification.mustBeat[0].lead} pts)
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Racha: color por dirección. */}
+          <div
+            className={cn(
+              "flex min-w-[240px] flex-1 snap-start flex-col justify-between rounded-3xl border p-5 md:min-w-0",
+              jev.momentum?.label === "Viene ganando"
+                ? "border-success/30 bg-success/10"
+                : jev.momentum?.label === "Viene perdiendo"
+                  ? "border-destructive/30 bg-destructive/10"
+                  : "border-border bg-muted/50",
             )}
-          </CardHeader>
-          <CardContent>
-            {!record || record.played === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Sin partidos capturados todavía — las gráficas aparecen con tu primer partido.
+          >
+            <span className="flex items-center gap-1.5 text-caption font-bold uppercase text-muted-foreground">
+              <Flame className="h-3.5 w-3.5" /> Racha
+            </span>
+            <div className="mt-8">
+              <p className="font-poster text-3xl font-bold tabular-nums leading-none">
+                {jev.momentum?.reliable
+                  ? `${jev.momentum.score > 0 ? "+" : ""}${jev.momentum.score}`
+                  : streak > 0
+                    ? `${streak}G`
+                    : "—"}
               </p>
-            ) : (
-              <Suspense fallback={<Skeleton className="h-56 w-full" />}>
-                <PlayerStatsCharts record={record} />
-              </Suspense>
-            )}
-          </CardContent>
-        </Card>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                {jev.momentum?.reliable
+                  ? `${jev.momentum.label} · últimos ${jev.momentum.muestra}`
+                  : streak > 0
+                    ? "victorias seguidas"
+                    : "Faltan partidos"}
+              </p>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section className="mx-auto max-w-7xl space-y-6 px-4 md:px-6">
-        <div>
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-primary" /> Cómo llega el jugador
-            <Tooltip content="Resumen automático de su forma, estilo, consistencia y contra quién juega.">
-              <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-primary cursor-help" />
-            </Tooltip>
-          </h3>
-          <div className="grid gap-4 [&>*]:min-w-0 md:grid-cols-3">
-            {/* FORMA COMPETITIVA */}
-            <Card className="group relative overflow-hidden border-primary/20 transition-all hover:shadow-md hover:-translate-y-0.5">
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-warning" />
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Zap className="h-4 w-4 text-primary" />
-                  Forma competitiva
-                  <Tooltip content="Nivel 1 a 5 según su récord completo, sus últimos partidos y si viene subiendo o bajando.">
-                    <Badge variant={jev.forma.score >= 4 ? "default" : jev.forma.score <= 2 ? "destructive" : "secondary"}>{jev.forma.score}/5</Badge>
-                  </Tooltip>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-lg font-bold">{jev.forma.label}</p>
-                  <AnimatedBar value={jev.forma.score} max={5} color="primary" className="mt-1" />
-                  <p className="mt-1 text-xs text-muted-foreground">Confianza {(jev.forma.confidence * 100).toFixed(0)}% · Ritmo: {jev.ritmo}</p>
+      {/* RENDIMIENTO — anillo por dimensión (referencia) + panel negro con
+          columnas, mini-barras verticales y CTA pill. */}
+      <section id="rendimiento" className="mx-auto max-w-7xl scroll-mt-20 px-4 md:px-6">
+        <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
+          <div className="rounded-[2rem] border bg-background p-6">
+            <h2 className="font-display text-lg font-bold">Rendimiento por dimensión</h2>
+            <DimensionRing
+              className="mt-4"
+              center={`${winPct}%`}
+              centerLabel="efectividad"
+              arcs={[
+                { label: dims[0].label, value: dims[0].value, className: "text-primary" },
+                { label: dims[1].label, value: dims[1].value, className: "text-foreground" },
+                { label: dims[2].label, value: dims[2].value, className: "text-primary/50" },
+                { label: dims[3].label, value: dims[3].value, className: "text-foreground/35" },
+              ]}
+            />
+          </div>
+
+          <div className="rounded-[2rem] bg-surface-inverse p-6 text-surface-inverse-foreground md:p-8">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-lg font-bold">Efectividad</h2>
+              <p className="font-poster text-6xl font-bold tabular-nums leading-none">
+                {winPct}
+                <span className="text-3xl text-white/50">%</span>
+              </p>
+            </div>
+            <dl className="mt-6 grid grid-cols-3 gap-4">
+              {([
+                { label: "Partidos", value: String(played) },
+                { label: "Ganados", value: String(won) },
+                { label: "Sets", value: `${setsFor}-${setsAgainst}` },
+              ]).map((s) => (
+                <div key={s.label}>
+                  <dt className="text-xs text-white/50">{s.label}</dt>
+                  <dd className="mt-1.5 font-poster text-4xl font-bold tabular-nums leading-none md:text-5xl">{s.value}</dd>
                 </div>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <Tooltip key={n} content={`Nivel ${n}: ${["Le cuesta marcar diferencias","Juega de más a menos","Juega parejo","Viene en buen momento","Está jugando su mejor pádel"][n-1]}. Cuánto pesa ese nivel en el análisis.`}>
-                      <div className="flex-1">
-                        <AnimatedBar value={(jev.forma.distribution[n as 1|2|3|4|5] ?? 0) * 100} max={100} color="primary" className="h-1.5" />
-                        <p className="mt-1 text-center text-xs text-muted-foreground">{n}</p>
-                      </div>
-                    </Tooltip>
+              ))}
+            </dl>
+            {trendData.length > 0 && (
+              <div className="mt-6">
+                <p className="mb-3 text-xs text-white/50">Juegos por partido · últimos {trendData.length}</p>
+                <div className="flex h-20 items-end gap-1.5">
+                  {trendData.map((d, idx) => (
+                    <div
+                      key={d.i}
+                      className={cn("flex-1 rounded-full", idx === trendData.length - 1 ? "bg-primary" : "bg-white/25")}
+                      style={{ height: `${Math.max(8, Math.round((d.v / trendMax) * 100))}%` }}
+                    />
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* ESTILO */}
-            <Card className="group transition-all hover:shadow-md hover:-translate-y-0.5">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Target className="h-4 w-4 text-primary" />
-                  Estilo
-                  <Tooltip content="Deduce su estilo de juego a partir de la posición que prefiere y la mano que usa.">
-                    <Badge variant="outline">{jev.estilo.choice}</Badge>
-                  </Tooltip>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm font-medium capitalize">{jev.estilo.choice}</p>
-                {Object.entries(jev.estilo.probabilities).map(([k, v]) => (
-                  <Tooltip key={k} content={`Probabilidad ${((v as number)*100).toFixed(0)}% de estilo ${k}.`}>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="w-20 capitalize text-muted-foreground">{k}</span>
-                      <AnimatedBar value={(v as number) * 100} max={100} color="primary" className="flex-1 h-2" />
-                      <span className="w-10 text-right tabular-nums">{((v as number) * 100).toFixed(0)}%</span>
-                    </div>
-                  </Tooltip>
-                ))}
-                <p className="text-xs text-muted-foreground">Confianza del modelo: {(jev.estilo.confidence * 100).toFixed(0)}%</p>
-              </CardContent>
-            </Card>
-
-            {/* RACHA + CONSISTENCIA + RITMO */}
-            <Card className="group transition-all hover:shadow-md hover:-translate-y-0.5">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Activity className="h-4 w-4 text-primary" />
-                  Racha
-                  <Tooltip content="Si viene ganando o perdiendo AHORA: los partidos recientes pesan más que los viejos. Un partido de hace 3 cuenta la mitad.">
-                    {jev.momentum?.reliable ? (
-                      <Badge variant={jev.momentum.label === "Viene ganando" ? "default" : jev.momentum.label === "Viene perdiendo" ? "destructive" : "secondary"}>
-                        {jev.momentum.label}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">{jev.racha.label}</Badge>
-                    )}
-                  </Tooltip>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-3xl font-black tabular-nums">
-                      {jev.momentum?.reliable
-                        ? `${jev.momentum.score > 0 ? "+" : ""}${jev.momentum.score}`
-                        : "—"}
-                    </p>
-                    <span className="text-xs text-muted-foreground">
-                      {jev.momentum?.reliable
-                        ? jev.momentum.racha > 0
-                          ? `viene ganando · ${jev.momentum.racha} seguidas`
-                          : `últimos ${jev.momentum.muestra} partidos`
-                        : "faltan partidos"}
-                    </span>
-                  </div>
-                  <AnimatedBar
-                    value={jev.momentum?.reliable ? Math.abs(jev.momentum.score) : 0}
-                    max={100}
-                    color={jev.momentum?.label === "Viene ganando" ? "success" : jev.momentum?.label === "Viene perdiendo" ? "destructive" : "warning"}
-                    className="mt-2 h-2.5"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <Tooltip content="Qué tan parejo rinde: si gana muchos sets con poca diferencia entre un partido y otro. 100 sería idéntico siempre.">
-                    <div className="rounded-lg bg-muted p-3">
-                      <p className="text-muted-foreground">Consistencia</p>
-                      <p className="text-2xl font-black">{jev.consistencia.score}/100</p>
-                      <p className="text-xs text-muted-foreground">{jev.consistencia.label}</p>
-                    </div>
-                  </Tooltip>
-                  <Tooltip content="Si su nivel viene subiendo, estable o bajando respecto a como venía jugando.">
-                    <div className="rounded-lg bg-muted p-3">
-                      <p className="text-muted-foreground">Ritmo</p>
-                      <p className="text-2xl font-black capitalize">{jev.ritmo}</p>
-                    </div>
-                  </Tooltip>
-                  <Tooltip content="Forma = score 1-5 (ver tarjeta Forma). Resumen rápido.">
-                    <div className="rounded-lg bg-muted p-3">
-                      <p className="text-muted-foreground">Forma</p>
-                      <p className="text-2xl font-black">{jev.forma.score}/5</p>
-                      <p className="text-xs text-muted-foreground">{jev.forma.label}</p>
-                    </div>
-                  </Tooltip>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            )}
+            <Button asChild size="lg" className="mt-6 h-12 w-full rounded-full text-base font-semibold">
+              <Link to={pairInfo?.tournamentSlug ? `/torneos/${pairInfo.tournamentSlug}` : "/torneos"}>
+                Ver torneo
+              </Link>
+            </Button>
           </div>
         </div>
 
-        <div className="grid gap-4 [&>*]:min-w-0 lg:grid-cols-2">
-          <Card className="overflow-hidden">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between"><CardTitle className="text-base">Últimos partidos</CardTitle><Badge variant="outline">{myMatches.length} en el sistema</Badge></CardHeader>
-            <CardContent className="space-y-2">
-              {myMatches.length ? (
-                myMatches.slice(0, 10).map((m) => (
-                  <MatchCard key={m.id} match={m} />
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Sin partidos todavía — aparecen cuando tu equipo tenga partidos en un torneo.</p>
+        {/* Palmarés: strip de números + filas densas, sin card. */}
+        {(honors.length > 0 || (rankingIndividual?.points ?? 0) > 0) && (
+          <div className="mt-10">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                <Trophy className="h-4 w-4 text-primary" /> Palmarés
+              </h2>
+              {rankingIndividual && (
+                <Button asChild variant="outline" size="sm" className="h-7 rounded-full text-xs tabular-nums">
+                  <Link to="/ranking?vista=individual">
+                    #{rankingIndividual.position} · {rankingIndividual.points.toLocaleString("es-MX")} pts
+                  </Link>
+                </Button>
               )}
-            </CardContent>
-          </Card>
-
-          {jev?.rival && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <span className="flex items-center gap-2">
-                    <Swords className="h-4 w-4" /> Contra quién juega
-                  </span>
-                  {jev.rival.reliable && (
-                    <span className="font-display text-2xl tabular-nums text-primary">
-                      {jev.rival.score}
+            </div>
+            <div className="mt-4 grid grid-cols-3 divide-x divide-border rounded-xl border bg-muted/30">
+              {[
+                { k: "Títulos", v: honors.filter((h) => h.kind === "title").length },
+                { k: "Finales", v: honors.filter((h) => h.kind === "final").length },
+                { k: "Semifinales", v: honors.filter((h) => h.kind === "semi").length },
+              ].map((s) => (
+                <div key={s.k} className="px-2 py-2.5 text-center">
+                  <p className="text-xl font-extrabold leading-none tabular-nums">{s.v}</p>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">{s.k}</p>
+                </div>
+              ))}
+            </div>
+            {honors.length > 0 && (
+              <ul className="mt-2 divide-y divide-border">
+                {honors.map((h, i) => (
+                  <li key={`${h.tournamentId}-${h.kind}-${i}`} className="flex items-center gap-3 py-2.5">
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                        h.kind === "title" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {h.kind === "title" ? <Trophy className="h-4 w-4" /> : <Medal className="h-4 w-4" />}
                     </span>
-                  )}
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {jev.rival.reliable
-                    ? `Ganar a un 5 no es lo mismo que ganar a un 3. Ponderado por ${jev.rival.sample} rivales conocidos.`
-                    : "Faltan rivales con nivel registrado para poder ponderar."}
-                </p>
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg font-bold">{jev.rival.label}</p>
-                <AnimatedBar value={jev.rival.score} max={100} color="primary" className="mt-1.5" />
-              </CardContent>
-            </Card>
-          )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">
+                        {h.kind === "title" ? "Campeón" : h.kind === "final" ? "Finalista" : "Semifinalista"}
+                        {" · "}
+                        {h.tournamentSlug ? (
+                          <Link to={`/torneos/${h.tournamentSlug}`} className="hover:underline">
+                            {h.tournamentName}
+                          </Link>
+                        ) : (
+                          h.tournamentName
+                        )}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[h.category, h.partnerName ? `con ${h.partnerName}` : null].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    {h.date && (
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{h.date.slice(0, 4)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {medals.length > 0 && ((record?.played ?? 0) > 0 || (rankingIndividual?.points ?? 0) > 0) && (
+              <div className="mt-4">
+                <MedalShelf medals={medals} />
+              </div>
+            )}
+          </div>
+        )}
 
-          {qualification && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <span className="flex items-center gap-2">
-                    <Target className="h-4 w-4" /> Camino a semifinales
-                  </span>
-                  {qualification.reliable && (
-                    <span className="font-display text-2xl tabular-nums text-primary">
-                      {qualification.semifinalProbability}%
-                    </span>
-                  )}
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {qualification.reliable
-                    ? "Estimación según tu posición actual en la tabla"
-                    : "Falta muestra: se necesitan al menos 3 partidos y 4 parejas"}
+        {/* Cómo juega: estilo + datos de juego en dos columnas compactas. */}
+        <div className="mt-10">
+          <h2 className="font-display text-lg font-bold">Cómo juega</h2>
+          <div className="mt-4 grid gap-6 md:grid-cols-2">
+            <div>
+              <p className="text-sm font-semibold capitalize">Estilo {jev.estilo.choice}</p>
+              <div className="mt-3 space-y-2">
+                {Object.entries(jev.estilo.probabilities).map(([k, v]) => (
+                  <div key={k} className="flex items-center gap-2 text-xs">
+                    <span className="w-20 capitalize text-muted-foreground">{k}</span>
+                    <AnimatedBar value={(v as number) * 100} max={100} color="primary" className="h-2 flex-1" />
+                    <span className="w-10 text-right tabular-nums">{((v as number) * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2 text-sm">
+              <p>
+                <span className="text-muted-foreground">Mano:</span> {handLabel[player.dominant_hand]}
+                {" · "}
+                <span className="text-muted-foreground">Posición:</span> {positionLabel[player.preferred_position]}
+              </p>
+              {jev.rival?.reliable && (
+                <p>
+                  <span className="text-muted-foreground">Contra quién:</span> {jev.rival.label}
                 </p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-lg bg-muted/60 p-3">
-                    <p className="font-display text-2xl tabular-nums">{qualification.position}º</p>
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Posición</p>
+              )}
+              {player.bio && <p className="text-muted-foreground">{player.bio}</p>}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PARTIDOS — historial en filas densas + comparador como herramienta. */}
+      <section id="partidos" className="mx-auto max-w-7xl scroll-mt-20 px-4 md:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-lg font-bold">Partidos</h2>
+          <span className="text-xs text-muted-foreground">{myMatches.length} en el sistema</span>
+        </div>
+        {myMatches.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Sin partidos todavía — aparecen cuando tu equipo tenga partidos en un torneo.
+          </p>
+        ) : (
+          <ul className="mt-2 divide-y divide-border">
+            {myMatches.slice(0, 8).map((m) => {
+              const mySide = mySideOf(m);
+              const opp = mySide === "a" ? m.side_b.pair_name : m.side_a.pair_name;
+              const state = matchState(m);
+              const winner = matchWinner(m);
+              const iWon = winner ? winner === mySide : null;
+              const { jornada } = parseRound(m.round ?? "");
+              const setsStr = m.sets.map((s) => (mySide === "a" ? `${s.a}-${s.b}` : `${s.b}-${s.a}`)).join("  ");
+              return (
+                <li key={m.id} className="flex items-center gap-3 py-2.5">
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                      state === "live"
+                        ? "bg-primary text-primary-foreground"
+                        : state === "finished"
+                          ? iWon
+                            ? "bg-success/15 text-success"
+                            : "bg-destructive/10 text-destructive"
+                          : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {state === "live" ? "•" : state === "finished" ? (iWon ? "G" : "P") : m.scheduled_at ? formatMatchDay(m.scheduled_at) : "·"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">vs {opp}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[jornada ? `J${jornada}` : null, m.tournament_name].filter(Boolean).join(" · ")}
+                    </p>
                   </div>
-                  <div className="rounded-lg bg-muted/60 p-3">
-                    <p className="font-display text-2xl tabular-nums">{qualification.pointsNeeded}</p>
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Puntos</p>
-                  </div>
-                  <div className="rounded-lg bg-muted/60 p-3">
-                    <p className="font-display text-2xl tabular-nums">{qualification.setsNeeded ?? "—"}</p>
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Sets</p>
-                  </div>
+                  <span className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                    {state === "finished"
+                      ? setsStr
+                      : m.scheduled_at
+                        ? `${formatMatchDay(m.scheduled_at)} ${formatMatchMonth(m.scheduled_at)} · ${formatMatchTime(m.scheduled_at)}`
+                        : "Por programar"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {/* Comparar: herramienta secundaria, colapsada por defecto. */}
+        {canView && (
+          <Card className="mt-6">
+            <button
+              type="button"
+              onClick={() => setCompareOpen((o) => !o)}
+              aria-expanded={compareOpen}
+              className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left"
+            >
+              <span className="flex items-center gap-2 text-base font-semibold">
+                <Users className="h-4 w-4" /> Comparar jugadores
+              </span>
+              <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300", compareOpen && "rotate-180")} />
+            </button>
+            {compareOpen && (
+              <CardContent className="space-y-4 border-t pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Los demás de tu categoría, que es donde la comparación sí significa algo.
+                </p>
+                <div className="max-w-sm">
+                  <Select value={compareId} onValueChange={setCompareId}>
+                    <SelectTrigger><SelectValue placeholder="Elige a quién medirte" /></SelectTrigger>
+                    <SelectContent>
+                      {rivals.length === 0 ? (
+                        <SelectItem value="__none__" disabled>Nadie más en tu categoría todavía</SelectItem>
+                      ) : (
+                        rivals.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.display_name} · N {(p.official_level ?? p.declared_level).toFixed(1)}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <p className="text-sm text-muted-foreground">
-                  {qualification.inCut
-                    ? "Estás dentro del corte. Falta mantener el lugar."
-                    : `Necesitas ${qualification.matchesNeeded} partido${qualification.matchesNeeded === 1 ? "" : "s"} para alcanzar el corte, a ${qualification.setsPerMatch} sets por partido.`}
-                </p>
-
-                {qualification.mustBeat.length > 0 && (
-                  <div>
-                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                      A quién tienes que ganarle
-                    </p>
-                    <ul className="divide-y rounded-lg border">
-                      {qualification.mustBeat.map((m) => (
-                        <li key={m.pairId} className="flex items-center justify-between px-3 py-2 text-sm">
-                          <span className="truncate font-medium">{m.name}</span>
-                          <span className="shrink-0 tabular-nums text-muted-foreground">
-                            +{m.lead} pts
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                {compareData ? (
+                  <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+                    <CompareCard
+                      name={player.display_name}
+                      level={player.official_level ?? player.declared_level}
+                      winPct={winPct}
+                      won={won}
+                      played={played}
+                      highlight
+                      rivalLevel={compareData.p.official_level ?? compareData.p.declared_level}
+                      rivalWinPct={
+                        compareData.played > 0
+                          ? Math.round((compareData.won / compareData.played) * 100)
+                          : 0
+                      }
+                      rivalWon={compareData.won}
+                    />
+                    <CompareCard
+                      name={compareData.p.display_name}
+                      level={compareData.p.official_level ?? compareData.p.declared_level}
+                      winPct={
+                        compareData.played > 0
+                          ? Math.round((compareData.won / compareData.played) * 100)
+                          : 0
+                      }
+                      won={compareData.won}
+                      played={compareData.played}
+                      rivalLevel={player.official_level ?? player.declared_level}
+                      rivalWinPct={winPct}
+                      rivalWon={won}
+                    />
                   </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Elige un rival para ver lado a lado nivel, juegos ganados y efectividad.
+                  </p>
                 )}
               </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Shirt className="h-4 w-4" /> Detalles</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-xl bg-muted p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide">Detalles pádel</p>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                  <p><span className="text-muted-foreground">Mano:</span> {handLabel[player.dominant_hand]}</p>
-                  <p><span className="text-muted-foreground">Posición:</span> {positionLabel[player.preferred_position]}</p>
-                  <p><span className="text-muted-foreground">País:</span> {player.country}</p>
-                  <p><span className="text-muted-foreground">Usuario:</span> @{player.username}</p>
-                </div>
-                {player.bio && <p className="mt-2 text-sm text-muted-foreground">{player.bio}</p>}
-              </div>
-
-              {trendData.length > 0 && (
-                <div>
-                  <p className="mb-1 text-xs font-medium">Juegos por partido · últimos 10</p>
-                  <Suspense fallback={<Skeleton className="h-40 w-full" />}><LevelTrendChart data={trendData} /></Suspense>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-{canView && (
-        <Card className="border-dashed">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Comparar jugadores</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Los demás de tu categoría, que es donde la comparación sí significa algo.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="max-w-sm">
-              <Select value={compareId} onValueChange={setCompareId}>
-                <SelectTrigger><SelectValue placeholder="Elige a quién medirte" /></SelectTrigger>
-                <SelectContent>
-                  {rivals.length === 0 ? (
-                    <SelectItem value="__none__" disabled>Nadie más en tu categoría todavía</SelectItem>
-                  ) : (
-                    rivals.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.display_name} · N {(p.official_level ?? p.declared_level).toFixed(1)}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {compareData ? (
-              <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-                <CompareCard
-                  name={player.display_name}
-                  level={player.official_level ?? player.declared_level}
-                  winPct={winPct}
-                  won={won}
-                  played={played}
-                  highlight
-                  rivalLevel={compareData.p.official_level ?? compareData.p.declared_level}
-                  rivalWinPct={
-                    compareData.played > 0
-                      ? Math.round((compareData.won / compareData.played) * 100)
-                      : 0
-                  }
-                  rivalWon={compareData.won}
-                />
-                <CompareCard
-                  name={compareData.p.display_name}
-                  level={compareData.p.official_level ?? compareData.p.declared_level}
-                  winPct={
-                    compareData.played > 0
-                      ? Math.round((compareData.won / compareData.played) * 100)
-                      : 0
-                  }
-                  won={compareData.won}
-                  played={compareData.played}
-                  rivalLevel={player.official_level ?? player.declared_level}
-                  rivalWinPct={winPct}
-                  rivalWon={won}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Elige un rival para ver lado a lado nivel, juegos ganados y efectividad.
-              </p>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </Card>
+        )}
       </section>
     </div>
   );
 }
+
 
 /**
  * Diálogo para que el dueño del perfil (o un admin) edite sus datos personales
@@ -1142,4 +1228,4 @@ function ProfileEditDialog({
       </DialogContent>
     </Dialog>
   );
-            }
+}
