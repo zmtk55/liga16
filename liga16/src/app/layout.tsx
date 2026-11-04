@@ -19,7 +19,7 @@ export default function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
-      <main className="flex-1 px-4 py-8 pb-20 md:px-6 md:pb-8">
+      <main className="flex-1 px-4 pt-8 pb-6 md:px-6 md:pb-6">
         <div className="mx-auto w-full max-w-7xl">
           <Suspense fallback={<RouteFallback />}>
             <Outlet />

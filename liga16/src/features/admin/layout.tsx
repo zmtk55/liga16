@@ -222,7 +222,7 @@ export default function AdminLayout() {
               </Link>
             </Button>}
             <Button asChild variant="ghost" size="sm">
-              <Link to="/">Salir</Link>
+              <Link to="/">Ver sitio</Link>
             </Button>
           </header>
 

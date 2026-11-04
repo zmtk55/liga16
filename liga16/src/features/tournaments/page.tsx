@@ -1,3 +1,4 @@
+import { PublicLoadError } from "@/components/public-load-error";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
@@ -14,6 +15,8 @@ import { formatCity, formatDateRange, formatLabel, formatMoney, tournamentStatus
 import { Trophy } from "lucide-react";
 
 export default function TournamentsPage() {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [tournaments, setTournaments] = useState<Tournament[] | null>(null);
   // El buscador del header (variante "search", ADR-0009) escribe aquí; los
   // filtros de la página usan los mismos parámetros, para que la URL sea la
@@ -35,11 +38,11 @@ export default function TournamentsPage() {
     let active = true;
     db.listTournaments().then((data) => {
       if (active) setTournaments(data);
-    }).catch(() => { if (active) setTournaments([]); });
+    }).catch(() => { if (active) { setLoadFailed(true); setTournaments([]); } });
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   const filtered = useMemo(() => {
     if (!tournaments) return [] as Tournament[];
@@ -89,7 +92,7 @@ export default function TournamentsPage() {
         />
       </FilterBar>
 
-      {tournaments === null ? (
+      {loadFailed ? <PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} /> : tournaments === null ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="aspect-square w-full" />
@@ -100,7 +103,7 @@ export default function TournamentsPage() {
           <CardContent className="py-10 text-center text-muted-foreground">
             <Trophy className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
             <p className="text-lg font-medium">No hay torneos con este filtro</p>
-            <p className="mt-1">Prueba con otros filtros o <Button variant="ghost" size="sm" onClick={() => { setStatus("all"); setFormat("all"); }}>ver todos</Button></p>
+            <p className="mt-1">Prueba con otros filtros o <Button variant="ghost" size="sm" onClick={() => { const next = new URLSearchParams(params); ["q", "status", "format"].forEach((key) => next.delete(key)); setParams(next, { replace: true }); }}>ver todos</Button></p>
           </CardContent>
         </Card>
       ) : (

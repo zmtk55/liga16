@@ -106,7 +106,7 @@ function MetricCard({
   children: React.ReactNode;
 }) {
   return (
-    <Link to={to} className={cn(CARD, dark ? DARK : LIGHT, LIFT, "group flex flex-col justify-between gap-8")}>
+    <Link to={to} className={cn(CARD, dark ? DARK : LIGHT, LIFT, "group flex flex-col justify-between gap-3 !p-4 sm:gap-6 sm:!p-6")}>
       <div className="flex items-center justify-between gap-3">
         <span className={cn("text-caption uppercase", dark ? "text-white/60" : "text-muted-foreground")}>{label}</span>
         <span
@@ -619,18 +619,6 @@ export default function AdminDashboard() {
 
       {/* Fila 1: la semana en una gráfica oscura y, al lado, lo que pide atención hoy. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <section aria-label="Actividad semanal" className="lg:col-span-8">
-          <KokonutMetricCard
-            label="Partidos"
-            data={activitySeries}
-            segments={["Por jugar", "Jugados"]}
-            periods={[7, 14, 30]}
-            defaultPeriod={7}
-            format="number"
-            events={[]}
-            className="h-full max-w-none"
-          />
-        </section>
 
         <section aria-labelledby="hoy" className={cn(CARD, "flex flex-col bg-primary text-primary-foreground lg:col-span-4")}>
           <div className="flex items-center justify-between gap-3">
@@ -675,6 +663,19 @@ export default function AdminDashboard() {
             </>
           )}
         </section>
+        <section aria-label="Actividad semanal" className="lg:col-span-8">
+          <KokonutMetricCard
+            label="Partidos"
+            data={activitySeries}
+            segments={["Por jugar", "Jugados"]}
+            periods={[7, 14, 30]}
+            defaultPeriod={7}
+            format="number"
+            events={[]}
+            className="h-full max-w-none"
+          />
+        </section>
+
       </div>
 
       {/* Fila 2: cuatro cifras, una por tarjeta. */}

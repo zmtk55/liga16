@@ -477,9 +477,9 @@ export default function TeamDetailPage() {
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Comparar con otro equipo</CardTitle>
-            <div className="flex items-center gap-1">
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
               <Select value={compareName} onValueChange={setCompareName}>
-                <SelectTrigger className="h-8 w-44 max-w-[240px] text-xs truncate"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-44 max-w-full text-xs truncate"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
                 <SelectContent>
                   {allTeams.map((t) => (
                     <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>

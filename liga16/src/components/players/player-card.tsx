@@ -137,7 +137,7 @@ export function PlayerCompactRow({
         className="h-9 w-9 shrink-0"
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold leading-tight">
+        <p className="break-words text-sm font-semibold leading-tight">
           {player.display_name}
         </p>
         <p className="truncate text-xs text-muted-foreground">

@@ -175,7 +175,7 @@ export default function AdminTournaments() {
         </AdminStatStrip>
       </AdminPageHeader>
 
-      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+      <Card className="gap-3 rounded-3xl border-0 bg-transparent py-0 shadow-none">
         <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}
@@ -268,13 +268,13 @@ export default function AdminTournaments() {
                 });
                 return (
                   <RowContextMenu key={t.id} actions={actions}>
-                    <article className="group h-full overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
-                      <div className="relative flex h-44 items-center justify-center overflow-hidden bg-zinc-950 text-primary">
-                        {t.cover_url ? <img src={t.cover_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <Trophy className="h-16 w-16 opacity-60" strokeWidth={1} />}
-                        <div className="absolute left-4 top-4"><TournamentStatusBadge status={t.status} /></div>
-                        <div className="absolute right-3 top-3 rounded-full bg-card text-foreground"><RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} /></div>
+                    <article className="group grid h-full grid-cols-[80px_minmax(0,1fr)] overflow-hidden rounded-2xl sm:block sm:rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                      <div className="relative flex min-h-24 items-center justify-center sm:h-44 overflow-hidden bg-zinc-950 text-primary">
+                        {t.cover_url ? <img src={t.cover_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <Trophy className="h-8 w-8 opacity-60 sm:h-16 sm:w-16" strokeWidth={1} />}
+                        <div className="absolute left-4 top-4 hidden sm:block"><TournamentStatusBadge status={t.status} /></div>
+                        <div className="absolute right-1 top-1 rounded-full sm:right-3 sm:top-3 bg-card text-foreground"><RowActionsMenu actions={actions} label={`Acciones para ${t.name}`} /></div>
                       </div>
-                      <div className="space-y-3 p-5"><p className="text-xs text-muted-foreground">{formatLabel[t.format] ?? t.format}</p><h2 className="font-display text-2xl font-semibold leading-tight">{t.name}</h2><p className="text-sm text-muted-foreground">{t.club_name ?? formatCity(t.city)}</p><p className="text-sm">{formatDateRange(t.start_date,t.end_date)}</p><Link to={`/admin/torneos/${t.slug}`} className="inline-flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm font-medium transition-colors hover:bg-primary hover:text-primary-foreground">Abrir torneo <ExternalLink className="h-3 w-3" /></Link></div>
+                      <div className="min-w-0 space-y-2 p-3 sm:space-y-3 sm:p-5"><span className="sm:hidden"><TournamentStatusBadge status={t.status} /></span><p className="text-xs text-muted-foreground">{formatLabel[t.format] ?? t.format}</p><h2 className="font-display text-base font-semibold leading-tight sm:text-2xl">{t.name}</h2><p className="text-sm text-muted-foreground">{t.club_name ?? formatCity(t.city)}</p><p className="text-sm">{formatDateRange(t.start_date,t.end_date)}</p><Link to={`/admin/torneos/${t.slug}`} className="inline-flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm font-medium transition-colors hover:bg-primary hover:text-primary-foreground">Abrir torneo <ExternalLink className="h-3 w-3" /></Link></div>
                     </article>
                   </RowContextMenu>
                 );

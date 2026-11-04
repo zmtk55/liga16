@@ -34,7 +34,7 @@ export function PageHero({ title, subtitle, ghost = "16", className }: PageHeroP
         style={{ backgroundImage: "radial-gradient(circle at 15% 0%, hsl(var(--primary)/0.15), transparent 55%)" }}
       />
 
-      <div className="relative mx-auto max-w-7xl px-4 pb-8 pt-8 md:px-6 md:pb-10 md:pt-10">
+      <div className="relative mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-7">
         {/* El hero es una superficie oscura: aquí el naranja de marca sí tiene
             contraste (5.3:1). `--primary-strong` es para texto sobre fondo claro. */}
         <h1 className="font-headline text-3xl uppercase leading-[0.95] tracking-tight sm:text-4xl md:text-5xl">

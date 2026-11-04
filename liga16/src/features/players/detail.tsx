@@ -626,7 +626,7 @@ export default function PlayerDetailPage() {
             <a
               key={href}
               href={href}
-              className="flex-1 whitespace-nowrap rounded-full px-4 py-1.5 text-center text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex-1 whitespace-nowrap rounded-full px-2 py-2 sm:px-4 text-center text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {label}
             </a>

@@ -1,3 +1,4 @@
+import { PublicLoadError } from "@/components/public-load-error";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
@@ -53,6 +54,8 @@ function levelOf(p: PlayerProfile): number {
 
 export default function PlayersPage() {
   // La búsqueda local usa la URL para conservar enlaces y navegación.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const [players, setPlayers] = useState<PlayerProfile[] | null>(null);
   const [stats, setStats] = useState<Record<string, DirStats> | null>(null);
@@ -66,7 +69,7 @@ export default function PlayersPage() {
   };
 
   // Filtros y vista
-  const [view, setView] = useState<View>("grid");
+  const [view, setView] = useState<View>("compact");
   const [sex, setSex] = useState("all");
   const [cat, setCat] = useState("all");
   const [sortBy, setSortBy] = useState("victorias");
@@ -84,9 +87,9 @@ export default function PlayersPage() {
       buildDirectoryStats(list)
         .then((st) => { if (active) setStats(st); })
         .catch(() => undefined);
-    });
+    }).catch(() => { if (active) { setLoadFailed(true); setPlayers([]); } });
     return () => { active = false; };
-  }, []);
+  }, [loadAttempt]);
 
   /**
    * El filtro de categoría se arma con los datos: las categorías que los
@@ -214,7 +217,7 @@ export default function PlayersPage() {
 
       </FilterBar>
 
-      {players === null ? (
+      {loadFailed ? <PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} /> : players === null ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-44 w-full" />)}
         </div>
@@ -245,7 +248,7 @@ export default function PlayersPage() {
         </div>
       ) : view === "compact" ? (
         /* ── VISTA COMPACTA ── */
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => {
             const st = stats?.[p.id];
             return (

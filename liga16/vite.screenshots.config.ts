@@ -23,7 +23,9 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: "@/lib/organizer-admin", replacement: path.resolve(__dirname, "./src/__fixtures__/organizer-admin.fixture.ts") },
-      { find: "@/lib/data", replacement: path.resolve(__dirname, "./src/__fixtures__/data.fixture.ts") },
+      { find: /.*\/data\/index$/, replacement: path.resolve(__dirname, "./src/__fixtures__/data.fixture.ts") },
+      { find: "@/lib/entry-payment-service", replacement: path.resolve(__dirname, "./src/__fixtures__/entry-payment.fixture.ts") },
+      { find: /^@\/lib\/data$/, replacement: path.resolve(__dirname, "./src/__fixtures__/data.fixture.ts") },
       { find: "@/contexts/AuthContext", replacement: path.resolve(__dirname, "./src/__fixtures__/auth.fixture.tsx") },
       { find: "@/lib/supabase", replacement: path.resolve(__dirname, "./src/__fixtures__/supabase.fixture.ts") },
       { find: "@", replacement: path.resolve(__dirname, "./src") },

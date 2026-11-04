@@ -303,7 +303,7 @@ export default function AdminPlayers() {
           <AdminStat value={tournaments.length} label="Torneos" />
         </AdminStatStrip>
       </AdminPageHeader>
-      <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+      <Card className="gap-3 rounded-3xl border-0 bg-transparent py-0 shadow-none">
         <CardHeader className="gap-3 px-0">
           <FilterBar
             search={query}
@@ -373,16 +373,16 @@ export default function AdminPlayers() {
                 ];
                 return (
                   <RowContextMenu key={p.id} actions={actions}>
-                    <article className="group overflow-hidden rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
-                      <div className="relative flex h-32 items-center justify-center bg-zinc-950">
-                        {p.photo_url ? <img src={p.photo_url} alt="" className="h-20 w-20 rounded-full object-cover ring-4 ring-white/10" /> : <span className="font-display text-5xl font-bold text-primary">{p.display_name.split(" ").map(n => n[0]).slice(0,2).join("")}</span>}
-                        <div className="absolute right-3 top-3 rounded-full bg-card"><RowActionsMenu actions={actions} label={`Acciones para ${p.display_name}`} /></div>
+                    <article className="group grid grid-cols-[64px_minmax(0,1fr)] overflow-hidden rounded-2xl sm:block sm:rounded-3xl border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                      <div className="relative flex items-center justify-center sm:h-32 bg-zinc-950">
+                        {p.photo_url ? <img src={p.photo_url} alt="" className="h-12 w-12 rounded-full sm:h-20 sm:w-20 object-cover ring-4 ring-white/10" /> : <span className="font-display text-2xl font-bold text-primary sm:text-5xl">{p.display_name.split(" ").map(n => n[0]).slice(0,2).join("")}</span>}
+                        <div className="absolute right-0 top-1 rounded-full sm:right-3 sm:top-3 bg-card"><RowActionsMenu actions={actions} label={`Acciones para ${p.display_name}`} /></div>
                       </div>
-                      <div className="space-y-4 p-5">
+                      <div className="min-w-0 space-y-2 p-3 sm:space-y-4 sm:p-5">
                         <Badge variant="outline" className="rounded-full">{isPending ? "Por verificar" : status === "rechazado" ? "Rechazado" : "Verificado"}</Badge>
-                        <h2 className="font-display text-2xl font-semibold">{p.display_name}</h2>
+                        <h2 className="font-display text-base font-semibold sm:text-2xl">{p.display_name}</h2>
                         <p className="text-sm text-muted-foreground">{[p.city, sexLabel(p.sex)].filter(Boolean).join(" · ")}</p><p className="text-xs text-muted-foreground">{stats[p.id] ? `${stats[p.id].played} partidos · ${stats[p.id].won} ganados` : "Récord no disponible"}</p>
-                        <div className="flex items-end justify-between border-t pt-4"><div><p className="text-xs text-muted-foreground">Nivel declarado</p><p className="font-display text-3xl font-bold tabular-nums">{p.declared_level.toFixed(1)}</p></div></div>
+                        <div className="flex items-center justify-between border-t pt-2 sm:pt-4"><div><p className="text-xs text-muted-foreground">Nivel declarado</p><p className="font-display text-3xl font-bold tabular-nums">{p.declared_level.toFixed(1)}</p></div></div>
                       </div>
                     </article>
                   </RowContextMenu>

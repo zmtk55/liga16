@@ -1,3 +1,4 @@
+import { PublicLoadError } from "@/components/public-load-error";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -237,6 +238,8 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
 }
 
 export default function RankingsPage() {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [teams, setTeams] = useState<Team[] | null>(null);
   // Los filtros viven en la URL, así que se comparten y sobreviven al ir y
   // venir. Antes el de división lo escribía el header con una lista fija; ahora
@@ -275,7 +278,7 @@ export default function RankingsPage() {
   useMatchUpdated(() => {
     db.listTeams()
       .then((data) => setTeams(data))
-      .catch(() => setTeams([]));
+      .catch(() => setLoadFailed(true));
   });
 
   useEffect(() => {
@@ -287,12 +290,12 @@ export default function RankingsPage() {
         if (active) setTeams(data);
       })
       .catch(() => {
-        if (active) setTeams([]);
+        if (active) { setLoadFailed(true); setTeams([]); }
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   const torneos = useMemo(() => tournamentOptions(teams ?? []), [teams]);
   const torneoSel = torneos.find((t) => t.id === torneo) ?? null;
@@ -348,9 +351,10 @@ export default function RankingsPage() {
   }, [teams]);
   return (
     <div className="animate-fade-in space-y-5">
+      {loadFailed && <PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} />}
       <PageHero
         title="Ranking"
-        subtitle="Parejas ordenadas dentro de su división y género: primero partidos ganados, luego dominio (el enfrentamiento directo) y luego % de puntos; después diferencia de sets y partidos jugados. Es el ranking general del circuito; cada torneo puede usar otro orden en su clasificación."
+        subtitle="Clasificación del circuito por categoría y torneo."
         ghost="16"
       />
 

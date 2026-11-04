@@ -195,7 +195,7 @@ export default function AdminInbox() {
                   {items.length}
                 </Badge>
               </div>
-              <Card className="rounded-3xl border-0 bg-transparent shadow-none">
+              <Card className="gap-3 rounded-3xl border-0 bg-transparent py-0 shadow-none">
                 <CardContent className="p-2">
                   <div className="grid gap-4 lg:grid-cols-2">
                     {items.map((a) => (
