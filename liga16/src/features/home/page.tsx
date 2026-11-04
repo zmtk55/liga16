@@ -81,34 +81,13 @@ type HomeData = {
 };
 
 /** Curva de salida del sistema: la misma que fade-in-up en index.css. */
-const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 /**
  * Entrada al hacer scroll: sube 16px y aparece, una sola vez. Con
  * prefers-reduced-motion el contenido se muestra quieto, sin animación.
  */
-function Reveal({
-  children,
-  className,
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  delay?: number;
-}) {
-  const reduce = useReducedMotion();
-  if (reduce) return <div className={className}>{children}</div>;
-  return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.6, ease: EASE_OUT, delay }}
-    >
-      {children}
-    </motion.div>
-  );
+function Reveal({ children, className }: { children: React.ReactNode; className?: string; delay?: number }) {
+  return <div className={className}>{children}</div>;
 }
 
 /** Titular del hero: entra palabra por palabra, cada una subiendo dentro de
@@ -329,7 +308,7 @@ export default function Home() {
     <div className="-mx-4 -mt-8 md:-mx-6">
       {/* PANTALLA 1 — la foto ES la pantalla (ref Tennis Zone): chip del
           torneo sobre la foto, píldoras de días y pizarra glass del día. */}
-      <section className="relative min-h-[72svh] overflow-clip bg-surface-inverse text-surface-inverse-foreground md:min-h-[80vh]">
+      <section className="relative min-h-[60svh] overflow-clip bg-surface-inverse text-surface-inverse-foreground md:min-h-[80vh]">
         <motion.img
           src={HERO_IMAGE}
           alt=""
@@ -340,7 +319,7 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30" />
 
-        <div className="relative flex min-h-[72svh] flex-col justify-end gap-6 px-4 pb-10 pt-16 md:min-h-[80vh] md:px-8 md:pb-12 md:pt-32">
+        <div className="relative flex min-h-[60svh] flex-col justify-end gap-6 px-4 pb-10 pt-12 md:min-h-[80vh] md:px-8 md:pb-12 md:pt-32">
           {/* Zona superior sobre la foto: nombre del torneo, estado y CTA —
               la pantalla ya no queda vacía arriba (ref Tennis Zone). */}
           {featured && (
