@@ -211,7 +211,7 @@ export default function TeamsPage() {
           ))}
         </div>
       ) : view === "compact" ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((team) => (
             <Link
               key={team.slug}
@@ -230,6 +230,7 @@ export default function TeamsPage() {
                     />
                   }
                   title={team.name}
+                  className="[&>div>div:first-child]:whitespace-normal [&>div>div:first-child]:overflow-visible"
                   meta={
                     <span className="text-xs text-muted-foreground">
                       {team.won}–{team.played - team.won} · {winRate(team.played, team.won)}%
