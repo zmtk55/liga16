@@ -340,7 +340,7 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30" />
 
-        <div className="relative flex min-h-[88svh] flex-col justify-end gap-8 px-4 pb-40 pt-24 md:min-h-[80vh] md:px-8 md:pb-28 md:pt-32">
+        <div className="relative flex min-h-[88svh] flex-col justify-end gap-6 px-4 pb-10 pt-24 md:min-h-[80vh] md:px-8 md:pb-12 md:pt-32">
           {/* Zona superior sobre la foto: nombre del torneo, estado y CTA —
               la pantalla ya no queda vacía arriba (ref Tennis Zone). */}
           {featured && (
@@ -444,75 +444,55 @@ export default function Home() {
 
       {/* SHEET — la hoja clara se monta sobre la foto (ref Tennis Zone):
           carrusel de tarjetas con foto, parejas y noticias. */}
-      <div className="relative z-10 -mt-12 space-y-10 rounded-t-[2rem] bg-background px-4 pt-8 md:space-y-12 md:px-6">
-        {/* Carrusel de tarjetas con foto: torneo, inscripción, próximo partido. */}
+      <div className="relative z-10 -mt-4 space-y-6 rounded-t-[2rem] bg-background px-4 pt-4 md:space-y-8 md:px-6 md:pt-6">
+        {/* Accesos compactos: cada tarjeta usa el ancho disponible. */}
         <section aria-label="Lo que viene">
-          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
+          <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
             {featured && (
-              <Link
-                to={ctaHref}
-                className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-3xl border bg-background shadow-sm md:w-[280px]"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                  <img src={featured.cover_url ?? HERO_IMAGE} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
-                  <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+              <Link to={ctaHref} className="group flex min-w-0 items-center gap-3 rounded-2xl border bg-background p-3 transition-colors hover:bg-muted/40">
+                <img src={featured.cover_url ?? HERO_IMAGE} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground">
                     {tournamentPhase(featured, now) === "running" ? "Torneo en curso" : "Próximo torneo"}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <p className="font-semibold leading-snug">{featured.name}</p>
+                  </p>
+                  <p className="mt-0.5 font-semibold leading-snug">{featured.name}</p>
                   {heroStatus && <p className="mt-0.5 text-xs text-muted-foreground">{heroStatus}</p>}
-                  <p className="mt-2.5 flex items-center gap-1 text-sm font-semibold text-primary">
-                    {ctaLabel}
-                    <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <p className="mt-1.5 flex items-center gap-1 text-sm font-semibold text-primary">
+                    {ctaLabel}<ArrowUpRight className="h-4 w-4" />
                   </p>
                 </div>
               </Link>
             )}
             {showReg && regOpen && (
-              <Link
-                to={`/torneos/${regOpen.slug}`}
-                className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-3xl border bg-background shadow-sm md:w-[280px]"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                  <img src={regOpen.cover_url ?? HERO_IMAGE} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
-                  <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">
-                    Inscripción abierta
-                  </span>
-                </div>
-                <div className="p-4">
-                  <p className="font-semibold leading-snug">
+              <Link to={`/torneos/${regOpen.slug}`} className="group flex min-w-0 items-center gap-3 rounded-2xl border bg-background p-3 transition-colors hover:bg-muted/40">
+                <img src={regOpen.cover_url ?? HERO_IMAGE} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-primary">Inscripción abierta</p>
+                  <p className="mt-0.5 font-semibold leading-snug">
                     {regDays === 1 ? "1 día para inscribirte" : `${regDays} días para inscribirte`}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{regOpen.name}</p>
-                  <p className="mt-2.5 flex items-center gap-1 text-sm font-semibold text-primary">
-                    Inscribirme
-                    <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <p className="mt-1.5 flex items-center gap-1 text-sm font-semibold text-primary">
+                    Inscribirme<ArrowUpRight className="h-4 w-4" />
                   </p>
                 </div>
               </Link>
             )}
             {featuredMatch && (
-              <Link
-                to="/calendario"
-                className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-3xl border bg-background shadow-sm md:w-[280px]"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                  <img src={HERO_IMAGE} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
-                  <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+              <Link to="/calendario" className="group flex min-w-0 items-center gap-3 rounded-2xl border bg-background p-3 transition-colors hover:bg-muted/40">
+                <img src={HERO_IMAGE} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground">
                     {featuredMatch.status === "live" ? "En vivo" : "Próximo partido"}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <p className="truncate font-semibold leading-snug">
+                  </p>
+                  <p className="mt-0.5 font-semibold leading-snug">
                     {featuredMatch.side_a.pair_name} vs {featuredMatch.side_b.pair_name}
                   </p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {[featuredMatch.scheduled_at ? formatMatchDateTime(featuredMatch.scheduled_at) : "Por definir", featuredMatch.tournament_name].filter(Boolean).join(" · ")}
                   </p>
-                  <p className="mt-2.5 flex items-center gap-1 text-sm font-semibold text-primary">
-                    Ver agenda
-                    <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <p className="mt-1.5 flex items-center gap-1 text-sm font-semibold text-primary">
+                    Ver agenda<ArrowUpRight className="h-4 w-4" />
                   </p>
                 </div>
               </Link>
