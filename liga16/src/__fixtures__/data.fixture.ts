@@ -6,7 +6,8 @@ import { buildPlayerRecords } from "@/lib/records";
 const TOURNAMENTS = [
   { id: "t-1", name: "Copa Primavera 2026", slug: "copa-primavera-2026", organizer_id: "org-1", status: "finished", start_date: "2026-03-14", end_date: "2026-03-16", city: "Hermosillo", state: "Sonora", club_id: "c-1", cover_url: null, registration_deadline: "2026-03-10", modality: "pairs", format: "groups_knockout", price_cents: 60000, currency: "MXN", rules_summary: null, description: null, scoring: null, semifinal_slots: 4 },
   { id: "t-2", name: "Liga Nocturna Martes", slug: "liga-nocturna-martes", organizer_id: "org-1", status: "finished", start_date: "2026-04-07", end_date: "2026-04-09", city: "Hermosillo", state: "Sonora", club_id: "c-1", cover_url: null, registration_deadline: "2026-04-01", modality: "pairs", format: "groups_knockout", price_cents: 40000, currency: "MXN", rules_summary: null, description: null, scoring: null, semifinal_slots: 4 },
-  { id: "t-3", name: "Copa Verano 2026", slug: "copa-verano-2026", organizer_id: null, status: "in_progress", start_date: "2026-06-20", end_date: "2026-06-22", city: "Hermosillo", state: "Sonora", club_id: "c-1", cover_url: null, registration_deadline: "2026-06-15", modality: "pairs", format: "groups_knockout", price_cents: 65000, currency: "MXN", rules_summary: null, description: null, scoring: null, semifinal_slots: 4 },
+  { id: "t-3", name: "LIGA16 4TA EDICIÓN", slug: "liga16-4ta-edicion", organizer_id: null, status: "in_progress", start_date: "2026-10-12", end_date: "2026-11-30", city: "Caborca", state: "Sonora", club_id: "c-1", club_name: "caborca", cover_url: null, registration_deadline: "2026-10-05", modality: "pairs", format: "groups_knockout", price_cents: 65000, currency: "MXN", rules_summary: null, description: null, scoring: null, semifinal_slots: 4 },
+  { id: "t-4", name: "Copa Diciembre 2026", slug: "copa-diciembre-2026", organizer_id: null, status: "registration_open", start_date: "2026-12-05", end_date: "2026-12-07", city: "Caborca", state: "Sonora", club_id: "c-1", cover_url: null, registration_deadline: "2026-11-28", modality: "pairs", format: "groups_knockout", price_cents: 60000, currency: "MXN", rules_summary: null, description: null, scoring: null, semifinal_slots: 4 },
 ];
 
 const PLAYERS = [
@@ -74,12 +75,20 @@ const MATCHES = [
   M("t-2", "Semifinales · r1-m1", "pb1", "pb3", "a", undefined as never, "2026-04-09T12:00:00Z"),
   M("t-2", "Semifinales · r1-m2", "pb2", "pb3", "a", undefined as never, "2026-04-09T12:30:00Z"),
   M("t-2", "Final · r2-m1", "pb1", "pb2", "a", [{ a: 6, b: 1 }, { a: 6, b: 2 }], "2026-04-09T18:00:00Z"),
-  // t-3 (en curso): solo grupos, final sin capturar
-  M("t-3", "Grupo A · J1", "pc1", "pc2", "a", undefined as never, "2026-06-20T19:00:00Z"),
+  // t-3 (en curso): grupos; uno en vivo ahora y uno programado a futuro
+  M("t-3", "Grupo A · J1", "pc1", "pc2", "a", undefined as never, "2026-10-20T01:00:00Z"),
+  {
+    id: "m-live-1", tournament_id: "t-3", tournament_name: "LIGA16 4TA EDICIÓN",
+    category_name: "Suma 11", round: "Grupo A · J4", court_name: "Cancha 1",
+    scheduled_at: "2026-11-04T01:00:00Z", status: "live", winner: null,
+    sets: [{ a: 4, b: 2 }],
+    side_a: { pair_id: "pc1", pair_name: nameOf("pc1") },
+    side_b: { pair_id: "pc2", pair_name: nameOf("pc2") },
+  },
 ];
 
 // Teams (vista de parejas): una por nombre de pareja, con entries por torneo.
-function teamOf(name: string, p1: string, p2: string, division: string, sex: string, entries: Array<{ pair_id: string; tournament_id: string }>) {
+function teamOf(name: string, p1: string, p2: string, division: string, sex: string, entries: Array<{ pair_id: string; tournament_id: string }>, stats: { position: number; points: number; played: number; won: number } = { position: 0, points: 0, played: 0, won: 0 }) {
   const pl1 = PLAYERS.find((p) => p.id === p1)!;
   const pl2 = PLAYERS.find((p) => p.id === p2)!;
   return {
@@ -87,7 +96,7 @@ function teamOf(name: string, p1: string, p2: string, division: string, sex: str
     name, crest_url: null, city: "Hermosillo", club_id: "c-1", division, category_name: division, sex,
     player1: { player_id: p1, name: pl1.display_name, level: pl1.official_level ?? pl1.declared_level },
     player2: { player_id: p2, name: pl2.display_name, level: pl2.official_level ?? pl2.declared_level },
-    position: 0, points: 0, played: 0, won: 0, lost: 0, sets_for: 0, sets_against: 0, titles: 0,
+    position: stats.position, points: stats.points, played: stats.played, won: stats.won, lost: stats.played - stats.won, sets_for: 0, sets_against: 0, titles: 0,
     entries: entries.map((e) => ({
       pair_id: e.pair_id, tournament_id: e.tournament_id,
       tournament_name: TOURNAMENTS.find((t) => t.id === e.tournament_id)?.name ?? "",
@@ -97,10 +106,10 @@ function teamOf(name: string, p1: string, p2: string, division: string, sex: str
 }
 
 const TEAMS = [
-  teamOf("Ana / Beto", "j1", "j2", "3ra", "X", [{ pair_id: "pa1", tournament_id: "t-1" }, { pair_id: "pb3", tournament_id: "t-2" }, { pair_id: "pc1", tournament_id: "t-3" }]),
-  teamOf("Cora / Dani", "j3", "j4", "3ra", "X", [{ pair_id: "pa2", tournament_id: "t-1" }, { pair_id: "pb2", tournament_id: "t-2" }, { pair_id: "pc2", tournament_id: "t-3" }]),
-  teamOf("Eli / Fer", "j5", "j6", "2da", "X", [{ pair_id: "pa3", tournament_id: "t-1" }, { pair_id: "pb1", tournament_id: "t-2" }]),
-  teamOf("Gaby / Hugo", "j7", "j8", "4ta", "X", [{ pair_id: "pa4", tournament_id: "t-1" }]),
+  teamOf("Ana / Beto", "j1", "j2", "3ra", "X", [{ pair_id: "pa1", tournament_id: "t-1" }, { pair_id: "pb3", tournament_id: "t-2" }, { pair_id: "pc1", tournament_id: "t-3" }], { position: 1, points: 80.0, played: 5, won: 4 }),
+  teamOf("Cora / Dani", "j3", "j4", "3ra", "X", [{ pair_id: "pa2", tournament_id: "t-1" }, { pair_id: "pb2", tournament_id: "t-2" }, { pair_id: "pc2", tournament_id: "t-3" }], { position: 2, points: 63.9, played: 5, won: 3 }),
+  teamOf("Eli / Fer", "j5", "j6", "2da", "X", [{ pair_id: "pa3", tournament_id: "t-1" }, { pair_id: "pb1", tournament_id: "t-2" }], { position: 1, points: 73.8, played: 4, won: 3 }),
+  teamOf("Gaby / Hugo", "j7", "j8", "4ta", "X", [{ pair_id: "pa4", tournament_id: "t-1" }], { position: 1, points: 61.3, played: 4, won: 2 }),
 ];
 
 function recordOf(playerId: string) {
@@ -117,6 +126,14 @@ const real: Record<string, unknown> = {
   async listPlayers() { return PLAYERS; },
   async listAllPairs() { return PAIRS; },
   async listRecentMatches() { return MATCHES; },
+  async listNews() {
+    return [
+      { id: "n-1", tag: "Resultados", title: "Ana y Beto se llevan la tercera fecha en Caborca", excerpt: "La pareja líder de Suma 11 ganó sus dos partidos del fin de semana y estira la ventaja en la tabla.", image_url: null, published_at: "2026-10-28T15:00:00Z" },
+      { id: "n-2", tag: "Convocatoria", title: "Copa Diciembre: inscripciones abiertas", excerpt: "El último torneo del año se juega del 5 al 7 de diciembre. Cierran inscripciones el 28 de noviembre.", image_url: null, published_at: "2026-10-25T15:00:00Z" },
+      { id: "n-3", tag: "Circuito", title: "Nueva sede confirmada para enero", excerpt: "El circuito suma una segunda ciudad para la temporada 2027. Detalles en la próxima asamblea.", image_url: null, published_at: "2026-10-20T15:00:00Z" },
+    ];
+  },
+  async listSponsors() { return []; },
   async listPlayerDivisions() {
     return Object.fromEntries(PLAYERS.map((p) => [p.id, TEAMS.find((t) => t.player1.player_id === p.id || t.player2.player_id === p.id)?.division ?? "3ra"]));
   },
