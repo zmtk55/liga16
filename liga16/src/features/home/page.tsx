@@ -329,7 +329,7 @@ export default function Home() {
     <div className="-mx-4 -mt-8 md:-mx-6">
       {/* PANTALLA 1 — la foto ES la pantalla (ref Tennis Zone): chip del
           torneo sobre la foto, píldoras de días y pizarra glass del día. */}
-      <section className="relative min-h-[88svh] overflow-hidden bg-surface-inverse text-surface-inverse-foreground md:min-h-[80vh]">
+      <section className="relative min-h-[88svh] overflow-clip bg-surface-inverse text-surface-inverse-foreground md:min-h-[80vh]">
         <motion.img
           src={HERO_IMAGE}
           alt=""
@@ -668,4 +668,4 @@ export default function Home() {
       </div>
     </div>
   );
-                          }
+  }
