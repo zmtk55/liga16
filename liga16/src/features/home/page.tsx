@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { db } from "@/lib/data";
 import type {
   Match,
@@ -13,10 +14,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   formatDate,
-  formatDateRange,
   formatMatchDateTime,
-  formatCity,
+  formatMatchTime,
 } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import {
   DIVISION_ORDER,
   teamCategoryKey,
@@ -35,6 +36,39 @@ type HomeData = {
   sponsors: Sponsor[];
 };
 
+/** Curva de salida del sistema: la misma que fade-in-up en index.css. */
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
+
+/**
+ * Entrada al hacer scroll: sube 16px y aparece, una sola vez. Con
+ * prefers-reduced-motion el contenido se muestra quieto, sin animación.
+ */
+function Reveal({
+  children,
+  className,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  const reduce = useReducedMotion();
+  if (reduce) return <div className={className}>{children}</div>;
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.6, ease: EASE_OUT, delay }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Titular del hero: entra palabra por palabra, cada una subiendo dentro de
+    su propia máscara (overflow-hidden). Con reduced-motion, texto plano. */
 function initialsOf(name: string) {
   return name
     .split(/\s*\/\s*|\s+/)
@@ -45,53 +79,21 @@ function initialsOf(name: string) {
     .toUpperCase();
 }
 
-/** Encabezado de sección: una línea, peso semibold, enlace discreto.
-    Nada de display uppercase — el único momento de marca es el hero. */
-function SectionHeading({
-  title,
-  to,
-  action,
-}: {
-  title: string;
-  to: string;
-  action: string;
-}) {
-  return (
-    <div className="mb-4 flex items-center justify-between gap-4">
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      <Link
-        to={to}
-        className="inline-flex min-h-8 shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
-      >
-        {action} <ChevronRight className="h-3.5 w-3.5" />
-      </Link>
-    </div>
-  );
-}
-
 /** Foto del equipo (crest); si no tiene, iniciales sobrias sin decoración. */
-function TeamCrest({
-  team,
-  sizeClass,
-  textClass,
-}: {
-  team: Team;
-  sizeClass: string;
-  textClass: string;
-}) {
+function TeamCrest({ team }: { team: Team }) {
   if (team.crest_url) {
     return (
       <img
         src={team.crest_url}
         alt=""
-        className={`${sizeClass} shrink-0 rounded-lg border bg-background object-cover`}
+        className="h-9 w-9 shrink-0 rounded-lg border bg-background object-cover"
       />
     );
   }
   return (
     <span
       aria-hidden
-      className={`${sizeClass} ${textClass} flex shrink-0 items-center justify-center rounded-lg border bg-primary/10 font-bold uppercase text-primary-strong`}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-primary/10 text-2xs font-bold uppercase text-primary-strong"
     >
       {initialsOf(team.name)}
     </span>
@@ -103,6 +105,7 @@ export default function Home() {
   // Estado del formulario de alarmas: la confirmación es local, no hay
   // backend de suscripciones todavía.
   const [subscribed, setSubscribed] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     let active = true;
@@ -170,6 +173,9 @@ export default function Home() {
       );
   }, [stats]);
 
+  const [day, setDay] = useState("");
+
+  const [tourIdx, setTourIdx] = useState(0);
   const [cat, setCat] = useState("");
   const shownGroups = useMemo(
     () => (cat ? teamGroups.filter((g) => g.key === cat) : teamGroups),
@@ -179,11 +185,9 @@ export default function Home() {
   if (!stats) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-[340px] w-full rounded-b-[2rem] md:rounded-3xl" />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Skeleton className="h-[220px] rounded-3xl md:col-span-2" />
-          <Skeleton className="h-[220px] rounded-3xl" />
-        </div>
+        <Skeleton className="h-[380px] w-full rounded-b-[2rem] md:rounded-3xl" />
+        <Skeleton className="h-20 rounded-2xl" />
+        <Skeleton className="h-28 w-full" />
       </div>
     );
   }
@@ -210,9 +214,16 @@ export default function Home() {
   const openTournaments = notFinishedYet
     .filter((t) => t.status === "registration_open" || t.status === "in_progress")
     .sort((a, b) => a.start_date.localeCompare(b.start_date));
-  const featured = openTournaments[0] ?? notFinishedYet[0] ?? null;
+  // Torneos activos del hero: los que están EN CURSO; si no hay, el próximo
+  // abierto o en calendario, como antes.
+  const inProgress = openTournaments.filter((tr) => tr.status === "in_progress");
+  const heroTournaments = inProgress.length > 0 ? inProgress : (openTournaments[0] ?? notFinishedYet[0]) ? [openTournaments[0] ?? notFinishedYet[0]!] : [];
+  const featured = heroTournaments[Math.min(tourIdx, heroTournaments.length - 1)] ?? null;
+  // Días con partidos DEL torneo activo; el día seleccionado filtra la pizarra.
+  const matchDays = featured
+    ? [...new Set(stats.matches.filter((m) => m.tournament_id === featured.id && m.scheduled_at).map((m) => (m.scheduled_at ?? "").slice(0, 10)))].sort()
+    : [];
 
-  const liveCount = stats.matches.filter((m) => m.status === "live").length;
   // Un partido "scheduled" con fecha pasada está olvidado: no cuenta.
   const isUpcoming = (m: (typeof stats.matches)[number]) =>
     m.status === "live" || (m.status === "scheduled" && (m.scheduled_at ?? "").slice(0, 10) >= today);
@@ -231,10 +242,7 @@ export default function Home() {
         t.status === "registration_open" &&
         (t.registration_deadline ?? t.end_date) >= today,
     ) ?? null;
-  const showRegCard = regOpen !== null && regOpen.id !== featured?.id;
-
-  // Sede REAL: ciudad del torneo destacado (única fuente, sin inventar)
-  const sedeLabel = formatCity(featured?.city || stats.tournaments[0]?.city) || "Liga16";
+  const showReg = regOpen !== null && regOpen.id !== featured?.id;
 
   // El hero dice el estado del torneo en UNA línea y ofrece UNA acción.
   // Antes el countdown caía en "0 días" cuando el torneo ya había empezado:
@@ -258,288 +266,383 @@ export default function Home() {
     }
   }
 
+  const regDays = regOpen ? daysUntil(regOpen.registration_deadline ?? regOpen.end_date) : 0;
+
+  const selectedDay =
+    day && matchDays.includes(day)
+      ? day
+      : matchDays.includes(today)
+        ? today
+        : (matchDays.find((d) => d >= today) ?? matchDays[matchDays.length - 1] ?? "");
+  const dayMatches = stats.matches
+    .filter((m) => !featured || m.tournament_id === featured.id)
+    .filter((m) => (m.scheduled_at ?? "").slice(0, 10) === selectedDay)
+    .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+
   return (
-    <div className="space-y-10 md:space-y-14">
-      {/* HERO — foto de cancha + estado del torneo + una sola acción.
-          Compacto a propósito: la pantalla es una experiencia con scroll,
-          no un póster. El nombre del torneo ya no compite con la marca:
-          la marca vive en la navbar. */}
-      <section className="relative -mx-4 -mt-8 overflow-hidden rounded-b-[2rem] bg-surface-inverse text-white md:mx-0 md:mt-0 md:rounded-3xl">
-        <img
+    <div className="-mx-4 -mt-8 md:-mx-6">
+      {/* PANTALLA 1 — la foto ES la pantalla (ref Tennis Zone): chip del
+          torneo sobre la foto, píldoras de días y pizarra glass del día. */}
+      <section className="relative min-h-[88svh] overflow-hidden bg-surface-inverse text-surface-inverse-foreground md:min-h-[80vh]">
+        <motion.img
           src={HERO_IMAGE}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-center opacity-60"
+          initial={{ scale: 1.04 }}
+          animate={reduceMotion ? { scale: 1.04 } : { scale: 1.14 }}
+          transition={{ duration: 28, repeat: Infinity, repeatType: "mirror", ease: "linear" }}
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-70"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30" />
 
-        <div className="relative flex min-h-[340px] flex-col justify-end px-5 pb-6 pt-16 md:min-h-[380px] md:px-8 md:pb-8">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
-            {liveCount > 0 ? (
-              <>
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                {liveCount === 1 ? "1 partido en vivo" : `${liveCount} partidos en vivo`}
-              </>
-            ) : (
-              `Circuito de pádel · ${sedeLabel}`
-            )}
-          </p>
-          <h1 className="mt-3 max-w-2xl font-poster text-4xl font-extrabold uppercase leading-[0.92] tracking-[-0.01em] text-white sm:text-5xl md:text-6xl">
-            {featured?.name ?? "Liga16"}
-          </h1>
-          {heroStatus && <p className="mt-2 text-sm text-white/70">{heroStatus}</p>}
-          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-            <Button asChild size="lg" className="rounded-xl bg-white font-semibold text-neutral-900 hover:bg-white/90">
-              <Link to={ctaHref}>
-                {ctaLabel} <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-            {featured && (
-              <Link
-                to="/torneos"
-                className="text-sm font-medium text-white/60 transition-colors hover:text-white"
-              >
-                Todos los torneos
-              </Link>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* BENTO — una idea por tarjeta: el partido que importa, quién va
-          arriba, y la suscripción. Sin tarjeta de "próximo torneo": eso ya
-          lo dice el hero. */}
-      <section aria-label="Estado del circuito" className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {featuredMatch && (
-          <div className="flex flex-col rounded-3xl border bg-card p-5 md:col-span-2 md:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {featuredMatch.tournament_name} · {featuredMatch.round}
-              </p>
-              {featuredMatch.status === "live" ? (
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary-strong">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                  En vivo
-                </span>
-              ) : (
-                <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                  {featuredMatch.scheduled_at
-                    ? formatMatchDateTime(featuredMatch.scheduled_at)
-                    : "Por definir"}
-                </span>
+        <div className="relative flex min-h-[88svh] flex-col justify-end gap-8 px-4 pb-40 pt-24 md:min-h-[80vh] md:px-8 md:pb-28 md:pt-32">
+          {/* Zona superior sobre la foto: nombre del torneo, estado y CTA —
+              la pantalla ya no queda vacía arriba (ref Tennis Zone). */}
+          {featured && (
+            <div>
+              {heroTournaments.length > 1 && (
+                <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+                  {heroTournaments.map((tr, i) => (
+                    <button
+                      key={tr.id}
+                      type="button"
+                      onClick={() => setTourIdx(i)}
+                      aria-pressed={i === Math.min(tourIdx, heroTournaments.length - 1)}
+                      className={cn(
+                        "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold backdrop-blur-md transition-colors",
+                        i === Math.min(tourIdx, heroTournaments.length - 1)
+                          ? "border-white bg-white text-neutral-900"
+                          : "border-white/20 bg-white/10 text-white/80 hover:bg-white/20",
+                      )}
+                    >
+                      {tr.name}
+                    </button>
+                  ))}
+                </div>
               )}
-            </div>
-            <div className="flex flex-1 flex-col justify-center py-2">
-            <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
-              <p className="text-base font-semibold leading-tight sm:text-lg">
-                {featuredMatch.side_a.pair_name}
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
+                {featured.status === "in_progress" ? "Torneo en curso" : "Próximo torneo"}
               </p>
-              <span className="font-headline text-lg text-muted-foreground">VS</span>
-              <p className="text-right text-base font-semibold leading-tight sm:text-lg">
-                {featuredMatch.side_b.pair_name}
-              </p>
-            </div>
-            {featuredMatch.sets.length > 0 ? (
-              <ul className="mt-4 flex flex-wrap gap-2">
-                {featuredMatch.sets.map((set, index) => (
-                  <li
-                    key={index}
-                    className="rounded-lg bg-muted px-3 py-1.5 font-headline text-xl tabular-nums leading-none"
-                  >
-                    {set.a}–{set.b}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-sm text-muted-foreground">Por comenzar</p>
-            )}
-            </div>
-            <div className="pt-5">
-              <Link
-                to="/calendario"
-                className="inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Ver agenda <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {regOpen && regOpen.id !== featured?.id && (
-          <div className="flex flex-col rounded-3xl border bg-card p-5 md:p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Inscripciones abiertas
-            </p>
-            <h3 className="mt-2 text-base font-semibold leading-tight">{regOpen.name}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {formatDateRange(regOpen.start_date, regOpen.end_date)}
-            </p>
-            <p className="mt-4">
-              <span className="font-headline text-4xl tabular-nums leading-none">
-                {daysUntil(regOpen.registration_deadline ?? regOpen.end_date)}
-              </span>{" "}
-              <span className="text-sm text-muted-foreground">
-                {daysUntil(regOpen.registration_deadline ?? regOpen.end_date) === 1
-                  ? "día para inscribirte"
-                  : "días para inscribirte"}
-              </span>
-            </p>
-            <div className="mt-auto pt-4">
-              <Button asChild className="w-full rounded-xl font-semibold">
-                <Link to={`/torneos/${regOpen.slug}`}>Inscribirme</Link>
+              <h1 className="mt-2 max-w-md font-poster text-5xl font-bold uppercase leading-[0.9] tracking-tight text-white md:text-7xl">
+                {featured.name}
+              </h1>
+              {heroStatus && (
+                <p className="mt-2 text-sm font-medium text-white/70">{heroStatus}</p>
+              )}
+              <Button asChild size="lg" className="group mt-4 h-11 rounded-full bg-white px-5 text-sm font-semibold text-neutral-900 hover:bg-white/90">
+                <Link to={ctaHref}>
+                  {ctaLabel}
+                  <span className="ml-2 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900 text-white transition-transform duration-300 group-hover:translate-x-0.5">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </span>
+                </Link>
               </Button>
             </div>
-          </div>
-        )}
-
-        {/* Suscripción — una línea, sin párrafo de relleno. */}
-        <div className={`rounded-3xl border bg-card p-5 md:p-6 ${showRegCard ? "md:col-span-3 md:flex md:items-center md:justify-between md:gap-6" : ""}`}>
-          <h3 className="shrink-0 text-sm font-semibold">Regalos y noticias del circuito</h3>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSubscribed(true);
-            }}
-            className={`mt-4 flex gap-2 md:max-w-md ${showRegCard ? "md:mt-0 md:w-full" : ""}`}
-          >
-            <input
-              type="email"
-              required
-              placeholder="tu@email.com"
-              className="min-w-0 flex-1 rounded-xl border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
-            />
-            <Button type="submit" className="rounded-xl font-semibold">
-              Enviar
-            </Button>
-          </form>
-          {subscribed && (
-            <p className="mt-3 text-xs font-semibold text-primary">
-              ✓ Listo, te avisamos.
-            </p>
           )}
-        </div>
-      </section>
 
-      {/* PAREJAS — top 2 por categoría real del circuito */}
-      <section>
-        <SectionHeading title="Parejas" to="/equipos" action="Ver todas" />
-        <GroupFilterBar
-          className="mb-4"
-          divisions={teamGroups.map((g) => ({ value: g.key, label: g.label }))}
-          value={cat}
-          onChange={setCat}
-        />
-        <div className="space-y-3">
-          {shownGroups.map((group) => (
-            <div
-              key={group.key}
-              className="overflow-hidden rounded-2xl border bg-card"
-            >
-              <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
-                <p className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  {group.label}
-                </p>
-                <Link
-                  to="/ranking"
-                  // El relleno vertical amplía el área de toque (mínimo 24px
-                  // de WCAG 2.2); el margen negativo compensa la fila.
-                  className="-my-1.5 inline-flex min-h-8 shrink-0 items-center gap-0.5 px-1 text-2xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Tabla <ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="divide-y">
-                {group.teams.map((team) => (
-                  <Link
-                    key={team.id}
-                    to={`/equipos/${team.slug}`}
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60"
+          <div>
+
+          {/* Píldoras de días: filtran los partidos de la pizarra. */}
+          {matchDays.length > 0 && (
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 md:mx-0 md:px-0">
+              {matchDays.map((d) => {
+                const date = new Date(`${d}T00:00:00`);
+                const wd = new Intl.DateTimeFormat("es-MX", { weekday: "short" }).format(date).replace(".", "");
+                const active = d === selectedDay;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDay(d)}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex w-14 shrink-0 flex-col items-center rounded-full border px-2 py-2 backdrop-blur-md transition-colors",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-white/20 bg-white/10 text-white/85 hover:bg-white/20",
+                    )}
                   >
-                    <TeamCrest team={team} sizeClass="h-9 w-9" textClass="text-2xs" />
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                      {team.name}
-                    </span>
-                    <span className="shrink-0 text-right">
-                      <span className="block font-headline text-lg leading-none">
-                        {team.position > 0 ? `#${team.position}` : "—"}
-                      </span>
-                      <span className="mt-0.5 block text-2xs text-muted-foreground">
-                        {team.points}% · {team.played} PJ
-                      </span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
+                    <span className="text-xs capitalize leading-tight opacity-80">{wd}</span>
+                    <span className="text-base font-bold tabular-nums leading-tight">{date.getDate()}</span>
+                  </button>
+                );
+              })}
             </div>
-          ))}
-          {shownGroups.length === 0 && (
-            <div className="rounded-2xl border bg-card p-8">
-              <p className="text-sm text-muted-foreground">
-                {cat
-                  ? "No hay parejas inscritas en esta categoría."
-                  : "Las parejas inscritas aparecerán aquí, organizadas por categoría."}
+          )}
+
+          {/* Pizarra glass: los partidos del día seleccionado. */}
+          <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur-md md:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-white/90">
+                {selectedDay
+                  ? new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${selectedDay}T00:00:00`))
+                  : "Partidos"}
               </p>
-              {cat && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => setCat("")}
-                >
-                  Ver todas
-                </Button>
+              <Link to="/calendario" className="group inline-flex shrink-0 items-center gap-1 text-xs font-medium text-white/60 transition-colors hover:text-white">
+                Ver agenda
+                <ChevronRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+            <div className="mt-1 divide-y divide-white/10">
+              {dayMatches.length === 0 && (
+                <p className="py-3 text-sm text-white/60">Sin partidos programados todavía.</p>
+              )}
+              {dayMatches.slice(0, 2).map((m) => (
+                <Link key={m.id} to="/calendario" className="flex items-center gap-3 py-2.5 transition-colors hover:bg-white/5">
+                  {m.status === "live" ? (
+                    <span className="flex w-14 shrink-0 items-center gap-1.5 text-xs font-bold text-primary">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                      En vivo
+                    </span>
+                  ) : (
+                    <span className="w-14 shrink-0 text-xs font-semibold tabular-nums text-white/70">
+                      {m.scheduled_at ? formatMatchTime(m.scheduled_at) : "—"}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {m.side_a.pair_name} vs {m.side_b.pair_name}
+                  </span>
+                  {m.sets.length > 0 && (
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-white/90">
+                      {m.sets.map((s) => `${s.a}-${s.b}`).join("  ")}
+                    </span>
+                  )}
+                </Link>
+              ))}
+              {dayMatches.length > 2 && (
+                <Link to="/calendario" className="block py-2 text-xs font-semibold text-white/70 transition-colors hover:text-white">
+                  +{dayMatches.length - 2} más · Ver agenda
+                </Link>
               )}
             </div>
-          )}
+          </div>
+          </div>
         </div>
       </section>
 
-      {/* NOTICIAS */}
-      {stats.news.length > 0 && (
-        <section>
-          <SectionHeading title="Noticias" to="/noticias" action="Ver todas" />
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
-            {stats.news.slice(0, 3).map((item) => (
-              <article key={item.id} className="group">
-                <div className="relative mb-3 aspect-[16/9] overflow-hidden rounded-2xl bg-muted">
-                  {item.image_url ? (
-                    <img
-                      src={item.image_url}
-                      alt=""
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    />
-                  ) : (
-                    <div className="relative h-full w-full overflow-hidden bg-neutral-900 text-white">
-                      <span className="absolute -bottom-8 -right-1 font-headline text-[7rem] leading-none text-primary/35">
-                        16
-                      </span>
-                      <span className="absolute left-4 top-4 text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
-                        Liga16
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                    {item.tag}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(item.published_at)}
+      {/* SHEET — la hoja clara se monta sobre la foto (ref Tennis Zone):
+          carrusel de tarjetas con foto, parejas y noticias. */}
+      <div className="relative z-10 -mt-12 space-y-10 rounded-t-[2rem] bg-background px-4 pt-8 md:space-y-12 md:px-6">
+        {/* Carrusel de tarjetas con foto: torneo, inscripción, próximo partido. */}
+        <section aria-label="Lo que viene">
+          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
+            {featured && (
+              <Link
+                to={ctaHref}
+                className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-3xl border bg-background shadow-sm md:w-[280px]"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                  <img src={featured.cover_url ?? HERO_IMAGE} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
+                  <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                    {featured.status === "in_progress" ? "Torneo en curso" : "Próximo torneo"}
                   </span>
                 </div>
-                <h3 className="text-base font-semibold leading-snug">
-                  {item.title}
-                </h3>
-                <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                  {item.excerpt}
-                </p>
-              </article>
-            ))}
+                <div className="p-4">
+                  <p className="font-semibold leading-snug">{featured.name}</p>
+                  {heroStatus && <p className="mt-0.5 text-xs text-muted-foreground">{heroStatus}</p>}
+                  <p className="mt-2.5 flex items-center gap-1 text-sm font-semibold text-primary">
+                    {ctaLabel}
+                    <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </p>
+                </div>
+              </Link>
+            )}
+            {showReg && regOpen && (
+              <Link
+                to={`/torneos/${regOpen.slug}`}
+                className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-3xl border bg-background shadow-sm md:w-[280px]"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                  <img src={regOpen.cover_url ?? HERO_IMAGE} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
+                  <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">
+                    Inscripción abierta
+                  </span>
+                </div>
+                <div className="p-4">
+                  <p className="font-semibold leading-snug">
+                    {regDays === 1 ? "1 día para inscribirte" : `${regDays} días para inscribirte`}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{regOpen.name}</p>
+                  <p className="mt-2.5 flex items-center gap-1 text-sm font-semibold text-primary">
+                    Inscribirme
+                    <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </p>
+                </div>
+              </Link>
+            )}
+            {featuredMatch && (
+              <Link
+                to="/calendario"
+                className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-3xl border bg-background shadow-sm md:w-[280px]"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                  <img src={HERO_IMAGE} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
+                  <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                    {featuredMatch.status === "live" ? "En vivo" : "Próximo partido"}
+                  </span>
+                </div>
+                <div className="p-4">
+                  <p className="truncate font-semibold leading-snug">
+                    {featuredMatch.side_a.pair_name} vs {featuredMatch.side_b.pair_name}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {[featuredMatch.scheduled_at ? formatMatchDateTime(featuredMatch.scheduled_at) : "Por definir", featuredMatch.tournament_name].filter(Boolean).join(" · ")}
+                  </p>
+                  <p className="mt-2.5 flex items-center gap-1 text-sm font-semibold text-primary">
+                    Ver agenda
+                    <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </p>
+                </div>
+              </Link>
+            )}
           </div>
         </section>
-      )}
 
-      {/* Banner rotativo de patrocinadores — se administra en /admin/sponsors */}
-      <SponsorMarquee sponsors={stats?.sponsors ?? []} />
+        {/* PAREJAS — filas densas de un solo nivel: posición, nombre, dato.
+            El filtro es el encabezado; sin cajas ni etiquetas repetidas. */}
+        <Reveal>
+          <section className="border-t border-border/70 pt-6">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold tracking-tight">Parejas</h2>
+              <Link
+                to="/equipos"
+                className="group inline-flex min-h-8 shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Ver todas
+                <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+            <GroupFilterBar
+              className="mb-4"
+              divisions={teamGroups.map((g) => ({ value: g.key, label: g.label }))}
+              value={cat}
+              onChange={setCat}
+            />
+            <div className="space-y-5">
+              {shownGroups.map((group) => (
+                <div key={group.key}>
+                  <p className="mb-1.5 text-sm font-semibold text-muted-foreground">{group.label}</p>
+                  <div className="divide-y divide-border/70 border-y border-border/70">
+                    {group.teams.map((team) => (
+                      <Link
+                        key={team.id}
+                        to={`/equipos/${team.slug}`}
+                        className="group flex items-center gap-3 py-2.5 pr-1 transition-colors hover:bg-muted/40"
+                      >
+                        <span className="w-7 shrink-0 text-left text-sm font-bold tabular-nums text-muted-foreground">
+                          {team.position > 0 ? `${team.position}º` : "—"}
+                        </span>
+                        <TeamCrest team={team} />
+                        <span className="flex min-w-0 flex-1 items-baseline gap-2.5">
+                          <span className="truncate text-sm font-semibold">{team.name}</span>
+                          <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                            {team.points}% · {team.played} PJ
+                          </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-foreground" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {shownGroups.length === 0 && (
+                <div className="border-y border-border/70 py-6">
+                  <p className="text-sm text-muted-foreground">
+                    {cat
+                      ? "No hay parejas inscritas en esta categoría."
+                      : "Las parejas inscritas aparecerán aquí, organizadas por categoría."}
+                  </p>
+                  {cat && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => setCat("")}
+                    >
+                      Ver todas
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        </Reveal>
+
+        {/* NOTICIAS — carrusel horizontal de tarjetas con foto (ref Tennis Zone). */}
+        {stats.news.length > 0 && (
+          <section className="border-t border-border/70 pt-6">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold tracking-tight">Noticias</h2>
+              <Link
+                to="/noticias"
+                className="group inline-flex min-h-8 shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Ver todas
+                <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+            <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
+              {stats.news.slice(0, 6).map((item) => (
+                <Link key={item.id} to="/noticias" className="group w-[240px] shrink-0 snap-start md:w-[280px]">
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                      />
+                    ) : (
+                      <div className="relative h-full w-full overflow-hidden bg-surface-inverse text-surface-inverse-foreground">
+                        <span className="absolute -bottom-8 -right-1 font-headline text-[7rem] leading-none text-primary/35">
+                          16
+                        </span>
+                        <span className="absolute left-4 top-4 text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
+                          Liga16
+                        </span>
+                      </div>
+                    )}
+                    <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                      {item.tag}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">{formatDate(item.published_at)}</p>
+                  <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug">{item.title}</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* SUSCRIPCIÓN — una línea y el campo, sin caja. */}
+        <Reveal>
+          <section aria-label="Regalos y noticias del circuito" className="border-t border-border/70 pb-2 pt-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+              <h2 className="shrink-0 text-xl font-bold tracking-tight">
+                Regalos y noticias
+              </h2>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setSubscribed(true);
+                }}
+                className="flex w-full gap-2 sm:max-w-md"
+              >
+                <input
+                  type="email"
+                  required
+                  placeholder="tu@email.com"
+                  className="h-11 min-w-0 flex-1 rounded-full border bg-background px-4 text-sm outline-none transition-colors focus:border-primary"
+                />
+                <Button type="submit" className="h-11 rounded-full px-5 font-semibold" disabled={subscribed}>
+                  {subscribed ? "Listo" : "Enviar"}
+                </Button>
+              </form>
+            </div>
+          </section>
+        </Reveal>
+
+        {/* Banner rotativo de patrocinadores — se administra en /admin/sponsors */}
+        <SponsorMarquee sponsors={stats?.sponsors ?? []} />
+      </div>
     </div>
   );
 }
