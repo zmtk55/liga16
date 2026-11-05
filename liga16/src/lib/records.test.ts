@@ -130,6 +130,30 @@ describe("buildPlayerRecords", () => {
     expect(ana?.setsAgainst).toBe(12); // 2+4 con Beto, 6 con Caro
   });
 
+  it("cuenta sets reales ganados y perdidos, distintos de los juegos", () => {
+    const matches = [
+      played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }, { a: 3, b: 6 }, { a: 7, b: 5 }]),
+    ];
+
+    const ana = buildPlayerRecords(matches, pairs, players).get("p-ana");
+
+    // Juegos: 16 a favor, 13 en contra; sets reales: 2-1.
+    expect(ana?.setsFor).toBe(16);
+    expect(ana?.setsAgainst).toBe(13);
+    expect(ana?.setsWon).toBe(2);
+    expect(ana?.setsLost).toBe(1);
+  });
+
+  it("cada partido reciente lleva sus juegos para la gráfica del perfil", () => {
+    const matches = [
+      played("m-1", "2026-01-10", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 2 }, { a: 6, b: 4 }]),
+    ];
+
+    const ana = buildPlayerRecords(matches, pairs, players).get("p-ana");
+
+    expect(ana?.recentMatches[0]).toMatchObject({ gamesFor: 12, gamesAgainst: 6 });
+  });
+
   it("resuelve el lado por nombre cuando el partido no trae pair_id", () => {
     const legacy = {
       ...played("m-9", "2026-01-05", { id: "pr-1", name: "Ana / Beto" }, { id: "pr-3", name: "Diego / Eva" }, "a", [{ a: 6, b: 0 }]),

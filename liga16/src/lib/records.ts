@@ -30,6 +30,9 @@ export interface RecentMatch {
   won: boolean;
   /** Marcador de sets del punto de vista de este jugador, p. ej. "6-4 6-1". */
   score: string;
+  /** Juegos ganados y perdidos en ese partido (suma de los sets). */
+  gamesFor: number;
+  gamesAgainst: number;
   playedAt: string | null;
 }
 
@@ -38,8 +41,12 @@ export interface PlayerRecord {
   played: number;
   won: number;
   lost: number;
+  /** Juegos a favor / en contra (nombre histórico: NO son sets). */
   setsFor: number;
   setsAgainst: number;
+  /** Sets realmente ganados y perdidos: un set por marcador de set ganado. */
+  setsWon: number;
+  setsLost: number;
   /** Últimos resultados, 'G'/'P', del más antiguo al más reciente. */
   form: Array<"G" | "P">;
   /** Puntos ganados por partido (últimos 10), para la tendencia. */
@@ -62,6 +69,8 @@ function makeRecord(playerId: string): PlayerRecord {
     lost: 0,
     setsFor: 0,
     setsAgainst: 0,
+    setsWon: 0,
+    setsLost: 0,
     form: [],
     trend: [],
     partners: [],
@@ -169,12 +178,16 @@ export function buildPlayerRecords(
       const won = isA ? match.winner === "a" : match.winner === "b";
       let pointsFor = 0;
       let pointsAgainst = 0;
+      let setsW = 0;
+      let setsL = 0;
       const setScore: string[] = [];
       for (const s of match.sets) {
         const mine = isA ? s.a : s.b;
         const theirs = isA ? s.b : s.a;
         pointsFor += mine;
         pointsAgainst += theirs;
+        if (mine > theirs) setsW++;
+        else if (mine < theirs) setsL++;
         setScore.push(`${mine}-${theirs}`);
       }
       // El rival sale del propio partido, no de un catálogo aparte.
@@ -196,6 +209,8 @@ export function buildPlayerRecords(
         else record.lost++;
         record.setsFor += pointsFor;
         record.setsAgainst += pointsAgainst;
+        record.setsWon += setsW;
+        record.setsLost += setsL;
         record.form.push(won ? "G" : "P");
         record.trend.push(pointsFor);
         record.recentMatches.push({
@@ -206,6 +221,8 @@ export function buildPlayerRecords(
             : null,
           won,
           score: setScore.join(" "),
+          gamesFor: pointsFor,
+          gamesAgainst: pointsAgainst,
           playedAt: match.scheduled_at ?? null,
         });
 

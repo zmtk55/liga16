@@ -201,6 +201,7 @@ export default function PlayerDetailPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [myMatches, setMyMatches] = useState<Match[]>([]);
   const [compareId, setCompareId] = useState<string>("");
+  const [chartSel, setChartSel] = useState<number | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   const [rivals, setRivals] = useState<PlayerProfile[]>([]);
   const [pairInfo, setPairInfo] = useState<{ tournament: string | null; tournamentSlug: string | null; category: string | null } | null>(null);
@@ -408,8 +409,9 @@ export default function PlayerDetailPage() {
     );
   }
 
-  // El historial derivado manda para la tendencia: player_cards nunca se actualiza.
-  const trendData = (record?.trend?.length ? record.trend : card?.trend ?? []).map((v, i) => ({ i, v }));
+  // La gráfica sale de los últimos partidos reales: cada barra lleva rival y
+  // marcador, no un número suelto. player_cards nunca se actualiza.
+  const chartMatches = [...(record?.recentMatches ?? [])].slice(0, 5).reverse();
   // El historial derivado manda (player_cards nunca se actualiza):
   // si hay récord con partidos, la racha, el % y los PJ salen del mismo sitio.
   const won = record && record.played > 0 ? record.won : cardWon(card);
@@ -446,7 +448,11 @@ export default function PlayerDetailPage() {
   };
   const setsFor = record?.setsFor ?? 0;
   const setsAgainst = record?.setsAgainst ?? 0;
-  const setsPct = setsFor + setsAgainst > 0 ? Math.round((setsFor / (setsFor + setsAgainst)) * 100) : 0;
+  // Sets reales (por marcador de set): setsFor/setsAgainst son juegos y
+  // confundían el rótulo "Sets" del panel.
+  const setsWon = record?.setsWon ?? 0;
+  const setsLost = record?.setsLost ?? 0;
+  const setsPct = setsWon + setsLost > 0 ? Math.round((setsWon / (setsWon + setsLost)) * 100) : 0;
   // Las 4 dimensiones del índice: las mismas del anillo y de la card flotante.
   const dims = [
     { label: "Forma", value: Math.min(100, jev.forma.score * 20) },
@@ -458,10 +464,10 @@ export default function PlayerDetailPage() {
     .filter((m) => matchState(m) !== "finished")
     .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
   const nextMatch = upcoming.find((m) => matchState(m) === "live") ?? upcoming[0] ?? null;
-  const trendMax = Math.max(1, ...trendData.map((d) => d.v));
+  const chartMax = Math.max(1, ...chartMatches.map((m) => m.gamesFor));
 
   return (
-    <div className="space-y-10 -mx-4 -mt-8 md:-mx-6">
+    <div className="space-y-8 -mx-4 -mt-8 md:-mx-6">
       {/* HERO — foto con la card flotante del índice (como la referencia),
           nombre en display y la métrica protagonista. */}
       <section className="mx-auto max-w-7xl px-4 pt-2 md:px-6">
@@ -494,7 +500,7 @@ export default function PlayerDetailPage() {
                 botón circular que lleva al rendimiento. */}
             <div className="absolute inset-x-3 -bottom-6 rounded-2xl border bg-background/95 p-3.5 shadow-lg backdrop-blur">
               <div className="flex items-center justify-between">
-                <p className="text-caption font-bold uppercaser text-muted-foreground">Índice</p>
+                <p className="text-caption font-bold uppercase text-muted-foreground">Índice</p>
                 <a
                   href="#rendimiento"
                   aria-label="Ver rendimiento"
@@ -771,41 +777,84 @@ export default function PlayerDetailPage() {
             />
           </div>
 
-          <div className="rounded-[2rem] bg-surface-inverse p-6 text-surface-inverse-foreground md:p-8">
+          <div className="rounded-[2rem] bg-surface-inverse p-5 text-surface-inverse-foreground md:p-6">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="font-display text-lg font-bold">Efectividad</h2>
-              <p className="font-poster text-6xl font-bold tabular-nums leading-none">
+              <p className="font-poster text-4xl font-bold tabular-nums leading-none">
                 {winPct}
-                <span className="text-3xl text-white/50">%</span>
+                <span className="text-xl text-white/50">%</span>
               </p>
             </div>
-            <dl className="mt-6 grid grid-cols-3 gap-4">
+            <dl className="mt-4 grid grid-cols-3 gap-3">
               {([
                 { label: "Partidos", value: String(played) },
                 { label: "Ganados", value: String(won) },
-                { label: "Sets", value: `${setsFor}-${setsAgainst}` },
+                { label: "Sets", value: `${setsWon}-${setsLost}` },
               ]).map((s) => (
                 <div key={s.label}>
                   <dt className="text-xs text-white/50">{s.label}</dt>
-                  <dd className="mt-1.5 font-poster text-4xl font-bold tabular-nums leading-none md:text-5xl">{s.value}</dd>
+                  <dd className="mt-1 font-poster text-3xl font-bold tabular-nums leading-none md:text-4xl">{s.value}</dd>
                 </div>
               ))}
             </dl>
-            {trendData.length > 0 && (
-              <div className="mt-6">
-                <p className="mb-3 text-xs text-white/50">Juegos por partido · últimos {trendData.length}</p>
-                <div className="flex h-20 items-end gap-1.5">
-                  {trendData.map((d, idx) => (
-                    <div
-                      key={d.i}
-                      className={cn("flex-1 rounded-full", idx === trendData.length - 1 ? "bg-primary" : "bg-white/25")}
-                      style={{ height: `${Math.max(8, Math.round((d.v / trendMax) * 100))}%` }}
-                    />
-                  ))}
+            {chartMatches.length > 0 && (
+              <div className="mt-5">
+                <p className="text-xs text-white/50">
+                  Juegos ganados en cada partido · últimos {chartMatches.length} · toca una barra
+                </p>
+                <div className="mt-2 flex items-end gap-2" role="group" aria-label="Juegos ganados por partido">
+                  {chartMatches.map((m, idx) => {
+                    const selIdx = chartSel != null && chartSel < chartMatches.length ? chartSel : chartMatches.length - 1;
+                    const selected = idx === selIdx;
+                    return (
+                      <button
+                        key={m.matchId}
+                        type="button"
+                        onClick={() => setChartSel(idx)}
+                        aria-pressed={selected}
+                        aria-label={`vs ${m.opponentName} · ${m.score}`}
+                        className="flex min-w-0 flex-1 flex-col items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                      >
+                        <span className="text-xs font-bold tabular-nums">{m.gamesFor}</span>
+                        <div className="mt-1 flex h-14 w-full items-end">
+                          <div
+                            className={cn(
+                              "w-full rounded-full transition-colors duration-200",
+                              selected ? "bg-primary" : "bg-white/25",
+                            )}
+                            style={{ height: `${Math.max(12, Math.round((m.gamesFor / chartMax) * 100))}%` }}
+                          />
+                        </div>
+                        <span
+                          className={cn(
+                            "mt-1.5 w-full truncate text-center text-xs",
+                            selected ? "text-white/80" : "text-white/50",
+                          )}
+                        >
+                          {m.opponentName}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
+                {(() => {
+                  const selIdx = chartSel != null && chartSel < chartMatches.length ? chartSel : chartMatches.length - 1;
+                  const sel = chartMatches[selIdx];
+                  return (
+                    <p className="mt-2 text-xs text-white/70" aria-live="polite">
+                      <span className="font-semibold text-white">vs {sel.opponentName}</span>
+                      {" · "}
+                      {sel.score}
+                      {sel.playedAt ? ` · ${formatMatchDay(sel.playedAt)} ${formatMatchMonth(sel.playedAt)}` : ""}
+                    </p>
+                  );
+                })()}
+                <p className="mt-1 text-xs text-white/50">
+                  Del más antiguo (izquierda) al más reciente (derecha) · {setsFor}-{setsAgainst} juegos en total
+                </p>
               </div>
             )}
-            <Button asChild size="lg" className="mt-6 h-12 w-full rounded-full text-base font-semibold">
+            <Button asChild size="lg" className="mt-5 h-11 w-full rounded-full text-base font-semibold">
               <Link to={pairInfo?.tournamentSlug ? `/torneos/${pairInfo.tournamentSlug}` : "/torneos"}>
                 Ver torneo
               </Link>
@@ -813,12 +862,12 @@ export default function PlayerDetailPage() {
           </div>
         </div>
 
-        {/* Palmarés: strip de números + filas densas, sin card. */}
+        {/* Logros: strip de números + filas densas, sin card. */}
         {(honors.length > 0 || (rankingIndividual?.points ?? 0) > 0) && (
-          <div className="mt-10">
+          <div className="mt-8">
             <div className="flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-                <Trophy className="h-4 w-4 text-primary" /> Palmarés
+                <Trophy className="h-4 w-4 text-primary" /> Logros
               </h2>
               {rankingIndividual && (
                 <Button asChild variant="outline" size="sm" className="h-7 rounded-full text-xs tabular-nums">
@@ -884,7 +933,7 @@ export default function PlayerDetailPage() {
         )}
 
         {/* Cómo juega: estilo + datos de juego en dos columnas compactas. */}
-        <div className="mt-10">
+        <div className="mt-8">
           <h2 className="font-display text-lg font-bold">Cómo juega</h2>
           <div className="mt-4 grid gap-6 md:grid-cols-2">
             <div>
