@@ -16,7 +16,7 @@ const PRIVACIDAD: LegalSection[] = [
     body: (
       <>
         <p>
-          Liga16 guarda la información que registras para participar: nombre, correo
+          Padel Rush guarda la información que registras para participar: nombre, correo
           electrónico, teléfono (opcional) y la información de juego que se genera al
           registrarte en un torneo: parejas, categorías, resultados, historial de
           partidos y posición en el ranking.
@@ -63,7 +63,7 @@ const TERMINOS: LegalSection[] = [
     title: "Sobre la liga",
     body: (
       <p>
-        Liga16 es el circuito de pádel de Caborca. Publica torneos, agenda, resultados y
+        Padel Rush es el circuito de pádel de Caborca. Publica torneos, agenda, resultados y
         ranking de las parejas inscritas. La operación de las canchas, la Sede y el
         cobro de inscripciones corresponde a la organización de la liga, que los
         publica en la página de cada torneo.
@@ -184,7 +184,7 @@ const PAGES: Record<string, { title: string; intro: string; sections: LegalSecti
   privacidad: {
     title: "Aviso de Privacidad",
     intro:
-      "Qué datos guarda Liga16, para qué los usa y cómo pides que los borren. Versión vigente desde el 21 de octubre de 2026.",
+      "Qué datos guarda Padel Rush, para qué los usa y cómo pides que los borren. Versión vigente desde el 21 de octubre de 2026.",
     sections: PRIVACIDAD,
   },
   terminos: {
@@ -217,7 +217,7 @@ export default function LegalPage({ slug }: { slug: string }) {
     <div className="mx-auto max-w-2xl">
       <header className="mb-8">
         <p className="text-caption uppercase tracking-widest text-muted-foreground">
-          Liga16
+          Padel Rush
         </p>
         <h1 className="mt-1 font-display text-3xl font-bold tracking-tight md:text-4xl">
           {page.title}

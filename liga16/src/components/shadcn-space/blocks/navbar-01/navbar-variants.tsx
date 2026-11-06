@@ -1,5 +1,5 @@
 // Variantes de Navbar (shadcn navbar-01) como componentes reutilizables.
-// Cada variante recibe `navLinks` (default: nav pública Liga16) y props opcionales
+// Cada variante recibe `navLinks` (default: nav pública Padel Rush) y props opcionales
 // para integrar en landing / admin. Responsivas: hamburger móvil, pills flex-wrap,
 // toggle night/day (ThemeToggle) incluido.
 import { useState } from "react";
@@ -62,13 +62,13 @@ export function Brand({ onNavigate }: { onNavigate?: () => void }) {
       to="/"
       onClick={onNavigate}
       className="flex shrink-0 items-center gap-2.5"
-      aria-label="Liga16 — Inicio"
+      aria-label="Padel Rush — Inicio"
     >
       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground font-headline text-lg uppercase leading-none text-background">
-        16
+        PR
       </span>
       <span className="font-headline text-xl uppercase tracking-tight">
-        Liga16
+        Padel Rush
       </span>
     </Link>
   );

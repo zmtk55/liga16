@@ -54,7 +54,7 @@ export default function LoginPage() {
           <CardTitle className="text-2xl">{mode === "login" ? "Iniciar sesión" : "Crear cuenta"}</CardTitle>
           <CardDescription>
             {mode === "login"
-              ? "Accede a tu perfil y registros de Liga16."
+              ? "Accede a tu perfil y registros de Padel Rush."
               : "Regístrate como jugador para ver tu perfil y inscribirte."}
           </CardDescription>
         </CardHeader>

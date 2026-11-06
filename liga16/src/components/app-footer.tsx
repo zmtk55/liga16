@@ -23,9 +23,9 @@ export function AppFooter() {
             <div className="flex items-center justify-between gap-3">
               <Link to="/" className="flex items-center gap-2">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-base font-bold text-primary-foreground">
-                  16
+                  PR
                 </span>
-                <span className="text-lg font-bold tracking-tight">Liga16</span>
+                <span className="text-lg font-bold tracking-tight">Padel Rush</span>
               </Link>
             </div>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
@@ -61,7 +61,7 @@ export function AppFooter() {
         </div>
 
         <div className="mt-5 border-t pt-3 text-center text-caption text-muted-foreground">
-          © {new Date().getFullYear()} Liga16 — Todos los derechos reservados.
+          © {new Date().getFullYear()} Padel Rush — Todos los derechos reservados.
         </div>
       </div>
     </footer>

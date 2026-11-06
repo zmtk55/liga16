@@ -502,7 +502,7 @@ export default function RankingsPage() {
                   <TableHead className="flex items-center gap-2">
                     <Trophy className="h-4 w-4" /> Pareja
                   </TableHead>
-                  <TableHead className="text-right" title="Puntos ganados sobre el total de puntos jugados (fórmula del Excel Liga16)">% Puntos</TableHead>
+                  <TableHead className="text-right" title="Puntos ganados sobre el total de puntos jugados (fórmula del Excel Padel Rush)">% Puntos</TableHead>
                   <TableHead className="text-right">Record</TableHead>
                   <TableHead className="text-right">División / Género</TableHead>
                 </TableRow>

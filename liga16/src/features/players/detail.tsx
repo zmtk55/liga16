@@ -386,8 +386,8 @@ export default function PlayerDetailPage() {
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
                   {record && record.played > 0
-                  ? `${record.won} victorias de ${record.played} · Liga16`
-                  : "Liga16"}
+                  ? `${record.won} victorias de ${record.played} · Padel Rush`
+                  : "Padel Rush"}
                 </p>
                 <h1 className="mt-2 text-4xl font-black tracking-tight text-white md:text-5xl">
                   {player.display_name}

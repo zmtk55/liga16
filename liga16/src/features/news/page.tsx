@@ -50,7 +50,7 @@ export default function NewsPage() {
     <div className="animate-fade-in space-y-5">
       <PageHero
         title="Noticias"
-        subtitle="Novedades, resultados y las historias que mueven a Liga16."
+        subtitle="Novedades, resultados y las historias que mueven a Padel Rush."
         ghost="16"
       />
 

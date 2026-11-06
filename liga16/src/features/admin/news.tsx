@@ -321,7 +321,7 @@ function NewsFormDialog({
         <DialogHeader>
           <DialogTitle>{editing ? "Editar noticia" : "Nueva noticia"}</DialogTitle>
           <DialogDescription>
-            {editing ? `Edita "${editing.title}"` : "Publica una nueva noticia en Liga16."}
+            {editing ? `Edita "${editing.title}"` : "Publica una nueva noticia en Padel Rush."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 py-2">

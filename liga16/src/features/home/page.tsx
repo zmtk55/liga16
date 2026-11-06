@@ -239,7 +239,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
     featured?.status === "registration_open" &&
     (featured.registration_deadline ?? featured.end_date) >= today;
   // Sede REAL: ciudad del torneo destacado (única fuente, sin inventar)
-  const sedeLabel = formatCity(featured?.city || stats.tournaments[0]?.city) || "Liga16";
+  const sedeLabel = formatCity(featured?.city || stats.tournaments[0]?.city) || "Padel Rush";
 
   return (
     <div className="space-y-16 md:space-y-20">
@@ -275,7 +275,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
                 (token `poster` = Barlow Condensed). El resto de la app
                 sigue con Anton, hasta que se decida. */}
             <h1 className="font-poster text-[2.5rem] font-extrabold uppercase leading-[0.88] tracking-[-0.02em] sm:text-[3rem] md:text-[4rem] text-white/90">
-              Liga16
+              Padel Rush
               <br />
               <span className="text-primary-strong">4ta Edición</span>
             </h1>
@@ -579,7 +579,7 @@ setStats({ tournaments, teams, matches, news, sponsors });
                         16
                       </span>
                       <span className="absolute left-4 top-4 text-xs font-bold uppercase tracking-[0.24em] text-white/45">
-                        Liga16
+                        Padel Rush
                       </span>
                     </div>
                   )}

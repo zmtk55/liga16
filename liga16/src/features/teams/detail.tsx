@@ -250,7 +250,7 @@ export default function TeamDetailPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div>
-                  <p className="text-sm tracking-widest text-white/60 uppercase">{teamCategoryLabel(team)} · Liga16</p>
+                  <p className="text-sm tracking-widest text-white/60 uppercase">{teamCategoryLabel(team)} · Padel Rush</p>
                   <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">{team.name}</h1>
                   {/* Identidad en una sola línea: los tres pills competían entre sí. */}
                   <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-white/55">
@@ -267,7 +267,7 @@ export default function TeamDetailPage() {
                 </div>
                 <div className="ml-auto hidden items-center gap-2 md:flex">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black font-black">16</div>
-                  <span className="text-xs leading-none text-white/60">Liga16<br /><span className="font-bold text-white">Circuito</span></span>
+                  <span className="text-xs leading-none text-white/60">Padel Rush<br /><span className="font-bold text-white">Circuito</span></span>
                 </div>
               </div>
 

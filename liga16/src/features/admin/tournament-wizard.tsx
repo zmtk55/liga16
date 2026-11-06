@@ -985,7 +985,7 @@ teams.forEach((t) => {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-1.5 sm:col-span-2">
                   <Label htmlFor="t-name">Nombre</Label>
-                  <Input id="t-name" value={tournament.name} onChange={(e) => setTournament((t) => ({ ...t, name: e.target.value }))} placeholder="Copa Liga16 Apertura 2026" />
+                  <Input id="t-name" value={tournament.name} onChange={(e) => setTournament((t) => ({ ...t, name: e.target.value }))} placeholder="Copa Padel Rush Apertura 2026" />
                 </div>
                 {/* Póster del torneo: aparece en cards públicas, home y detalle */}
                 <div className="sm:col-span-2" role="group" aria-labelledby="lbl-poster-torneo">
@@ -1064,7 +1064,7 @@ teams.forEach((t) => {
                 <legend className="px-1 text-sm font-semibold">Formato de juego y tabla</legend>
                 <p className="text-xs text-muted-foreground">
                   Contesta en palabras sencillas; los números se ajustan solos. Si no cambias nada, queda el
-                  formato de la Liga16: 2 sets de 6 juegos y, si empatan, super tie-break a {SUPER_TIEBREAK_POINTS}.
+                  formato de la Padel Rush: 2 sets de 6 juegos y, si empatan, super tie-break a {SUPER_TIEBREAK_POINTS}.
                 </p>
                 {(() => {
                   // Las respuestas se leen de los mismos campos de siempre: nada se guarda distinto,

@@ -86,7 +86,7 @@ function AdminBrand({ onNavigate }: { onNavigate?: () => void }) {
         16
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold leading-tight">Liga16</span>
+        <span className="block text-sm font-semibold leading-tight">Padel Rush</span>
         <span className="block text-xs leading-tight text-muted-foreground">Administración</span>
       </span>
     </Link>

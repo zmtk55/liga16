@@ -428,7 +428,7 @@ export default function MyProfile() {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tu dashboard personal en el circuito Liga16.
+          Tu dashboard personal en el circuito Padel Rush.
         </p>
       </header>
 
@@ -480,7 +480,7 @@ export default function MyProfile() {
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {record && record.played > 0 && (
                     <Badge variant="default" className="bg-primary">
-                      {record.won}–{record.played - record.won} · Liga16
+                      {record.won}–{record.played - record.won} · Padel Rush
                     </Badge>
                   )}
                   <Badge variant="outline">

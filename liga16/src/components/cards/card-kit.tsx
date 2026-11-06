@@ -328,7 +328,7 @@ export function MatchCard({
   const context =
     [jornada ? `Jornada ${jornada}` : match.round, match.category_name].filter(Boolean).join(" · ") ||
     match.tournament_name ||
-    "Liga16";
+    "Padel Rush";
 
   const sideRow = (side: "a" | "b") => {
     const name = side === "a" ? match.side_a.pair_name : match.side_b.pair_name;
