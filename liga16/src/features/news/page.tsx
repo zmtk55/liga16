@@ -1,4 +1,3 @@
-import { PublicLoadError } from "@/components/public-load-error";
 import { useSearchParams } from "react-router";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterMenu } from "@/components/ui/filter-menu";
@@ -24,8 +23,6 @@ const tagColors: Record<string, "default" | "secondary" | "destructive" | "outli
 };
 
 export default function NewsPage() {
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [loadAttempt, setLoadAttempt] = useState(0);
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const tag = params.get("tag") ?? "all";
@@ -41,26 +38,26 @@ export default function NewsPage() {
         if (active) setNews(data);
       })
       .catch(() => {
-        if (active) { setLoadFailed(true); setNews([]); }
+        if (active) setNews([]);
       });
     return () => {
       active = false;
     };
-  }, [loadAttempt]);
+  }, []);
 
   const filtered = (news ?? []).filter((n) => (tag === "all" || n.tag === tag) && `${n.title} ${n.excerpt}`.toLowerCase().includes(query.trim().toLowerCase()));
   return (
     <div className="animate-fade-in space-y-5">
       <PageHero
         title="Noticias"
-        subtitle="Novedades, resultados y las historias que mueven a Liga16."
+        subtitle="Novedades, resultados y las historias que mueven a Padel Rush."
         ghost="16"
       />
 
       <FilterBar search={query} onSearch={(v) => setParam("q", v)} searchPlaceholder="Buscar noticia…" resultCount={filtered.length} resultLabel="noticias" activeCount={Number(tag !== "all")} onClear={() => { const next = new URLSearchParams(params); next.delete("q"); next.delete("tag"); setParams(next, { replace: true }); }}>
         <FilterMenu label="Tema" value={tag} onChange={(v) => setParam("tag", v)} options={[...new Set((news ?? []).map((n) => n.tag))].map((t) => ({ key: t, label: t }))} allLabel="Todos" />
       </FilterBar>
-      {loadFailed ? <PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} /> : news === null ? (
+      {news === null ? (
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-40 w-full" />

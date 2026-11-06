@@ -239,7 +239,7 @@ export function GroupStandingsCard({
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="flex items-center gap-2">
             {group.name}
-            {liga16Cat && <Badge variant="secondary" className="text-xs">Liga16: {liga16Cat}</Badge>}
+            {liga16Cat && <Badge variant="secondary" className="text-xs">Padel Rush: {liga16Cat}</Badge>}
             <Badge variant="outline">{played}/{groupMatches.length} jugados</Badge>
           </span>
           {porProgramar > 0 && (

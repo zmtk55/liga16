@@ -1,4 +1,3 @@
-import { PublicLoadError } from "@/components/public-load-error";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -34,8 +33,7 @@ import {
 } from "@/lib/categories";
 import { tournamentOptions, tournamentTeams } from "@/lib/tournament-ranking";
 import { orderText } from "@/lib/qualification-sim";
-import { Users, UserRound, Trophy, ChevronLeft, ChevronRight, Clock, LayoutGrid, BarChart3, List, GitCompare } from "lucide-react";
-import { IndividualRankingView } from "./individual-view";
+import { Users, Trophy, ChevronLeft, ChevronRight, Clock, LayoutGrid, BarChart3, List, GitCompare } from "lucide-react";
 
 /**
  * Popup de pareja: cabecera póster + stats + UN partido a la vez con flechas.
@@ -238,8 +236,6 @@ function TeamDetailDialog({ team, onClose }: { team: Team | null; onClose: () =>
 }
 
 export default function RankingsPage() {
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [loadAttempt, setLoadAttempt] = useState(0);
   const [teams, setTeams] = useState<Team[] | null>(null);
   // Los filtros viven en la URL, así que se comparten y sobreviven al ir y
   // venir. Antes el de división lo escribía el header con una lista fija; ahora
@@ -256,8 +252,6 @@ export default function RankingsPage() {
   };
   const setSex = (v: string) => setParam("sex", v);
   const torneo = params.get("torneo") ?? "all";
-  // Parejas (por torneo) o Individual (acumulado entre torneos). En la URL para compartir.
-  const vista = params.get("vista") === "individual" ? "individual" : "parejas";
   const [allMatches, setAllMatches] = useState<Match[] | null>(null);
   // Los partidos solo se piden cuando se elige un torneo: el ranking global no los necesita.
   useEffect(() => {
@@ -278,7 +272,7 @@ export default function RankingsPage() {
   useMatchUpdated(() => {
     db.listTeams()
       .then((data) => setTeams(data))
-      .catch(() => setLoadFailed(true));
+      .catch(() => setTeams([]));
   });
 
   useEffect(() => {
@@ -290,12 +284,12 @@ export default function RankingsPage() {
         if (active) setTeams(data);
       })
       .catch(() => {
-        if (active) { setLoadFailed(true); setTeams([]); }
+        if (active) setTeams([]);
       });
     return () => {
       active = false;
     };
-  }, [loadAttempt]);
+  }, []);
 
   const torneos = useMemo(() => tournamentOptions(teams ?? []), [teams]);
   const torneoSel = torneos.find((t) => t.id === torneo) ?? null;
@@ -351,29 +345,17 @@ export default function RankingsPage() {
   }, [teams]);
   return (
     <div className="animate-fade-in space-y-5">
-      {loadFailed && <PublicLoadError onRetry={() => { setLoadFailed(false); setLoadAttempt((n) => n + 1); }} />}
       <PageHero
         title="Ranking"
-        subtitle="Clasificación del circuito por categoría y torneo."
+        subtitle="Parejas ordenadas dentro de su división y género: primero partidos ganados, luego dominio (el enfrentamiento directo) y luego % de puntos; después diferencia de sets y partidos jugados. Es el ranking general del circuito; cada torneo puede usar otro orden en su clasificación."
         ghost="16"
       />
 
-      <FilterBar search={query} onSearch={(v) => setParam("q", v)} searchPlaceholder={vista === "individual" ? "Buscar jugador…" : "Buscar pareja o jugador…"} resultCount={vista === "individual" ? undefined : filtered.length} resultLabel="parejas" activeCount={Number(vista === "parejas" && categoria !== "all") + Number(sex !== "all") + Number(vista === "parejas" && !!torneoSel)} onClear={() => { const next = new URLSearchParams(params); ["q", "categoria", "sex", "torneo"].forEach((k) => next.delete(k)); setParams(next, { replace: true }); }} controls={(
+      <FilterBar search={query} onSearch={(v) => setParam("q", v)} searchPlaceholder="Buscar pareja o jugador…" resultCount={filtered.length} resultLabel="parejas" activeCount={Number(categoria !== "all") + Number(sex !== "all") + Number(!!torneoSel)} onClear={() => { const next = new URLSearchParams(params); ["q", "categoria", "sex", "torneo"].forEach((k) => next.delete(k)); setParams(next, { replace: true }); }} controls={(
         <>
         <ToggleGroup
           type="single"
-          value={vista}
-          onValueChange={(v) => v && setParam("vista", v)}
-          variant="outline"
-          size="sm"
-          className="w-fit justify-start"
-        >
-          <ToggleGroupItem value="parejas"><Users className="h-4 w-4" /> Parejas</ToggleGroupItem>
-          <ToggleGroupItem value="individual"><UserRound className="h-4 w-4" /> Individual</ToggleGroupItem>
-        </ToggleGroup>
-        <ToggleGroup
-          type="single"
-          value={vista === "individual" && view === "chart" ? "table" : view}
+          value={view}
           onValueChange={(v) => v && setView(v as typeof view)}
           variant="outline"
           size="sm"
@@ -381,44 +363,36 @@ export default function RankingsPage() {
         >
           <ToggleGroupItem value="table"><List className="h-4 w-4" /> Tabla</ToggleGroupItem>
           <ToggleGroupItem value="cards"><LayoutGrid className="h-4 w-4" /> Tarjetas</ToggleGroupItem>
-          {vista === "parejas" && (
-            <ToggleGroupItem value="chart"><BarChart3 className="h-4 w-4" /> Gráfico</ToggleGroupItem>
-          )}
+          <ToggleGroupItem value="chart"><BarChart3 className="h-4 w-4" /> Gráfico</ToggleGroupItem>
         </ToggleGroup>
-        {vista === "parejas" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCompareOpen(true)}
-            disabled={!compare[0] && !compare[1]}
-          >
-            <GitCompare className="h-4 w-4" /> Comparar {compare[0] && compare[1] ? "✓" : ""}
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCompareOpen(true)}
+          disabled={!compare[0] && !compare[1]}
+        >
+          <GitCompare className="h-4 w-4" /> Comparar {compare[0] && compare[1] ? "✓" : ""}
+        </Button>
         </>
       )}>
-        {vista === "parejas" && (
-          <FilterMenu
-            label="Torneo"
-            value={torneoSel ? torneoSel.id : "all"}
-            onChange={(v) => {
-              setAllMatches(null);
-              setParam("torneo", v);
-            }}
-            options={torneos.map((t) => ({ key: t.id, label: t.name, count: t.n }))}
-            allLabel="Global (orden general)"
-            showCount
-          />
-        )}
-        {vista === "parejas" && (
-          <FilterMenu
-            label="Categoría"
-            value={categoria}
-            onChange={(v) => setParam("categoria", v)}
-            options={categorias.length > 1 ? categorias : []}
-            showCount
-          />
-        )}
+        <FilterMenu
+          label="Torneo"
+          value={torneoSel ? torneoSel.id : "all"}
+          onChange={(v) => {
+            setAllMatches(null);
+            setParam("torneo", v);
+          }}
+          options={torneos.map((t) => ({ key: t.id, label: t.name, count: t.n }))}
+          allLabel="Global (orden general)"
+          showCount
+        />
+        <FilterMenu
+          label="Categoría"
+          value={categoria}
+          onChange={(v) => setParam("categoria", v)}
+          options={categorias.length > 1 ? categorias : []}
+          showCount
+        />
         <FilterMenu
           label="Rama"
           value={sex}
@@ -428,16 +402,12 @@ export default function RankingsPage() {
         />
       </FilterBar>
 
-      {vista === "parejas" && (
-        <p className="-mt-4 text-xs text-muted-foreground">
-          {torneoSel
-            ? `Clasificación de ${torneoSel.name} · orden: ${orderText(torneoOrder)}. Solo fase de grupos; las bajas no ocupan posición.`
-            : "Ranking global: orden general (partidos ganados, dominio, puntos), sin reglas propias de ningún torneo. Elige un torneo para ver su clasificación con su orden."}
-        </p>
-      )}
-      {vista === "individual" ? (
-        <IndividualRankingView query={query} sex={sex} view={view === "cards" ? "cards" : "table"} />
-      ) : teams === null || (torneoSel && base === null) ? (
+      <p className="-mt-4 text-xs text-muted-foreground">
+        {torneoSel
+          ? `Clasificación de ${torneoSel.name} · orden: ${orderText(torneoOrder)}. Solo fase de grupos; las bajas no ocupan posición.`
+          : "Ranking global: orden general (partidos ganados, dominio, puntos), sin reglas propias de ningún torneo. Elige un torneo para ver su clasificación con su orden."}
+      </p>
+      {teams === null || (torneoSel && base === null) ? (
         <Skeleton className="h-96 w-full" />
       ) : filtered.length === 0 ? (
         <Card>
@@ -532,7 +502,7 @@ export default function RankingsPage() {
                   <TableHead className="flex items-center gap-2">
                     <Trophy className="h-4 w-4" /> Pareja
                   </TableHead>
-                  <TableHead className="text-right" title="Puntos ganados sobre el total de puntos jugados (fórmula del Excel Liga16)">% Puntos</TableHead>
+                  <TableHead className="text-right" title="Puntos ganados sobre el total de puntos jugados (fórmula del Excel Padel Rush)">% Puntos</TableHead>
                   <TableHead className="text-right">Record</TableHead>
                   <TableHead className="text-right">División / Género</TableHead>
                 </TableRow>
@@ -665,4 +635,4 @@ export default function RankingsPage() {
       </Dialog>
     </div>
   );
-          }
+}

@@ -250,7 +250,7 @@ export default function TeamDetailPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div>
-                  <p className="text-sm tracking-widest text-white/60 uppercase">{teamCategoryLabel(team)} · Liga16</p>
+                  <p className="text-sm tracking-widest text-white/60 uppercase">{teamCategoryLabel(team)} · Padel Rush</p>
                   <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">{team.name}</h1>
                   {/* Identidad en una sola línea: los tres pills competían entre sí. */}
                   <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-white/55">
@@ -267,7 +267,7 @@ export default function TeamDetailPage() {
                 </div>
                 <div className="ml-auto hidden items-center gap-2 md:flex">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black font-black">16</div>
-                  <span className="text-xs leading-none text-white/60">Liga16<br /><span className="font-bold text-white">Circuito</span></span>
+                  <span className="text-xs leading-none text-white/60">Padel Rush<br /><span className="font-bold text-white">Circuito</span></span>
                 </div>
               </div>
 
@@ -477,9 +477,9 @@ export default function TeamDetailPage() {
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Comparar con otro equipo</CardTitle>
-            <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+            <div className="flex items-center gap-1">
               <Select value={compareName} onValueChange={setCompareName}>
-                <SelectTrigger className="h-8 w-44 max-w-full text-xs truncate"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-44 max-w-[240px] text-xs truncate"><SelectValue placeholder="Elegir equipo…" /></SelectTrigger>
                 <SelectContent>
                   {allTeams.map((t) => (
                     <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>

@@ -74,7 +74,7 @@ function ErrorScreen({ error }: { error: unknown }) {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Liga16 — Circuito de pádel
+        Padel Rush — Circuito de pádel
       </p>
     </div>
   );

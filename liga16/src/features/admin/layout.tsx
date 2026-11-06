@@ -14,7 +14,6 @@ import {
   LayoutDashboard,
   Menu,
   Newspaper,
-  ShieldCheck,
   Trophy,
   User,
   Users,
@@ -61,7 +60,6 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: "Directorio",
     items: [
       { to: "/admin/jugadores", label: "Jugadores", icon: User },
-      { to: "/admin/organizadores", label: "Organizadores", icon: ShieldCheck },
       { to: "/admin/ranking", label: "Ranking", icon: BarChart3 },
     ],
   },
@@ -88,7 +86,7 @@ function AdminBrand({ onNavigate }: { onNavigate?: () => void }) {
         16
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold leading-tight">Liga16</span>
+        <span className="block text-sm font-semibold leading-tight">Padel Rush</span>
         <span className="block text-xs leading-tight text-muted-foreground">Administración</span>
       </span>
     </Link>
@@ -222,7 +220,7 @@ export default function AdminLayout() {
               </Link>
             </Button>}
             <Button asChild variant="ghost" size="sm">
-              <Link to="/">Ver sitio</Link>
+              <Link to="/">Salir</Link>
             </Button>
           </header>
 

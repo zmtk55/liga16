@@ -1,4 +1,4 @@
-// Navbar pública de Liga16 — patrón "navbar-01" (shadcn-space) adaptado:
+// Navbar pública de Padel Rush — patrón "navbar-01" (shadcn-space) adaptado:
 // marca propia, NavigationMenu de shadcn en desktop con estado activo,
 // dropdown de menú en móvil, botón de entrada destacado y menú de cuenta.
 //
@@ -60,12 +60,12 @@ export function SiteHeader() {
             la fila se salía de la pantalla. */}
         <nav className="flex w-full items-center gap-3" aria-label="Principal">
           {/* Marca */}
-          <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="Liga16 — Inicio">
+          <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="Padel Rush — Inicio">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground font-headline text-lg uppercase leading-none text-background">
-              16
+              PR
             </span>
             <span className="hidden font-headline text-xl uppercase tracking-tight sm:inline">
-              Liga16
+              Padel Rush
             </span>
           </Link>
 
