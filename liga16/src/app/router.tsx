@@ -26,6 +26,8 @@ import LegalPage from "../features/legal/page";
 const Clubs = lazy(() => import("../features/clubs/page"));
 const News = lazy(() => import("../features/news/page"));
 const MyProfile = lazy(() => import("../features/players/my-profile"));
+// Demo aislada de la investigación round robin (datos ficticios, sin backend).
+const RoundRobinDemo = lazy(() => import("../features/demo/round-robin"));
 const SystemStatus = lazy(() => import("../features/admin/system-status"));
 
 /** URL corta del bracket: /admin/torneos/mi-torneo/bracket abre directo la pestaña. */
@@ -102,6 +104,7 @@ export const router = createBrowserRouter([
       { path: "jugadores/:id", element: <PlayerDetail /> },
       { path: "padel", element: <Clubs /> },
       { path: "noticias", element: <News /> },
+      { path: "demo/round-robin", element: <RoundRobinDemo /> },
       { path: "legal/privacidad", element: <LegalPage slug="privacidad" /> },
       { path: "legal/terminos", element: <LegalPage slug="terminos" /> },
       { path: "legal/soporte", element: <LegalPage slug="soporte" /> },
