@@ -1,5 +1,5 @@
 import type { SetScore, TournamentScoring } from "@/types";
-import { determineMatchWinner, normalizeScoring, validateScoring } from "@/lib/scoring";
+import { determineMatchWinner, normalizeScoring, validateScoring, type MatchFormatOptions } from "@/lib/scoring";
 
 /** Un set cuenta si tiene algún juego o tie-break capturado (una fila 0-0 es un hueco en blanco). */
 export function isPlayedSet(s: SetScore): boolean {
@@ -15,11 +15,11 @@ export type MatchResultCheck =
  * deben ser válidos con el scoring del torneo Y alguna pareja debe haber
  * ganado los sets necesarios. Un solo set 1-0 no cierra un partido a 2 sets.
  */
-export function checkFinishedMatch(sets: SetScore[], scoring?: TournamentScoring | null): MatchResultCheck {
+export function checkFinishedMatch(sets: SetScore[], scoring?: TournamentScoring | null, opts?: MatchFormatOptions): MatchResultCheck {
   const cfg = normalizeScoring(scoring);
   const played = sets.filter(isPlayedSet);
   if (played.length === 0) return { ok: false, error: "Captura el marcador para cerrar el partido" };
-  const invalid = validateScoring(played, cfg);
+  const invalid = validateScoring(played, cfg, opts);
   if (invalid) return { ok: false, error: invalid };
   const winner = determineMatchWinner(played, cfg);
   if (!winner) {
@@ -52,7 +52,8 @@ export function isMatchDecided(sets: SetScore[], scoring?: TournamentScoring | n
  */
 
 /** La fila de desempate es la última posible del formato (3ª en un 2 de 3). */
-export function isSuperTieBreakRow(index: number, scoring?: TournamentScoring | null): boolean {
+export function isSuperTieBreakRow(index: number, scoring?: TournamentScoring | null, opts?: MatchFormatOptions): boolean {
+  if (opts?.fullThirdSet) return false;
   const maxSets = maxSetsForMatch(scoring);
   return maxSets > 1 && index === maxSets - 1;
 }
