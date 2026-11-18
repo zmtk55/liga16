@@ -37,6 +37,8 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { DateTimePicker } from "@/components/ui/date-picker";
 // MatchCard no longer used — pair rows use inline layout
 import { matchBucket, matchState, type MatchBucket } from "@/lib/match-state";
+import { winnerChangeBlocked } from "@/lib/tournament-flow";
+import { isPlayedSet } from "@/lib/match-result";
 import { historicTieBreakNote, captureRowToSet, isMatchDecided, isSuperTieBreakRow, maxSetsForMatch, setToCaptureRow, tieBreakDirectNotation } from "@/lib/match-result";
 import { AdminEmptyState } from "@/components/admin/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,6 +53,7 @@ import {
   normalizeScoring,
   SUPER_TIEBREAK_POINTS,
   validateScoring,
+  isFinalRound,
 } from "@/lib/scoring";
 import { ClipboardList, Eye, ChevronDown, ChevronUp, Calendar, MapPin, Trophy } from "lucide-react";
 
@@ -203,7 +206,8 @@ export default function AdminResults() {
     try {
       const tournament = tournaments[form.tournament_id];
       const scoring = normalizeScoring(tournament?.scoring);
-      const validation = validateScoring(form.sets, scoring);
+      const before0 = (list ?? []).find((x) => x.id === id);
+      const validation = validateScoring(form.sets, scoring, { fullThirdSet: isFinalRound(form.round) && !(before0 && sameScore(before0.sets, form.sets) && legacyFinal(before0, scoring)) });
       if (validation) {
         toast.error(validation);
         setSubmitting(false);
@@ -211,6 +215,12 @@ export default function AdminResults() {
       }
       const autoWinner = determineMatchWinner(form.sets, scoring);
       const manualWinner: Match["winner"] = form.winner === "a" || form.winner === "b" ? form.winner : null;
+      const before = (list ?? []).find((x) => x.id === id);
+      if (before && /\sr\d+-m\d+$/.test(before.round) && (autoWinner ?? manualWinner) !== before.winner) {
+        // Mismo bloqueo que en Llave: no se cambia el ganador de un cruce si la ronda siguiente ya existe.
+        const all = await db.listMatchesByTournament(before.tournament_id);
+        if (winnerChangeBlocked(before, all)) throw new Error("No se puede cambiar el ganador: la ronda siguiente ya existe con las parejas actuales. No se modificó nada.");
+      }
       await db.updateMatch(id, {
         status: form.status as MatchStatus,
         round: form.round,
@@ -485,9 +495,12 @@ export default function AdminResults() {
 interface SetInput { a: string; b: string; }
 interface MatchFormData { tournament_id: string; status: string; round: string; court_name: string; scheduled_at: string; duration: string; winner: string; sets: SetScore[]; }
 
-function toSetInputs(sets: SetScore[], scoring: ReturnType<typeof normalizeScoring>): SetInput[] {
+const sameScore = (x0: SetScore[], y0: SetScore[]) => { const x = x0.filter(isPlayedSet), y = y0.filter(isPlayedSet); return x.length === y.length && x.every((t, i) => t.a === y[i].a && t.b === y[i].b); };
+/** Final antigua cuyo 3er set es un súper tie-break guardado: se conserva sin obligar a corregirla. */
+const legacyFinal = (m: Match, scoring: ReturnType<typeof normalizeScoring>) => isFinalRound(m.round) && m.sets.length >= 3 && Math.max(m.sets[2].a, m.sets[2].b) > scoring.games_per_set + 1;
+function toSetInputs(sets: SetScore[], scoring: ReturnType<typeof normalizeScoring>, fmt?: { fullThirdSet?: boolean }): SetInput[] {
   // Estilo Excel: juegos por set (7-6 directo) y super tie-break en puntos.
-  return sets.map((s, i) => setToCaptureRow(s, isSuperTieBreakRow(i, scoring)));
+  return sets.map((s, i) => setToCaptureRow(s, isSuperTieBreakRow(i, scoring, fmt)));
 }
 function fromSetInputs(inputs: SetInput[], originalSets: SetScore[]): SetScore[] {
   return inputs.map((s, i) => captureRowToSet(s, originalSets[i]));
@@ -500,7 +513,9 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
   // es un supuesto visible, no un dato histórico.
   const defaultMinutes = tournament?.schedule_config?.minutesPerMatch || 60;
   const [form, setForm] = useState<MatchFormData>(() => ({ tournament_id: match.tournament_id, status: match.status, round: match.round, court_name: match.court_name ?? "", scheduled_at: isoToLocalInput(match.scheduled_at), duration: String(match.duration_minutes ?? defaultMinutes), winner: match.winner ?? "", sets: match.sets.length > 0 ? match.sets : [{ a: 0, b: 0, tiebreak_a: null, tiebreak_b: null }] }));
-  const [setInputs, setSetInputs] = useState<SetInput[]>(() => toSetInputs(form.sets, scoring));
+  const legacyStb = isFinalRound(match.round) && match.sets.length >= 3 && Math.max(match.sets[2].a, match.sets[2].b) > (scoring.games_per_set ?? 6) + 1;
+  const fmt = { fullThirdSet: isFinalRound(match.round) && !legacyStb };
+  const [setInputs, setSetInputs] = useState<SetInput[]>(() => toSetInputs(form.sets, scoring, fmt));
   const [showSlots, setShowSlots] = useState(false);
 
   const update = (field: keyof MatchFormData, value: string) => setForm((f) => ({ ...f, [field]: value }));
@@ -605,14 +620,14 @@ function MatchEditDialog({ match, allMatches, tournament, open, onOpenChange, on
               sideA={match.side_a.pair_name}
               sideB={match.side_b.pair_name}
               rows={setInputs}
-              superTbIndex={(i) => isSuperTieBreakRow(i, scoring)}
+              superTbIndex={(i) => isSuperTieBreakRow(i, scoring, fmt)}
               superTbTo={SUPER_TIEBREAK_POINTS}
-              notes={setInputs.map((r, i) => historicTieBreakNote(match.sets[i], r, isSuperTieBreakRow(i, scoring)))}
+              notes={setInputs.map((r, i) => historicTieBreakNote(match.sets[i], r, isSuperTieBreakRow(i, scoring, fmt)))}
               hint={tbDirect ? `Juegos por set. Si hubo tie-break, anota ${tbDirect}.` : "Juegos por set. Sin tie-break: anota los juegos tal cual."}
               onChange={(i, side, v) => updateSet(i, side, v)}
               onRemove={removeSet}
               onAdd={addSet}
-              addLabel={setInputs.length === maxSets - 1 && maxSets > 1 ? "Super tie-break" : "Set"}
+              addLabel={setInputs.length === maxSets - 1 && maxSets > 1 && !fmt.fullThirdSet ? "Super tie-break" : "Set"}
               canAdd={!(setInputs.length >= maxSets || decided)}
             />
             {decided && <p className="text-xs text-muted-foreground">El partido ya quedó definido con estos sets: no hace falta capturar más.</p>}
