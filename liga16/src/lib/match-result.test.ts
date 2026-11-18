@@ -165,3 +165,35 @@ describe("historicTieBreakNote", () => {
     expect(historicTieBreakNote(undefined, { a: "6", b: "4" }, false)).toBeNull();
   });
 });
+
+import { checkFinishedMatch } from "@/lib/match-result";
+import { isFinalRound } from "@/lib/scoring";
+describe("final a 2 de 3 sets completos", () => {
+  const fin = { fullThirdSet: true };
+  const set1 = S(6, 3), set2 = S(3, 6);
+  it("acepta un tercer set normal en la final", () => {
+    for (const third of [S(6, 4), S(7, 5), S(7, 6), S(2, 6)]) {
+      expect(checkFinishedMatch([set1, set2, third], DEFAULT_SCORING, fin).ok).toBe(true);
+    }
+  });
+  it("rechaza un súper tie-break (10-1) como tercer set de la final", () => {
+    const r = checkFinishedMatch([set1, set2, S(10, 1)], DEFAULT_SCORING, fin);
+    expect(r.ok).toBe(false);
+  });
+  it("fuera de la final sigue el súper tie-break a 10 y un 6-4 sigue sin valer como decisivo", () => {
+    expect(checkFinishedMatch([set1, set2, S(10, 1)], DEFAULT_SCORING).ok).toBe(true);
+    expect(checkFinishedMatch([set1, set2, S(6, 4)], DEFAULT_SCORING).ok).toBe(false);
+  });
+  it("la fila 3 de la final no es súper tie-break; en otras fases sí", () => {
+    expect(isSuperTieBreakRow(2, DEFAULT_SCORING, fin)).toBe(false);
+    expect(isSuperTieBreakRow(2, DEFAULT_SCORING)).toBe(true);
+  });
+  it("sólo 'Final · rN-mM' es final", () => {
+    expect(isFinalRound("Final · r2-m1")).toBe(true);
+    expect(isFinalRound("Semifinales · r1-m1")).toBe(false);
+    expect(isFinalRound("Grupo A · J1")).toBe(false);
+  });
+  it("dos sets ganados siguen cerrando la final sin tercer set", () => {
+    expect(checkFinishedMatch([S(6, 2), S(6, 3)], DEFAULT_SCORING, fin).ok).toBe(true);
+  });
+});

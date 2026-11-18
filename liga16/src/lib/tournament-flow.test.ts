@@ -64,14 +64,16 @@ describe("eliminatorias completas", () => {
   const e = Array.from({ length: 8 }, (_, i) => ({ pairId: String(i), name: String(i), seed: i+1, points: 0 }));
   const d = knockoutDrafts(e, [], "t", "4ta"); expect(d).toHaveLength(4); expect(d.every((m) => m.round.startsWith("Cuartos"))).toBe(true);
   const ms = d.map(stored).map((m) => win(m)); expect(knockoutDrafts(e, ms, "t", "4ta")).toHaveLength(6);
-  expect(resolvedKnockout(e, ms.map((m) => ({ ...m, round: "Final · r3-m1" }))).matches.some((m) => m.played)).toBe(false);
+  expect(resolvedKnockout(e, ms.map((m) => ({ ...m, round: "Final · r3-m1" }))).matches.some((m) => m.round < 3 && m.played)).toBe(false);
  });
  it("corregir una semifinal no borra una final capturada", () => {
   const semis = knockoutDrafts(entries, [], "t", "4ta").map(stored).map((m) => win(m));
   const final = win(stored(knockoutDrafts(entries, semis, "t", "4ta")[2], 2));
   const changed = [win(semis[0], "b"), semis[1], final];
-  expect(() => reconcileMatches(changed, knockoutDrafts(entries, changed, "t", "4ta"))).toThrow("resultados");
-  expect(resolvedKnockout(entries, changed).matches.at(-1)?.winnerId).toBeNull();
+  // La final capturada se conserva tal cual (no se borra ni se regenera) y su resultado sigue ahí.
+  expect(reconcileMatches(changed, knockoutDrafts(entries, changed, "t", "4ta")).remove).toEqual([]);
+  expect(resolvedKnockout(entries, changed).matches.at(-1)?.winnerId).toBe(final.side_a.pair_id);
+  // Cambiar el ganador de la semi con la final ya creada lo bloquea winnerChangeBlocked (UI de Llave y de Resultados).
  });
  it("reserva horarios existentes al repartir", () => {
   const cfg = { days: ["2026-11-01"], hours: [9, 10], courtNames: ["Cancha 1"] };
@@ -79,4 +81,80 @@ describe("eliminatorias completas", () => {
   const next = assignSlotsToMatches([{ id: "b", jornada: 1 }], cfg, [{ scheduled_at: first.at, court_name: first.court }]);
   expect(next.assignments[0].at).not.toBe(first.at);
  });
+});
+
+import { dependentRounds } from "./tournament-flow";
+describe("dependentRounds", () => {
+  const mk = (round: string, a: string, b: string, extra: Partial<Match> = {}): Match => ({
+    id: round + a + b, tournament_id: "t", category_name: "c", round, side_a: { pair_id: a, pair_name: a }, side_b: { pair_id: b, pair_name: b },
+    court_name: null, scheduled_at: null, status: "scheduled", sets: [], winner: null, ...extra,
+  } as Match);
+  const semi = mk("Semifinales · r1-m1", "p1", "p4");
+  it("final vacía con una pareja de la semi: se puede quitar", () => {
+    const d = dependentRounds(semi, [semi, mk("Final · r2-m1", "p1", "p2")]);
+    expect(d.removable).toHaveLength(1); expect(d.withActivity).toHaveLength(0); expect(d.scheduled).toHaveLength(0);
+  });
+  it("final con resultado o walkover: bloquea", () => {
+    expect(dependentRounds(semi, [mk("Final · r2-m1", "p1", "p2", { status: "walkover", winner: "a" })]).withActivity).toHaveLength(1);
+    expect(dependentRounds(semi, [mk("Final · r2-m1", "p1", "p2", { sets: [{ a: 6, b: 1 }] })]).withActivity).toHaveLength(1);
+  });
+  it("final con cancha u hora: no se quita, se rechaza", () => {
+    const d = dependentRounds(semi, [mk("Final · r2-m1", "p1", "p2", { court_name: "Cancha 1" })]);
+    expect(d.scheduled).toHaveLength(1); expect(d.removable).toHaveLength(0);
+  });
+  it("ignora otras categorías, rondas iguales o previas y cruces sin esas parejas", () => {
+    const d = dependentRounds(semi, [mk("Final · r2-m1", "p2", "p3"), mk("Final · r2-m1", "p1", "p2", { category_name: "otra" }), mk("Semifinales · r1-m2", "p1", "p2")]);
+    expect(d).toEqual({ withActivity: [], scheduled: [], removable: [] });
+  });
+});
+
+import { winnerChangeBlocked } from "./tournament-flow";
+describe("winnerChangeBlocked", () => {
+  const mk2 = (round: string, a: string, b: string, extra: Partial<Match> = {}): Match => ({
+    id: round + a, tournament_id: "t", category_name: "c", round, side_a: { pair_id: a, pair_name: a }, side_b: { pair_id: b, pair_name: b },
+    court_name: null, scheduled_at: null, status: "scheduled", sets: [], winner: null, ...extra,
+  } as Match);
+  const semi = mk2("Semifinales · r1-m1", "p1", "p4");
+  it("bloquea con cualquier descendiente: vacío, programado o con resultado; no borra nada", () => {
+    for (const x of [{}, { court_name: "C1" }, { status: "walkover", winner: "a" }] as Partial<Match>[]) {
+      expect(winnerChangeBlocked(semi, [semi, mk2("Final · r2-m1", "p1", "p2", x)])).toBe(true);
+    }
+  });
+  it("permite sin descendientes, y la final (última ronda) siempre", () => {
+    expect(winnerChangeBlocked(semi, [semi])).toBe(false);
+    expect(winnerChangeBlocked(mk2("Final · r2-m1", "p1", "p2"), [semi, mk2("Final · r2-m1", "p1", "p2")])).toBe(false);
+  });
+});
+
+import { canReplacePairs, replacementCandidates } from "./tournament-flow";
+describe("elegir parejas de un cruce", () => {
+  const mk3 = (round: string, a: string, b: string, extra: Partial<Match> = {}): Match => ({
+    id: round + a + b, tournament_id: "t", category_name: "c", round, side_a: { pair_id: a, pair_name: a }, side_b: { pair_id: b, pair_name: b },
+    court_name: null, scheduled_at: null, status: "scheduled", sets: [], winner: null, ...extra,
+  } as Match);
+  const P = (id: string, status = "confirmed"): Pair => ({ ...pairs[0], id, name: id, status } as Pair);
+  it("permite cambiar un cruce sin resultado y sin ronda siguiente; no uno con resultado o con descendiente", () => {
+    const semi = mk3("Semifinales · r1-m1", "a", "d");
+    expect(canReplacePairs(semi, [semi]).ok).toBe(true);
+    expect(canReplacePairs(mk3("Semifinales · r1-m1", "a", "d", { status: "walkover", winner: "a" }), []).ok).toBe(false);
+    expect(canReplacePairs(semi, [semi, mk3("Final · r2-m1", "a", "b")]).ok).toBe(false);
+    expect(canReplacePairs(mk3("Grupo A · J1", "a", "b"), []).ok).toBe(false);
+  });
+  it("candidatas: confirmadas, incluye eliminadas, sin repetir en la misma ronda", () => {
+    const f = mk3("Final · r2-m1", "a", "b");
+    const all = [mk3("Semifinales · r1-m1", "a", "d"), mk3("Semifinales · r1-m2", "b", "c"), f];
+    const ps = [P("a"), P("b"), P("c"), P("d"), P("e"), P("x", "withdrawn")];
+    expect(replacementCandidates(f, ps, all).map((p) => p.id).sort()).toEqual(["a", "b", "c", "d", "e"]);
+    const semi = all[0];
+    expect(replacementCandidates(semi, ps, all).map((p) => p.id).sort()).toEqual(["a", "d", "e", "x"].filter((i) => i !== "x"));
+  });
+  it("la llave conserva la pareja elegida en un cruce guardado y avanza a su ganador", () => {
+    const semi1 = win(stored(knockoutDrafts(entries, [], "t", "4ta").find((m) => m.round.includes("r1-m1"))!, 1));
+    const swapped: Match = { ...semi1, status: "scheduled", winner: null, sets: [], side_a: { pair_id: "e", pair_name: "e" } };
+    const b = resolvedKnockout(entries, [swapped]);
+    const n = b.matches.find((m) => m.id === "r1-m1")!;
+    expect(n.a?.pairId).toBe("e");
+    const done = resolvedKnockout(entries, [{ ...swapped, status: "finished", winner: "a", sets: semi1.sets }]);
+    expect(done.matches.find((m) => m.id === "r2-m1")?.a?.pairId).toBe("e");
+  });
 });

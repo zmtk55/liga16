@@ -13,9 +13,82 @@ import { SIN_CATEGORIA } from "@/lib/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { db } from "@/lib/data";
 import { toast } from "sonner";
-import { hasMatchActivity, knockoutDrafts, knockoutLabel, knockoutRoundName, reconcileMatches, resolvedKnockout } from "@/lib/tournament-flow";
-import { matchStatusKey } from "@/lib/match-state";
+import { canReplacePairs, replacementCandidates, hasMatchActivity, knockoutDrafts, knockoutLabel, knockoutRoundName, reconcileMatches, resolvedKnockout } from "@/lib/tournament-flow";
+import { isResolved } from "@/lib/match-state";
+import { qualifiersFrom, toggleChoice } from "@/lib/qualifier-choice";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isWithdrawn, skipWithdrawn, allWithdrawalWalkovers } from "@/lib/withdrawals";
+
+
+/**
+ * Elegir qué parejas juegan un cruce de la llave (lesión o baja de última hora).
+ * Se puede poner cualquier pareja confirmada de la categoría, incluida una ya eliminada.
+ * Sólo cruces sin resultado y sin ronda posterior; no toca resultados anteriores.
+ */
+function ReplacePairsDialog({ match, pairs, onClose, onDone }: { match: Match; pairs: Pair[]; onClose: () => void; onDone: () => Promise<void> }) {
+  const [a, setA] = useState(match.side_a.pair_id ?? "");
+  const [b, setB] = useState(match.side_b.pair_id ?? "");
+  const [saving, setSaving] = useState(false);
+  const [options, setOptions] = useState<Pair[]>(() => pairs.filter((p) => !isWithdrawn(p)));
+  useEffect(() => {
+    let on = true;
+    db.listMatchesByTournament(match.tournament_id).then((all) => { if (on) setOptions(replacementCandidates(match, pairs, all)); }).catch(() => {});
+    return () => { on = false; };
+  }, [match, pairs]);
+  const name = (id: string) => pairs.find((p) => p.id === id)?.name ?? "";
+  const changed = a !== match.side_a.pair_id || b !== match.side_b.pair_id;
+  async function save() {
+    if (saving || !a || !b || a === b || !changed) return;
+    setSaving(true);
+    try {
+      const all = await db.listMatchesByTournament(match.tournament_id);
+      const cur = all.find((m) => m.id === match.id);
+      if (!cur || cur.side_a.pair_id !== match.side_a.pair_id || cur.side_b.pair_id !== match.side_b.pair_id) throw new Error("El cruce cambió mientras lo editabas. No se modificó nada.");
+      const can = canReplacePairs(cur, all);
+      if (!can.ok) throw new Error(`${can.reason} No se modificó nada.`);
+      const ok = new Set(replacementCandidates(cur, pairs, all).map((p) => p.id));
+      for (const id of [a, b]) if (!ok.has(id) && id !== cur.side_a.pair_id && id !== cur.side_b.pair_id) throw new Error("Esa pareja ya juega otro cruce de esta ronda o no está confirmada. No se modificó nada.");
+      // UPDATE condicional en el servidor: sólo si la fila sigue programada, sin ganador y con las mismas parejas.
+      const done = await db.replaceMatchPairs(cur.id, { a: cur.side_a.pair_id!, b: cur.side_b.pair_id! }, { pair_id: a, pair_name: name(a) }, { pair_id: b, pair_name: name(b) });
+      if (!done) throw new Error("El cruce cambió mientras lo editabas. No se modificó nada.");
+      await onDone();
+      toast.success("Parejas del cruce actualizadas");
+      onClose();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setSaving(false); }
+  }
+  const pick = (value: string, set: (v: string) => void, other: string, label: string) => (
+    <div className="grid gap-1.5">
+      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+      <Select value={value} onValueChange={set}>
+        <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {options.filter((p) => p.id !== other).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          {value && !options.some((p) => p.id === value) && <SelectItem value={value}>{name(value)}</SelectItem>}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>¿Quién juega este cruce?</DialogTitle>
+          <DialogDescription>{match.round.split(" · ")[0]}. Elige las parejas que sí pueden jugar. No cambia resultados anteriores.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          {pick(a, setA, b, "Pareja A")}
+          {pick(b, setB, a, "Pareja B")}
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button onClick={() => void save()} disabled={saving || !changed || !a || !b || a === b}>{saving ? "Guardando…" : "Guardar parejas"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 /**
  * Bracket de UNA categoría: siembra por puntos, con el primero plantado arriba.
@@ -48,7 +121,10 @@ function CategoryBracket({
   // distinto de programado, una baja todavía puede reemplazarse por la siguiente de la tabla.
   const started = matches.some((m) => isKnockoutRound(m.round) && hasMatchActivity(m));
   const [ordenManual, setOrdenManual] = useState<BracketEntry[] | null>(null);
+  // null = pasan las primeras de la tabla. Con lista: el admin eligió quién pasa (lesiones, etc.).
+  const [elegidas, setElegidas] = useState<string[] | null>(null);
   const [bajaId, setBajaId] = useState<string | null>(null);
+  const [cambiarId, setCambiarId] = useState<string | null>(null);
   // null = comprobando. false = la función SQL de bajas no está instalada: bajas bloqueadas.
   const [bajasListas, setBajasListas] = useState<boolean | null>(null);
   useEffect(() => { let on = true; db.withdrawalInstalled().then((v) => on && setBajasListas(v)).catch(() => on && setBajasListas(false)); return () => { on = false; }; }, []);
@@ -75,7 +151,7 @@ function CategoryBracket({
   // Clasifican las primeras `slots`; el resto se queda esperando. Si la categoría
   // tiene menos parejas que el cupo, clasifican todas: no hay de dónde elegir.
   const clasificadas: BracketEntry[] = useMemo(() => {
-    const base = skipWithdrawn(table, pairs).slice(0, slots).map((row) => {
+    const base = qualifiersFrom(skipWithdrawn(table, pairs), slots, elegidas).map((row) => {
       const pair = pairs.find((p) => p.id === row.pairId);
       return {
         seed: 0,
@@ -90,7 +166,7 @@ function CategoryBracket({
     if (!ordenManual) return base.map((e, i) => ({ ...e, seed: i + 1 }));
     // Se re-siembra por posición para respetar lo que movió el admin.
     return base.map((e, i) => ({ ...(ordenManual[i] ?? e), seed: i + 1 }));
-  }, [table, pairs, slots, ordenManual, locked]);
+  }, [table, pairs, slots, ordenManual, locked, elegidas]);
 
   const bracket = useMemo(() => resolvedKnockout(clasificadas, matches), [clasificadas, matches]);
   const legacy = locked && (clasificadas.length < 2 || matches.some((m) => isKnockoutRound(m.round) && !/ · r\d+-m\d+$/.test(m.round)));
@@ -166,6 +242,14 @@ function CategoryBracket({
     finally { setBusy(false); }
   }
 
+  function cambiarElegida(pairId: string) {
+    const next = toggleChoice(clasificadas.map((e) => e.pairId), pairId, slots);
+    if (!next) { toast.error(`Ya hay ${slots} parejas. Quita una para elegir otra.`); return; }
+    setOrdenManual(null);
+    setElegidas(next);
+  }
+  const fuera = skipWithdrawn(table, pairs).filter((r) => !clasificadas.some((e) => e.pairId === r.pairId));
+
   function mover(pairId: string, delta: number) {
     setOrdenManual((prev) => {
       const base = prev ?? clasificadas;
@@ -185,11 +269,11 @@ function CategoryBracket({
   const prog = tournamentProgress({
     matches: bracket.matches,
     rounds: bracket.rounds,
-    played: matches.filter((m) => matchStatusKey(m) === "finished").length,
+    played: matches.filter(isResolved).length,
     total: matches.length,
   });
   const rondaNombre = (n: number) => knockoutRoundName(n, bracket.rounds);
-  const jugados = matches.filter((m) => matchStatusKey(m) === "finished").length;
+  const jugados = matches.filter(isResolved).length;
   const finalistas = prog ? prog.finalists.filter(Boolean) : [];
 
   return (
@@ -243,30 +327,35 @@ function CategoryBracket({
           <div>
             <h4 className="font-display text-lg font-bold leading-none">Siembra</h4>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Pasan <strong className="text-foreground">{Math.min(slots, table.length)}</strong> de {table.length} parejas.
-              La 1 se enfrenta a la última; la 1 y la 2 solo se cruzan en la final.
+              Pasan <strong className="text-foreground">{clasificadas.length}</strong> de {slots} lugares ({table.length} parejas).
+              {locked ? " " : " Si una pareja no puede jugar, quítala y agrega tú a la que entra. "}La 1 se enfrenta a la última; la 1 y la 2 solo se cruzan en la final.
             </p>
           </div>
-          <Button variant="outline" size="sm" className="rounded-full" disabled={locked || busy} onClick={() => setOrdenManual(null)}>
-            <RotateCcw className="h-4 w-4" /> Orden por puntos
+          <Button variant="outline" size="sm" className="rounded-full" disabled={locked || busy} onClick={() => { setOrdenManual(null); setElegidas(null); }}>
+            <RotateCcw className="h-4 w-4" /> Por tabla
           </Button>
         </div>
-        <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <ol className="grid gap-2 md:grid-cols-2">
           {clasificadas.map((p, i) => (
-            <li key={p.pairId} className="flex min-w-0 items-center gap-3 rounded-2xl border bg-background/60 p-2.5">
+            <li key={p.pairId} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border bg-background/60 p-2.5">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-display text-sm font-bold text-primary-foreground">
                 {i + 1}
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-[8rem] flex-1">
                 <p className="truncate text-sm font-semibold">{p.name}</p>
                 <p className="text-xs tabular-nums text-muted-foreground">
                   {p.points} pts{isWithdrawn(pairs.find((x) => x.id === p.pairId)) ? " · baja" : ""}
                 </p>
               </div>
-              <div className="flex shrink-0 gap-0.5">
+              <div className="ml-auto flex shrink-0 gap-0.5">
                 {!isWithdrawn(pairs.find((x) => x.id === p.pairId)) && !prog?.champion && (
                   <Button variant="ghost" size="sm" className="h-8 rounded-full px-2 text-xs" disabled={busy || bajasListas !== true} title={bajasListas === false ? "Bajas bloqueadas: falta instalar supabase/pair-withdrawal.sql" : undefined} onClick={() => setBajaId(p.pairId)}>
                     Baja
+                  </Button>
+                )}
+                {!locked && (
+                  <Button variant="ghost" size="sm" className="h-8 rounded-full px-2 text-xs" disabled={busy || clasificadas.length <= 2} onClick={() => cambiarElegida(p.pairId)} aria-label={`Quitar a ${p.name} de la llave`}>
+                    Quitar
                   </Button>
                 )}
                 <Button
@@ -293,6 +382,25 @@ function CategoryBracket({
             </li>
           ))}
         </ol>
+        {!locked && fuera.length > 0 && (
+          <div className="space-y-2 border-t pt-3">
+            <p className="text-sm font-medium">Fuera de la llave</p>
+            <ul className="flex flex-wrap gap-2">
+              {fuera.map((r) => (
+                <li key={r.pairId}>
+                  <button type="button" disabled={busy || clasificadas.length >= slots} onClick={() => cambiarElegida(r.pairId)}
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors hover:bg-muted disabled:opacity-50"
+                    aria-label={`Agregar a ${pairs.find((x) => x.id === r.pairId)?.name ?? r.pairId} a la llave`}>
+                    <span className="truncate">{pairs.find((x) => x.id === r.pairId)?.name ?? r.pairId}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{r.points} pts</span>
+                    <span className="shrink-0 font-semibold text-primary">Agregar</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {clasificadas.length >= slots && <p className="text-xs text-muted-foreground">Llave llena: quita una pareja para agregar otra.</p>}
+          </div>
+        )}
         {bajasListas === false && (
           <p className="border-t pt-3 text-xs text-muted-foreground">
             Las bajas están bloqueadas: falta instalar <code>supabase/pair-withdrawal.sql</code> en la base de datos.
@@ -335,10 +443,13 @@ function CategoryBracket({
           const saved = savedNode(m);
           return <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
             <p className="text-sm">{rondaNombre(m.round)}: {m.a!.name} vs {m.b!.name}</p>
-            {saved ? <Button size="sm" variant="outline" onClick={() => onEditMatch(saved.id)}>{hasMatchActivity(saved) ? "Ver / editar resultado" : "Capturar resultado"}</Button> : <span className="text-xs text-muted-foreground">Genera esta ronda para capturar</span>}
+            {saved ? <div className="flex flex-wrap gap-2">
+              {canReplacePairs(saved, matches).ok && <Button size="sm" variant="ghost" onClick={() => setCambiarId(saved.id)}>Cambiar parejas</Button>}
+              <Button size="sm" variant="outline" onClick={() => onEditMatch(saved.id)}>{hasMatchActivity(saved) ? "Ver / editar resultado" : "Capturar resultado"}</Button></div> : <span className="text-xs text-muted-foreground">Genera esta ronda para capturar</span>}
           </div>;
         })}
       </div>
+      {cambiarId && matches.find((x) => x.id === cambiarId) && <ReplacePairsDialog match={matches.find((x) => x.id === cambiarId)!} pairs={pairs} onClose={() => setCambiarId(null)} onDone={onReload} />}
       <ConfirmDialog open={confirmStart} onOpenChange={setConfirmStart} title="¿Crear eliminatorias y fijar la siembra?"
         description="Se usarán los clasificados y el orden mostrado. Después no se podrá volver a sortear ni mover semillas."
         confirmLabel="Crear eliminatorias" onConfirm={() => void generate()} />

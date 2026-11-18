@@ -95,3 +95,13 @@ describe("matchStatusKey", () => {
     expect(matchStatusKey(partido({ status: "live" }))).toBe("live");
   });
 });
+
+describe("isResolved", () => {
+  const base = { id: "x", tournament_id: "t", category_name: "c", round: "Final · r1-m1", side_a: { pair_id: "a", pair_name: "A" }, side_b: { pair_id: "b", pair_name: "B" }, court_name: null, scheduled_at: null, sets: [], winner: null } as never as import("@/types").Match;
+  it("walkover con ganador cuenta como resuelto; sin ganador o programado no", async () => {
+    const { isResolved } = await import("./match-state");
+    expect(isResolved({ ...base, status: "walkover", winner: "a" })).toBe(true);
+    expect(isResolved({ ...base, status: "walkover", winner: null })).toBe(false);
+    expect(isResolved({ ...base, status: "scheduled" })).toBe(false);
+  });
+});

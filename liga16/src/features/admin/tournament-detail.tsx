@@ -36,7 +36,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { AdminPageHeader, AdminStat, AdminStatStrip } from "@/components/admin/page-header";
 import { TournamentStatusBadge } from "@/components/admin/status-badge";
 import { formatCity, formatDateRange, formatLabel, formatMatchTime, SIN_CATEGORIA, tournamentStatusLabel } from "@/lib/format";
-import { matchStatusKey } from "@/lib/match-state";
+import { isResolved, matchStatusKey } from "@/lib/match-state";
+import { finishInfo, finishWarning } from "@/lib/tournament-finish";
 import { findScheduleIssues, isSlotFree, localDayKey, localTimeHHMM, rescheduleTo, todayKey, tournamentDays, assignSlotsToMatches } from "@/lib/schedule";
 
 
@@ -637,6 +638,13 @@ export default function AdminTournamentDetail() {
     cancelled: [{ label: "Reactivar", target: "draft" }],
   };
 
+  // Finalizar también desde publicado/inscripciones cuando ya se jugó todo (ver tournament-finish).
+  const finish = finishInfo(tournament?.status ?? "draft", matches);
+  const statusActions = (st: Tournament["status"]) => {
+    const base = STATUS_TRANSITIONS[st] ?? [];
+    if (!finish.canFinish || base.some((t) => t.target === "finished")) return base;
+    return [{ label: "Finalizar", target: "finished" as const }, ...base];
+  };
   const [changingStatus, setChangingStatus] = useState<{ target: Tournament["status"] } | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
 
@@ -704,7 +712,7 @@ export default function AdminTournamentDetail() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {(STATUS_TRANSITIONS[tournament.status] ?? []).map((tr) => (
+                {statusActions(tournament.status).map((tr) => (
                   <DropdownMenuItem
                     key={tr.target}
                     onClick={() => setChangingStatus({ target: tr.target })}
@@ -732,12 +740,12 @@ export default function AdminTournamentDetail() {
           <AdminStat value={(pairs ?? []).length} label="Parejas" />
           <AdminStat value={matches.length} label="Partidos" />
           <AdminStat
-            value={matches.filter((m) => matchStatusKey(m) === "finished").length}
+            value={matches.filter(isResolved).length}
             label="Jugados"
             tone="text-success"
           />
           <AdminStat
-            value={matches.filter((m) => matchStatusKey(m) !== "finished").length}
+            value={matches.filter((m) => !isResolved(m)).length}
             label="Por jugar"
             tone="text-primary"
           />
@@ -1080,7 +1088,7 @@ return (
                   capturar y qué está chocado, antes de la lista. */}
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">
-                  {matches.filter((m) => matchStatusKey(m) !== "finished").length} sin capturar
+                  {matches.filter((m) => !isResolved(m)).length} sin capturar
                 </Badge>
                 <Badge variant="outline">
                   {matchDays.length} día{matchDays.length === 1 ? "" : "s"}
@@ -1714,7 +1722,7 @@ return (
         onOpenChange={(o) => { if (!o) setChangingStatus(null); }}
         onConfirm={() => changingStatus && handleStatusChange(changingStatus.target)}
         title={changingStatus ? `¿Cambiar estado a "${tournamentStatusLabel[changingStatus.target]}"?` : ""}
-        description="Esta acción afecta la visibilidad y accesibilidad del torneo."
+        description={`${changingStatus?.target === "finished" ? (finishWarning(finish) ?? "") + " " : ""}Esta acción afecta la visibilidad y accesibilidad del torneo.`}
         confirmLabel="Confirmar"
       />
     </div>

@@ -1128,7 +1128,7 @@ teams.forEach((t) => {
                         {!["1", "2", "3"].includes(fmt) && (
                           <p className="text-xs text-warning-strong">Este torneo usa un formato personalizado (ver opciones avanzadas).</p>
                         )}
-                        <p className="text-xs text-muted-foreground/80">El desempate del partido siempre es super tie-break a {SUPER_TIEBREAK_POINTS} (gana por 2): el modelo de la liga no admite un set completo como decisivo.</p>
+                        <p className="text-xs text-muted-foreground/80">El desempate del partido es super tie-break a {SUPER_TIEBREAK_POINTS} (gana por 2). La final se juega a 2 de 3 sets completos.</p>
                       </div>
                       <div className="grid gap-1.5">
                         <Label id="q-juegos">2. ¿A cuántos juegos es cada set?</Label>

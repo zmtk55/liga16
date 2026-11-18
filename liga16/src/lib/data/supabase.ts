@@ -955,6 +955,34 @@ export const supabaseProvider: DataProvider = {
     return matchFromRow(result as Record<string, unknown>) as never;
   },
 
+  /**
+   * Cambia las dos parejas de un cruce SOLO si en la base sigue intacto: programado, sin ganador y con
+   * las mismas parejas con las que se abrió el diálogo. Un solo UPDATE condicional (filtros en el servidor):
+   * devuelve false si la fila ya cambió. Deja sets y ganador vacíos. No revisa rondas posteriores:
+   * eso queda en la revisión previa del cliente (sin transacción de servidor).
+   */
+  async replaceMatchPairs(
+    id: string,
+    expected: { a: string; b: string },
+    sideA: { pair_id: string; pair_name: string },
+    sideB: { pair_id: string; pair_name: string },
+  ) {
+    const { data, error } = await client()
+      .from('matches')
+      .update({
+        side_a_pair_id: sideA.pair_id, side_a_name: sideA.pair_name,
+        side_b_pair_id: sideB.pair_id, side_b_name: sideB.pair_name,
+        winner: null, sets: [], status: 'scheduled',
+      } as never)
+      .eq('id', id).eq('status', 'scheduled').is('winner', null)
+      .eq('side_a_pair_id', expected.a).eq('side_b_pair_id', expected.b)
+      .select('id');
+    if (error) throw error;
+    const ok = !!data && data.length === 1;
+    if (ok) emitMatchUpdated();
+    return ok;
+  },
+
   // Noticias
   async listNews() {
     const { data, error } = await client()

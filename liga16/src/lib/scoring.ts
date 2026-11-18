@@ -128,7 +128,17 @@ export const SUPER_TIEBREAK_POINTS = 10;
 /**
  * Valida que los sets sean coherentes (sin sets posteriores si ya hay ganador).
  */
-export function validateScoring(sets: SetScore[], config: TournamentScoring): string | null {
+export interface MatchFormatOptions {
+  /** Final: el 3er set es un set completo (6-4, 7-5, 7-6), no un súper tie-break a 10. */
+  fullThirdSet?: boolean;
+}
+
+/** La ronda "Final · rN-mM" es la única que juega el tercer set completo. */
+export function isFinalRound(round: string | null | undefined): boolean {
+  return /^Final\b/.test(round ?? "");
+}
+
+export function validateScoring(sets: SetScore[], config: TournamentScoring, opts?: MatchFormatOptions): string | null {
   const cfg = normalizeScoring(config);
   let aWon = 0;
   let bWon = 0;
@@ -172,7 +182,12 @@ export function validateScoring(sets: SetScore[], config: TournamentScoring): st
     // empatados; entonces el desempate va a 10. El decisivo es el último set
     // posible del formato: el 3º en un 2 de 3 (índice 2) y el 5º en un 3 de 5
     // (índice 4). A 1 set no hay desempate: el único set es un set normal.
-    if (cfg.sets_to_win > 1 && i === 2 * cfg.sets_to_win - 2 && aWon === cfg.sets_to_win - 1 && bWon === cfg.sets_to_win - 1) {
+    if (opts?.fullThirdSet && cfg.sets_to_win > 1 && i === 2 * cfg.sets_to_win - 2 && aWon === cfg.sets_to_win - 1 && bWon === cfg.sets_to_win - 1) {
+      // Final: el decisivo es un set normal. Un 10-1 sería un súper tie-break, no un set.
+      if (Math.max(set.a, set.b) > cfg.games_per_set + 1) {
+        return `El set ${i + 1} de la final es un set completo (ej. ${cfg.games_per_set}-4, ${cfg.games_per_set + 1}-5, ${cfg.games_per_set + 1}-${cfg.tie_break_at}), no un súper tie-break`;
+      }
+    } else if (cfg.sets_to_win > 1 && i === 2 * cfg.sets_to_win - 2 && aWon === cfg.sets_to_win - 1 && bWon === cfg.sets_to_win - 1) {
       const hi = Math.max(set.a, set.b);
       const lo = Math.min(set.a, set.b);
       if (hi < SUPER_TIEBREAK_POINTS) {

@@ -122,3 +122,8 @@ export function matchBucket(match: Match): MatchBucket {
   if (state === "playing") return "playing";
   return "pending";
 }
+
+/** Terminado o resuelto por walkover con ganador: cuenta como jugado en los resúmenes. */
+export function isResolved(match: Match): boolean {
+  return matchStatusKey(match) === "finished" || (match.status === "walkover" && !!match.winner);
+}
