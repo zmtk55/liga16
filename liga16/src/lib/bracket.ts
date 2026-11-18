@@ -138,6 +138,8 @@ export function buildBracket(qualified: BracketEntry[]): Bracket {
 export function resolveBracket(
   bracket: Bracket,
   winnerOf: (a: BracketEntry, b: BracketEntry, match: BracketMatch) => string | null,
+  /** Parejas elegidas a mano para un cruce ya guardado: mandan sobre las que salen de la llave. */
+  chosen?: (match: BracketMatch) => [BracketEntry, BracketEntry] | null,
 ): BracketMatch[] {
   const byPairId = new Map<string, BracketEntry>();
   for (const m of bracket.matches) {
@@ -155,6 +157,12 @@ export function resolveBracket(
       const idB = winners.get(srcB) ?? null;
       a = idA ? byPairId.get(idA) ?? null : null;
       b = idB ? byPairId.get(idB) ?? null : null;
+    }
+    const manual = chosen?.(m) ?? null;
+    if (manual) {
+      [a, b] = manual;
+      byPairId.set(a.pairId, a);
+      byPairId.set(b.pairId, b);
     }
     // Primera ronda con una sola pareja: pase libre, avanza sin jugar.
     const bye = m.round === 1 && (Boolean(a) !== Boolean(b));
