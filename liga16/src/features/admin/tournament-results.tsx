@@ -9,10 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { hasMatchActivity } from "@/lib/tournament-flow";
+import { winnerChangeBlocked } from "@/lib/tournament-flow";
 import { isKnockoutRound, computeStandings, type Group } from "@/lib/groups";
 import { getLiga16Category } from "@/lib/liga16-scoring";
-import { DEFAULT_SCORING, SUPER_TIEBREAK_POINTS } from "@/lib/scoring";
+import { DEFAULT_SCORING, SUPER_TIEBREAK_POINTS, isFinalRound } from "@/lib/scoring";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Court } from "@/types";
@@ -48,9 +48,14 @@ export function MatchResultDialog({
   // se guardaban encima del nuevo.
   // Filas estilo Excel: solo dos números por fila — juegos en los sets,
   // puntos en el super tie-break. Un 6-6 + TB guardado se muestra como 7-6.
+  // La final se juega a 2 de 3 sets completos; las demás fases conservan el súper tie-break.
+  // Finales antiguas con súper tie-break (3er set a 10): se muestran y se conservan como están.
+  // La regla nueva (3er set completo) aplica a capturas nuevas o si el marcador cambia.
+  const legacyStb = isFinalRound(match.round) && match.sets.length >= 3 && Math.max(match.sets[2].a, match.sets[2].b) > (scoring?.games_per_set ?? 6) + 1;
+  const fmt = { fullThirdSet: isFinalRound(match.round) && !legacyStb };
   const [sets, setSets] = useState<Array<{ a: string; b: string }>>(() =>
     match.sets.length > 0
-      ? match.sets.map((s, i) => setToCaptureRow(s, isSuperTieBreakRow(i, scoring)))
+      ? match.sets.map((s, i) => setToCaptureRow(s, isSuperTieBreakRow(i, scoring, fmt)))
       : [{ a: "", b: "" }],
   );
   const [courtName, setCourtName] = useState(match.court_name ?? "");
@@ -62,7 +67,8 @@ export function MatchResultDialog({
     .map((s, i) => ({ input: s, original: match.sets[i] }))
     .filter((x) => x.input.a !== "" && x.input.b !== "")
     .map((x) => captureRowToSet(x.input, x.original));
-  const check = checkFinishedMatch(typedSets, scoring);
+  const unchangedScore = legacyStb && typedSets.length === match.sets.length && typedSets.every((t, i) => t.a === match.sets[i].a && t.b === match.sets[i].b);
+  const check = checkFinishedMatch(typedSets, scoring, legacyStb && !unchangedScore ? { fullThirdSet: true } : fmt);
   const winner = check.ok ? check.winner : null;
   // Más allá de `maxSets` (3 en un 2 de 3) o con el partido ya definido,
   // "Añadir set" solo lleva al error "Hay sets de más…" al guardar: se apaga.
@@ -70,7 +76,13 @@ export function MatchResultDialog({
   const decided = isMatchDecided(typedSets, scoring);
   const tbDirect = tieBreakDirectNotation(scoring);
 
-  async function save(status: Match["status"]) {
+  // Cruce eliminatorio con las dos parejas definidas y sin resultado capturado: si una no
+  // puede jugar (lesión u otra causa), el admin elige cuál pasa. Queda como walkover.
+  const canWalkover = / · r\d+-m\d+$/.test(match.round) && !!match.side_a.pair_id && !!match.side_b.pair_id
+    && match.status !== "finished" && match.status !== "walkover" && !match.winner;
+  const [walkoverTo, setWalkoverTo] = useState<"a" | "b" | null>(null);
+
+  async function save(status: Match["status"], forced?: "a" | "b") {
     if (status === "finished" && !check.ok) {
       toast.error(check.error);
       return;
@@ -78,27 +90,27 @@ export function MatchResultDialog({
     setSaving(true);
     try {
       const node = / · r(\d+)-m\d+$/.exec(match.round);
-      const nextWinner = status === "finished" && check.ok ? check.winner : null;
+      const nextWinner = forced ?? (status === "finished" && check.ok ? check.winner : null);
       if (node && nextWinner !== match.winner) {
+        // Cambiar o deshacer el ganador de un cruce de llave se bloquea si ya existe una ronda posterior
+        // que depende de él: no se borra nada como efecto lateral.
         const all = await db.listMatchesByTournament(match.tournament_id);
-        const later = all.filter((m) => {
-          const n = / · r(\d+)-m\d+$/.exec(m.round);
-          return n && Number(n[1]) > Number(node[1]) && m.category_name === match.category_name;
-        });
-        if (later.some(hasMatchActivity)) throw new Error("No se puede cambiar el ganador: una ronda posterior ya tiene actividad. Revisa primero sus resultados.");
+        if (winnerChangeBlocked(match, all)) {
+          throw new Error("No se puede cambiar el ganador: la ronda siguiente ya existe con las parejas actuales. No se modificó nada.");
+        }
       }
       const partial = typedSets.filter(isPlayedSet);
       await db.updateMatch(match.id, {
         // "Guardar sin jugar" conserva lo capturado a medias y ya no deja un
         // ganador viejo: el partido vuelve a pendiente / a medias.
-        sets: status === "finished" && check.ok ? check.sets : partial,
-        winner: status === "finished" && check.ok ? check.winner : null,
+        sets: forced ? [] : status === "finished" && check.ok ? check.sets : partial,
+        winner: nextWinner,
         status,
         court_name: courtName || null,
         scheduled_at: localInputToIso(scheduledAt),
       });
-      toast.success(status === "finished" ? (nextMatchId ? "Guardado — siguiente partido" : "Resultado guardado") : "Partido actualizado");
-      onAdvance(status === "finished" ? nextMatchId : null);
+      toast.success(forced ? "Listo: pasa por walkover" : status === "finished" ? (nextMatchId ? "Guardado — siguiente partido" : "Resultado guardado") : "Partido actualizado");
+      onAdvance(status === "finished" || forced ? nextMatchId : null);
     } catch (e) {
       toast.error((e as Error).message ?? "Error al guardar");
     } finally {
@@ -120,14 +132,14 @@ export function MatchResultDialog({
             sideA={match.side_a.pair_name}
             sideB={match.side_b.pair_name}
             rows={sets}
-            superTbIndex={(i) => isSuperTieBreakRow(i, scoring)}
+            superTbIndex={(i) => isSuperTieBreakRow(i, scoring, fmt)}
             superTbTo={SUPER_TIEBREAK_POINTS}
-            notes={sets.map((r, i) => historicTieBreakNote(match.sets[i], r, isSuperTieBreakRow(i, scoring)))}
+            notes={sets.map((r, i) => historicTieBreakNote(match.sets[i], r, isSuperTieBreakRow(i, scoring, fmt)))}
             hint={tbDirect ? `Juegos por set. Si hubo tie-break, anota ${tbDirect}.` : "Juegos por set."}
             onChange={(i, side, v) => setSets((arr) => arr.map((x, j) => (j === i ? { ...x, [side]: v } : x)))}
             onRemove={(i) => setSets((arr) => arr.filter((_, j) => j !== i))}
             onAdd={() => setSets((arr) => [...arr, { a: "", b: "" }])}
-            addLabel={sets.length === maxSets - 1 && maxSets > 1 ? "Super tie-break" : "Set"}
+            addLabel={sets.length === maxSets - 1 && maxSets > 1 && !fmt.fullThirdSet ? "Super tie-break" : "Set"}
             canAdd={!(sets.length >= maxSets || decided)}
           />
           {winner ? (
@@ -158,6 +170,30 @@ export function MatchResultDialog({
             </div>
           </div>
         </div>
+        {canWalkover && (
+          <div className="grid gap-2 rounded-2xl border p-3">
+            <p className="text-sm font-semibold">¿Una pareja no puede jugar?</p>
+            {walkoverTo === null ? (
+              <>
+                <p className="text-xs text-muted-foreground">Elige cuál pasa. No hace falta capturar sets.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button variant="outline" size="sm" className="h-auto whitespace-normal py-2" onClick={() => setWalkoverTo("a")} disabled={saving}>Pasa {match.side_a.pair_name}</Button>
+                  <Button variant="outline" size="sm" className="h-auto whitespace-normal py-2" onClick={() => setWalkoverTo("b")} disabled={saving}>Pasa {match.side_b.pair_name}</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Pasa {walkoverTo === "a" ? match.side_a.pair_name : match.side_b.pair_name} por walkover. {walkoverTo === "a" ? match.side_b.pair_name : match.side_a.pair_name} no juega este cruce. Sus otros resultados se conservan. Después puedes deshacerlo con "Guardar sin jugar".
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => save("walkover", walkoverTo)} disabled={saving}>{saving ? "Guardando…" : "Confirmar"}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setWalkoverTo(null)} disabled={saving}>Cambiar</Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
           <Button variant="outline" onClick={() => save("scheduled")} disabled={saving}>
             Guardar sin jugar
