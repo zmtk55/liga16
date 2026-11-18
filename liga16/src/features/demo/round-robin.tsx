@@ -112,6 +112,7 @@ export default function RoundRobinDemo() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<Record<string, boolean>>({});
 
   const nameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -151,6 +152,14 @@ export default function RoundRobinDemo() {
     setMatches(buildDemoMatches(ids, nextMode));
     setDrafts({});
     setErrors({});
+    setEditing({});
+  }
+
+  /** Corrección: reabre un partido ya guardado con su marcador precargado. */
+  function startEdit(m: Match) {
+    const row = (s: SetScore | undefined) => ({ a: s ? String(s.a ?? 0) : "", b: s ? String(s.b ?? 0) : "" });
+    setDrafts((prev) => ({ ...prev, [m.id]: { s1: row(m.sets[0]), s2: row(m.sets[1]), stb: row(m.sets[2]) } }));
+    setEditing((prev) => ({ ...prev, [m.id]: true }));
   }
 
   function saveResult(matchId: string) {
@@ -172,6 +181,11 @@ export default function RoundRobinDemo() {
         m.id === matchId ? { ...m, sets: check.sets, winner: check.winner, status: "finished" as const } : m,
       ),
     );
+    setEditing((prev) => {
+      const next = { ...prev };
+      delete next[matchId];
+      return next;
+    });
   }
 
   function simulateRemaining() {
@@ -185,12 +199,14 @@ export default function RoundRobinDemo() {
     );
     setDrafts({});
     setErrors({});
+    setEditing({});
   }
 
   function clearResults() {
     setMatches((prev) => prev.map((m) => ({ ...m, sets: [], winner: null, status: "scheduled" as const })));
     setDrafts({});
     setErrors({});
+    setEditing({});
   }
 
   return (
@@ -215,7 +231,7 @@ export default function RoundRobinDemo() {
           <div className="space-y-2">
             <p className="text-sm font-medium">Número de parejas</p>
             <div className="flex flex-wrap gap-2">
-              {[4, 6, 8, 10, 12].map((n) => (
+              {[4, 5, 6, 7, 8, 9, 10, 12].map((n) => (
                 <Button
                   key={n}
                   type="button"
@@ -318,7 +334,12 @@ export default function RoundRobinDemo() {
                               </p>
                             )}
                           </div>
-                          {m.winner == null && (
+                          {m.winner != null && !editing[m.id] && (
+                            <Button type="button" size="sm" variant="outline" onClick={() => startEdit(m)}>
+                              Corregir
+                            </Button>
+                          )}
+                          {(m.winner == null || editing[m.id]) && (
                             <div className="flex flex-wrap items-center gap-2">
                               {(["s1", "s2", "stb"] as const).map((setKey, idx) => (
                                 <div key={setKey} className="flex items-center gap-1">
@@ -410,7 +431,8 @@ export default function RoundRobinDemo() {
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
             Las jornadas se generan con el método del círculo (el mismo del sorteo actual): cada
-            pareja juega una vez contra todas y, con número impar, una descansa por jornada.
+            pareja juega una vez contra todas y, con número impar (5, 7, 9), una descansa por jornada.
+            Un resultado guardado se puede corregir con "Corregir" y la tabla se recalcula sola.
           </p>
           <p>
             La tabla usa el cálculo real de la liga: partidos ganados, dominio y % de puntos.
