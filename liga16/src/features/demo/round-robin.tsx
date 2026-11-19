@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   americanoStandings,
   fullRotationRounds,
@@ -71,7 +70,8 @@ export default function RoundRobinDemo() {
     .split(/[,\n]/)
     .map((s) => s.trim())
     .filter(Boolean);
-  const [namesText, setNamesText] = useState(rosterFromUrl.join("\n"));
+  const [inscritos, setInscritos] = useState<string[]>(rosterFromUrl);
+  const [nuevoNombre, setNuevoNombre] = useState("");
   const [courts, setCourts] = useState(1);
   const [pointsPerMatch, setPointsPerMatch] = useState(4);
   const [roundMode, setRoundMode] = useState<"full" | "short">("full");
@@ -84,20 +84,16 @@ export default function RoundRobinDemo() {
   const [configOpen, setConfigOpen] = useState(true);
   const [view, setView] = useState<"rounds" | "standings">("rounds");
 
-  // parsedNames = toda la lista escrita; usableNames = lo que entra en la prueba.
-  // El excedente NO se trunca en silencio: se avisa cuantos sobran.
-  const parsedNames = useMemo(
-    () =>
-      namesText
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    [namesText],
-  );
-  const usableNames = parsedNames.slice(0, MAX_PLAYERS);
-  const extraNames = parsedNames.length - usableNames.length;
-  const fullRounds = fullRotationRounds(usableNames.length, courts);
-  const restingPerRound = usableNames.length - courts * 4;
+  // La lista de inscritos manda. Fuera de limite NO se recorta: se bloquea la
+  // generacion con aviso claro y los nombres quedan intactos.
+  const previewCount = Math.min(inscritos.length, MAX_PLAYERS);
+  const overLimit = inscritos.length > MAX_PLAYERS;
+  const canGenerate = inscritos.length >= 4 && !overLimit;
+  const nombreLimpio = nuevoNombre.trim();
+  const esDuplicado =
+    nombreLimpio !== "" && inscritos.some((x) => x.toLowerCase() === nombreLimpio.toLowerCase());
+  const fullRounds = fullRotationRounds(previewCount, courts);
+  const restingPerRound = inscritos.length - courts * 4;
 
   const scores = useMemo(() => {
     const map: Record<string, { a: number; b: number }> = {};
@@ -118,12 +114,22 @@ export default function RoundRobinDemo() {
   const ri = Math.min(currentRound, Math.max(0, rounds.length - 1));
   const round = rounds[ri];
 
+  function inscribir() {
+    if (!nombreLimpio || esDuplicado) return;
+    setInscritos((prev) => [...prev, nombreLimpio]);
+    setNuevoNombre("");
+  }
+
+  function quitar(index: number) {
+    setInscritos((prev) => prev.filter((_, i) => i !== index));
+  }
+
   function generate() {
-    if (usableNames.length < 4) return;
-    const usableCourts = Math.min(courts, maxCourts(usableNames.length));
-    setNames(usableNames);
+    if (!canGenerate) return;
+    const usableCourts = Math.min(courts, maxCourts(inscritos.length));
+    setNames(inscritos);
     const roundsWanted = roundMode === "full" ? fullRounds : 6;
-    setRounds(generateAmericano(usableNames.length, usableCourts, roundsWanted, seed));
+    setRounds(generateAmericano(inscritos.length, usableCourts, roundsWanted, seed));
     setDrafts({});
     setCurrentRound(0);
     setConfigOpen(false);
@@ -218,7 +224,7 @@ export default function RoundRobinDemo() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-4 sm:py-8">
+    <div className="mx-auto max-w-2xl space-y-4 px-3 pb-28 pt-4 sm:space-y-6 sm:px-4 sm:py-8">
       {/* La preview de Vercel inyecta un boton flotante (vercel-live-feedback) que tapa
           controles del borde derecho en movil; se oculta solo en esta pagina de demo. */}
       <style>{`vercel-live-feedback { display: none !important; }`}</style>
@@ -255,47 +261,86 @@ export default function RoundRobinDemo() {
       ) : (
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Nombres y formato</CardTitle>
+          <CardTitle className="text-lg">Inscripción y formato</CardTitle>
           <CardDescription>
-            Un nombre por línea (4 a {MAX_PLAYERS}). La cantidad sale de la lista de inscritos;
-            no es fija.
+            Inscribe a cada jugador (4 a {MAX_PLAYERS}). Las rondas y los descansos salen de esta
+            lista; la cantidad no es fija.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Textarea
-            value={namesText}
-            onChange={(e) => setNamesText(e.target.value)}
-            rows={6}
-            placeholder={"Un nombre por línea, por ejemplo:\nAna\nBeto\nCarla\nDiego"}
-            className="text-base"
-          />
+          <div className="flex gap-2">
+            <Input
+              value={nuevoNombre}
+              onChange={(e) => setNuevoNombre(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  inscribir();
+                }
+              }}
+              placeholder="Nombre del jugador"
+              className="h-12 text-base"
+            />
+            <Button
+              type="button"
+              className="h-12 px-5"
+              onClick={inscribir}
+              disabled={!nombreLimpio || esDuplicado}
+            >
+              Inscribir
+            </Button>
+          </div>
+          {esDuplicado && (
+            <p className="text-xs text-destructive">Ese nombre ya está inscrito.</p>
+          )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <p className="text-xs text-muted-foreground">
-              {parsedNames.length === 0
-                ? "Sin nombres todavía."
-                : `${parsedNames.length} ${parsedNames.length === 1 ? "nombre" : "nombres"} en la lista`}
+              {inscritos.length === 0
+                ? "Sin inscritos todavía."
+                : `${inscritos.length} ${inscritos.length === 1 ? "inscrito" : "inscritos"}`}
             </p>
             {rosterFromUrl.length > 0 && (
               <p className="text-xs text-muted-foreground">· precargada desde el enlace</p>
             )}
-            {parsedNames.length === 0 && (
+            {inscritos.length === 0 && (
               <Button
                 type="button"
                 variant="link"
                 className="h-auto p-0 text-xs"
-                onClick={() => setNamesText(DEFAULT_NAMES.join("\n"))}
+                onClick={() => setInscritos(DEFAULT_NAMES)}
               >
                 Usar ejemplo de {DEFAULT_NAMES.length}
               </Button>
             )}
           </div>
-          {parsedNames.length > 0 && parsedNames.length < 4 && (
-            <p className="text-xs text-destructive">Hacen falta al menos 4 nombres.</p>
+          {inscritos.length > 0 && (
+            <ul className="divide-y rounded-xl border">
+              {inscritos.map((n, i) => (
+                <li key={n} className="flex items-center justify-between gap-2 py-1 pl-3 pr-1">
+                  <span className="text-sm font-medium">
+                    <span className="text-muted-foreground">{i + 1}.</span> {n}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 w-9 px-0 text-muted-foreground"
+                    aria-label={`Quitar a ${n}`}
+                    onClick={() => quitar(i)}
+                  >
+                    ×
+                  </Button>
+                </li>
+              ))}
+            </ul>
           )}
-          {extraNames > 0 && (
+          {inscritos.length > 0 && inscritos.length < 4 && (
+            <p className="text-xs text-destructive">Hacen falta al menos 4 inscritos.</p>
+          )}
+          {overLimit && (
             <p className="text-xs text-destructive">
-              Esta prueba admite hasta {MAX_PLAYERS}: sobran {extraNames}. Se usarían los primeros{" "}
-              {MAX_PLAYERS}.
+              Esta prueba admite hasta {MAX_PLAYERS} inscritos; sobran{" "}
+              {inscritos.length - MAX_PLAYERS}. Quita nombres para poder generar — ninguno se
+              pierde de la lista.
             </p>
           )}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -319,7 +364,7 @@ export default function RoundRobinDemo() {
             <div className="space-y-1">
               <p className="text-sm font-medium">Canchas</p>
               <div className="flex gap-2">
-                {Array.from({ length: maxCourts(usableNames.length) }, (_, i) => i + 1).map((c) => (
+                {Array.from({ length: maxCourts(previewCount) }, (_, i) => i + 1).map((c) => (
                   <Button
                     key={c}
                     type="button"
@@ -346,7 +391,7 @@ export default function RoundRobinDemo() {
                 >
                   Completa ({fullRounds})
                 </Button>
-                {usableNames.length === 7 && courts === 1 && (
+                {inscritos.length === 7 && courts === 1 && (
                   <Button
                     type="button"
                     variant={roundMode === "short" ? "default" : "outline"}
@@ -367,7 +412,7 @@ export default function RoundRobinDemo() {
               type="button"
               className="h-12 flex-1 text-base"
               onClick={generate}
-              disabled={usableNames.length < 4}
+              disabled={!canGenerate}
             >
               {names.length > 0 ? "Regenerar" : "Generar rondas"}
             </Button>
@@ -572,12 +617,14 @@ export default function RoundRobinDemo() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
-            El formato de las apps de americano: nombres, rondas de dobles con compañeros rotativos
-            y tabla individual. La lista manda: con 7 jugadores y 1 cancha (solo un ejemplo) la
-            rotación completa son 11 rondas: todos son compañeros de todos con una sola pareja
+            El formato de las apps de americano: inscripción individual, rondas de dobles con
+            compañeros rotativos y tabla individual. La inscripción de arriba imita el onboarding
+            del torneo, en memoria y con datos ficticios; también puede llegar precargada con
+            ?jugadores= en el enlace. La lista manda: con 7 inscritos y 1 cancha (solo un ejemplo)
+            la rotación completa son 11 rondas: todos son compañeros de todos con una sola pareja
             repetida (el mínimo posible), nadie descansa dos rondas seguidas y todos juegan 6 o 7
-            partidos. La lista también puede llegar precargada con ?jugadores= en el enlace, que es
-            la costura para conectarla con la inscripción del onboarding sin tocar el torneo real.
+            partidos. Sesión corta solo está definida para 7; con otras cantidades la prueba
+            ofrece la rotación completa.
           </p>
           <p>
             Lo que NO decide esta demo: si el torneo vale por total o por promedio, cómo se forman
@@ -592,4 +639,4 @@ export default function RoundRobinDemo() {
       </Card>
     </div>
   );
-}
+          }
