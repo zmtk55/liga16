@@ -279,6 +279,18 @@ describe('proposePlayoffPairs (PROPUESTA reversible de la demo, no regla confirm
     ]);
     expect(plan.finalPairs).toBeNull();
   });
+
+  it('corte determinista con empate total: manda el orden de inscripción', () => {
+    // Sin partidos todos empatan a 0: la tabla queda en orden de inscripción
+    // y los clasificados de la eliminatoria son siempre los mismos.
+    const table = americanoStandings(5, [], {}, 'total');
+    expect(table.map((r) => r.player)).toEqual([0, 1, 2, 3, 4]);
+    const plan = proposePlayoffPairs(table.map((r) => r.player))!;
+    expect(plan.finalPairs).toEqual([
+      [0, 3],
+      [1, 2],
+    ]);
+  });
 });
 
 describe('playoffFinalPairs (cada pareja ganadora de semi avanza junta)', () => {
