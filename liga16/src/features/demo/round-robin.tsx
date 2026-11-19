@@ -54,7 +54,6 @@ import {
  */
 
 const DEFAULT_NAMES = ["Ana", "Beto", "Carla", "Diego", "Elena", "Fede", "Gaby"];
-const POINT_OPTIONS = [4, 5, 8, 16];
 const MAX_PLAYERS = 12;
 
 interface ScoreDraft {
@@ -139,9 +138,11 @@ export default function RoundRobinDemo() {
   const nombreInputRef = useRef<HTMLInputElement>(null);
   // Chip de configuración abierto (canchas / meta / rondas), estilo la app de
   // referencia: la configuración se resume en chips y se despliega al tocar.
-  const [chipOpen, setChipOpen] = useState<"canchas" | "meta" | "rondas" | null>(null);
+  const [chipOpen, setChipOpen] = useState<"canchas" | "rondas" | null>(null);
   const [courts, setCourts] = useState(restored?.courts ?? 1);
-  const [pointsPerMatch, setPointsPerMatch] = useState(restored?.pointsPerMatch ?? 4);
+  // Meta de referencia interna: solo se usa para simular marcadores plausibles;
+  // no hay selector en pantalla (el marcador es libre y el empate vale).
+  const [pointsPerMatch] = useState(restored?.pointsPerMatch ?? 4);
   const [roundMode, setRoundMode] = useState<"full" | "short">(restored?.roundMode ?? "full");
   const [seed, setSeed] = useState(restored?.seed ?? 1);
   const [names, setNames] = useState<string[]>(restored?.names ?? []);
@@ -378,7 +379,7 @@ export default function RoundRobinDemo() {
         r.matches.forEach((_, mi) => {
           const key = `${ridx}-${mi}`;
           if (parseScore(next[key])) return;
-          // Marcadores plausibles alrededor de la meta de referencia, cerrados.
+          // Marcadores plausibles alrededor de una referencia interna, cerrados.
           const a = Math.floor(Math.random() * (pointsPerMatch + 1));
           const b = Math.floor(Math.random() * (pointsPerMatch + 1));
           next[key] = { a: String(a), b: String(b), done: true };
@@ -454,11 +455,11 @@ export default function RoundRobinDemo() {
   ) {
     const draft = map[key] ?? { a: "", b: "" };
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <Button
           type="button"
           variant="outline"
-          className="h-14 w-12 rounded-xl px-0 text-xl"
+          className="h-12 w-10 rounded-xl px-0 text-xl"
           aria-label="quitar punto"
           disabled={locked}
           onClick={() => {
@@ -469,7 +470,7 @@ export default function RoundRobinDemo() {
           −
         </Button>
         <Input
-          className="h-14 w-16 rounded-xl px-1 text-center text-2xl font-bold tabular-nums"
+          className="h-12 w-[3.25rem] rounded-xl px-1 text-center text-xl font-bold tabular-nums"
           inputMode="numeric"
           placeholder="0"
           disabled={locked}
@@ -482,7 +483,7 @@ export default function RoundRobinDemo() {
         <Button
           type="button"
           variant="outline"
-          className="h-14 w-12 rounded-xl px-0 text-xl"
+          className="h-12 w-10 rounded-xl px-0 text-xl"
           aria-label="agregar punto"
           disabled={locked}
           onClick={() => {
@@ -586,7 +587,7 @@ export default function RoundRobinDemo() {
       {names.length > 0 && !configOpen ? (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
           <span className="font-medium">
-            {names.length} jugadores · meta {pointsPerMatch} (referencia) · {playedCount}/
+            {names.length} jugadores · {playedCount}/
             {totalMatches} terminados
           </span>
           <span className="flex items-center gap-3 text-muted-foreground">
@@ -620,7 +621,7 @@ export default function RoundRobinDemo() {
           </span>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Configuración resumida en chips (como la app de referencia): se
               toca un chip y se elige; nada de formularios largos. */}
           <div className="flex flex-wrap gap-2">
@@ -649,37 +650,6 @@ export default function RoundRobinDemo() {
                       {c} {c === 1 ? "cancha" : "canchas"}
                     </button>
                   ))}
-                </div>
-              )}
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                className="rounded-lg border bg-card px-3 py-1.5 text-sm font-medium"
-                onClick={() => setChipOpen(chipOpen === "meta" ? null : "meta")}
-              >
-                Meta: {pointsPerMatch} pts
-              </button>
-              {chipOpen === "meta" && (
-                <div className="absolute left-0 top-full z-20 mt-1 min-w-44 rounded-xl border bg-popover p-1 shadow-lg">
-                  {POINT_OPTIONS.map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                        pointsPerMatch === p ? "font-bold text-primary" : ""
-                      }`}
-                      onClick={() => {
-                        setPointsPerMatch(p);
-                        setChipOpen(null);
-                      }}
-                    >
-                      {p} puntos
-                    </button>
-                  ))}
-                  <p className="px-3 pb-1 pt-1 text-xs text-muted-foreground">
-                    Solo referencia: el marcador es libre y el empate vale.
-                  </p>
                 </div>
               )}
             </div>
@@ -727,11 +697,11 @@ export default function RoundRobinDemo() {
           {/* Lista de inscritos: renglones con botón rojo de quitar, como la
               referencia. */}
           {inscritos.length > 0 && (
-            <ul className="space-y-1.5">
+            <ul className="space-y-1">
               {inscritos.map((n, i) => (
                 <li
                   key={n}
-                  className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 py-2 pl-4 pr-2"
+                  className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 py-1.5 pl-4 pr-2"
                 >
                   <span className="min-w-0 truncate text-sm font-medium">{n}</span>
                   <button
@@ -779,7 +749,7 @@ export default function RoundRobinDemo() {
                   inscribir();
                 }
               }}
-              placeholder="Escribe un nombre o pega una lista"
+              placeholder="Escribe un nombre"
               className="h-12 flex-1 rounded-xl text-base"
             />
             <Button
@@ -1115,4 +1085,4 @@ export default function RoundRobinDemo() {
       </div>
     </div>
   );
-              }
+}
