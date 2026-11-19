@@ -928,14 +928,14 @@ teams.forEach((t) => {
         key={step}
         className={
           step === PRUEBA_STEP && pruebaRR
-            ? "animate-fade-in border-0 bg-transparent shadow-none"
+            ? "mt-3 animate-fade-in border-0 bg-transparent py-0 shadow-none"
             : "animate-fade-in"
         }
       >
         <CardContent className={step === PRUEBA_STEP && pruebaRR ? "p-0" : "p-6"}>
           {/* ============ PASO VIRTUAL: PRUEBA AISLADA ROUND ROBIN ============ */}
           {step === PRUEBA_STEP && pruebaRR && (
-            <div className="space-y-3">
+            <div>
               <Suspense fallback={<p className="py-8 text-center text-sm">Cargando la prueba…</p>}>
                 <RoundRobinDemo embedded />
               </Suspense>
