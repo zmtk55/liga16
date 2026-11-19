@@ -119,7 +119,7 @@ function scoreStatus(draft: ScoreDraft | undefined): ScoreStatus {
   return check.ok ? "final" : { error: check.error };
 }
 
-export default function RoundRobinDemo() {
+export default function RoundRobinDemo({ embedded = false }: { embedded?: boolean }) {
   // La lista puede venir precargada desde la inscripcion: /demo/round-robin?jugadores=Ana,Beto,...
   const [searchParams] = useSearchParams();
   const rosterFromUrl = (searchParams.get("jugadores") ?? "")
@@ -577,15 +577,17 @@ export default function RoundRobinDemo() {
           Ademas: con el teclado abierto (input enfocado) la barra fija del sitio se oculta
           para no tapar el campo ni el boton; la regla solo vive en esta ruta. */}
       <style>{DEMO_STYLE}</style>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h1 className="text-lg font-bold">Round robin individual</h1>
-        <p className="text-xs text-muted-foreground">
-          Demo ficticia · el avance se guarda solo en este navegador
-        </p>
-        {saveWarning && (
-          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{saveWarning}</p>
-        )}
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-lg font-bold">Round robin individual</h1>
+          <p className="text-xs text-muted-foreground">
+            Demo ficticia · el avance se guarda solo en este navegador
+          </p>
+        </div>
+      )}
+      {saveWarning && (
+        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{saveWarning}</p>
+      )}
 
       {names.length > 0 && !configOpen ? (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
@@ -631,7 +633,7 @@ export default function RoundRobinDemo() {
             <div className="relative">
               <button
                 type="button"
-                className="rounded-lg border bg-card px-3 py-1.5 text-sm font-medium"
+                className="rounded-lg bg-muted/60 px-3 py-1.5 text-sm font-medium"
                 onClick={() => setChipOpen(chipOpen === "canchas" ? null : "canchas")}
               >
                 {courts} {courts === 1 ? "cancha" : "canchas"}
@@ -659,7 +661,7 @@ export default function RoundRobinDemo() {
             <div className="relative">
               <button
                 type="button"
-                className="rounded-lg border bg-card px-3 py-1.5 text-sm font-medium"
+                className="rounded-lg bg-muted/60 px-3 py-1.5 text-sm font-medium"
                 onClick={() => setChipOpen(chipOpen === "rondas" ? null : "rondas")}
               >
                 {roundMode === "full" ? `Completa (${fullRounds})` : "Corta (6)"}
@@ -723,9 +725,7 @@ export default function RoundRobinDemo() {
           <div className="flex items-baseline justify-between gap-2 text-sm">
             <span
               className={
-                overLimit || (inscritos.length > 0 && inscritos.length < 4)
-                  ? "font-medium text-red-600 dark:text-red-400"
-                  : "text-muted-foreground"
+                overLimit ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground"
               }
             >
               {overLimit
@@ -772,9 +772,19 @@ export default function RoundRobinDemo() {
             <p className="text-xs text-muted-foreground">Lista precargada desde el enlace.</p>
           )}
 
+          {inscritos.length === 0 && (
+            <button
+              type="button"
+              className="text-xs font-medium text-muted-foreground underline underline-offset-2"
+              onClick={() => setInscritos(DEFAULT_NAMES)}
+            >
+              Usar ejemplo de {DEFAULT_NAMES.length} jugadores
+            </button>
+          )}
+
           <Button
             type="button"
-            className="h-14 w-full rounded-xl text-base font-extrabold uppercase tracking-wide"
+            className="h-12 w-full rounded-xl text-base font-bold"
             onClick={generate}
             disabled={!canGenerate}
           >
@@ -784,16 +794,6 @@ export default function RoundRobinDemo() {
           <details className="text-xs text-muted-foreground">
             <summary className="cursor-pointer select-none font-medium">Opciones</summary>
             <div className="mt-2 flex flex-wrap gap-2">
-              {inscritos.length === 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setInscritos(DEFAULT_NAMES)}
-                >
-                  Usar ejemplo de {DEFAULT_NAMES.length}
-                </Button>
-              )}
               {names.length > 0 && (
                 <>
                   <Button type="button" variant="outline" size="sm" onClick={simulateRemaining}>
@@ -1073,24 +1073,26 @@ export default function RoundRobinDemo() {
         </section>
       )}
 
-      <div className="space-y-1 text-xs text-muted-foreground">
-        <p>
-          Prueba aislada · el avance se guarda solo en este navegador ·{" "}
-          <Link
-            to="/torneos"
-            className="font-semibold text-primary underline-offset-4 hover:underline"
-          >
-            Volver a torneos
-          </Link>
-        </p>
-        <details>
-          <summary className="cursor-pointer select-none">Más sobre esta prueba</summary>
-          <p className="mt-1">
-            Nada se sube a ningún lado ni toca los torneos reales. Sesión corta solo definida
-            para 7 jugadores y 1 cancha; con otras cantidades se ofrece la rotación completa.
+      {!embedded && (
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p>
+            Prueba aislada ·{" "}
+            <Link
+              to="/torneos"
+              className="font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              Volver a torneos
+            </Link>
           </p>
-        </details>
-      </div>
+          <details>
+            <summary className="cursor-pointer select-none">Más sobre esta prueba</summary>
+            <p className="mt-1">
+              Nada se sube a ningún lado ni toca los torneos reales. Sesión corta solo definida
+              para 7 jugadores y 1 cancha; con otras cantidades se ofrece la rotación completa.
+            </p>
+          </details>
+        </div>
+      )}
     </div>
   );
-                  }
+}
