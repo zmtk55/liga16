@@ -1,8 +1,17 @@
 import { knockoutBracket } from "@/lib/americano-knockout";
 import { firstBoxStage, secondBoxStage, validBoxCount, boxStageReady, boxGroupPlayers, boxStageScores } from "@/lib/americano-box";
 import { validClubs, generateClubAmericano, nextClubMexicanoRound, clubTotals, type Club } from "@/lib/americano-clubs";
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Link, useSearchParams } from "react-router";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -90,7 +99,11 @@ interface ScoreDraft {
 
 /** CSS local de la página (ver className "demo-round-robin" en la raíz). */
 const DEMO_STYLE = `vercel-live-feedback { display: none !important; }
-body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación principal"] { display: none !important; }
+body:has(.demo-round-robin) [aria-label="Navegación principal"] { transition: visibility 0s 0.25s; }
+body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación principal"] { visibility: hidden !important; transition-delay: 0s !important; }
+/* La barra reaparece con 250ms de retardo al salir del campo: si el toque que
+   quita el foco va a un boton (p. ej. Siguiente), el click se completa antes
+   de que la barra vuelva a cubrir la zona. */
 /* Un jalón hacia abajo en el tope ya no dispara el refresco de Chrome
    (reportado por Julian: recargar borraba todo). El scroll normal sigue
    igual: solo se corta el gesto de overscroll, no el desplazamiento. */
@@ -168,13 +181,9 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
   // referencia: la configuración se resume en chips y se despliega al tocar.
   // Onboarding previo al juego: paso 1 = jugadores, paso 2 = canchas y modo.
   const [onbStep, setOnbStep] = useState<1 | 2>(1);
-  const [confirmReset, setConfirmReset] = useState(false);
   const confirmRef = useRef<HTMLParagraphElement>(null);
   const routeRef = useRef<HTMLElement>(null);
   const gameRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (confirmReset) confirmRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [confirmReset]);
   const [courts, setCourts] = useState(restored?.courts ?? 1);
   // Meta de referencia interna: solo se usa para simular marcadores plausibles;
   // no hay selector en pantalla (el marcador es libre y el empate vale).
@@ -225,6 +234,9 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
   }, [onbStep, configOpen]);
 
   const [view, setView] = useState<"rounds" | "standings" | "playoff">(restored?.view ?? "rounds");
+  // "Ver todas las rondas": despliega la lista completa hacia abajo. Estado de
+  // vista efimero: no entra al snapshot (la partida guardada no cambia).
+  const [verTodas, setVerTodas] = useState(false);
   const [saveWarning] = useState<string | null>(
     stored.available
       ? stored.corrupt
@@ -410,6 +422,13 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
   const perdidos =
     Object.values(drafts).filter((d) => d.a.trim() !== "" || d.b.trim() !== "").length +
     Object.values(playoffDrafts).filter((d) => d.a.trim() !== "" || d.b.trim() !== "").length;
+  // Aviso de borrado: visible de inmediato en cuanto un cambio (lista, canchas,
+  // modo o modalidad) invalidaria marcadores; el siguiente toque ya decide.
+  const mostrarAviso = names.length > 0 && cambios && perdidos > 0;
+  useEffect(() => {
+    if (mostrarAviso && onbStep === 2 && configOpen)
+      confirmRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [mostrarAviso, onbStep, configOpen]);
   const restingPerRound = inscritos.length - courtsSel * 4;
 
   const scores = useMemo(() => {
@@ -576,7 +595,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
     setCourts(usableCourts);
     setRoundMode(modo);
     setApplied({ courts: usableCourts, mode: modo, modalidad });
-    setConfirmReset(false);
     if (knockoutSeleccionado) {
       setCoberturaIncompleta(false);
       setRounds([]);
@@ -631,13 +649,11 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
     setModalidad(applied.modalidad);
     setClubsDraft(Object.fromEntries(names.flatMap((name,i) => appliedClubs[i] ? [[name,appliedClubs[i]]] : [])));
     setGenerosDraft(Object.fromEntries(names.flatMap((name, i) => appliedGeneros[i] ? [[name, appliedGeneros[i]]] : [])));
-    setConfirmReset(false);
     setConfigOpen(false);
   }
 
   function irAPaso(n: 1 | 2) {
     setOnbStep(n);
-    setConfirmReset(false);
     setConfigOpen(true);
   }
 
@@ -961,16 +977,16 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
 
       {/* Ruta del onboarding: cada tramo es un paso real. Los pasos ya hechos
           vuelven sin perder datos; "Torneos" lleva a la lista real. */}
-      <nav ref={routeRef} aria-label="Ruta" className="-mb-1 scroll-mt-20">
-        <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+      <Breadcrumb ref={routeRef} className="-mb-1 scroll-mt-20">
+        <BreadcrumbList className="text-xs">
           {!embedded && (
             <>
-              <li>
-                <Link to="/torneos" className="underline-offset-2 hover:underline">
-                  Torneos
-                </Link>
-              </li>
-              <li aria-hidden="true">›</li>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild className="underline-offset-2 hover:underline">
+                  <Link to="/torneos">Torneos</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
             </>
           )}
           {(
@@ -985,29 +1001,32 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               n === 1 || (n === 2 && inscritos.length >= 4 && !overLimit) || (n === 3 && names.length > 0);
             const esActual = actual === n;
             return (
-              <li key={n} className="flex items-center gap-1.5">
-                {i > 0 && <span aria-hidden="true">›</span>}
+              <Fragment key={n}>
+                {i > 0 && <BreadcrumbSeparator />}
+                <BreadcrumbItem>
                 {esActual ? (
-                  <span aria-current="step" className="font-semibold text-foreground">
+                  <BreadcrumbPage aria-current="step" className="font-semibold">
                     {label}
-                  </span>
+                  </BreadcrumbPage>
                 ) : alcanzable ? (
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto p-0 text-xs font-normal text-muted-foreground underline-offset-2"
-                    onClick={() => (n === 3 ? continuarPartida() : irAPaso(n))}
-                  >
-                    {label}
-                  </Button>
+                  <BreadcrumbLink asChild>
+                    <button
+                      type="button"
+                      className="font-medium underline-offset-2 hover:underline"
+                      onClick={() => (n === 3 ? continuarPartida() : irAPaso(n))}
+                    >
+                      {label}
+                    </button>
+                  </BreadcrumbLink>
                 ) : (
                   <span>{label}</span>
                 )}
-              </li>
+                </BreadcrumbItem>
+              </Fragment>
             );
           })}
-        </ol>
-      </nav>
+        </BreadcrumbList>
+      </Breadcrumb>
 
       {jugando ? (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
@@ -1018,11 +1037,13 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
           <span className="flex items-center gap-3 text-muted-foreground">
             <Button
               type="button"
-              variant="link"
-              className="h-auto p-0 text-xs font-normal text-muted-foreground underline-offset-2"
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-lg px-2 text-xs"
               onClick={() => irAPaso(1)}
             >
-              Editar
+              <ChevronLeft />
+              Jugadores
             </Button>
             {!knockoutAplicado && <DropdownMenu>
               <DropdownMenuTrigger className="underline underline-offset-2 outline-none">
@@ -1050,7 +1071,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
         <div className="space-y-3">
           {/* Paso 1: jugadores (el número de jugadores es el de inscritos). */}
           {inscritos.length > 0 && (
-            <ul className="overflow-hidden rounded-2xl border bg-muted/40 divide-y divide-border/60">
+            <ul className="max-h-[30vh] overflow-y-auto rounded-2xl border bg-muted/40 divide-y divide-border/60">
               {inscritos.map((n, i) => (
                 <li key={n} className="flex items-center gap-3 py-2 pl-3 pr-2">
                   <span className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-lg bg-background text-xs font-bold text-muted-foreground">
@@ -1151,15 +1172,24 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
         <div className="space-y-4">
           {/* Paso 2: canchas y modo de juego, siempre visibles. Lo que no se
               puede con los jugadores actuales aparece apagado y dice por qué. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="-ml-2 h-8 rounded-lg px-2 text-xs text-muted-foreground"
+            onClick={() => irAPaso(1)}
+          >
+            <ChevronLeft />
+            Jugadores
+          </Button>
           <div className="space-y-2">
             <label htmlFor="modalidad-demo" className="text-sm font-semibold">Modalidad</label>
             <Select
               value={modalidad}
               onValueChange={(v) => {
-                setModalidad(v as AmericanoModalidad);
                 // Con marcadores en juego, el aviso de borrado se muestra de inmediato:
                 // el siguiente toque ya es "Sí, reiniciar y borrar N", sin paso intermedio.
-                setConfirmReset(perdidos > 0);
+                setModalidad(v as AmericanoModalidad);
               }}
             >
               <SelectTrigger
@@ -1197,7 +1227,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                     <span className="min-w-0 flex-1 break-words text-sm font-medium">{name}{porParejas ? <> / {inscritos[i+1]}</> : null}</span>
                     <Select value={clubsDraft[name]} onValueChange={(club) => {
                         setClubsDraft((prev) => ({...prev, [name]: club as "A" | "B"}));
-                        setConfirmReset(false);
                       }}>
                       <SelectTrigger aria-label={`Club de ${name}`} className="h-11 w-auto min-w-28 rounded-lg px-2 text-sm">
                         <SelectValue placeholder="Elegir" />
@@ -1227,7 +1256,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                       value={generosDraft[name]}
                       onValueChange={(value) => {
                         setGenerosDraft((prev) => ({ ...prev, [name]: value as Genero }));
-                        setConfirmReset(false);
                       }}
                     >
                       <SelectTrigger aria-label={`Género de ${name}`} className="h-11 w-auto min-w-28 rounded-lg px-2 text-sm">
@@ -1263,7 +1291,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                           [next[i + 1], next[other]] = [next[other], next[i + 1]];
                           return next;
                         });
-                        setConfirmReset(false);
                       }}
                     >
                       <SelectTrigger aria-label={`Compañero de ${inscritos[i]}`} className="h-11 min-w-0 rounded-lg px-2 text-sm">
@@ -1277,7 +1304,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                       <Select value={String(pair)} onValueChange={(v)=>{
                         const dest=Number(v)*2;
                         setInscritos((prev)=>{const next=[...prev];[next[i],next[dest]]=[next[dest],next[i]];[next[i+1],next[dest+1]]=[next[dest+1],next[i+1]];return next;});
-                        setConfirmReset(false);
                       }}>
                         <SelectTrigger aria-label={`Siembra de pareja ${pair+1}`} className="h-11 w-auto min-w-16 rounded-lg px-2 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>{Array.from({length:inscritos.length/2},(_,idx)=><SelectItem key={idx} value={String(idx)}>{idx+1}</SelectItem>)}</SelectContent>
@@ -1299,7 +1325,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               onValueChange={(v) => {
                 if (v) {
                   setCourts(Number(v));
-                  setConfirmReset(false);
                 }
               }}
               spacing={8}
@@ -1340,7 +1365,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               value={modoEfectivo}
               onValueChange={(v) => {
                 setRoundMode(v as "full" | "short");
-                setConfirmReset(false);
               }}
               className="space-y-2"
               aria-label="Duración en rondas"
@@ -1392,14 +1416,14 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             {!knockoutSeleccionado && restingPerRound > 0 ? (modalidad === "mix-americano" || modalidad === "team-americano" ? " · descansos según la ronda" : ` · descansan ${restingPerRound} por ronda`) : ""}
           </p>
 
-          {names.length > 0 && cambios && perdidos > 0 && confirmReset && (
+          {mostrarAviso && (
             <p ref={confirmRef} role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
               Aplicar estos cambios arma rondas nuevas y borra {perdidos}{" "}
               {perdidos === 1 ? "marcador" : "marcadores"}. Si no quieres perderlos, continúa la partida.
             </p>
           )}
 
-          {names.length === 0 || (cambios && (perdidos === 0 || confirmReset)) ? (
+          {names.length === 0 || cambios ? (
             <Button
               type="button"
               variant={canGenerate ? "default" : "secondary"}
@@ -1413,15 +1437,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                   ? `Sí, reiniciar y borrar ${perdidos}`
                   : "Aplicar y reiniciar rondas"}
             </Button>
-          ) : cambios ? (
-            <Button
-              type="button"
-              className="h-12 w-full rounded-xl text-base font-bold"
-              onClick={() => setConfirmReset(true)}
-              disabled={!canGenerate}
-            >
-              Aplicar cambios
-            </Button>
           ) : null}
           {names.length > 0 && (
             <Button
@@ -1433,14 +1448,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               Seguir sin cambios ({playedCount}/{totalMatches})
             </Button>
           )}
-          <Button
-            type="button"
-            variant="link"
-            className="h-auto p-0 text-xs font-normal text-muted-foreground underline-offset-2"
-            onClick={() => setOnbStep(1)}
-          >
-            ‹ Atrás: jugadores
-          </Button>
         </div>
       )}
 
@@ -1494,6 +1501,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
           </ToggleGroup>
             {view === "rounds" ? (
               <>
+            {!verTodas ? (
             <div className="flex items-center justify-between gap-2">
               <Button
                 type="button"
@@ -1521,6 +1529,17 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                 ›
               </Button>
             </div>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mx-auto flex h-8 rounded-lg px-2 text-xs text-muted-foreground"
+              aria-expanded={verTodas}
+              onClick={() => setVerTodas((v) => !v)}
+            >
+              {verTodas ? (<><ChevronUp /> Ver solo la ronda {ri + 1}</>) : (<><ChevronDown /> Ver todas las rondas</>)}
+            </Button>
 
             {boxAplicado && <p className="text-center text-xs text-muted-foreground">Etapa {ri < 3 ? 1 : 2} · ronda {ri % 3 + 1} de 3{ri >= 3 ? ". Grupos A+, B+ y siguientes según la etapa 1." : ". Cada cancha tiene su propia tabla."}</p>}
             {coberturaIncompleta && (
@@ -1530,6 +1549,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               </p>
             )}
 
+            {!verTodas ? (
             <div className="space-y-3">
               {round.matches.map((match, mi) => {
                 const key = `${ri}-${mi}`;
@@ -1546,6 +1566,49 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                 });
               })}
             </div>
+            ) : (
+            <div className="space-y-4">
+              {rounds.map((r, ridx) => (
+                <section key={ridx} className="space-y-2">
+                  <p className="text-sm font-bold">
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto gap-0.5 p-0 text-sm font-bold text-foreground underline decoration-muted-foreground/50 underline-offset-2"
+                      aria-label={`Ver la ronda ${ridx + 1} sola`}
+                      onClick={() => { setCurrentRound(ridx); setVerTodas(false); }}
+                    >
+                      Ronda {ridx + 1}
+                      <ChevronRight className="size-3.5 text-muted-foreground" />
+                    </Button>
+                    {boxAplicado ? <span className="font-normal text-muted-foreground"> · Etapa {ridx < 3 ? 1 : 2}</span> : null}
+                    {ridx === ri ? <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">actual</span> : null}
+                  </p>
+                  <div className="space-y-3">
+                    {r.matches.map((match, mi) => {
+                      const key = `${ridx}-${mi}`;
+                      const draft = drafts[key] ?? { a: "", b: "" };
+                      return matchCard({
+                        key,
+                        label: boxAplicado && ridx >= 3 ? `Grupo ${String.fromCharCode(64+match.court)}+ · Cancha ${match.court}` : `Cancha ${match.court}`,
+                        teamA: match.teamA,
+                        teamB: match.teamB,
+                        map: drafts,
+                        setter: setDrafts,
+                        draft,
+                        tieText: "Empate",
+                      });
+                    })}
+                  </div>
+                  {r.resting.length > 0 && (
+                    <p className="text-center text-xs text-muted-foreground">
+                      Descansan: <span className="font-medium">{r.resting.map((pl) => names[pl]).join(", ")}</span>
+                    </p>
+                  )}
+                </section>
+              ))}
+            </div>
+            )}
 
             {esMexicano && rounds.length > 1 && (
               <p className="text-center text-xs text-muted-foreground">
@@ -1555,7 +1618,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
 
             {puedeArmarEtapa2 && <Button type="button" className="h-12 w-full rounded-xl" onClick={armarEtapa2}>Armar etapa 2 con las tablas</Button>}
             {boxAplicado && rounds.length > 3 && <p className="text-xs text-muted-foreground">Corregir la etapa 1 cambia sus puntos, no los grupos ya armados de la etapa 2.</p>}
-            {puedeArmarSiguiente && ri === rounds.length - 1 && (
+            {puedeArmarSiguiente && (verTodas || ri === rounds.length - 1) && (
               <Button
                 type="button"
                 className="h-12 w-full rounded-xl text-base font-bold"
@@ -1565,7 +1628,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               </Button>
             )}
 
-            {round.resting.length > 0 && (
+            {!verTodas && round.resting.length > 0 && (
               <p className="text-center text-sm text-muted-foreground">
                 Descansan: <span className="font-medium">{round.resting.map((p) => names[p]).join(", ")}</span>
               </p>
@@ -1734,4 +1797,4 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
       )}
     </div>
   );
-                }
+      }
