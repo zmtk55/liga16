@@ -526,10 +526,10 @@ export function americanoStandings(
 /* --------------------------- regla de puntuación --------------------------- */
 
 /**
- * Regla de captura ELEGIDA PARA LA DEMO (americano clásico; así lo describe
- * Rallyano: cada ronda se juega a N puntos): el partido consta de exactamente
- * `pointsPerMatch` puntos y los dos marcadores deben sumar esa cantidad.
- * Empate posible solo si N es par.
+ * Regla de captura ELEGIDA PARA LA DEMO (la que describió Julian: "el primero
+ * que llegue a N"): el partido lo gana el primer equipo en llegar a
+ * `pointsPerMatch` puntos, así que un marcador debe ser exactamente N y el
+ * otro menor que N. Sin empates.
  */
 export function validateAmericanoScore(
   a: number,
@@ -539,11 +539,11 @@ export function validateAmericanoScore(
   if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a > 99 || b > 99) {
     return { ok: false, error: "Los puntos deben ser números enteros entre 0 y 99." };
   }
-  if (a + b !== pointsPerMatch) {
+  if (Math.max(a, b) !== pointsPerMatch || Math.min(a, b) >= pointsPerMatch) {
     return {
       ok: false,
-      error: `El partido se juega a ${pointsPerMatch} puntos en total: los dos marcadores deben sumar ${pointsPerMatch}.`,
+      error: `El partido es al primero que llegue a ${pointsPerMatch}: un marcador debe ser ${pointsPerMatch} y el otro menor.`,
     };
   }
   return { ok: true, score: { a, b } };
-            }
+}
