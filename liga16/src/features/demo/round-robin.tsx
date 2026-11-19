@@ -128,17 +128,28 @@ export default function RoundRobinDemo() {
     () => (names.length >= 4 ? proposePlayoffPairs(standings.map((r) => r.player)) : null),
     [names.length, standings],
   );
-  const finalPairs = useMemo(
+  // Las llaves de la eliminatoria llevan las parejas: si la tabla (o el
+  // criterio total/promedio) cambia y cambian las parejas, un marcador viejo
+  // NUNCA se pega a parejas nuevas ni deja campeones obsoletos.
+  function poKey(prefix: string, teamA: [number, number], teamB: [number, number]) {
+    return `${prefix}-${teamA[0]}-${teamA[1]}-${teamB[0]}-${teamB[1]}`;
+  }
+
+  const sfScores = useMemo(
     () =>
       playoff
-        ? playoffFinalPairs(playoff, [
-            parseScore(playoffDrafts["po-sf-0"], pointsPerMatch),
-            parseScore(playoffDrafts["po-sf-1"], pointsPerMatch),
-          ])
-        : null,
+        ? playoff.semifinals.map((m, i) =>
+            parseScore(playoffDrafts[poKey(`po-sf-${i}`, m.teamA, m.teamB)], pointsPerMatch),
+          )
+        : [],
     [playoff, playoffDrafts, pointsPerMatch],
   );
-  const finalScore = parseScore(playoffDrafts["po-final"], pointsPerMatch);
+  const finalPairs = useMemo(
+    () => (playoff ? playoffFinalPairs(playoff, sfScores) : null),
+    [playoff, sfScores],
+  );
+  const finalKey = finalPairs ? poKey("po-final", finalPairs[0], finalPairs[1]) : null;
+  const finalScore = finalKey ? parseScore(playoffDrafts[finalKey], pointsPerMatch) : null;
   const championNames =
     finalScore && finalPairs
       ? (finalScore.a > finalScore.b ? finalPairs[0] : finalPairs[1])
@@ -710,8 +721,8 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
               <>
                 <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
                   Propuesta a prueba, reversible: las parejas salen balanceadas de la tabla (mejor
-                  con peor clasificado; los empates se rompen como en la tabla). No es una regla
-                  confirmada; se puede cambiar.
+                  con peor clasificado; los empates se rompen como en la tabla: puntos, diferencia,
+                  victorias). No es una regla confirmada; se puede cambiar.
                 </p>
                 {names.length < 4 ? (
                   <p className="text-sm text-muted-foreground">
@@ -728,10 +739,10 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
                     {playoff.mode === "semifinals" ? (
                       <>
                         {playoff.semifinals.map((m, i) =>
-                          renderPlayoffMatch(m.label, m.teamA, m.teamB, `po-sf-${i}`),
+                          renderPlayoffMatch(m.label, m.teamA, m.teamB, poKey(`po-sf-${i}`, m.teamA, m.teamB)),
                         )}
                         {finalPairs ? (
-                          renderPlayoffMatch("Final", finalPairs[0], finalPairs[1], "po-final")
+                          renderPlayoffMatch("Final", finalPairs[0], finalPairs[1], poKey("po-final", finalPairs[0], finalPairs[1]))
                         ) : (
                           <p className="text-center text-sm text-muted-foreground">
                             La final se arma cuando las dos semifinales tengan marcador: cada pareja
@@ -744,12 +755,17 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
                         <p className="text-xs text-muted-foreground">
                           Clasifican los 4 primeros de la tabla; con 8 o más habría semifinales.
                         </p>
-                        {renderPlayoffMatch("Final", finalPairs![0], finalPairs![1], "po-final")}
+                        {renderPlayoffMatch("Final", finalPairs![0], finalPairs![1], poKey("po-final", finalPairs![0], finalPairs![1]))}
                       </>
                     )}
                     {championNames && (
                       <p className="rounded-xl bg-primary/10 p-3 text-center text-base font-bold">
                         Campeones: {championNames}
+                        {playedCount < totalMatches && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            Provisional: todavía faltan partidos de ronda por capturar.
+                          </span>
+                        )}
                       </p>
                     )}
                   </>
@@ -768,4 +784,4 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
       </p>
     </div>
   );
-      }
+                        }
