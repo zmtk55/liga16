@@ -681,7 +681,9 @@ export default function RoundRobinDemo() {
                   </Button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">Gana el primero en llegar; sin empate.</p>
+              <p className="text-xs text-muted-foreground">
+                El marcador es libre: cierra el partido con Terminar; el empate también vale.
+              </p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium">Canchas</p>
