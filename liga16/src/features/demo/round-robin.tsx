@@ -518,21 +518,21 @@ export default function RoundRobinDemo() {
           {label}
         </p>
         <div className="flex items-start justify-between gap-2">
-          <p className="min-w-0 flex-1 text-lg font-bold leading-tight">
+          <p className="min-w-0 flex-1 break-words text-lg font-bold leading-tight">
             {teamNames(teamA)}
             {score && score.a > score.b && (
               <span className="block text-xs font-semibold text-primary">ganaron</span>
             )}
           </p>
           <p className="pt-1 text-xs font-medium text-muted-foreground">vs</p>
-          <p className="min-w-0 flex-1 text-right text-lg font-bold leading-tight">
+          <p className="min-w-0 flex-1 break-words text-right text-lg font-bold leading-tight">
             {teamNames(teamB)}
             {score && score.b > score.a && (
               <span className="block text-xs font-semibold text-primary">ganaron</span>
             )}
           </p>
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           {scoreBox({ ...playoffDrafts, [key]: draft }, setPlayoffDrafts, key, "a", markWrite, draft.done)}
           {scoreBox({ ...playoffDrafts, [key]: draft }, setPlayoffDrafts, key, "b", markWrite, draft.done)}
         </div>
@@ -888,21 +888,21 @@ export default function RoundRobinDemo() {
                       Cancha {match.court}
                     </p>
                     <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 flex-1 text-lg font-bold leading-tight">
+                      <p className="min-w-0 flex-1 break-words text-lg font-bold leading-tight">
                         {teamNames(match.teamA)}
                         {score && score.a > score.b && (
                           <span className="block text-xs font-semibold text-primary">ganaron</span>
                         )}
                       </p>
                       <p className="pt-1 text-xs font-medium text-muted-foreground">vs</p>
-                      <p className="min-w-0 flex-1 text-right text-lg font-bold leading-tight">
+                      <p className="min-w-0 flex-1 break-words text-right text-lg font-bold leading-tight">
                         {teamNames(match.teamB)}
                         {score && score.b > score.a && (
                           <span className="block text-xs font-semibold text-primary">ganaron</span>
                         )}
                       </p>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
                       {scoreBox(drafts, setDrafts, key, "a", undefined, draft.done)}
                       {scoreBox(drafts, setDrafts, key, "b", undefined, draft.done)}
                     </div>
@@ -1085,4 +1085,4 @@ export default function RoundRobinDemo() {
       </div>
     </div>
   );
-              }
+                }
