@@ -10,6 +10,7 @@ import {
   fullRotationRounds,
   generateAmericano,
   maxCourts,
+  validateAmericanoScore,
   type AmericanoRound,
   type AmericanoSortMode,
 } from "@/lib/americano";
@@ -30,9 +31,10 @@ import {
  *    (alternativa corta: 6 rondas sin repetir compañero)
  *
  * Reglas ELEGIDAS PARA ESTA PRUEBA (no son preferencia confirmada de nadie):
- * partido a N puntos y cada jugador se queda con los puntos que anotó su
- * equipo. Sin compensación por descanso: la tabla se puede ordenar por total
- * o por promedio por partido para ver el efecto.
+ * cada partido se juega a N puntos en total (los dos marcadores suman N,
+ * como el americano clásico que describe Rallyano) y cada jugador se queda
+ * con los puntos que anotó su equipo. Sin compensación por descanso: la tabla
+ * se puede ordenar por total o por promedio por partido para ver el efecto.
  */
 
 const DEFAULT_NAMES = ["Ana", "Beto", "Carla", "Diego", "Elena", "Fede", "Gaby"];
@@ -44,12 +46,17 @@ interface ScoreDraft {
   b: string;
 }
 
-function parseScore(draft: ScoreDraft | undefined): { a: number; b: number } | null {
+function parseScore(draft: ScoreDraft | undefined, pointsPerMatch: number): { a: number; b: number } | null {
   if (!draft || draft.a.trim() === "" || draft.b.trim() === "") return null;
-  const a = Number(draft.a);
-  const b = Number(draft.b);
-  if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a > 99 || b > 99) return null;
-  return { a, b };
+  const check = validateAmericanoScore(Number(draft.a), Number(draft.b), pointsPerMatch);
+  return check.ok ? check.score : null;
+}
+
+/** Error visible cuando ambos lados están capturados pero no suman N. */
+function scoreError(draft: ScoreDraft | undefined, pointsPerMatch: number): string | null {
+  if (!draft || draft.a.trim() === "" || draft.b.trim() === "") return null;
+  const check = validateAmericanoScore(Number(draft.a), Number(draft.b), pointsPerMatch);
+  return check.ok ? null : check.error;
 }
 
 export default function RoundRobinDemo() {
@@ -78,11 +85,11 @@ export default function RoundRobinDemo() {
   const scores = useMemo(() => {
     const map: Record<string, { a: number; b: number }> = {};
     for (const [key, draft] of Object.entries(drafts)) {
-      const parsed = parseScore(draft);
+      const parsed = parseScore(draft, pointsPerMatch);
       if (parsed) map[key] = parsed;
     }
     return map;
-  }, [drafts]);
+  }, [drafts, pointsPerMatch]);
 
   const standings = useMemo(
     () => (names.length > 0 ? americanoStandings(names.length, rounds, scores, sortMode) : []),
@@ -106,7 +113,7 @@ export default function RoundRobinDemo() {
       rounds.forEach((round, ri) => {
         round.matches.forEach((_, mi) => {
           const key = `${ri}-${mi}`;
-          if (parseScore(next[key])) return;
+          if (parseScore(next[key], pointsPerMatch)) return;
           const loser = Math.floor(Math.random() * Math.floor(pointsPerMatch / 2)); // 0..<N/2
           next[key] =
             Math.random() < 0.5
@@ -257,8 +264,9 @@ export default function RoundRobinDemo() {
           <CardHeader>
             <CardTitle>2. Rondas y captura de puntos</CardTitle>
             <CardDescription>
-              Anota los puntos que hizo cada equipo; la tabla se actualiza sola. Puedes corregir
-              cualquier marcador escribiendo de nuevo.
+              Regla de esta prueba: cada partido se juega a {pointsPerMatch} puntos en total, así
+              que los dos marcadores deben sumar {pointsPerMatch} (13-8 vale, 21-14 no). La tabla se
+              actualiza sola y puedes corregir cualquier marcador escribiendo de nuevo.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -269,8 +277,9 @@ export default function RoundRobinDemo() {
                   {round.matches.map((match, mi) => {
                     const key = `${ri}-${mi}`;
                     const draft = drafts[key] ?? { a: "", b: "" };
-                    const score = parseScore(draft);
-                    const partial = !score && (draft.a !== "" || draft.b !== "");
+                    const score = parseScore(draft, pointsPerMatch);
+                    const invalid = scoreError(draft, pointsPerMatch);
+                    const partial = !score && !invalid && (draft.a !== "" || draft.b !== "");
                     return (
                       <div key={key} className="rounded-xl border p-3">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -316,6 +325,7 @@ export default function RoundRobinDemo() {
                             Falta un lado del marcador para contar el partido.
                           </p>
                         )}
+                        {invalid && <p className="mt-2 text-xs text-destructive">{invalid}</p>}
                       </div>
                     );
                   })}
@@ -414,8 +424,9 @@ export default function RoundRobinDemo() {
             repetir), y todos juegan 6 o 7 partidos.
           </p>
           <p>
-            Reglas elegidas para esta prueba (no confirmadas): partido a N puntos, cada jugador se
-            queda con los puntos de su equipo, empates valen, sin compensación por descanso. Todo se
+            Reglas elegidas para esta prueba (no confirmadas): partido a N puntos en total (los
+            marcadores suman N, como el americano clásico; con N par puede haber empate), cada
+            jugador se queda con los puntos de su equipo, sin compensación por descanso. Todo se
             puede cambiar.
           </p>
           <p>
@@ -432,4 +443,4 @@ export default function RoundRobinDemo() {
       </Card>
     </div>
   );
-            }
+                        }
