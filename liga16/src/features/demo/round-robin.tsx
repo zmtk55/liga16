@@ -571,7 +571,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
   }
 
   return (
-    <div className="demo-round-robin mx-auto max-w-2xl space-y-3 px-3 pb-28 pt-3 sm:space-y-6 sm:px-4 sm:py-8">
+    <div className={embedded ? "demo-round-robin space-y-3 pb-4" : "demo-round-robin mx-auto max-w-2xl space-y-3 px-3 pb-28 pt-3 sm:space-y-6 sm:px-4 sm:py-8"}>
       {/* La preview de Vercel inyecta un boton flotante (vercel-live-feedback) que tapa
           controles del borde derecho en movil; se oculta solo en esta pagina de demo.
           Ademas: con el teclado abierto (input enfocado) la barra fija del sitio se oculta
@@ -626,10 +626,94 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
           </span>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className={embedded ? "space-y-3" : "flex min-h-[calc(100dvh-17rem)] flex-col gap-3"}>
+          <div className="flex gap-2">
+            <Input
+              ref={nombreInputRef}
+              value={nuevoNombre}
+              onChange={(e) => setNuevoNombre(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  inscribir();
+                }
+              }}
+              placeholder="Escribe un nombre"
+              className="h-12 flex-1 rounded-xl text-base"
+            />
+            <Button
+              type="button"
+              variant={nombreLimpio ? "default" : "secondary"}
+              className="h-12 w-12 rounded-xl px-0 text-xl"
+              onClick={inscribir}
+              disabled={!nombreLimpio}
+              aria-label="Inscribir"
+            >
+              +
+            </Button>
+          </div>
+          {esDuplicado && (
+            <p className="text-xs text-red-600 dark:text-red-400">Ese nombre ya está inscrito.</p>
+          )}
+          {rosterFromUrl.length > 0 && inscritos.length > 0 && (
+            <p className="text-xs text-muted-foreground">Lista precargada desde el enlace.</p>
+          )}
+
+          {inscritos.length === 0 && (
+            <button
+              type="button"
+              className="text-xs font-medium text-muted-foreground underline underline-offset-2"
+              onClick={() => setInscritos(DEFAULT_NAMES)}
+            >
+              Usar ejemplo de {DEFAULT_NAMES.length} jugadores
+            </button>
+          )}
+
+          <div className="flex items-baseline justify-between gap-2 text-sm">
+            <span
+              className={
+                overLimit ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground"
+              }
+            >
+              {overLimit
+                ? `Máximo ${MAX_PLAYERS}: quita ${inscritos.length - MAX_PLAYERS} (ninguno se pierde)`
+                : inscritos.length < 4
+                  ? "Inscribe al menos 4 jugadores"
+                  : restingPerRound > 0
+                    ? `Listo · descansan ${restingPerRound} por ronda`
+                    : "Listo para armar las rondas"}
+            </span>
+            <span className="shrink-0 text-muted-foreground">
+              {inscritos.length} {inscritos.length === 1 ? "jugador" : "jugadores"}
+            </span>
+          </div>
+
+          {/* Lista de inscritos: renglones con botón rojo de quitar, como la
+              referencia. */}
+          {inscritos.length > 0 && (
+            <ul className="space-y-1">
+              {inscritos.map((n, i) => (
+                <li
+                  key={n}
+                  className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 py-1.5 pl-4 pr-2"
+                >
+                  <span className="min-w-0 truncate text-sm font-medium">{n}</span>
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-600 text-lg leading-none text-white"
+                    aria-label={`Quitar a ${n}`}
+                    onClick={() => quitar(i)}
+                  >
+                    −
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {/* Configuración resumida en chips (como la app de referencia): se
               toca un chip y se elige; nada de formularios largos. */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <button
                 type="button"
@@ -697,102 +781,8 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Lista de inscritos: renglones con botón rojo de quitar, como la
-              referencia. */}
-          {inscritos.length > 0 && (
-            <ul className="space-y-1">
-              {inscritos.map((n, i) => (
-                <li
-                  key={n}
-                  className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 py-1.5 pl-4 pr-2"
-                >
-                  <span className="min-w-0 truncate text-sm font-medium">{n}</span>
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-600 text-lg leading-none text-white"
-                    aria-label={`Quitar a ${n}`}
-                    onClick={() => quitar(i)}
-                  >
-                    −
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="flex items-baseline justify-between gap-2 text-sm">
-            <span
-              className={
-                overLimit ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground"
-              }
-            >
-              {overLimit
-                ? `Máximo ${MAX_PLAYERS}: quita ${inscritos.length - MAX_PLAYERS} (ninguno se pierde)`
-                : inscritos.length < 4
-                  ? "Inscribe al menos 4 jugadores"
-                  : restingPerRound > 0
-                    ? `Listo · descansan ${restingPerRound} por ronda`
-                    : "Listo para armar las rondas"}
-            </span>
-            <span className="shrink-0 text-muted-foreground">
-              {inscritos.length} {inscritos.length === 1 ? "jugador" : "jugadores"}
-            </span>
-          </div>
-
-          <div className="flex gap-2">
-            <Input
-              ref={nombreInputRef}
-              value={nuevoNombre}
-              onChange={(e) => setNuevoNombre(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  inscribir();
-                }
-              }}
-              placeholder="Escribe un nombre"
-              className="h-12 flex-1 rounded-xl text-base"
-            />
-            <Button
-              type="button"
-              className="h-12 w-12 rounded-xl px-0 text-xl"
-              onClick={inscribir}
-              disabled={!nombreLimpio}
-              aria-label="Inscribir"
-            >
-              +
-            </Button>
-          </div>
-          {esDuplicado && (
-            <p className="text-xs text-red-600 dark:text-red-400">Ese nombre ya está inscrito.</p>
-          )}
-          {rosterFromUrl.length > 0 && inscritos.length > 0 && (
-            <p className="text-xs text-muted-foreground">Lista precargada desde el enlace.</p>
-          )}
-
-          {inscritos.length === 0 && (
-            <button
-              type="button"
-              className="text-xs font-medium text-muted-foreground underline underline-offset-2"
-              onClick={() => setInscritos(DEFAULT_NAMES)}
-            >
-              Usar ejemplo de {DEFAULT_NAMES.length} jugadores
-            </button>
-          )}
-
-          <Button
-            type="button"
-            className="h-12 w-full rounded-xl text-base font-bold"
-            onClick={generate}
-            disabled={!canGenerate}
-          >
-            {names.length > 0 ? "Regenerar rondas" : "¡Empezar!"}
-          </Button>
-
-          <details className="text-xs text-muted-foreground">
-            <summary className="cursor-pointer select-none font-medium">Opciones</summary>
+          <details className="relative ml-auto text-xs text-muted-foreground">
+            <summary className="cursor-pointer select-none py-1.5 font-medium">Opciones</summary>
             <div className="mt-2 flex flex-wrap gap-2">
               {names.length > 0 && (
                 <>
@@ -818,6 +808,20 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               )}
             </div>
           </details>
+          </div>
+          <div className={embedded ? undefined : "mt-auto pt-2"}>
+            <Button
+              type="button"
+              variant={canGenerate ? "default" : "secondary"}
+              className="h-12 w-full rounded-xl text-base font-bold"
+              onClick={generate}
+              disabled={!canGenerate}
+            >
+              {names.length > 0 ? "Regenerar rondas" : "¡Empezar!"}
+            </Button>
+          </div>
+
+
           {names.length > 0 && (
             <p className="text-xs text-muted-foreground">
               {names.length} jugadores · {rounds.length} rondas · {totalMatches} partidos ·{" "}
