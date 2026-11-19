@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -224,17 +223,16 @@ export default function RoundRobinDemo() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 px-3 pb-28 pt-4 sm:space-y-6 sm:px-4 sm:py-8">
+    <div className="demo-round-robin mx-auto max-w-2xl space-y-4 px-3 pb-28 pt-4 sm:space-y-6 sm:px-4 sm:py-8">
       {/* La preview de Vercel inyecta un boton flotante (vercel-live-feedback) que tapa
-          controles del borde derecho en movil; se oculta solo en esta pagina de demo. */}
-      <style>{`vercel-live-feedback { display: none !important; }`}</style>
-      <div className="space-y-1">
-        <Badge variant="secondary">Demo · datos ficticios</Badge>
-        <h1 className="text-xl font-bold sm:text-2xl">Round robin individual (dobles rotativos)</h1>
-        <p className="text-sm text-muted-foreground">
-          Nombres, rondas con compañeros que rotan y tabla individual. Nada se guarda; se reinicia
-          al recargar.
-        </p>
+          controles del borde derecho en movil; se oculta solo en esta pagina de demo.
+          Ademas: con el teclado abierto (input enfocado) la barra fija del sitio se oculta
+          para no tapar el campo ni el boton; la regla solo vive en esta ruta. */}
+      <style>{`vercel-live-feedback { display: none !important; }
+body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación principal"] { display: none !important; }`}</style>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h1 className="text-lg font-bold">Round robin individual</h1>
+        <p className="text-xs text-muted-foreground">Demo ficticia · se reinicia al recargar</p>
       </div>
 
       {names.length > 0 && !configOpen ? (
@@ -263,8 +261,7 @@ export default function RoundRobinDemo() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Inscripción y formato</CardTitle>
           <CardDescription>
-            Inscribe a cada jugador (4 a {MAX_PLAYERS}). Las rondas y los descansos salen de esta
-            lista; la cantidad no es fija.
+            Inscribe jugadores (4 a {MAX_PLAYERS}); las rondas salen de esta lista.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -611,32 +608,13 @@ export default function RoundRobinDemo() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Qué se está probando aquí</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            El formato de las apps de americano: inscripción individual, rondas de dobles con
-            compañeros rotativos y tabla individual. La inscripción de arriba imita el onboarding
-            del torneo, en memoria y con datos ficticios; también puede llegar precargada con
-            ?jugadores= en el enlace. La lista manda: con 7 inscritos y 1 cancha (solo un ejemplo)
-            la rotación completa son 11 rondas: todos son compañeros de todos con una sola pareja
-            repetida (el mínimo posible), nadie descansa dos rondas seguidas y todos juegan 6 o 7
-            partidos. Sesión corta solo está definida para 7; con otras cantidades la prueba
-            ofrece la rotación completa.
-          </p>
-          <p>
-            Lo que NO decide esta demo: si el torneo vale por total o por promedio, cómo se forman
-            las parejas de semis y finales, y qué pasa si alguien se va a mitad.
-          </p>
-          <p>
-            <Link to="/torneos" className="font-semibold text-primary underline-offset-4 hover:underline">
-              Volver a torneos
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+      <p className="text-xs text-muted-foreground">
+        Prueba aislada en memoria; no usa el onboarding real. Sesión corta solo definida para 7;
+        con otras cantidades se ofrece la rotación completa.{" "}
+        <Link to="/torneos" className="font-semibold text-primary underline-offset-4 hover:underline">
+          Volver a torneos
+        </Link>
+      </p>
     </div>
   );
-          }
+}
