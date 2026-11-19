@@ -1157,7 +1157,9 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               value={modalidad}
               onValueChange={(v) => {
                 setModalidad(v as AmericanoModalidad);
-                setConfirmReset(false);
+                // Con marcadores en juego, el aviso de borrado se muestra de inmediato:
+                // el siguiente toque ya es "Sí, reiniciar y borrar N", sin paso intermedio.
+                setConfirmReset(perdidos > 0);
               }}
             >
               <SelectTrigger
@@ -1167,19 +1169,19 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={4} className="max-w-[var(--radix-select-content-available-width)]">
                 <SelectItem value="americano" disabled={inscritos.length>12}>Normal Americano</SelectItem>
                 <SelectItem value="mix-americano" disabled={inscritos.length > 12 || inscritos.length % 2 !== 0}>Mix Americano{inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
                 <SelectItem value="mexicano" disabled={inscritos.length > 12}>Mexicano</SelectItem>
                 <SelectItem value="mixicano" disabled={inscritos.length > 12 || inscritos.length % 2 !== 0}>Mixicano{inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
                 <SelectItem value="team-americano" disabled={inscritos.length > 12 || inscritos.length % 2 !== 0}>Team Americano{inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
                 <SelectItem value="team-mexicano" disabled={inscritos.length > 12 || inscritos.length % 2 !== 0}>Team Mexicano{inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
-                <SelectItem value="club-team-americano" disabled={inscritos.length > 12 || inscritos.length < 8 || inscritos.length % 4 !== 0}>Club Team Americano</SelectItem>
-                <SelectItem value="club-americano" disabled={inscritos.length > 12 || inscritos.length < 8 || inscritos.length % 2 !== 0}>Club Americano</SelectItem>
-                <SelectItem value="club-mexicano" disabled={inscritos.length > 12 || inscritos.length < 8 || inscritos.length % 2 !== 0}>Club Mexicano</SelectItem>
-                <SelectItem value="club-team-mexicano" disabled={inscritos.length > 12 || inscritos.length < 8 || inscritos.length % 4 !== 0}>Club Team Mexicano</SelectItem>
+                <SelectItem value="club-team-americano" disabled={inscritos.length > 12 || inscritos.length < 8 || inscritos.length % 4 !== 0}>Club Team Americano{inscritos.length < 8 ? " (mínimo 8 jugadores)" : inscritos.length % 4 !== 0 ? " (grupos de 4)" : ""}</SelectItem>
+                <SelectItem value="club-americano" disabled={inscritos.length > 12 || inscritos.length < 8 || inscritos.length % 2 !== 0}>Club Americano{inscritos.length < 8 ? " (mínimo 8 jugadores)" : inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
+                <SelectItem value="club-mexicano" disabled={inscritos.length > 12 || inscritos.length < 8 || inscritos.length % 2 !== 0}>Club Mexicano{inscritos.length < 8 ? " (mínimo 8 jugadores)" : inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
+                <SelectItem value="club-team-mexicano" disabled={inscritos.length > 12 || inscritos.length < 8 || inscritos.length % 4 !== 0}>Club Team Mexicano{inscritos.length < 8 ? " (mínimo 8 jugadores)" : inscritos.length % 4 !== 0 ? " (grupos de 4)" : ""}</SelectItem>
                 <SelectItem value="beat-box" disabled={!validBoxCount(inscritos.length)}>Beat the Box{!validBoxCount(inscritos.length) ? " (8, 12 o 16 jugadores)" : ""}</SelectItem>
-                <SelectItem value="playoffs" disabled={inscritos.length < 6 || inscritos.length % 2 !== 0}>Playoffs · 3 a 8 parejas</SelectItem>
+                <SelectItem value="playoffs" disabled={inscritos.length < 6 || inscritos.length % 2 !== 0}>Playoffs · 3 a 8 parejas{inscritos.length < 6 ? " (mínimo 6 jugadores)" : inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs leading-relaxed text-muted-foreground">{explicaciones[modalidad]}</p>
@@ -1732,4 +1734,4 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
       )}
     </div>
   );
-  }
+                }
