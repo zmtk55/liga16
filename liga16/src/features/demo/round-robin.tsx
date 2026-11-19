@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import { Link, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ChevronDown, Grid2x2, RotateCw } from "lucide-react";
 import {
   AMERICANO_DEMO_STORAGE_KEY,
   americanoStandings,
   fullRotationRounds,
   generateAmericano,
+  partnershipCoverage,
   maxCourts,
   parseAmericanoDemo,
   playoffFinalPairs,
@@ -146,6 +148,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
   const [roundMode, setRoundMode] = useState<"full" | "short">(restored?.roundMode ?? "full");
   const [seed, setSeed] = useState(restored?.seed ?? 1);
   const [names, setNames] = useState<string[]>(restored?.names ?? []);
+  const [coberturaIncompleta, setCoberturaIncompleta] = useState(false);
   const [rounds, setRounds] = useState<AmericanoRound[]>(restored?.rounds ?? []);
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>(restored?.drafts ?? {});
   const [sortMode, setSortMode] = useState<AmericanoSortMode>(restored?.sortMode ?? "total");
@@ -350,7 +353,10 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
     const usableCourts = Math.min(courts, maxCourts(inscritos.length));
     setNames(inscritos);
     const roundsWanted = roundMode === "full" ? fullRounds : 6;
-    setRounds(generateAmericano(inscritos.length, usableCourts, roundsWanted, seed));
+    const generadas = generateAmericano(inscritos.length, usableCourts, roundsWanted, seed);
+    const cov = partnershipCoverage(generadas, inscritos.length);
+    setCoberturaIncompleta(roundMode === "full" && cov.covered < cov.total);
+    setRounds(generadas);
     setDrafts({});
     setPlayoffDrafts({});
     setPlayoffKeys({});
@@ -363,9 +369,15 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
     const nextSeed = seed + 1;
     setSeed(nextSeed);
     const roundsWanted = roundMode === "full" ? fullRotationRounds(names.length, courts) : 6;
-    setRounds(
-      generateAmericano(names.length, Math.min(courts, maxCourts(names.length)), roundsWanted, nextSeed),
+    const generadas = generateAmericano(
+      names.length,
+      Math.min(courts, maxCourts(names.length)),
+      roundsWanted,
+      nextSeed,
     );
+    const cov = partnershipCoverage(generadas, names.length);
+    setCoberturaIncompleta(roundMode === "full" && cov.covered < cov.total);
+    setRounds(generadas);
     setDrafts({});
     setPlayoffDrafts({});
     setPlayoffKeys({});
@@ -454,12 +466,14 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
     locked?: boolean,
   ) {
     const draft = map[key] ?? { a: "", b: "" };
+    const tileBtn = "h-11 w-9 rounded-xl border-0 bg-muted px-0 text-xl hover:bg-accent max-[339px]:w-8";
+    const tileInput = "h-11 w-10 rounded-xl border-0 bg-background dark:bg-background px-0.5 text-center text-xl font-bold tabular-nums max-[339px]:w-9 max-[339px]:text-lg";
     return (
       <div className="flex items-center gap-1">
         <Button
           type="button"
           variant="outline"
-          className="h-12 w-10 rounded-xl px-0 text-xl"
+          className={tileBtn}
           aria-label="quitar punto"
           disabled={locked}
           onClick={() => {
@@ -470,7 +484,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
           −
         </Button>
         <Input
-          className="h-12 w-[3.25rem] rounded-xl px-1 text-center text-xl font-bold tabular-nums"
+          className={tileInput}
           inputMode="numeric"
           placeholder="0"
           disabled={locked}
@@ -483,7 +497,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
         <Button
           type="button"
           variant="outline"
-          className="h-12 w-10 rounded-xl px-0 text-xl"
+          className={tileBtn}
           aria-label="agregar punto"
           disabled={locked}
           onClick={() => {
@@ -493,6 +507,82 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
         >
           +
         </Button>
+      </div>
+    );
+  }
+
+  /** Tarjeta de partido compacta (referencia: marcadores arriba, parejas
+      debajo, una sola fila de cabecera). Cada pareja queda centrada bajo SU
+      marcador; Terminar vive en la cabecera, no en una fila aparte. */
+  function matchCard(o: {
+    key: string;
+    label: string;
+    teamA: [number, number];
+    teamB: [number, number];
+    map: Record<string, ScoreDraft>;
+    setter: DraftSetter;
+    draft: ScoreDraft;
+    onWrite?: () => void;
+    tieText: string;
+  }) {
+    const { key, draft, map, setter, onWrite } = o;
+    const score = parseScore(draft);
+    const status = scoreStatus(draft);
+    const empty = draft.a.trim() === "" && draft.b.trim() === "";
+    const nameCls = "min-w-0 break-words text-center text-sm font-bold leading-tight";
+    return (
+      <div key={key} className="space-y-2.5 rounded-2xl border bg-card p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary">{o.label}</p>
+            {status === "playing" && (
+              <span className="whitespace-nowrap rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                En juego
+              </span>
+            )}
+            {score && score.a === score.b && (
+              <span className="whitespace-nowrap rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                {o.tieText}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            className={
+              draft.done
+                ? "h-8 shrink-0 rounded-lg border px-3 text-sm font-medium"
+                : `h-8 shrink-0 rounded-lg px-4 text-sm font-bold ${
+                    empty ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground"
+                  }`
+            }
+            disabled={!draft.done && empty}
+            onClick={() => toggleDone(setter, key, onWrite)}
+          >
+            {draft.done ? "Corregir" : "Terminar"}
+          </button>
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-x-1.5">
+          {scoreBox(map, setter, key, "a", onWrite, draft.done)}
+          <span className="text-xs font-medium text-muted-foreground">vs</span>
+          {scoreBox(map, setter, key, "b", onWrite, draft.done)}
+        </div>
+        <div className="grid grid-cols-2 gap-x-6">
+          <p className={nameCls}>
+            {teamNames(o.teamA)}
+            {score && score.a > score.b && (
+              <span className="block text-xs font-semibold text-primary">ganaron</span>
+            )}
+          </p>
+          <p className={nameCls}>
+            {teamNames(o.teamB)}
+            {score && score.b > score.a && (
+              <span className="block text-xs font-semibold text-primary">ganaron</span>
+            )}
+          </p>
+        </div>
+        {typeof status === "object" && (
+          <p className="text-center text-xs text-red-600 dark:text-red-400">{status.error}</p>
+        )}
       </div>
     );
   }
@@ -510,68 +600,17 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
     const draft =
       playoffKeys[key] === pairKey ? (playoffDrafts[key] ?? { a: "", b: "" }) : { a: "", b: "" };
     const markWrite = () => setPlayoffKeys((prev) => ({ ...prev, [key]: pairKey }));
-    const score = parseScore(draft);
-    const status = scoreStatus(draft);
-    return (
-      <div key={key} className="space-y-3 rounded-2xl border bg-card p-4">
-        <p className="text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          {label}
-        </p>
-        {/* Igual que en las rondas: pareja y marcador viajan en el mismo grupo. */}
-        <div className="flex flex-wrap items-start justify-center gap-x-4 gap-y-3">
-          <div className="flex min-w-0 max-w-full flex-col items-center gap-2">
-            <p className="min-w-0 max-w-full break-words text-center text-base font-bold leading-tight">
-              {teamNames(teamA)}
-              {score && score.a > score.b && (
-                <span className="block text-xs font-semibold text-primary">ganaron</span>
-              )}
-            </p>
-            {scoreBox({ ...playoffDrafts, [key]: draft }, setPlayoffDrafts, key, "a", markWrite, draft.done)}
-          </div>
-          <p className="pt-1 text-xs font-medium text-muted-foreground">vs</p>
-          <div className="flex min-w-0 max-w-full flex-col items-center gap-2">
-            <p className="min-w-0 max-w-full break-words text-center text-base font-bold leading-tight">
-              {teamNames(teamB)}
-              {score && score.b > score.a && (
-                <span className="block text-xs font-semibold text-primary">ganaron</span>
-              )}
-            </p>
-            {scoreBox({ ...playoffDrafts, [key]: draft }, setPlayoffDrafts, key, "b", markWrite, draft.done)}
-          </div>
-        </div>
-        <div className="flex items-center justify-center gap-3">
-          <button
-            type="button"
-            className={
-              draft.done
-                ? "rounded-lg border px-5 py-2 text-sm font-medium"
-                : `rounded-lg px-6 py-2 text-sm font-bold ${
-                    draft.a.trim() === "" && draft.b.trim() === ""
-                      ? "bg-muted text-muted-foreground"
-                      : "bg-primary text-primary-foreground"
-                  }`
-            }
-            disabled={!draft.done && draft.a.trim() === "" && draft.b.trim() === ""}
-            onClick={() => toggleDone(setPlayoffDrafts, key, markWrite)}
-          >
-            {draft.done ? "Corregir" : "Terminar"}
-          </button>
-          {status === "playing" && (
-            <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-              En juego
-            </span>
-          )}
-          {score && score.a === score.b && (
-            <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-              Empate: defínanlo
-            </span>
-          )}
-        </div>
-        {typeof status === "object" && (
-          <p className="text-center text-xs text-red-600 dark:text-red-400">{status.error}</p>
-        )}
-      </div>
-    );
+    return matchCard({
+      key,
+      label,
+      teamA,
+      teamB,
+      map: { ...playoffDrafts, [key]: draft },
+      setter: setPlayoffDrafts,
+      draft,
+      onWrite: markWrite,
+      tieText: "Empate: defínanlo",
+    });
   }
 
   return (
@@ -582,11 +621,28 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
           para no tapar el campo ni el boton; la regla solo vive en esta ruta. */}
       <style>{DEMO_STYLE}</style>
       {!embedded && (
-        <div>
-          <h1 className="text-lg font-bold">Round robin individual</h1>
-          <p className="text-xs text-muted-foreground">
-            Demo ficticia · el avance se guarda solo en este navegador
-          </p>
+        <div className="relative overflow-hidden rounded-2xl">
+          {/* Foto real de pádel (Unsplash, Ashford Marx:
+              https://unsplash.com/photos/Stb4Tx7YqXI) con overlay oscuro;
+              patrón de los pins de referencia: foto + acento + titular. */}
+          <img
+            src="https://images.unsplash.com/photo-1770230901556-4e1c0bacfb09?w=800&h=500&fit=crop&q=80"
+            alt="Cancha de pádel"
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/45 to-black/25" />
+          <div className="relative space-y-1.5 p-4 pt-12">
+            <p className="inline-block rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-medium text-primary-foreground">
+              Demo · datos ficticios
+            </p>
+            <h1 className="font-display text-2xl font-bold leading-tight text-white">
+              Round robin individual
+            </h1>
+            <p className="text-xs text-white/80">
+              el avance se guarda solo en este navegador
+            </p>
+          </div>
         </div>
       )}
       {saveWarning && (
@@ -631,6 +687,164 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Configuración como lista de ajustes agrupada (referencia de
+              tratamiento: item-action-list de 21st.dev): una sola superficie
+              con filas icono + etiqueta + valor y divisor, en lugar de chips
+              sueltos. Los desplegables y su comportamiento no cambian. */}
+          <div className="rounded-2xl border bg-muted/40 divide-y divide-border/60">
+            <div className="relative">
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+                onClick={() => setChipOpen(chipOpen === "canchas" ? null : "canchas")}
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                  <Grid2x2 className="h-4 w-4" />
+                </span>
+                <span className="flex-1 text-sm font-medium">Canchas</span>
+                <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                  {courts}
+                  <ChevronDown className="h-4 w-4" />
+                </span>
+              </button>
+              {chipOpen === "canchas" && (
+                <div className="absolute right-2 top-full z-20 mt-1 min-w-36 rounded-xl border bg-popover p-1 shadow-lg">
+                  {Array.from({ length: maxCourts(previewCount) }, (_, i) => i + 1).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
+                        courts === c ? "font-bold text-primary" : ""
+                      }`}
+                      onClick={() => {
+                        setCourts(c);
+                        setChipOpen(null);
+                      }}
+                    >
+                      {c} {c === 1 ? "cancha" : "canchas"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+                onClick={() => setChipOpen(chipOpen === "rondas" ? null : "rondas")}
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                  <RotateCw className="h-4 w-4" />
+                </span>
+                <span className="flex-1 text-sm font-medium">Rondas</span>
+                <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                  {roundMode === "full" ? `Completa${previewCount >= 4 ? ` (${fullRounds})` : ""}` : "Corta (6)"}
+                  <ChevronDown className="h-4 w-4" />
+                </span>
+              </button>
+              {chipOpen === "rondas" && (
+                <div className="absolute right-2 top-full z-20 mt-1 min-w-52 rounded-xl border bg-popover p-1 shadow-lg">
+                  <button
+                    type="button"
+                    className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
+                      roundMode === "full" ? "font-bold text-primary" : ""
+                    }`}
+                    onClick={() => {
+                      setRoundMode("full");
+                      setChipOpen(null);
+                    }}
+                  >
+                    Completa{previewCount >= 4 ? ` (${fullRounds})` : ""}: todos con todos
+                  </button>
+                  {inscritos.length === 7 && courts === 1 && (
+                    <button
+                      type="button"
+                      className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
+                        roundMode === "short" ? "font-bold text-primary" : ""
+                      }`}
+                      onClick={() => {
+                        setRoundMode("short");
+                        setChipOpen(null);
+                      }}
+                    >
+                      Corta (6): sin repetir compañero
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <details className="relative text-xs text-muted-foreground">
+              <summary className="cursor-pointer select-none py-1 font-medium">Opciones</summary>
+              <div className="absolute right-0 top-full z-20 mt-1 flex min-w-44 flex-col gap-1.5 rounded-xl border bg-popover p-2 shadow-lg">
+                {names.length > 0 && (
+                  <>
+                    <Button type="button" variant="outline" size="sm" onClick={simulateRemaining}>
+                      Simular puntos
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDrafts({});
+                        setPlayoffDrafts({});
+                        setPlayoffKeys({});
+                      }}
+                    >
+                      Borrar marcadores
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={revolver}>
+                      Revolver sorteo
+                    </Button>
+                  </>
+                )}
+              </div>
+            </details>
+          </div>
+          {/* Lista de inscritos: renglones con botón rojo de quitar, como la
+              referencia. */}
+          {inscritos.length > 0 && (
+            <ul className="overflow-hidden rounded-2xl border bg-muted/40 divide-y divide-border/60">
+              {inscritos.map((n, i) => (
+                <li key={n} className="flex items-center gap-3 py-2 pl-3 pr-2">
+                  <span className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-lg bg-background text-xs font-bold text-muted-foreground">
+                    {n.trim().charAt(0).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1 break-words text-sm font-medium leading-snug">{n}</span>
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-600 text-lg leading-none text-white"
+                    aria-label={`Quitar a ${n}`}
+                    onClick={() => quitar(i)}
+                  >
+                    −
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex items-baseline justify-between gap-2 text-sm">
+            <span
+              className={
+                overLimit ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground"
+              }
+            >
+              {overLimit
+                ? `Máximo ${MAX_PLAYERS}: quita ${inscritos.length - MAX_PLAYERS} (ninguno se pierde)`
+                : inscritos.length < 4
+                  ? "Inscribe al menos 4 jugadores"
+                  : restingPerRound > 0
+                    ? `Listo · descansan ${restingPerRound} por ronda`
+                    : "Listo para armar las rondas"}
+            </span>
+            <span className="shrink-0 text-muted-foreground">
+              {inscritos.length} {inscritos.length === 1 ? "jugador" : "jugadores"}
+            </span>
+          </div>
+
           <div className="flex gap-2">
             <Input
               ref={nombreInputRef}
@@ -648,7 +862,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             <Button
               type="button"
               variant={nombreLimpio ? "default" : "secondary"}
-              className="h-12 w-12 rounded-xl px-0 text-xl"
+              className="h-12 w-12 rounded-lg px-0 text-xl"
               onClick={inscribir}
               disabled={!nombreLimpio}
               aria-label="Inscribir"
@@ -673,146 +887,6 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             </button>
           )}
 
-          <div className="flex items-baseline justify-between gap-2 text-sm">
-            <span
-              className={
-                overLimit ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground"
-              }
-            >
-              {overLimit
-                ? `Máximo ${MAX_PLAYERS}: quita ${inscritos.length - MAX_PLAYERS} (ninguno se pierde)`
-                : inscritos.length < 4
-                  ? "Inscribe al menos 4 jugadores"
-                  : restingPerRound > 0
-                    ? `Listo · descansan ${restingPerRound} por ronda`
-                    : "Listo para armar las rondas"}
-            </span>
-            <span className="shrink-0 text-muted-foreground">
-              {inscritos.length} {inscritos.length === 1 ? "jugador" : "jugadores"}
-            </span>
-          </div>
-
-          {/* Lista de inscritos: renglones con botón rojo de quitar, como la
-              referencia. */}
-          {inscritos.length > 0 && (
-            <ul className="space-y-1">
-              {inscritos.map((n, i) => (
-                <li
-                  key={n}
-                  className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 py-1.5 pl-4 pr-2"
-                >
-                  <span className="min-w-0 truncate text-sm font-medium">{n}</span>
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-600 text-lg leading-none text-white"
-                    aria-label={`Quitar a ${n}`}
-                    onClick={() => quitar(i)}
-                  >
-                    −
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Configuración resumida en chips (como la app de referencia): se
-              toca un chip y se elige; nada de formularios largos. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                className="rounded-lg bg-muted/60 px-3 py-1.5 text-sm font-medium"
-                onClick={() => setChipOpen(chipOpen === "canchas" ? null : "canchas")}
-              >
-                {courts} {courts === 1 ? "cancha" : "canchas"}
-              </button>
-              {chipOpen === "canchas" && (
-                <div className="absolute left-0 top-full z-20 mt-1 min-w-36 rounded-xl border bg-popover p-1 shadow-lg">
-                  {Array.from({ length: maxCourts(previewCount) }, (_, i) => i + 1).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                        courts === c ? "font-bold text-primary" : ""
-                      }`}
-                      onClick={() => {
-                        setCourts(c);
-                        setChipOpen(null);
-                      }}
-                    >
-                      {c} {c === 1 ? "cancha" : "canchas"}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                className="rounded-lg bg-muted/60 px-3 py-1.5 text-sm font-medium"
-                onClick={() => setChipOpen(chipOpen === "rondas" ? null : "rondas")}
-              >
-                {roundMode === "full" ? `Completa (${fullRounds})` : "Corta (6)"}
-              </button>
-              {chipOpen === "rondas" && (
-                <div className="absolute left-0 top-full z-20 mt-1 min-w-52 rounded-xl border bg-popover p-1 shadow-lg">
-                  <button
-                    type="button"
-                    className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                      roundMode === "full" ? "font-bold text-primary" : ""
-                    }`}
-                    onClick={() => {
-                      setRoundMode("full");
-                      setChipOpen(null);
-                    }}
-                  >
-                    Completa ({fullRounds}): todos con todos
-                  </button>
-                  {inscritos.length === 7 && courts === 1 && (
-                    <button
-                      type="button"
-                      className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                        roundMode === "short" ? "font-bold text-primary" : ""
-                      }`}
-                      onClick={() => {
-                        setRoundMode("short");
-                        setChipOpen(null);
-                      }}
-                    >
-                      Corta (6): sin repetir compañero
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          <details className="relative ml-auto text-xs text-muted-foreground">
-            <summary className="cursor-pointer select-none py-1.5 font-medium">Opciones</summary>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {names.length > 0 && (
-                <>
-                  <Button type="button" variant="outline" size="sm" onClick={simulateRemaining}>
-                    Simular puntos
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setDrafts({});
-                      setPlayoffDrafts({});
-                      setPlayoffKeys({});
-                    }}
-                  >
-                    Borrar marcadores
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={revolver}>
-                    Revolver sorteo
-                  </Button>
-                </>
-              )}
-            </div>
-          </details>
-          </div>
           <Button
             type="button"
             variant={canGenerate ? "default" : "secondary"}
@@ -885,76 +959,27 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               </Button>
             </div>
 
+            {coberturaIncompleta && (
+              <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                Aviso: con esta configuración no se pudo armar la rotación completa; alguna pareja
+                podría no llegar a coincidir.
+              </p>
+            )}
+
             <div className="space-y-3">
               {round.matches.map((match, mi) => {
                 const key = `${ri}-${mi}`;
                 const draft = drafts[key] ?? { a: "", b: "" };
-                const score = parseScore(draft);
-                const status = scoreStatus(draft);
-                return (
-                  <div key={key} className="space-y-3 rounded-2xl border bg-card p-4">
-                    <p className="text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                      Cancha {match.court}
-                    </p>
-                    {/* Cada pareja queda pegada a SU marcador: nombres arriba,
-                        controles debajo, en el mismo grupo; si no caben lado a
-                        lado se apilan los grupos completos, nunca los marcadores. */}
-                    <div className="flex flex-wrap items-start justify-center gap-x-4 gap-y-3">
-                      <div className="flex min-w-0 max-w-full flex-col items-center gap-2">
-                        <p className="min-w-0 max-w-full break-words text-center text-base font-bold leading-tight">
-                          {teamNames(match.teamA)}
-                          {score && score.a > score.b && (
-                            <span className="block text-xs font-semibold text-primary">ganaron</span>
-                          )}
-                        </p>
-                        {scoreBox(drafts, setDrafts, key, "a", undefined, draft.done)}
-                      </div>
-                      <p className="pt-1 text-xs font-medium text-muted-foreground">vs</p>
-                      <div className="flex min-w-0 max-w-full flex-col items-center gap-2">
-                        <p className="min-w-0 max-w-full break-words text-center text-base font-bold leading-tight">
-                          {teamNames(match.teamB)}
-                          {score && score.b > score.a && (
-                            <span className="block text-xs font-semibold text-primary">ganaron</span>
-                          )}
-                        </p>
-                        {scoreBox(drafts, setDrafts, key, "b", undefined, draft.done)}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center gap-3">
-                      <button
-                        type="button"
-                        className={
-                          draft.done
-                            ? "rounded-lg border px-5 py-2 text-sm font-medium"
-                            : `rounded-lg px-6 py-2 text-sm font-bold ${
-                                draft.a.trim() === "" && draft.b.trim() === ""
-                                  ? "bg-muted text-muted-foreground"
-                                  : "bg-primary text-primary-foreground"
-                              }`
-                        }
-                        disabled={!draft.done && draft.a.trim() === "" && draft.b.trim() === ""}
-                        onClick={() => toggleDone(setDrafts, key)}
-                      >
-                        {draft.done ? "Corregir" : "Terminar"}
-                      </button>
-                      {status === "playing" && (
-                        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                          En juego
-                        </span>
-                      )}
-                      {score && score.a === score.b && (
-                        <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-                          Empate
-                        </span>
-                      )}
-                    </div>
-                    {typeof status === "object" && (
-                      <p className="text-center text-xs text-red-600 dark:text-red-400">
-                        {status.error}
-                      </p>
-                    )}
-                  </div>
-                );
+                return matchCard({
+                  key,
+                  label: `Cancha ${match.court}`,
+                  teamA: match.teamA,
+                  teamB: match.teamB,
+                  map: drafts,
+                  setter: setDrafts,
+                  draft,
+                  tieText: "Empate",
+                });
               })}
             </div>
 
@@ -1084,7 +1109,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
       )}
 
       {!embedded && (
-        <div className="space-y-1 text-xs text-muted-foreground">
+        <div className="space-y-1 text-center text-xs text-muted-foreground">
           <p>
             Prueba aislada ·{" "}
             <Link
