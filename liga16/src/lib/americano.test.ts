@@ -294,6 +294,20 @@ describe('proposePlayoffPairs (PROPUESTA reversible de la demo, no regla confirm
       [5, 4],
     ]);
   });
+  it('final directa con la convención impares vs pares de Julian (1º+3º vs 2º+4º)', () => {
+    const plan = proposePlayoffPairs([3, 1, 4, 2, 0], 'odds-evens')!;
+    expect(plan.mode).toBe('final');
+    expect(plan.qualifiers).toEqual([3, 1, 4, 2]);
+    expect(plan.finalPairs).toEqual([
+      [3, 4],
+      [1, 2],
+    ]);
+  });
+  it('la convención impares/pares no cambia las semifinales con 8+ (elección pendiente ahí)', () => {
+    const a = proposePlayoffPairs([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'odds-evens')!;
+    const b = proposePlayoffPairs([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])!;
+    expect(a.semifinals).toEqual(b.semifinals);
+  });
   it('con 8 o más arma semifinales cruzadas balanceadas con los 8 primeros', () => {
     const plan = proposePlayoffPairs([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])!;
     expect(plan.mode).toBe('semifinals');
@@ -376,6 +390,15 @@ describe('persistencia local de la demo (refresco accidental)', () => {
   it('ida y vuelta: serializar y parsear conserva el estado completo', () => {
     const parsed = parseAmericanoDemo(serializeAmericanoDemo(snapshot));
     expect(parsed).toEqual(snapshot);
+  });
+
+  it('la convención de parejas de la eliminatoria viaja en el guardado', () => {
+    const conImpares = { ...snapshot, poPairing: 'odds-evens' as const };
+    expect(parseAmericanoDemo(serializeAmericanoDemo(conImpares))).toEqual(conImpares);
+    // Guardados anteriores sin el campo siguen siendo válidos (la balanceada es el default).
+    expect(parseAmericanoDemo(serializeAmericanoDemo(snapshot))).toEqual(snapshot);
+    // Un valor desconocido se descarta con el resto de la forma inválida.
+    expect(parseAmericanoDemo(JSON.stringify({ ...snapshot, poPairing: 'x' }))).toBeNull();
   });
 
   it('JSON corrupto devuelve null en vez de tronar', () => {
