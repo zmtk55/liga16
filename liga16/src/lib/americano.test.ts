@@ -5,6 +5,8 @@ import {
   generateAmericano,
   maxConsecutiveRests,
   maxCourts,
+  playoffFinalPairs,
+  proposePlayoffPairs,
   validateAmericanoScore,
   type AmericanoRound,
 } from './americano';
@@ -244,5 +246,63 @@ describe('validateAmericanoScore (regla de la demo: el primero que llegue a N)',
     expect(validateAmericanoScore(-1, 22, 21).ok).toBe(false);
     expect(validateAmericanoScore(1.5, 19.5, 21).ok).toBe(false);
     expect(validateAmericanoScore(100, 0, 21).ok).toBe(false);
+  });
+});
+
+describe('proposePlayoffPairs (PROPUESTA reversible de la demo, no regla confirmada)', () => {
+  it('con menos de 4 en la tabla no propone eliminatoria', () => {
+    expect(proposePlayoffPairs([])).toBeNull();
+    expect(proposePlayoffPairs([2, 0, 1])).toBeNull();
+  });
+  it('con 4 a 7 clasifica a los 4 primeros a final directa balanceada (1º+4º vs 2º+3º)', () => {
+    const plan = proposePlayoffPairs([3, 1, 4, 2, 0])!;
+    expect(plan.mode).toBe('final');
+    expect(plan.qualifiers).toEqual([3, 1, 4, 2]);
+    expect(plan.finalPairs).toEqual([
+      [3, 2],
+      [1, 4],
+    ]);
+    const plan7 = proposePlayoffPairs([6, 5, 4, 3, 2, 1, 0])!;
+    expect(plan7.mode).toBe('final');
+    expect(plan7.finalPairs).toEqual([
+      [6, 3],
+      [5, 4],
+    ]);
+  });
+  it('con 8 o más arma semifinales cruzadas balanceadas con los 8 primeros', () => {
+    const plan = proposePlayoffPairs([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])!;
+    expect(plan.mode).toBe('semifinals');
+    expect(plan.qualifiers).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(plan.semifinals).toEqual([
+      { label: 'Semifinal 1', teamA: [0, 7], teamB: [3, 4] },
+      { label: 'Semifinal 2', teamA: [1, 6], teamB: [2, 5] },
+    ]);
+    expect(plan.finalPairs).toBeNull();
+  });
+});
+
+describe('playoffFinalPairs (cada pareja ganadora de semi avanza junta)', () => {
+  const plan = proposePlayoffPairs([0, 1, 2, 3, 4, 5, 6, 7])!;
+  it('arma la final con las parejas ganadoras de cada semi', () => {
+    expect(
+      playoffFinalPairs(plan, [
+        { a: 4, b: 1 },
+        { a: 2, b: 4 },
+      ]),
+    ).toEqual([
+      [0, 7],
+      [2, 5],
+    ]);
+  });
+  it('sin los dos marcadores no hay final todavía', () => {
+    expect(playoffFinalPairs(plan, [null, null])).toBeNull();
+    expect(playoffFinalPairs(plan, [{ a: 4, b: 1 }, null])).toBeNull();
+  });
+  it('en final directa devuelve las parejas del plan sin mirar marcadores', () => {
+    const direct = proposePlayoffPairs([1, 0, 2, 3])!;
+    expect(playoffFinalPairs(direct, [null, null])).toEqual([
+      [1, 3],
+      [0, 2],
+    ]);
   });
 });
