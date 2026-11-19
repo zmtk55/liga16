@@ -4,422 +4,399 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { computeStandings, drawGroupsByCategory, roundRobinRounds } from "@/lib/groups";
-import { captureRowToSet, checkFinishedMatch } from "@/lib/match-result";
-import { DEFAULT_SCORING, formatMatchScore } from "@/lib/scoring";
-import type { Match, SetScore, UUID } from "@/types";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  americanoStandings,
+  fullRotationRounds,
+  generateAmericano,
+  maxCourts,
+  type AmericanoRound,
+  type AmericanoSortMode,
+} from "@/lib/americano";
 
 /**
- * DEMO AISLADA — investigación "round robins" (rama investigacion/round-robin).
+ * DEMO AISLADA — round robin INDIVIDUAL con dobles de compañero rotativo
+ * (rama investigacion/round-robin). Todo corre en memoria con nombres
+ * ficticios: nada toca Supabase ni ningún torneo real.
  *
- * Todo corre en memoria con parejas ficticias: nada toca Supabase ni ningún
- * torneo real. La página existe para que Julian vea cómo se comporta el
- * formato antes de decidir si se construye en serio.
+ * El flujo sigue lo que hacen las apps reales del formato (verificadas
+ * navegándolas el 18-nov-2026): metes nombres, la app arma las rondas con
+ * compañeros rotativos y lleva una tabla individual por puntos. Referencias:
+ *  - https://www.rallyano.com/padel-americano/7-players (7 jugadores, 1
+ *    cancha → 11 rondas, rotación completa, 3 descansan por ronda)
+ *  - https://calcpark.com/padel-americano-generator (captura por puntos,
+ *    tabla individual por puntos/diferencia/victorias, descansos parejos)
+ *  - https://www.nextarena.co/tools/padel-americano-generator/7-players-1-court
+ *    (alternativa corta: 6 rondas sin repetir compañero)
  *
- * Lo que la demo SÍ reutiliza del código real (eso es lo que se está
- * evaluando): roundRobinRounds (método del círculo), drawGroupsByCategory,
- * computeStandings (tabla con % de puntos estilo Excel) y checkFinishedMatch
- * (la misma regla que cierra partidos en Resultados).
+ * Reglas ELEGIDAS PARA ESTA PRUEBA (no son preferencia confirmada de nadie):
+ * partido a N puntos y cada jugador se queda con los puntos que anotó su
+ * equipo. Sin compensación por descanso: la tabla se puede ordenar por total
+ * o por promedio por partido para ver el efecto.
  */
 
-const DEMO_PAIRS = [
-  "Ana / Luisa",
-  "Marco / Beto",
-  "Caro / Vero",
-  "Diego / Rodo",
-  "Pao / Fer",
-  "Hugo / Iván",
-  "Lupita / Gaby",
-  "Nico / Alex",
-  "Sofía / Vale",
-  "Rafa / Chuy",
-  "Monse / Dani",
-  "Pepe / Toño",
-];
-
-type Mode = "single" | "groups";
+const DEFAULT_NAMES = ["Ana", "Beto", "Carla", "Diego", "Elena", "Fede", "Gaby"];
+const POINT_OPTIONS = [16, 21, 24, 32];
+const MAX_PLAYERS = 12;
 
 interface ScoreDraft {
-  s1: { a: string; b: string };
-  s2: { a: string; b: string };
-  stb: { a: string; b: string };
+  a: string;
+  b: string;
 }
 
-const emptyDraft = (): ScoreDraft => ({
-  s1: { a: "", b: "" },
-  s2: { a: "", b: "" },
-  stb: { a: "", b: "" },
-});
-
-/** Genera los partidos de la demo con la MISMA lógica del sorteo real. */
-function buildDemoMatches(pairIds: UUID[], mode: Mode): Match[] {
-  const groups =
-    mode === "single"
-      ? [{ name: "Grupo único", pairIds }]
-      : drawGroupsByCategory(
-          pairIds.map((id) => ({ id, category_id: null, categoryName: "" })),
-          () => 2,
-        );
-  let seq = 0;
-  return groups.flatMap((g) =>
-    roundRobinRounds(g.pairIds).flatMap((round, i) =>
-      round.map(([a, b]) => {
-        seq += 1;
-        return {
-          id: `demo-${seq}`,
-          tournament_id: "demo",
-          round: `${g.name} · J${i + 1}`,
-          court_name: null,
-          scheduled_at: null,
-          status: "scheduled" as const,
-          side_a: { pair_id: a, pair_name: "" },
-          side_b: { pair_id: b, pair_name: "" },
-          sets: [] as SetScore[],
-          winner: null,
-        } satisfies Match;
-      }),
-    ),
-  );
-}
-
-/** Marcador ficticio pero realista para simular: 2 sets + súper TB si hace falta. */
-function randomResult(): SetScore[] {
-  const set = (): SetScore => {
-    const loser = Math.floor(Math.random() * 5); // 0–4
-    return Math.random() < 0.15
-      ? { a: 7, b: 6, tiebreak_a: null, tiebreak_b: null }
-      : { a: 6, b: loser, tiebreak_a: null, tiebreak_b: null };
-  };
-  const flip = (s: SetScore): SetScore => ({ a: s.b, b: s.a, tiebreak_a: null, tiebreak_b: null });
-  const first = Math.random() < 0.5 ? set() : flip(set());
-  const second = Math.random() < 0.5 ? set() : flip(set());
-  const aWonFirst = first.a > first.b;
-  const aWonSecond = second.a > second.b;
-  if (aWonFirst === aWonSecond) return [first, second];
-  // 1-1: súper tie-break a 10 con diferencia de 2
-  const loserPts = Math.floor(Math.random() * 8); // 0–7
-  const stb: SetScore =
-    Math.random() < 0.5
-      ? { a: 10, b: loserPts, tiebreak_a: null, tiebreak_b: null }
-      : { a: loserPts, b: 10, tiebreak_a: null, tiebreak_b: null };
-  return [first, second, stb];
+function parseScore(draft: ScoreDraft | undefined): { a: number; b: number } | null {
+  if (!draft || draft.a.trim() === "" || draft.b.trim() === "") return null;
+  const a = Number(draft.a);
+  const b = Number(draft.b);
+  if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a > 99 || b > 99) return null;
+  return { a, b };
 }
 
 export default function RoundRobinDemo() {
-  const [pairCount, setPairCount] = useState(8);
-  const [mode, setMode] = useState<Mode>("single");
-  const [pairIds, setPairIds] = useState<UUID[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [namesText, setNamesText] = useState(DEFAULT_NAMES.join("\n"));
+  const [courts, setCourts] = useState(1);
+  const [pointsPerMatch, setPointsPerMatch] = useState(21);
+  const [roundCount, setRoundCount] = useState(11);
+  const [seed, setSeed] = useState(1);
+  const [names, setNames] = useState<string[]>([]);
+  const [rounds, setRounds] = useState<AmericanoRound[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [editing, setEditing] = useState<Record<string, boolean>>({});
+  const [sortMode, setSortMode] = useState<AmericanoSortMode>("total");
 
-  const nameById = useMemo(() => {
-    const map: Record<string, string> = {};
-    pairIds.forEach((id, i) => {
-      map[id] = DEMO_PAIRS[i] ?? `Pareja ${i + 1}`;
-    });
-    return map;
-  }, [pairIds]);
-
-  const namedMatches = useMemo(
+  const parsedNames = useMemo(
     () =>
-      matches.map((m) => ({
-        ...m,
-        side_a: { ...m.side_a, pair_name: nameById[m.side_a.pair_id ?? ""] ?? "?" },
-        side_b: { ...m.side_b, pair_name: nameById[m.side_b.pair_id ?? ""] ?? "?" },
-      })),
-    [matches, nameById],
+      namesText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, MAX_PLAYERS),
+    [namesText],
   );
+  const fullRounds = fullRotationRounds(parsedNames.length, courts);
+  const restingPerRound = parsedNames.length - courts * 4;
+
+  const scores = useMemo(() => {
+    const map: Record<string, { a: number; b: number }> = {};
+    for (const [key, draft] of Object.entries(drafts)) {
+      const parsed = parseScore(draft);
+      if (parsed) map[key] = parsed;
+    }
+    return map;
+  }, [drafts]);
 
   const standings = useMemo(
-    () => (pairIds.length > 0 ? computeStandings(pairIds, namedMatches, nameById) : []),
-    [pairIds, namedMatches, nameById],
+    () => (names.length > 0 ? americanoStandings(names.length, rounds, scores, sortMode) : []),
+    [names, rounds, scores, sortMode],
   );
 
-  const played = namedMatches.filter((m) => m.winner != null).length;
-  const jornadas = useMemo(() => {
-    const map = new Map<string, Match[]>();
-    for (const m of namedMatches) {
-      map.set(m.round, [...(map.get(m.round) ?? []), m]);
-    }
-    return [...map.entries()];
-  }, [namedMatches]);
+  const playedCount = Object.keys(scores).length;
+  const totalMatches = rounds.reduce((acc, r) => acc + r.matches.length, 0);
 
-  function generate(count: number, nextMode: Mode) {
-    const ids = Array.from({ length: count }, (_, i) => `pair-${i + 1}`);
-    setPairIds(ids);
-    setMatches(buildDemoMatches(ids, nextMode));
+  function generate() {
+    if (parsedNames.length < 4) return;
+    const usableCourts = Math.min(courts, maxCourts(parsedNames.length));
+    setNames(parsedNames);
+    setRounds(generateAmericano(parsedNames.length, usableCourts, roundCount, seed));
     setDrafts({});
-    setErrors({});
-    setEditing({});
-  }
-
-  /** Corrección: reabre un partido ya guardado con su marcador precargado. */
-  function startEdit(m: Match) {
-    const row = (s: SetScore | undefined) => ({ a: s ? String(s.a ?? 0) : "", b: s ? String(s.b ?? 0) : "" });
-    setDrafts((prev) => ({ ...prev, [m.id]: { s1: row(m.sets[0]), s2: row(m.sets[1]), stb: row(m.sets[2]) } }));
-    setEditing((prev) => ({ ...prev, [m.id]: true }));
-  }
-
-  function saveResult(matchId: string) {
-    const draft = drafts[matchId] ?? emptyDraft();
-    const rows = [draft.s1, draft.s2, draft.stb].filter((r) => r.a !== "" || r.b !== "");
-    const sets = rows.map((r) => captureRowToSet(r));
-    const check = checkFinishedMatch(sets, DEFAULT_SCORING);
-    if (!check.ok) {
-      setErrors((prev) => ({ ...prev, [matchId]: check.error }));
-      return;
-    }
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next[matchId];
-      return next;
-    });
-    setMatches((prev) =>
-      prev.map((m) =>
-        m.id === matchId ? { ...m, sets: check.sets, winner: check.winner, status: "finished" as const } : m,
-      ),
-    );
-    setEditing((prev) => {
-      const next = { ...prev };
-      delete next[matchId];
-      return next;
-    });
   }
 
   function simulateRemaining() {
-    setMatches((prev) =>
-      prev.map((m) => {
-        if (m.winner != null) return m;
-        const sets = randomResult();
-        const winner = checkFinishedMatch(sets, DEFAULT_SCORING);
-        return winner.ok ? { ...m, sets, winner: winner.winner, status: "finished" as const } : m;
-      }),
-    );
-    setDrafts({});
-    setErrors({});
-    setEditing({});
+    setDrafts((prev) => {
+      const next = { ...prev };
+      rounds.forEach((round, ri) => {
+        round.matches.forEach((_, mi) => {
+          const key = `${ri}-${mi}`;
+          if (parseScore(next[key])) return;
+          const loser = Math.floor(Math.random() * Math.floor(pointsPerMatch / 2)); // 0..<N/2
+          next[key] =
+            Math.random() < 0.5
+              ? { a: String(pointsPerMatch - loser), b: String(loser) }
+              : { a: String(loser), b: String(pointsPerMatch - loser) };
+        });
+      });
+      return next;
+    });
   }
 
-  function clearResults() {
-    setMatches((prev) => prev.map((m) => ({ ...m, sets: [], winner: null, status: "scheduled" as const })));
-    setDrafts({});
-    setErrors({});
-    setEditing({});
+  function setScore(key: string, side: "a" | "b", value: string) {
+    const clean = value.replace(/[^0-9]/g, "").slice(0, 2);
+    setDrafts((prev) => ({ ...prev, [key]: { ...(prev[key] ?? { a: "", b: "" }), [side]: clean } }));
   }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
       <div className="space-y-2">
         <Badge variant="secondary">Demo · datos ficticios</Badge>
-        <h1 className="text-2xl font-bold">Round robin: cómo se comporta</h1>
+        <h1 className="text-2xl font-bold">Round robin individual (dobles rotativos)</h1>
         <p className="text-sm text-muted-foreground">
-          Prototipo aislado de la investigación. Nada de lo que captures aquí se guarda en la app ni
-          toca tus torneos. Usa la misma lógica real del sorteo y la tabla de posiciones.
+          Escribes los nombres, se arman las rondas con compañeros que rotan y cada quien suma sus
+          puntos en una tabla individual. Nada se guarda en la app ni toca tus torneos; se reinicia
+          al recargar.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>1. Arma el torneo de prueba</CardTitle>
+          <CardTitle>1. Nombres y formato</CardTitle>
           <CardDescription>
-            Generar de nuevo reinicia la demo y borra los resultados capturados.
+            Un nombre por línea (4 a {MAX_PLAYERS}). Generar de nuevo borra los puntos capturados.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Textarea
+            value={namesText}
+            onChange={(e) => setNamesText(e.target.value)}
+            rows={8}
+            className="max-w-sm"
+          />
+          {parsedNames.length > 0 && parsedNames.length < 4 && (
+            <p className="text-xs text-destructive">Hacen falta al menos 4 nombres.</p>
+          )}
           <div className="space-y-2">
-            <p className="text-sm font-medium">Número de parejas</p>
+            <p className="text-sm font-medium">Canchas</p>
             <div className="flex flex-wrap gap-2">
-              {[4, 5, 6, 7, 8, 9, 10, 12].map((n) => (
+              {Array.from({ length: maxCourts(parsedNames.length) }, (_, i) => i + 1).map((c) => (
                 <Button
-                  key={n}
+                  key={c}
                   type="button"
-                  variant={pairCount === n ? "default" : "outline"}
+                  variant={courts === c ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setPairCount(n)}
+                  onClick={() => setCourts(c)}
                 >
-                  {n}
+                  {c}
+                </Button>
+              ))}
+            </div>
+            {restingPerRound > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Con {parsedNames.length} jugadores y {courts} cancha{courts > 1 ? "s" : ""},{" "}
+                {restingPerRound} descansan por ronda (se turnan parejo).
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Puntos por partido</p>
+            <div className="flex flex-wrap gap-2">
+              {POINT_OPTIONS.map((p) => (
+                <Button
+                  key={p}
+                  type="button"
+                  variant={pointsPerMatch === p ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPointsPerMatch(p)}
+                >
+                  {p}
                 </Button>
               ))}
             </div>
           </div>
           <div className="space-y-2">
-            <p className="text-sm font-medium">Formato</p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={mode === "single" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMode("single")}
-              >
-                Todos contra todos (1 grupo)
+            <p className="text-sm font-medium">Rondas</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                className="h-9 w-20 text-center"
+                inputMode="numeric"
+                value={String(roundCount)}
+                onChange={(e) => {
+                  const v = Number(e.target.value.replace(/[^0-9]/g, ""));
+                  if (Number.isInteger(v) && v >= 1 && v <= 30) setRoundCount(v);
+                  else if (e.target.value === "") setRoundCount(1);
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={() => setRoundCount(fullRounds)}>
+                Rotación completa ({fullRounds})
               </Button>
-              <Button
-                type="button"
-                variant={mode === "groups" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMode("groups")}
-              >
-                2 grupos (como la fase actual)
-              </Button>
+              {parsedNames.length === 7 && courts === 1 && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setRoundCount(6)}>
+                  Sesión corta (6)
+                </Button>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Decisión de diseño pendiente de tu OK: en "todos contra todos" el campeón sería el
-              líder de la tabla al final, sin final. Con grupos se puede cerrar con eliminatoria
-              como hoy o también por tabla.
+              Rotación completa = todos llegan a ser compañeros de todos al menos una vez. Con menos
+              rondas, nadie repite compañero mientras se pueda evitar.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => generate(pairCount, mode)}>
-              {pairIds.length > 0 ? "Regenerar demo" : "Generar jornadas"}
+            <Button type="button" onClick={generate} disabled={parsedNames.length < 4}>
+              {names.length > 0 ? "Regenerar demo" : "Generar rondas"}
             </Button>
-            {pairIds.length > 0 && (
+            {names.length > 0 && (
               <>
                 <Button type="button" variant="outline" onClick={simulateRemaining}>
-                  Simular resultados
+                  Simular puntos
                 </Button>
-                <Button type="button" variant="outline" onClick={clearResults}>
-                  Borrar resultados
+                <Button type="button" variant="outline" onClick={() => setDrafts({})}>
+                  Borrar puntos
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSeed((s) => s + 1);
+                    setRounds(generateAmericano(names.length, Math.min(courts, maxCourts(names.length)), roundCount, seed + 1));
+                    setDrafts({});
+                  }}
+                >
+                  Revolver
                 </Button>
               </>
             )}
           </div>
-          {pairIds.length > 0 && (
+          {names.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              {namedMatches.length} partidos en {jornadas.length} jornadas · {played} con resultado.
-              Con {pairIds.length} parejas, todos contra todos son{" "}
-              {(pairIds.length * (pairIds.length - 1)) / 2} partidos por grupo.
+              {names.length} jugadores · {rounds.length} rondas · {totalMatches} partidos ·{" "}
+              {playedCount} con puntos.
             </p>
           )}
         </CardContent>
       </Card>
 
-      {pairIds.length > 0 && (
+      {names.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>2. Captura resultados por jornada</CardTitle>
+            <CardTitle>2. Rondas y captura de puntos</CardTitle>
             <CardDescription>
-              Mismo formato que la app: Set 1, Set 2 y súper tie-break si hace falta. Valida con la
-              regla real (2 sets ganados).
+              Anota los puntos que hizo cada equipo; la tabla se actualiza sola. Puedes corregir
+              cualquier marcador escribiendo de nuevo.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {jornadas.map(([round, ms]) => (
-              <div key={round} className="space-y-3">
-                <p className="text-sm font-semibold">{round}</p>
+            {rounds.map((round, ri) => (
+              <div key={ri} className="space-y-3">
+                <p className="text-sm font-semibold">Ronda {ri + 1}</p>
                 <div className="space-y-2">
-                  {ms.map((m) => {
-                    const draft = drafts[m.id] ?? emptyDraft();
-                    const setDraft = (setKey: keyof ScoreDraft, side: "a" | "b", value: string) =>
-                      setDrafts((prev) => ({
-                        ...prev,
-                        [m.id]: {
-                          ...(prev[m.id] ?? emptyDraft()),
-                          [setKey]: { ...(prev[m.id] ?? emptyDraft())[setKey], [side]: value.replace(/[^0-9]/g, "").slice(0, 2) },
-                        },
-                      }));
+                  {round.matches.map((match, mi) => {
+                    const key = `${ri}-${mi}`;
+                    const draft = drafts[key] ?? { a: "", b: "" };
+                    const score = parseScore(draft);
+                    const partial = !score && (draft.a !== "" || draft.b !== "");
                     return (
-                      <div key={m.id} className="rounded-xl border p-3">
+                      <div key={key} className="rounded-xl border p-3">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                           <div className="min-w-40 flex-1">
-                            <p className="truncate text-sm font-medium">
-                              {m.side_a.pair_name} <span className="text-muted-foreground">vs</span>{" "}
-                              {m.side_b.pair_name}
+                            <p className="text-sm font-medium">
+                              {names[match.teamA[0]]} &amp; {names[match.teamA[1]]}{" "}
+                              <span className="text-muted-foreground">vs</span>{" "}
+                              {names[match.teamB[0]]} &amp; {names[match.teamB[1]]}
                             </p>
-                            {m.winner != null && (
-                              <p className="text-xs text-muted-foreground">
-                                {formatMatchScore(m.sets, DEFAULT_SCORING)} · ganó{" "}
-                                {m.winner === "a" ? m.side_a.pair_name : m.side_b.pair_name}
-                              </p>
-                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Cancha {match.court}
+                              {score
+                                ? score.a === score.b
+                                  ? " · empate"
+                                  : ` · ganaron ${
+                                      score.a > score.b
+                                        ? `${names[match.teamA[0]]} & ${names[match.teamA[1]]}`
+                                        : `${names[match.teamB[0]]} & ${names[match.teamB[1]]}`
+                                    }`
+                                : ""}
+                            </p>
                           </div>
-                          {m.winner != null && !editing[m.id] && (
-                            <Button type="button" size="sm" variant="outline" onClick={() => startEdit(m)}>
-                              Corregir
-                            </Button>
-                          )}
-                          {(m.winner == null || editing[m.id]) && (
-                            <div className="flex flex-wrap items-center gap-2">
-                              {(["s1", "s2", "stb"] as const).map((setKey, idx) => (
-                                <div key={setKey} className="flex items-center gap-1">
-                                  <span className="text-xs text-muted-foreground">
-                                    {idx === 2 ? "STB" : `S${idx + 1}`}
-                                  </span>
-                                  <Input
-                                    className="h-8 w-10 px-1 text-center text-sm"
-                                    inputMode="numeric"
-                                    value={draft[setKey].a}
-                                    onChange={(e) => setDraft(setKey, "a", e.target.value)}
-                                  />
-                                  <span className="text-xs text-muted-foreground">-</span>
-                                  <Input
-                                    className="h-8 w-10 px-1 text-center text-sm"
-                                    inputMode="numeric"
-                                    value={draft[setKey].b}
-                                    onChange={(e) => setDraft(setKey, "b", e.target.value)}
-                                  />
-                                </div>
-                              ))}
-                              <Button type="button" size="sm" variant="secondary" onClick={() => saveResult(m.id)}>
-                                Guardar
-                              </Button>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <Input
+                              className="h-8 w-12 px-1 text-center text-sm"
+                              inputMode="numeric"
+                              placeholder="0"
+                              value={draft.a}
+                              onChange={(e) => setScore(key, "a", e.target.value)}
+                            />
+                            <span className="text-xs text-muted-foreground">-</span>
+                            <Input
+                              className="h-8 w-12 px-1 text-center text-sm"
+                              inputMode="numeric"
+                              placeholder="0"
+                              value={draft.b}
+                              onChange={(e) => setScore(key, "b", e.target.value)}
+                            />
+                          </div>
                         </div>
-                        {errors[m.id] && <p className="mt-2 text-xs text-destructive">{errors[m.id]}</p>}
+                        {partial && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Falta un lado del marcador para contar el partido.
+                          </p>
+                        )}
                       </div>
                     );
                   })}
                 </div>
+                {round.resting.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Descansan: {round.resting.map((p) => names[p]).join(", ")}
+                  </p>
+                )}
               </div>
             ))}
           </CardContent>
         </Card>
       )}
 
-      {pairIds.length > 0 && (
+      {names.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>3. Tabla de posiciones en vivo</CardTitle>
+            <CardTitle>3. Tabla individual en vivo</CardTitle>
             <CardDescription>
-              Se recalcula sola con cada resultado, con el orden real de la liga (% de puntos,
-              estilo Excel).
+              Cada jugador suma los puntos que hizo su equipo en cada ronda.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">Ordenar por:</span>
+              <Button
+                type="button"
+                size="sm"
+                variant={sortMode === "total" ? "default" : "outline"}
+                onClick={() => setSortMode("total")}
+              >
+                Puntos totales
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={sortMode === "average" ? "default" : "outline"}
+                onClick={() => setSortMode("average")}
+              >
+                Promedio por partido
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="py-2 pr-2 font-medium">#</th>
-                    <th className="py-2 pr-2 font-medium">Pareja</th>
+                    <th className="py-2 pr-2 font-medium">Jugador</th>
                     <th className="py-2 pr-2 font-medium">PJ</th>
                     <th className="py-2 pr-2 font-medium">PG</th>
-                    <th className="py-2 pr-2 font-medium">Sets</th>
-                    <th className="py-2 pr-2 font-medium">Pts a favor</th>
-                    <th className="py-2 font-medium">% PTS</th>
+                    <th className="py-2 pr-2 font-medium">Puntos</th>
+                    <th className="py-2 pr-2 font-medium">Dif</th>
+                    <th className="py-2 font-medium">Prom</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {standings.map((row) => (
-                    <tr key={row.pairId} className="border-b last:border-0">
-                      <td className="py-2 pr-2 font-mono tabular-nums">{row.jerarquia}</td>
-                      <td className="py-2 pr-2 font-medium">{nameById[row.pairId]}</td>
+                  {standings.map((row, i) => (
+                    <tr key={row.player} className="border-b last:border-0">
+                      <td className="py-2 pr-2 font-mono tabular-nums">{i + 1}</td>
+                      <td className="py-2 pr-2 font-medium">{names[row.player]}</td>
                       <td className="py-2 pr-2 tabular-nums">{row.played}</td>
-                      <td className="py-2 pr-2 tabular-nums">{row.won}</td>
+                      <td className="py-2 pr-2 tabular-nums">{row.wins}</td>
+                      <td className="py-2 pr-2 tabular-nums">{row.points}</td>
                       <td className="py-2 pr-2 tabular-nums">
-                        {row.setsFor}-{row.setsAgainst}
+                        {row.diff > 0 ? `+${row.diff}` : row.diff}
                       </td>
-                      <td className="py-2 pr-2 tabular-nums">{row.pointsFor ?? 0}</td>
                       <td className="py-2 tabular-nums">
-                        {row.pointsPercentage != null ? `${(row.pointsPercentage * 100).toFixed(1)}%` : "—"}
+                        {row.average != null ? row.average.toFixed(1) : "—"}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Ojo: con descansos no todos juegan la misma cantidad de partidos. El total favorece a
+              quien jugó más; el promedio nivela. Cuál de las dos define al ganador es una regla por
+              elegir — las apps de referencia usan el total y reparten los descansos lo más parejo
+              posible (algunas dan puntos de compensación al que descansa).
+            </p>
           </CardContent>
         </Card>
       )}
@@ -430,19 +407,21 @@ export default function RoundRobinDemo() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
-            Las jornadas se generan con el método del círculo (el mismo del sorteo actual): cada
-            pareja juega una vez contra todas y, con número impar (5, 7, 9), una descansa por jornada.
-            Un resultado guardado se puede corregir con "Corregir" y la tabla se recalcula sola.
+            Este es el formato que usan las apps de americano: metes nombres, salen rondas de
+            dobles con compañeros rotativos y una tabla individual por puntos. Con 7 jugadores y 1
+            cancha, la rotación completa son 11 rondas: todos llegan a ser compañeros de todos con
+            una sola pareja repetida (es el mínimo posible: con 7 no existe rotación perfecta sin
+            repetir), y todos juegan 6 o 7 partidos.
           </p>
           <p>
-            La tabla usa el cálculo real de la liga: partidos ganados, dominio y % de puntos.
-            Capturar un marcador inválido (por ejemplo 6-6 sin tie-break) muestra el mismo error
-            que verías en Resultados.
+            Reglas elegidas para esta prueba (no confirmadas): partido a N puntos, cada jugador se
+            queda con los puntos de su equipo, empates valen, sin compensación por descanso. Todo se
+            puede cambiar.
           </p>
           <p>
-            Lo que esta demo NO decide todavía: si el campeón sale directo de la tabla o si después
-            de las jornadas hay eliminatoria, y si se necesitan modalidades con rotación de parejas
-            (americano/mexicano), que serían otro modelo de datos.
+            Lo que NO decide esta demo: si el torneo vale por total o por promedio, qué pasa si
+            alguien se va a mitad, y si se ofrece también mexicano (emparejar por la tabla en vez de
+            rotación fija).
           </p>
           <p>
             <Link to="/torneos" className="font-semibold text-primary underline-offset-4 hover:underline">
@@ -453,4 +432,4 @@ export default function RoundRobinDemo() {
       </Card>
     </div>
   );
-}
+            }
