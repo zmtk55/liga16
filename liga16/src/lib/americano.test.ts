@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   americanoStandings,
+  constrainedFullRotation,
+  partnershipCoverage,
   fullRotationRounds,
   generateAmericano,
   maxConsecutiveRests,
@@ -383,5 +385,81 @@ describe('persistencia local de la demo (refresco accidental)', () => {
       parseAmericanoDemo(JSON.stringify({ ...snapshot, sortMode: 'puntos' })),
     ).toBeNull();
     expect(parseAmericanoDemo(JSON.stringify({ nombre: 'algo' }))).toBeNull();
+  });
+});
+
+describe('rotación completa: cobertura y descansos en TODAS las configuraciones (4-12 × canchas, varias semillas)', () => {
+  // Piso de descansos seguidos por configuración, demostrado o alcanzado:
+  // - sin descansos (n % 4 === 0, canchas = n/4): 0
+  // - 8j/1c: 2 es el ÓPTIMO con cobertura completa (densidad exacta 7 = 14/2:
+  //   racha ≤1 obligaría a dos grupos fijos que solo se emparejan internamente,
+  //   máx. 12 < 28 parejas)
+  // - 12j/1c: 3 es el ÓPTIMO con cobertura completa (densidad exacta 22 = 66/3:
+  //   racha ≤2 obligaría a tres grupos fijos, máx. 18 < 66 parejas)
+  // - 11j/1c: 3 alcanzado; 2 intentado con búsqueda exhaustiva acotada
+  //   (DFS 1M+ nodos, recocido y matrices de descanso) sin éxito — la densidad
+  //   apenas deja holgura (quien descansa 18 veces debe estrenar compañero en
+  //   cada una de sus 10 rondas jugadas); no demostrado imposible
+  const restBound: Record<string, number> = {
+    '4-1': 0, '5-1': 1, '6-1': 1, '7-1': 1, '8-1': 2, '8-2': 0,
+    '9-1': 2, '9-2': 1, '10-1': 2, '10-2': 1, '11-1': 3, '11-2': 1,
+    '12-1': 3, '12-2': 1, '12-3': 0,
+  };
+  for (let n = 4; n <= 12; n++) {
+    for (let c = 1; c <= maxCourts(n); c++) {
+      it(`n=${n}, canchas=${c}: todos con todos, descansos parejos y racha <= ${restBound[`${n}-${c}`]}`, () => {
+        const total = (n * (n - 1)) / 2;
+        for (const seed of [1, 7, 42]) {
+          const rounds = generateAmericano(n, c, fullRotationRounds(n, c), seed);
+          expect(rounds).toHaveLength(fullRotationRounds(n, c));
+          expectValidSchedule(rounds, n, c);
+          expect(partnershipStats(rounds).covered).toBe(total); // cobertura real 100%
+          const rests = restCounts(rounds, n);
+          expect(Math.max(...rests) - Math.min(...rests)).toBeLessThanOrEqual(1);
+          expect(maxConsecutiveRests(rounds, n)).toBeLessThanOrEqual(restBound[`${n}-${c}`]);
+        }
+      });
+    }
+  }
+});
+
+describe('garantía de cobertura y ruta de presupuesto agotado', () => {
+  it('partnershipCoverage reporta 100% en todas las configuraciones soportadas', () => {
+    for (let n = 4; n <= 12; n++) {
+      for (let c = 1; c <= maxCourts(n); c++) {
+        const rounds = generateAmericano(n, c, fullRotationRounds(n, c), 1);
+        const cov = partnershipCoverage(rounds, n);
+        expect(cov.covered).toBe(cov.total);
+      }
+    }
+  });
+  it('el DFS con presupuesto 0 devuelve null (nunca una rotación incompleta silenciosa)', () => {
+    expect(constrainedFullRotation(7, 1, 1, 0)).toBeNull();
+    expect(constrainedFullRotation(11, 2, 1, 0)).toBeNull();
+  });
+  it('una rotación incompleta se DETECTA como tal (la UI puede avisar en vez de prometer)', () => {
+    // rotación parcial: una ronda menos de la completa
+    const rounds = generateAmericano(7, 1, fullRotationRounds(7, 1) - 1, 1);
+    const cov = partnershipCoverage(rounds, 7);
+    expect(cov.covered).toBeLessThan(cov.total);
+  });
+  it('las invariantes se mantienen bajo re-etiquetado de jugadores (permutaciones de ids)', () => {
+    for (const n of [7, 9, 12]) {
+      const rounds = generateAmericano(n, 1, fullRotationRounds(n, 1), 1);
+      for (const shift of [1, 3]) {
+        const perm = (p: number) => (p + shift) % n;
+        const relabeled: AmericanoRound[] = rounds.map((r) => ({
+          matches: r.matches.map((m) => ({
+            court: m.court,
+            teamA: [perm(m.teamA[0]), perm(m.teamA[1])] as [number, number],
+            teamB: [perm(m.teamB[0]), perm(m.teamB[1])] as [number, number],
+          })),
+          resting: r.resting.map(perm),
+        }));
+        expectValidSchedule(relabeled, n, 1);
+        expect(partnershipCoverage(relabeled, n).covered).toBe((n * (n - 1)) / 2);
+        expect(maxConsecutiveRests(relabeled, n)).toBe(maxConsecutiveRests(rounds, n));
+      }
+    }
   });
 });
