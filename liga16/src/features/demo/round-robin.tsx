@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,7 +65,13 @@ function scoreError(draft: ScoreDraft | undefined, pointsPerMatch: number): stri
 }
 
 export default function RoundRobinDemo() {
-  const [namesText, setNamesText] = useState(DEFAULT_NAMES.join("\n"));
+  // La lista puede venir precargada desde la inscripcion: /demo/round-robin?jugadores=Ana,Beto,...
+  const [searchParams] = useSearchParams();
+  const rosterFromUrl = (searchParams.get("jugadores") ?? "")
+    .split(/[,\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const [namesText, setNamesText] = useState(rosterFromUrl.join("\n"));
   const [courts, setCourts] = useState(1);
   const [pointsPerMatch, setPointsPerMatch] = useState(4);
   const [roundCount, setRoundCount] = useState(11);
@@ -78,17 +84,20 @@ export default function RoundRobinDemo() {
   const [configOpen, setConfigOpen] = useState(true);
   const [view, setView] = useState<"rounds" | "standings">("rounds");
 
+  // parsedNames = toda la lista escrita; usableNames = lo que entra en la prueba.
+  // El excedente NO se trunca en silencio: se avisa cuantos sobran.
   const parsedNames = useMemo(
     () =>
       namesText
         .split("\n")
         .map((s) => s.trim())
-        .filter(Boolean)
-        .slice(0, MAX_PLAYERS),
+        .filter(Boolean),
     [namesText],
   );
-  const fullRounds = fullRotationRounds(parsedNames.length, courts);
-  const restingPerRound = parsedNames.length - courts * 4;
+  const usableNames = parsedNames.slice(0, MAX_PLAYERS);
+  const extraNames = parsedNames.length - usableNames.length;
+  const fullRounds = fullRotationRounds(usableNames.length, courts);
+  const restingPerRound = usableNames.length - courts * 4;
 
   const scores = useMemo(() => {
     const map: Record<string, { a: number; b: number }> = {};
@@ -110,10 +119,10 @@ export default function RoundRobinDemo() {
   const round = rounds[ri];
 
   function generate() {
-    if (parsedNames.length < 4) return;
-    const usableCourts = Math.min(courts, maxCourts(parsedNames.length));
-    setNames(parsedNames);
-    setRounds(generateAmericano(parsedNames.length, usableCourts, roundCount, seed));
+    if (usableNames.length < 4) return;
+    const usableCourts = Math.min(courts, maxCourts(usableNames.length));
+    setNames(usableNames);
+    setRounds(generateAmericano(usableNames.length, usableCourts, roundCount, seed));
     setDrafts({});
     setCurrentRound(0);
     setConfigOpen(false);
@@ -243,17 +252,47 @@ export default function RoundRobinDemo() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Nombres y formato</CardTitle>
-          <CardDescription>Un nombre por línea (4 a {MAX_PLAYERS}).</CardDescription>
+          <CardDescription>
+            Un nombre por línea (4 a {MAX_PLAYERS}). La cantidad sale de la lista de inscritos;
+            no es fija.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <Textarea
             value={namesText}
             onChange={(e) => setNamesText(e.target.value)}
-            rows={7}
+            rows={6}
+            placeholder={"Un nombre por línea, por ejemplo:\nAna\nBeto\nCarla\nDiego"}
             className="text-base"
           />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <p className="text-xs text-muted-foreground">
+              {parsedNames.length === 0
+                ? "Sin nombres todavía."
+                : `${parsedNames.length} ${parsedNames.length === 1 ? "nombre" : "nombres"} en la lista`}
+            </p>
+            {rosterFromUrl.length > 0 && (
+              <p className="text-xs text-muted-foreground">· precargada desde el enlace</p>
+            )}
+            {parsedNames.length === 0 && (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={() => setNamesText(DEFAULT_NAMES.join("\n"))}
+              >
+                Usar ejemplo de {DEFAULT_NAMES.length}
+              </Button>
+            )}
+          </div>
           {parsedNames.length > 0 && parsedNames.length < 4 && (
             <p className="text-xs text-destructive">Hacen falta al menos 4 nombres.</p>
+          )}
+          {extraNames > 0 && (
+            <p className="text-xs text-destructive">
+              Esta prueba admite hasta {MAX_PLAYERS}: sobran {extraNames}. Se usarían los primeros{" "}
+              {MAX_PLAYERS}.
+            </p>
           )}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <div className="space-y-1">
@@ -276,7 +315,7 @@ export default function RoundRobinDemo() {
             <div className="space-y-1">
               <p className="text-sm font-medium">Canchas</p>
               <div className="flex gap-2">
-                {Array.from({ length: maxCourts(parsedNames.length) }, (_, i) => i + 1).map((c) => (
+                {Array.from({ length: maxCourts(usableNames.length) }, (_, i) => i + 1).map((c) => (
                   <Button
                     key={c}
                     type="button"
@@ -303,7 +342,7 @@ export default function RoundRobinDemo() {
                 >
                   Completa ({fullRounds})
                 </Button>
-                {parsedNames.length === 7 && courts === 1 && (
+                {usableNames.length === 7 && courts === 1 && (
                   <Button
                     type="button"
                     variant={roundCount === 6 ? "default" : "outline"}
@@ -324,7 +363,7 @@ export default function RoundRobinDemo() {
               type="button"
               className="h-12 flex-1 text-base"
               onClick={generate}
-              disabled={parsedNames.length < 4}
+              disabled={usableNames.length < 4}
             >
               {names.length > 0 ? "Regenerar" : "Generar rondas"}
             </Button>
@@ -530,9 +569,11 @@ export default function RoundRobinDemo() {
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
             El formato de las apps de americano: nombres, rondas de dobles con compañeros rotativos
-            y tabla individual. Con 7 jugadores y 1 cancha, la rotación completa son 11 rondas:
-            todos son compañeros de todos con una sola pareja repetida (el mínimo posible), nadie
-            descansa dos rondas seguidas y todos juegan 6 o 7 partidos.
+            y tabla individual. La lista manda: con 7 jugadores y 1 cancha (solo un ejemplo) la
+            rotación completa son 11 rondas: todos son compañeros de todos con una sola pareja
+            repetida (el mínimo posible), nadie descansa dos rondas seguidas y todos juegan 6 o 7
+            partidos. La lista también puede llegar precargada con ?jugadores= en el enlace, que es
+            la costura para conectarla con la inscripción del onboarding sin tocar el torneo real.
           </p>
           <p>
             Lo que NO decide esta demo: si el torneo vale por total o por promedio, cómo se forman
@@ -547,4 +588,4 @@ export default function RoundRobinDemo() {
       </Card>
     </div>
   );
-}
+                }
