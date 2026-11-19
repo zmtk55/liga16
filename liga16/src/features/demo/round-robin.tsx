@@ -50,6 +50,7 @@ import {
   type AmericanoDemoSnapshot,
   type AmericanoRound,
   type AmericanoSortMode,
+  type PlayoffPairing,
 } from "@/lib/americano";
 
 /**
@@ -83,8 +84,10 @@ import {
  *
  * La pestaña Eliminatoria es una PROPUESTA A PRUEBA, reversible y marcada
  * como tal en pantalla (no es una regla confirmada por Julian): parejas
- * balanceadas desde la tabla, final directa con 4-7 y semifinales cruzadas
- * con 8+. Fuentes de la convención en proposePlayoffPairs (lib/americano.ts).
+ * desde la tabla con convención elegible en pantalla (balanceadas 1º+4º vs
+ * 2º+3º, o impares contra pares 1º+3º vs 2º+4º, pedido de Julian 19-nov),
+ * final directa con 4-7 y semifinales cruzadas con 8+. Fuentes de las
+ * convenciones en proposePlayoffPairs (lib/americano.ts).
  */
 
 const DEFAULT_NAMES = ["Ana", "Beto", "Carla", "Diego", "Elena", "Fede", "Gaby"];
@@ -253,6 +256,13 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
   const [playoffKeys, setPlayoffKeys] = useState<Record<string, string>>(
     restored?.playoffKeys ?? {},
   );
+  // Convención de parejas de la final directa (pedido de Julian 19-nov:
+  // "deberias escoger 1 y 3 2 y 4 impares o pares"). Se GUARDA con la
+  // partida: al recargar vuelve la misma convención y sus marcadores siguen
+  // válidos. Cambiarla con marcadores capturados pide confirmación explícita
+  // antes de borrarlos (cancelar conserva parejas y marcadores).
+  const [poPairing, setPoPairing] = useState<PlayoffPairing>(restored?.poPairing ?? "balanced");
+  const [pendingPairing, setPendingPairing] = useState<PlayoffPairing | null>(null);
 
   // Guarda el estado COMPLETO tras cada cambio, para que recargar o cerrar
   // y reabrir la URL lo restaure tal cual. El efecto corre después del
@@ -284,6 +294,8 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
       // Solo se escribe cuando no es el Normal Americano: el guardado de la
       // versión publicada queda con exactamente la misma forma.
       ...(applied.modalidad === "americano" ? {} : { modalidad: applied.modalidad }),
+      // Igual: la balanceada es la forma de los guardados anteriores.
+      ...(poPairing === "balanced" ? {} : { poPairing }),
       ...(esMix(applied.modalidad) ? { generos: appliedGeneros } : {}),
       ...(esClub(applied.modalidad) ? { clubs: appliedClubs } : {}),
     };
@@ -308,6 +320,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
     view,
     playoffDrafts,
     playoffKeys,
+    poPairing,
     applied.modalidad,
     appliedGeneros,
     appliedClubs,
@@ -477,12 +490,19 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
     setBoxGroup(0);
   }
 
-  // Eliminatoria (PROPUESTA reversible): parejas balanceadas desde el orden
-  // actual de la tabla; se recalcula solo al capturar puntos.
+  // Eliminatoria (PROPUESTA reversible): parejas desde el orden actual de
+  // la tabla; se recalcula solo al capturar puntos.
   const playoff = useMemo(
-    () => (names.length >= 4 ? proposePlayoffPairs(standings.map((r) => r.player)) : null),
-    [names.length, standings],
+    () => (names.length >= 4 ? proposePlayoffPairs(standings.map((r) => r.player), poPairing) : null),
+    [names.length, standings, poPairing],
   );
+  /** Hay marcadores cerrados en la eliminatoria que se borrarían al cambiar. */
+  const poHayCapturado = Object.keys(playoffDrafts).some((k) => k.startsWith("po-") && playoffDrafts[k]?.done);
+  const elegirPairing = (target: PlayoffPairing) => {
+    if (target === poPairing) return;
+    if (poHayCapturado) setPendingPairing(target);
+    else setPoPairing(target);
+  };
   // Huella de las parejas de cada llave: si la tabla (o el criterio
   // total/promedio) cambia y cambian las parejas, el marcador capturado para
   // las parejas anteriores deja de contar y se BORRA (no se restaura si las
@@ -1716,8 +1736,8 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             ) : (
               <>
                 <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                  Propuesta a prueba, reversible: parejas balanceadas desde la tabla. No es una
-                  regla confirmada; se puede cambiar.
+                  Propuesta a prueba: las parejas salen del orden de la tabla. No es una regla
+                  confirmada; se puede cambiar.
                 </p>
                 {boxAplicado ? <p className="text-sm text-muted-foreground">Beat the Box termina en los grupos de la etapa 2, no en esta eliminatoria.</p> : parejasAplicadas ? (
                   <p className="text-sm text-muted-foreground">La propuesta individual no aplica a parejas fijas. Esta eliminatoria todavía no está configurada.</p>
@@ -1753,6 +1773,65 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                         <p className="text-xs text-muted-foreground">
                           Clasifican los 4 primeros de la tabla; con 8 o más habría semifinales.
                         </p>
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-medium">
+                            Parejas de la final: escoge cómo se arman.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={poPairing === "balanced" ? "default" : "outline"}
+                              className="h-8 flex-1 rounded-lg px-2 text-xs"
+                              aria-pressed={poPairing === "balanced"}
+                              onClick={() => elegirPairing("balanced")}
+                            >
+                              1º+4º vs 2º+3º
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={poPairing === "odds-evens" ? "default" : "outline"}
+                              className="h-8 flex-1 rounded-lg px-2 text-xs"
+                              aria-pressed={poPairing === "odds-evens"}
+                              onClick={() => elegirPairing("odds-evens")}
+                            >
+                              1º+3º vs 2º+4º
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {poPairing === "odds-evens"
+                              ? "Impares contra pares: el 1º de la tabla con el 3º, contra el 2º con el 4º."
+                              : "El 1º de la tabla con el 4º, contra el 2º con el 3º."}
+                          </p>
+                          {pendingPairing && (
+                            <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/40">
+                              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                                Cambiar a {pendingPairing === "odds-evens" ? "1º+3º vs 2º+4º" : "1º+4º vs 2º+3º"}{" "}
+                                borra lo capturado en la eliminatoria. ¿Cambiar?
+                              </p>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-8 flex-1 rounded-lg px-2 text-xs"
+                                  onClick={() => { setPoPairing(pendingPairing); setPendingPairing(null); }}
+                                >
+                                  Sí, cambiar y borrar
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 flex-1 rounded-lg px-2 text-xs"
+                                  onClick={() => setPendingPairing(null)}
+                                >
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         {renderPlayoffMatch("Final", finalPairs![0], finalPairs![1], "po-final")}
                       </>
                     )}
@@ -1797,4 +1876,4 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
       )}
     </div>
   );
-      }
+  }
