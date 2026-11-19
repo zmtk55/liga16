@@ -773,6 +773,362 @@ export function americanoStandings(
   return rows.sort(sort === "average" ? byAverage : byTotal);
 }
 
+/* ----- Mexicano: cada ronda se arma con la tabla de las anteriores ----- */
+
+export type AmericanoModalidad =
+  | "americano"
+  | "mexicano"
+  | "team-americano"
+  | "team-mexicano"
+  | "mix-americano"
+  | "mixicano"
+  | "club-americano"
+  | "club-mexicano"
+  | "club-team-americano"
+  | "club-team-mexicano"
+  | "beat-box"
+  | "playoffs";
+
+/** Modalidades con pareja de una mujer y un hombre: piden el género por jugador. */
+export function esClub(m: AmericanoModalidad): boolean { return m.startsWith("club-"); }
+export function esParejasFijas(m: AmericanoModalidad): boolean { return m.startsWith("team-") || m.startsWith("club-team-") || m === "playoffs"; }
+export function esMix(m: AmericanoModalidad): boolean {
+  return m === "mix-americano" || m === "mixicano";
+}
+
+/** Modalidades que arman cada ronda con la tabla de las anteriores. */
+export function esDinamica(m: AmericanoModalidad): boolean {
+  return m === "mexicano" || m === "team-mexicano" || m === "mixicano" || m === "club-mexicano" || m === "club-team-mexicano";
+}
+
+/** Rondas por defecto del Mexicano: una menos que jugadores (convención de Rueda Padel). */
+export function mexicanoTotalRounds(playerCount: number): number {
+  return Math.max(1, playerCount - 1);
+}
+
+function seededOrder(n: number, seed: number): number[] {
+  let t = seed >>> 0;
+  const rnd = () => {
+    t = (t + 0x6d2b79f5) >>> 0;
+    let x = t;
+    x = Math.imul(x ^ (x >>> 15), x | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+  const order = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+/** La ronda siguiente solo se arma cuando todos los partidos de la última ya están cerrados. */
+export function mexicanoRoundReady(
+  rounds: AmericanoRound[],
+  scores: Record<string, { a: number; b: number }>,
+): boolean {
+  if (rounds.length === 0) return false;
+  const ri = rounds.length - 1;
+  return rounds[ri].matches.every((_, mi) => scores[`${ri}-${mi}`] !== undefined);
+}
+
+/**
+ * Arma UNA ronda de Mexicano. Pura: no modifica `rounds` y nunca toca rondas
+ * ya armadas (corregir un marcador viejo cambia la tabla, no los partidos ya
+ * jugados). Ronda 1: sorteo con semilla. Después: tabla individual por puntos
+ * (desempate diferencia, victorias, número de jugador), cortada en cuartetos;
+ * en cada uno 1º+4º contra 2º+3º, el cuarteto de arriba en la cancha 1.
+ * Descansos: quien menos ha descansado, luego quien descansó hace más;
+ * el empate final se rota por número de jugador (no depende del resultado).
+ */
+export function nextMexicanoRound(
+  playerCount: number,
+  courts: number,
+  rounds: AmericanoRound[],
+  scores: Record<string, { a: number; b: number }>,
+  seed: number,
+): AmericanoRound {
+  const useCourts = Math.min(courts, maxCourts(playerCount));
+  const playing = useCourts * 4;
+  const restCount = new Array<number>(playerCount).fill(0);
+  const lastRest = new Array<number>(playerCount).fill(-1);
+  rounds.forEach((r, ri) =>
+    r.resting.forEach((p) => {
+      restCount[p]++;
+      lastRest[p] = ri;
+    }),
+  );
+  const ri = rounds.length;
+  let active: number[];
+  let resting: number[];
+  if (ri === 0) {
+    const order = seededOrder(playerCount, seed);
+    active = order.slice(0, playing);
+    resting = order.slice(playing);
+  } else {
+    const rank = americanoStandings(playerCount, rounds, scores, "total").map((r) => r.player);
+    const byRest = Array.from({ length: playerCount }, (_, p) => p).sort(
+      (x, y) =>
+        restCount[x] - restCount[y] ||
+        lastRest[x] - lastRest[y] ||
+        ((x + ri) % playerCount) - ((y + ri) % playerCount),
+    );
+    resting = byRest.slice(0, playerCount - playing);
+    const restSet = new Set(resting);
+    active = rank.filter((p) => !restSet.has(p));
+  }
+  const matches: AmericanoMatch[] = [];
+  for (let c = 0; c < useCourts; c++) {
+    const g = active.slice(c * 4, c * 4 + 4);
+    matches.push(
+      ri === 0
+        ? { court: c + 1, teamA: [g[0], g[1]], teamB: [g[2], g[3]] }
+        : { court: c + 1, teamA: [g[0], g[3]], teamB: [g[1], g[2]] },
+    );
+  }
+  return { matches, resting: [...resting].sort((a, b) => a - b) };
+}
+
+/* ----- Mix: pareja de una mujer y un hombre ----- */
+
+export type Genero = "m" | "f";
+
+function splitGeneros(generos: Genero[]): { women: number[]; men: number[] } {
+  const women: number[] = [];
+  const men: number[] = [];
+  generos.forEach((g, p) => (g === "f" ? women : men).push(p));
+  return { women, men };
+}
+
+/**
+ * Parejas mixtas de UNA vuelta: la lista corta empareja en orden y la larga
+ * rota `shift` posiciones; así, en max(mujeres, hombres) vueltas, cada mujer
+ * es pareja de cada hombre exactamente una vez. Pura.
+ */
+function mixPairsRound(women: number[], men: number[], shift: number): Array<[number, number]> {
+  const small = women.length <= men.length ? women : men;
+  const big = women.length <= men.length ? men : women;
+  const pairs: Array<[number, number]> = [];
+  for (let j = 0; j < small.length; j++) {
+    const a = small[j];
+    const b = big[(j + shift) % big.length];
+    pairs.push(women.length <= men.length ? [a, b] : [b, a]);
+  }
+  return pairs;
+}
+
+function roundsFromPairLists(
+  playerCount: number,
+  pairLists: Array<Array<[number, number]>>,
+  courts: number,
+): AmericanoRound[] {
+  const useCourts = Math.max(1, Math.min(courts, maxCourts(playerCount)));
+  return pairLists.map((pairs, r) => {
+    const rot = pairs.map((_, i) => pairs[(i + r) % pairs.length]);
+    const matches: Array<[[number, number], [number, number]]> = [];
+    for (let k = 0; k + 1 < rot.length && matches.length < useCourts; k += 2)
+      matches.push([rot[k], rot[k + 1]]);
+    return roundFromPairMatches(playerCount, matches);
+  });
+}
+
+/**
+ * Mix Americano: cobertura completa de parejas mujer/hombre con grupos iguales.
+ * Se agrupan las n² parejas posibles en partidos sin compartir jugador.
+ * Si n es impar hay n² impar: se repite una pareja para completar el último
+ * partido. Nunca se omite una pareja. Se agrupan partidos simultáneos solo
+ * cuando no comparten jugadores y caben en las canchas.
+ */
+export function generateMixAmericano(generos: Genero[], courts: number, seed: number): AmericanoRound[] {
+  const { women, men } = splitGeneros(generos);
+  if (women.length < 2 || women.length !== men.length) return [];
+  const w = seededOrder(women.length, seed).map((i) => women[i]);
+  const m = seededOrder(men.length, seed + 7919).map((i) => men[i]);
+  const pairs: Array<[number, number]> = [];
+  for (let r = 0; r < m.length; r++) pairs.push(...mixPairsRound(w, m, r));
+  if (pairs.length % 2 !== 0) pairs.push([...pairs[0]]);
+  const disjoint = (a: [number, number], b: [number, number]) => a[0] !== b[0] && a[1] !== b[1];
+  function solve(remaining: number[]): Array<[number, number]> | null {
+    if (remaining.length === 0) return [];
+    // Menor número de rivales elegibles primero reduce la búsqueda.
+    let first = remaining[0];
+    let min = Infinity;
+    for (const i of remaining) {
+      const n = remaining.filter((j) => i !== j && disjoint(pairs[i], pairs[j])).length;
+      if (n < min) { min = n; first = i; }
+    }
+    if (min === 0) return null;
+    for (const second of remaining) {
+      if (first === second || !disjoint(pairs[first], pairs[second])) continue;
+      const tail = solve(remaining.filter((i) => i !== first && i !== second));
+      if (tail) return [[first, second], ...tail];
+    }
+    return null;
+  }
+  const solution = solve(pairs.map((_, i) => i));
+  if (!solution) return [];
+  const pending = solution.map(([a, b]) => [pairs[a], pairs[b]] as [[number, number], [number, number]]);
+  const out: AmericanoRound[] = [];
+  const useCourts = Math.max(1, Math.min(courts, maxCourts(generos.length)));
+  while (pending.length) {
+    const batch: Array<[[number, number], [number, number]]> = [];
+    const used = new Set<number>();
+    for (let i = 0; i < pending.length && batch.length < useCourts;) {
+      const mt = pending[i];
+      if (mt.flat().some((p) => used.has(p))) { i++; continue; }
+      for (const p of mt.flat()) used.add(p);
+      batch.push(mt);
+      pending.splice(i, 1);
+    }
+    out.push(roundFromPairMatches(generos.length, batch));
+  }
+  return out;
+}
+
+/**
+ * Mixicano: como Mexicano pero cada pareja es una mujer y un hombre.
+ * Ronda 1 sorteada; después se ordenan mujeres entre mujeres y hombres entre
+ * hombres por la tabla; en cada grupo de dos por género, 1ª con 2º y 2ª con 1º;
+ * los partidos enfrentan parejas vecinas en la tabla combinada. Descansos
+ * repartidos por género (quien menos ha descansado). Convención nuestra: la
+ * app de referencia no publica el emparejamiento. Pura.
+ */
+export function nextMixicanoRound(
+  generos: Genero[],
+  courts: number,
+  rounds: AmericanoRound[],
+  scores: Record<string, { a: number; b: number }>,
+  seed: number,
+): AmericanoRound {
+  const playerCount = generos.length;
+  const { women, men } = splitGeneros(generos);
+  const useCourts = Math.max(1, Math.min(courts, maxCourts(playerCount)));
+  const ri = rounds.length;
+  if (ri === 0) {
+    const w = seededOrder(women.length, seed).map((i) => women[i]);
+    const m = seededOrder(men.length, seed + 7919).map((i) => men[i]);
+    return roundsFromPairLists(playerCount, [mixPairsRound(w, m, 0)], useCourts)[0];
+  }
+  const restCount = new Array<number>(playerCount).fill(0);
+  const lastRest = new Array<number>(playerCount).fill(-1);
+  rounds.forEach((r, idx) =>
+    r.resting.forEach((p) => {
+      restCount[p]++;
+      lastRest[p] = idx;
+    }),
+  );
+  const rank = americanoStandings(playerCount, rounds, scores, "total").map((r) => r.player);
+  const pick = (pool: number[], n: number) => {
+    const rest = [...pool].sort(
+      (x, y) => restCount[x] - restCount[y] || lastRest[x] - lastRest[y] || x - y,
+    );
+    const out = new Set(rest.slice(0, Math.max(0, pool.length - n)));
+    return rank.filter((p) => pool.includes(p) && !out.has(p));
+  };
+  const available = Math.min(useCourts * 2, women.length, men.length);
+  const n = available - (available % 2);
+  const wSel = pick(women, n);
+  const mSel = pick(men, n);
+  const pairs: Array<[number, number]> = wSel.map((wp, i) => [wp, mSel[i % 2 === 0 ? i + 1 : i - 1]]);
+  return roundsFromPairLists(playerCount, [pairs], useCourts)[0];
+}
+
+/* ----- Team: parejas fijas ----- */
+
+/** Parejas fijas por el orden de la lista: (1º,2º), (3º,4º)... Requiere cantidad par. */
+export function pairsFromRoster(playerCount: number): Array<[number, number]> {
+  const pairs: Array<[number, number]> = [];
+  for (let i = 0; i + 1 < playerCount; i += 2) pairs.push([i, i + 1]);
+  return pairs;
+}
+
+/** Rondas del Team Mexicano: una menos que parejas. */
+export function teamMexicanoTotalRounds(playerCount: number): number {
+  return Math.max(1, Math.floor(playerCount / 2) - 1);
+}
+
+function roundFromPairMatches(
+  playerCount: number,
+  matches: Array<[[number, number], [number, number]]>,
+): AmericanoRound {
+  const used = new Set<number>();
+  const out: AmericanoMatch[] = matches.map(([teamA, teamB], i) => {
+    for (const p of [...teamA, ...teamB]) used.add(p);
+    return { court: i + 1, teamA, teamB };
+  });
+  const resting = Array.from({ length: playerCount }, (_, p) => p).filter((p) => !used.has(p));
+  return { matches: out, resting };
+}
+
+/**
+ * Team Americano: cada pareja juega contra todas las demás una vez (método del
+ * círculo). Si hay más partidos por vuelta que canchas, la vuelta se reparte en
+ * varias rondas; quien no juega en una ronda descansa.
+ */
+export function generateTeamAmericano(playerCount: number, courts: number): AmericanoRound[] {
+  const pairs = pairsFromRoster(playerCount);
+  const useCourts = Math.max(1, Math.min(courts, maxCourts(playerCount)));
+  const slots: Array<number | null> = pairs.map((_, i) => i);
+  if (slots.length % 2 === 1) slots.push(null);
+  const m = slots.length;
+  const rounds: AmericanoRound[] = [];
+  for (let r = 0; r < m - 1; r++) {
+    const vuelta: Array<[[number, number], [number, number]]> = [];
+    for (let i = 0; i < m / 2; i++) {
+      const a = slots[i];
+      const b = slots[m - 1 - i];
+      if (a !== null && b !== null) vuelta.push([pairs[a], pairs[b]]);
+    }
+    for (let k = 0; k < vuelta.length; k += useCourts)
+      rounds.push(roundFromPairMatches(playerCount, vuelta.slice(k, k + useCourts)));
+    slots.splice(1, 0, slots.pop() as number | null);
+  }
+  return rounds;
+}
+
+/**
+ * Team Mexicano: ronda 1 sorteada entre parejas; después se ordenan las parejas
+ * por puntos (desempate: diferencia, victorias, número) y la 1ª juega contra la
+ * 2ª, la 3ª contra la 4ª... Si hay más parejas que lugares juegan las que
+ * menos han jugado. Pura: no toca rondas ya armadas.
+ */
+export function nextTeamMexicanoRound(
+  playerCount: number,
+  courts: number,
+  rounds: AmericanoRound[],
+  scores: Record<string, { a: number; b: number }>,
+  seed: number,
+): AmericanoRound {
+  const pairs = pairsFromRoster(playerCount);
+  const useCourts = Math.max(1, Math.min(courts, maxCourts(playerCount)));
+  const slots = Math.min(useCourts * 2, pairs.length - (pairs.length % 2));
+  const ri = rounds.length;
+  const played = new Array<number>(pairs.length).fill(0);
+  const pairOf = (p: number) => Math.floor(p / 2);
+  for (const r of rounds)
+    for (const mt of r.matches) {
+      played[pairOf(mt.teamA[0])]++;
+      played[pairOf(mt.teamB[0])]++;
+    }
+  let order: number[];
+  if (ri === 0) {
+    order = seededOrder(pairs.length, seed).slice(0, slots);
+  } else {
+    const st = americanoStandings(playerCount, rounds, scores, "total");
+    const rankOfPair = st
+      .map((row) => pairOf(row.player))
+      .filter((pi, i, arr) => arr.indexOf(pi) === i);
+    const chosen = Array.from({ length: pairs.length }, (_, i) => i)
+      .sort((x, y) => played[x] - played[y] || rankOfPair.indexOf(x) - rankOfPair.indexOf(y))
+      .slice(0, slots);
+    order = rankOfPair.filter((pi) => chosen.includes(pi));
+  }
+  const matches: Array<[[number, number], [number, number]]> = [];
+  for (let i = 0; i + 1 < order.length; i += 2) matches.push([pairs[order[i]], pairs[order[i + 1]]]);
+  return roundFromPairMatches(playerCount, matches);
+}
+
 /* ----- eliminatoria: PROPUESTA reversible de la demo (no regla confirmada) ----- */
 
 export interface PlayoffMatch {
@@ -897,6 +1253,11 @@ export interface AmericanoDemoSnapshot {
   view: "rounds" | "standings" | "playoff";
   playoffDrafts: Record<string, { a: string; b: string; done?: boolean }>;
   playoffKeys: Record<string, string>;
+  /** Ausente en guardados anteriores = "americano" (Normal Americano). */
+  modalidad?: AmericanoModalidad;
+  /** Géneros de la partida aplicada; solo existe en modalidades mixtas. */
+  generos?: Genero[];
+  clubs?: Array<"A" | "B">;
 }
 
 function isNameList(value: unknown, max: number): value is string[] {
@@ -913,7 +1274,7 @@ function isIntIn(value: unknown, min: number, max: number): value is number {
 
 function isTeam(value: unknown): value is [number, number] {
   return (
-    Array.isArray(value) && value.length === 2 && value.every((n) => isIntIn(n, 0, 11))
+    Array.isArray(value) && value.length === 2 && value.every((n) => isIntIn(n, 0, 15))
   );
 }
 
@@ -929,12 +1290,12 @@ function isRoundList(value: unknown): value is AmericanoRound[] {
           (m) =>
             m !== null &&
             typeof m === "object" &&
-            isIntIn((m as { court?: unknown }).court, 1, 3) &&
+            isIntIn((m as { court?: unknown }).court, 1, 4) &&
             isTeam((m as { teamA?: unknown }).teamA) &&
             isTeam((m as { teamB?: unknown }).teamB),
         ) &&
         Array.isArray((r as AmericanoRound).resting) &&
-        (r as AmericanoRound).resting.every((n) => isIntIn(n, 0, 11)),
+        (r as AmericanoRound).resting.every((n) => isIntIn(n, 0, 15)),
     )
   );
 }
@@ -974,12 +1335,12 @@ export function validateAmericanoDemoSnapshot(value: unknown): value is American
   return (
     s.version === 1 &&
     typeof s.savedAt === "string" &&
-    isNameList(s.inscritos, 12) &&
-    isIntIn(s.courts, 1, 3) &&
+    isNameList(s.inscritos, 16) &&
+    isIntIn(s.courts, 1, 4) &&
     isIntIn(s.pointsPerMatch, 1, 99) &&
     (s.roundMode === "full" || s.roundMode === "short") &&
     isIntIn(s.seed, 1, 1_000_000) &&
-    isNameList(s.names, 12) &&
+    isNameList(s.names, (s.modalidad === "beat-box" || s.modalidad === "playoffs") ? 16 : 12) &&
     isRoundList(s.rounds) &&
     isDraftMap(s.drafts) &&
     (s.sortMode === "total" || s.sortMode === "average") &&
@@ -987,8 +1348,51 @@ export function validateAmericanoDemoSnapshot(value: unknown): value is American
     typeof s.configOpen === "boolean" &&
     (s.view === "rounds" || s.view === "standings" || s.view === "playoff") &&
     isDraftMap(s.playoffDrafts) &&
-    isKeyMap(s.playoffKeys)
+    isKeyMap(s.playoffKeys) &&
+    (s.modalidad === undefined ||
+      s.modalidad === "americano" ||
+      s.modalidad === "mexicano" ||
+      s.modalidad === "team-americano" ||
+      s.modalidad === "team-mexicano" ||
+      s.modalidad === "mix-americano" ||
+      s.modalidad === "mixicano" ||
+      s.modalidad === "club-americano" || s.modalidad === "club-mexicano" ||
+      s.modalidad === "club-team-americano" || s.modalidad === "club-team-mexicano" || s.modalidad === "beat-box" || s.modalidad === "playoffs") &&
+    (s.generos === undefined ||
+      (Array.isArray(s.generos) && s.generos.length === (s.names as string[]).length &&
+        s.generos.every((g) => g === "m" || g === "f"))) &&
+    (s.clubs === undefined || (Array.isArray(s.clubs) && s.clubs.length === (s.names as string[]).length && s.clubs.every((c) => c === "A" || c === "B"))) &&
+    (!(typeof s.modalidad === "string" && s.modalidad.startsWith("club-")) ||
+      (Array.isArray(s.clubs) && s.clubs.filter((c) => c === "A").length >= 4 &&
+        s.clubs.filter((c) => c === "A").length === s.clubs.filter((c) => c === "B").length &&
+        (!s.modalidad.startsWith("club-team-") ||
+          (s.clubs.filter((c) => c === "A").length % 2 === 0 && s.clubs.every((c,i,a) => c === a[i-i%2]))))) &&
+    ((s.modalidad !== "mix-americano" && s.modalidad !== "mixicano") ||
+      (Array.isArray(s.generos) &&
+        s.generos.filter((g) => g === "f").length >= 2 &&
+        s.generos.filter((g) => g === "f").length === s.generos.filter((g) => g === "m").length))
   );
+}
+
+/**
+ * Configuración que realmente produjo las rondas guardadas (canchas y modo).
+ * Los campos courts/roundMode del respaldo pueden reflejar una edición sin
+ * aplicar; las rondas son la fuente de verdad de la partida en curso.
+ */
+export function deriveAppliedConfig(
+  rounds: AmericanoRound[],
+  playerCount: number,
+  fallback: { courts: number; mode: "full" | "short" },
+  modalidad: AmericanoModalidad = "americano",
+): { courts: number; mode: "full" | "short" } {
+  if (rounds.length === 0) return fallback;
+  const courts = Math.max(1, rounds[0].matches.length);
+  // Mexicano crece ronda a ronda: su duración no se deduce del conteo.
+  if (modalidad !== "americano") return { courts, mode: "full" };
+  return {
+    courts,
+    mode: rounds.length === fullRotationRounds(playerCount, courts) ? "full" : "short",
+  };
 }
 
 export function serializeAmericanoDemo(snapshot: AmericanoDemoSnapshot): string {
