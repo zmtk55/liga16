@@ -598,24 +598,159 @@ export function playoffFinalPairs(
 /* --------------------------- regla de puntuación --------------------------- */
 
 /**
- * Regla de captura ELEGIDA PARA LA DEMO (la que describió Julian: "el primero
- * que llegue a N"): el partido lo gana el primer equipo en llegar a
- * `pointsPerMatch` puntos, así que un marcador debe ser exactamente N y el
- * otro menor que N. Sin empates.
+ * Regla de captura AJUSTADA por Julian el 18-nov-2026 ("No me pongas limite
+ * asi. Aveces quedan 2 a 2 suman 4"): captura libre de enteros no negativos,
+ * SIN obligar a llegar a N ni a una suma fija, y el empate es un resultado
+ * final válido. Los puntos configurados quedan como referencia, no como
+ * bloqueo. Un marcador cerrado es válido si ambos lados son enteros 0-99.
  */
 export function validateAmericanoScore(
   a: number,
   b: number,
-  pointsPerMatch: number,
 ): { ok: true; score: { a: number; b: number } } | { ok: false; error: string } {
   if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a > 99 || b > 99) {
     return { ok: false, error: "Los puntos deben ser números enteros entre 0 y 99." };
   }
-  if (Math.max(a, b) !== pointsPerMatch || Math.min(a, b) >= pointsPerMatch) {
-    return {
-      ok: false,
-      error: `El partido es al primero que llegue a ${pointsPerMatch}: un marcador debe ser ${pointsPerMatch} y el otro menor.`,
-    };
-  }
   return { ok: true, score: { a, b } };
+}
+
+
+/* -------------------- persistencia local de la demo -------------------- */
+
+/**
+ * Respaldo del avance de la demo en localStorage del MISMO navegador, para
+ * que un refresco accidental no borre jugadores, rondas ni marcadores
+ * (reportado por Julian el 18-nov-2026). Sigue siendo una prueba aislada:
+ * nada sale del navegador ni toca Supabase.
+ *
+ * El formato lleva version: si cambia la estructura, un respaldo viejo se
+ * descarta en vez de restaurarse a medias. Datos corruptos o incompletos
+ * tambien se descartan (parse devuelve null) y la demo arranca de cero.
+ */
+
+export const AMERICANO_DEMO_STORAGE_KEY = "liga16-demo-round-robin-v1";
+
+export interface AmericanoDemoSnapshot {
+  version: 1;
+  savedAt: string;
+  inscritos: string[];
+  courts: number;
+  pointsPerMatch: number;
+  roundMode: "full" | "short";
+  seed: number;
+  names: string[];
+  rounds: AmericanoRound[];
+  drafts: Record<string, { a: string; b: string; done?: boolean }>;
+  sortMode: AmericanoSortMode;
+  currentRound: number;
+  configOpen: boolean;
+  view: "rounds" | "standings" | "playoff";
+  playoffDrafts: Record<string, { a: string; b: string; done?: boolean }>;
+  playoffKeys: Record<string, string>;
+}
+
+function isNameList(value: unknown, max: number): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= max &&
+    value.every((n) => typeof n === "string" && n.trim().length > 0 && n.length <= 30)
+  );
+}
+
+function isIntIn(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
+function isTeam(value: unknown): value is [number, number] {
+  return (
+    Array.isArray(value) && value.length === 2 && value.every((n) => isIntIn(n, 0, 11))
+  );
+}
+
+function isRoundList(value: unknown): value is AmericanoRound[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (r) =>
+        r !== null &&
+        typeof r === "object" &&
+        Array.isArray((r as AmericanoRound).matches) &&
+        (r as AmericanoRound).matches.every(
+          (m) =>
+            m !== null &&
+            typeof m === "object" &&
+            isIntIn((m as { court?: unknown }).court, 1, 3) &&
+            isTeam((m as { teamA?: unknown }).teamA) &&
+            isTeam((m as { teamB?: unknown }).teamB),
+        ) &&
+        Array.isArray((r as AmericanoRound).resting) &&
+        (r as AmericanoRound).resting.every((n) => isIntIn(n, 0, 11)),
+    )
+  );
+}
+
+function isDraftMap(
+  value: unknown,
+): value is Record<string, { a: string; b: string; done?: boolean }> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value).every(
+      (d) =>
+        d !== null &&
+        typeof d === "object" &&
+        typeof (d as { a?: unknown }).a === "string" &&
+        typeof (d as { b?: unknown }).b === "string" &&
+        ((d as { done?: unknown }).done === undefined ||
+          typeof (d as { done?: unknown }).done === "boolean"),
+    )
+  );
+}
+
+function isKeyMap(value: unknown): value is Record<string, string> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value).every((v) => typeof v === "string")
+  );
+}
+
+/** Valida la forma completa del respaldo; cualquier pieza rara lo invalida. */
+export function validateAmericanoDemoSnapshot(value: unknown): value is AmericanoDemoSnapshot {
+  if (value === null || typeof value !== "object") return false;
+  const s = value as Record<string, unknown>;
+  return (
+    s.version === 1 &&
+    typeof s.savedAt === "string" &&
+    isNameList(s.inscritos, 12) &&
+    isIntIn(s.courts, 1, 3) &&
+    isIntIn(s.pointsPerMatch, 1, 99) &&
+    (s.roundMode === "full" || s.roundMode === "short") &&
+    isIntIn(s.seed, 1, 1_000_000) &&
+    isNameList(s.names, 12) &&
+    isRoundList(s.rounds) &&
+    isDraftMap(s.drafts) &&
+    (s.sortMode === "total" || s.sortMode === "average") &&
+    isIntIn(s.currentRound, 0, 500) &&
+    typeof s.configOpen === "boolean" &&
+    (s.view === "rounds" || s.view === "standings" || s.view === "playoff") &&
+    isDraftMap(s.playoffDrafts) &&
+    isKeyMap(s.playoffKeys)
+  );
+}
+
+export function serializeAmericanoDemo(snapshot: AmericanoDemoSnapshot): string {
+  return JSON.stringify(snapshot);
+}
+
+/** JSON invalido o forma distinta -> null (la demo arranca de cero). */
+export function parseAmericanoDemo(text: string): AmericanoDemoSnapshot | null {
+  try {
+    const value: unknown = JSON.parse(text);
+    return validateAmericanoDemoSnapshot(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
