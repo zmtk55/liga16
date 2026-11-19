@@ -523,6 +523,78 @@ export function americanoStandings(
   return rows.sort(sort === "average" ? byAverage : byTotal);
 }
 
+/* ----- eliminatoria: PROPUESTA reversible de la demo (no regla confirmada) ----- */
+
+export interface PlayoffMatch {
+  label: string;
+  teamA: [number, number];
+  teamB: [number, number];
+}
+
+export interface PlayoffPlan {
+  mode: "final" | "semifinals";
+  /** Clasificados, en orden de tabla (mejor primero). */
+  qualifiers: number[];
+  semifinals: PlayoffMatch[];
+  /** En final directa, las dos parejas de la final; en semis, null hasta tener ganadores. */
+  finalPairs: [number, number][] | null;
+}
+
+/**
+ * PROPUESTA A PRUEBA (reversible, no confirmada por Julian): parejas
+ * balanceadas desde la tabla individual, mejor clasificado con peor
+ * clasificado. Convenciones documentadas: 1º+4º vs 2º+3º por bloque de 4
+ * (https://padelturn.com/en/padel/americano) y 1º+3º vs 2º+4º estilo mexicano
+ * (https://www.padelisa.com/mexicano). Se eligió la balanceada: con 4-7,
+ * final directa 1º+4º vs 2º+3º; con 8+, semifinales cruzadas
+ * (1º+8º vs 4º+5º y 2º+7º vs 3º+6º) para que los dos primeros de la tabla no
+ * puedan coincidir hasta la final. Los empates se rompen con el orden que ya
+ * trae la tabla (puntos, diferencia, victorias).
+ */
+export function proposePlayoffPairs(ranking: number[]): PlayoffPlan | null {
+  if (ranking.length < 4) return null;
+  if (ranking.length >= 8) {
+    const q = ranking.slice(0, 8);
+    return {
+      mode: "semifinals",
+      qualifiers: q,
+      semifinals: [
+        { label: "Semifinal 1", teamA: [q[0], q[7]], teamB: [q[3], q[4]] },
+        { label: "Semifinal 2", teamA: [q[1], q[6]], teamB: [q[2], q[5]] },
+      ],
+      finalPairs: null,
+    };
+  }
+  const q = ranking.slice(0, 4);
+  return {
+    mode: "final",
+    qualifiers: q,
+    semifinals: [],
+    finalPairs: [
+      [q[0], q[3]],
+      [q[1], q[2]],
+    ],
+  };
+}
+
+/**
+ * Parejas de la final. En semis, cada pareja ganadora avanza JUNTA (propuesta
+ * de la demo); null hasta que ambas semis tengan marcador.
+ */
+export function playoffFinalPairs(
+  plan: PlayoffPlan,
+  semifinalScores: ({ a: number; b: number } | null)[],
+): [number, number][] | null {
+  if (plan.mode === "final") return plan.finalPairs;
+  const winners: [number, number][] = [];
+  for (let i = 0; i < plan.semifinals.length; i++) {
+    const s = semifinalScores[i];
+    if (!s || s.a === s.b) return null;
+    winners.push(s.a > s.b ? plan.semifinals[i].teamA : plan.semifinals[i].teamB);
+  }
+  return winners;
+}
+
 /* --------------------------- regla de puntuación --------------------------- */
 
 /**
