@@ -336,7 +336,7 @@ export default function RoundRobinDemo() {
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">2. Rondas y puntos</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-3 sm:px-6">
             <div className="flex items-center justify-between gap-2">
               <Button
                 type="button"
