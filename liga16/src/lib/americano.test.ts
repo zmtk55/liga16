@@ -222,17 +222,23 @@ describe('americanoStandings', () => {
   });
 });
 
-describe('validateAmericanoScore (regla de la demo: el partido suma N puntos)', () => {
-  it('acepta marcadores que suman N', () => {
+describe('validateAmericanoScore (regla de la demo: el primero que llegue a N)', () => {
+  it('acepta marcadores donde un lado llega a N y el otro queda abajo', () => {
     expect(validateAmericanoScore(21, 0, 21)).toEqual({ ok: true, score: { a: 21, b: 0 } });
-    expect(validateAmericanoScore(13, 8, 21)).toEqual({ ok: true, score: { a: 13, b: 8 } });
-    expect(validateAmericanoScore(8, 8, 16)).toEqual({ ok: true, score: { a: 8, b: 8 } });
+    expect(validateAmericanoScore(4, 2, 4)).toEqual({ ok: true, score: { a: 4, b: 2 } });
+    expect(validateAmericanoScore(3, 5, 5)).toEqual({ ok: true, score: { a: 3, b: 5 } });
+    expect(validateAmericanoScore(21, 20, 21)).toEqual({ ok: true, score: { a: 21, b: 20 } });
   });
-  it('rechaza marcadores que no suman N con mensaje claro', () => {
-    const r = validateAmericanoScore(21, 14, 21);
+  it('rechaza marcadores donde nadie llega a N o pasan de N con mensaje claro', () => {
+    const r = validateAmericanoScore(13, 8, 21);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain('21');
-    expect(validateAmericanoScore(10, 14, 21).ok).toBe(false);
+    expect(validateAmericanoScore(22, 14, 21).ok).toBe(false);
+    expect(validateAmericanoScore(3, 2, 4).ok).toBe(false);
+  });
+  it('rechaza empates (alguien tiene que llegar a N solo)', () => {
+    expect(validateAmericanoScore(4, 4, 4).ok).toBe(false);
+    expect(validateAmericanoScore(21, 21, 21).ok).toBe(false);
   });
   it('rechaza valores no numéricos o fuera de rango', () => {
     expect(validateAmericanoScore(-1, 22, 21).ok).toBe(false);
