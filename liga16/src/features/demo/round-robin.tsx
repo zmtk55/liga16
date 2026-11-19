@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,8 @@ import {
   fullRotationRounds,
   generateAmericano,
   maxCourts,
+  playoffFinalPairs,
+  proposePlayoffPairs,
   validateAmericanoScore,
   type AmericanoRound,
   type AmericanoSortMode,
@@ -38,6 +40,11 @@ import {
  * 4, a veces a 5"), sin empate, y cada jugador se queda con los puntos que
  * anotó su equipo. Sin compensación por descanso: la tabla se puede ordenar
  * por total o por promedio por partido para ver el efecto.
+ *
+ * La pestaña Eliminatoria es una PROPUESTA A PRUEBA, reversible y marcada
+ * como tal en pantalla (no es una regla confirmada por Julian): parejas
+ * balanceadas desde la tabla, final directa con 4-7 y semifinales cruzadas
+ * con 8+. Fuentes de la convención en proposePlayoffPairs (lib/americano.ts).
  */
 
 const DEFAULT_NAMES = ["Ana", "Beto", "Carla", "Diego", "Elena", "Fede", "Gaby"];
@@ -81,7 +88,9 @@ export default function RoundRobinDemo() {
   const [sortMode, setSortMode] = useState<AmericanoSortMode>("total");
   const [currentRound, setCurrentRound] = useState(0);
   const [configOpen, setConfigOpen] = useState(true);
-  const [view, setView] = useState<"rounds" | "standings">("rounds");
+  const [view, setView] = useState<"rounds" | "standings" | "playoff">("rounds");
+  // Marcadores de la eliminatoria (propuesta); llaves "po-*", separadas de las rondas.
+  const [playoffDrafts, setPlayoffDrafts] = useState<Record<string, ScoreDraft>>({});
 
   // La lista de inscritos manda. Fuera de limite NO se recorta: se bloquea la
   // generacion con aviso claro y los nombres quedan intactos.
@@ -113,6 +122,30 @@ export default function RoundRobinDemo() {
   const ri = Math.min(currentRound, Math.max(0, rounds.length - 1));
   const round = rounds[ri];
 
+  // Eliminatoria (PROPUESTA reversible): parejas balanceadas desde el orden
+  // actual de la tabla; se recalcula solo al capturar puntos.
+  const playoff = useMemo(
+    () => (names.length >= 4 ? proposePlayoffPairs(standings.map((r) => r.player)) : null),
+    [names.length, standings],
+  );
+  const finalPairs = useMemo(
+    () =>
+      playoff
+        ? playoffFinalPairs(playoff, [
+            parseScore(playoffDrafts["po-sf-0"], pointsPerMatch),
+            parseScore(playoffDrafts["po-sf-1"], pointsPerMatch),
+          ])
+        : null,
+    [playoff, playoffDrafts, pointsPerMatch],
+  );
+  const finalScore = parseScore(playoffDrafts["po-final"], pointsPerMatch);
+  const championNames =
+    finalScore && finalPairs
+      ? (finalScore.a > finalScore.b ? finalPairs[0] : finalPairs[1])
+          .map((p) => names[p])
+          .join(" y ")
+      : null;
+
   function inscribir() {
     if (!nombreLimpio || esDuplicado) return;
     setInscritos((prev) => [...prev, nombreLimpio]);
@@ -130,6 +163,7 @@ export default function RoundRobinDemo() {
     const roundsWanted = roundMode === "full" ? fullRounds : 6;
     setRounds(generateAmericano(inscritos.length, usableCourts, roundsWanted, seed));
     setDrafts({});
+    setPlayoffDrafts({});
     setCurrentRound(0);
     setConfigOpen(false);
     setView("rounds");
@@ -143,6 +177,7 @@ export default function RoundRobinDemo() {
       generateAmericano(names.length, Math.min(courts, maxCourts(names.length)), roundsWanted, nextSeed),
     );
     setDrafts({});
+    setPlayoffDrafts({});
     setCurrentRound(0);
   }
 
@@ -164,14 +199,16 @@ export default function RoundRobinDemo() {
     });
   }
 
-  function setScore(key: string, side: "a" | "b", value: string) {
+  type DraftSetter = Dispatch<SetStateAction<Record<string, ScoreDraft>>>;
+
+  function setScore(setter: DraftSetter, key: string, side: "a" | "b", value: string) {
     const clean = value.replace(/[^0-9]/g, "").slice(0, 2);
-    setDrafts((prev) => ({ ...prev, [key]: { ...(prev[key] ?? { a: "", b: "" }), [side]: clean } }));
+    setter((prev) => ({ ...prev, [key]: { ...(prev[key] ?? { a: "", b: "" }), [side]: clean } }));
   }
 
   /** Botones +/− para capturar con una mano: tocar "+" hasta llegar al marcador. */
-  function bump(key: string, side: "a" | "b", delta: number) {
-    setDrafts((prev) => {
+  function bump(setter: DraftSetter, key: string, side: "a" | "b", delta: number) {
+    setter((prev) => {
       const cur = prev[key] ?? { a: "", b: "" };
       const from = cur[side] === "" ? 0 : Number(cur[side]);
       const to = Math.max(0, Math.min(pointsPerMatch, from + delta));
@@ -189,8 +226,13 @@ export default function RoundRobinDemo() {
     );
   }
 
-  function scoreBox(key: string, side: "a" | "b") {
-    const draft = drafts[key] ?? { a: "", b: "" };
+  function scoreBox(
+    map: Record<string, ScoreDraft>,
+    setter: DraftSetter,
+    key: string,
+    side: "a" | "b",
+  ) {
+    const draft = map[key] ?? { a: "", b: "" };
     return (
       <div className="flex items-center gap-1">
         <Button
@@ -198,7 +240,7 @@ export default function RoundRobinDemo() {
           variant="outline"
           className="h-12 w-10 px-0 text-lg"
           aria-label="quitar punto"
-          onClick={() => bump(key, side, -1)}
+          onClick={() => bump(setter, key, side, -1)}
         >
           −
         </Button>
@@ -207,14 +249,14 @@ export default function RoundRobinDemo() {
           inputMode="numeric"
           placeholder="0"
           value={draft[side]}
-          onChange={(e) => setScore(key, side, e.target.value)}
+          onChange={(e) => setScore(setter, key, side, e.target.value)}
         />
         <Button
           type="button"
           variant="outline"
           className="h-12 w-10 px-0 text-lg"
           aria-label="agregar punto"
-          onClick={() => bump(key, side, 1)}
+          onClick={() => bump(setter, key, side, 1)}
         >
           +
         </Button>
@@ -222,8 +264,45 @@ export default function RoundRobinDemo() {
     );
   }
 
+  /** Partido de la eliminatoria (propuesta): misma captura que las rondas, llaves "po-*". */
+  function renderPlayoffMatch(
+    label: string,
+    teamA: [number, number],
+    teamB: [number, number],
+    key: string,
+  ) {
+    const draft = playoffDrafts[key] ?? { a: "", b: "" };
+    const score = parseScore(draft, pointsPerMatch);
+    const invalid = scoreError(draft, pointsPerMatch);
+    return (
+      <div key={key} className="space-y-2 rounded-xl border p-3">
+        <p className="text-center text-xs text-muted-foreground">{label}</p>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="min-w-0 flex-1 text-base font-semibold leading-snug">
+            {teamNames(teamA)}
+            {score && score.a > score.b && (
+              <span className="block text-xs font-normal text-primary">ganaron</span>
+            )}
+          </p>
+          <p className="text-sm text-muted-foreground">vs</p>
+          <p className="min-w-0 flex-1 text-right text-base font-semibold leading-snug">
+            {teamNames(teamB)}
+            {score && score.b > score.a && (
+              <span className="block text-xs font-normal text-primary">ganaron</span>
+            )}
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          {scoreBox(playoffDrafts, setPlayoffDrafts, key, "a")}
+          {scoreBox(playoffDrafts, setPlayoffDrafts, key, "b")}
+        </div>
+        {invalid && <p className="text-center text-xs text-destructive">{invalid}</p>}
+      </div>
+    );
+  }
+
   return (
-    <div className="demo-round-robin mx-auto max-w-2xl space-y-4 px-3 pb-28 pt-4 sm:space-y-6 sm:px-4 sm:py-8">
+    <div className="demo-round-robin mx-auto max-w-2xl space-y-3 px-3 pb-28 pt-3 sm:space-y-6 sm:px-4 sm:py-8">
       {/* La preview de Vercel inyecta un boton flotante (vercel-live-feedback) que tapa
           controles del borde derecho en movil; se oculta solo en esta pagina de demo.
           Ademas: con el teclado abierto (input enfocado) la barra fija del sitio se oculta
@@ -236,26 +315,41 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
       </div>
 
       {names.length > 0 && !configOpen ? (
-        <Card>
-          <CardContent className="flex flex-wrap items-center gap-2 px-3 py-3 sm:px-6">
-            <p className="w-full text-sm font-medium">
-              {names.length} jugadores · a {pointsPerMatch} puntos · {rounds.length} rondas ·{" "}
-              {playedCount} de {totalMatches} con puntos
-            </p>
-            <Button type="button" size="sm" variant="outline" onClick={() => setConfigOpen(true)}>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
+          <span className="font-medium">
+            {names.length} jugadores · a {pointsPerMatch} puntos · {playedCount}/{totalMatches} con
+            puntos
+          </span>
+          <span className="flex gap-3 text-muted-foreground">
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={() => setConfigOpen(true)}
+            >
               Editar
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={simulateRemaining}>
+            </button>
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={simulateRemaining}
+            >
               Simular
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setDrafts({})}>
+            </button>
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={() => {
+                setDrafts({});
+                setPlayoffDrafts({});
+              }}
+            >
               Borrar
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={revolver}>
+            </button>
+            <button type="button" className="underline underline-offset-2" onClick={revolver}>
               Revolver
-            </Button>
-          </CardContent>
-        </Card>
+            </button>
+          </span>
+        </div>
       ) : (
       <Card>
         <CardHeader className="pb-3">
@@ -418,7 +512,15 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
                 <Button type="button" variant="outline" className="h-12" onClick={simulateRemaining}>
                   Simular puntos
                 </Button>
-                <Button type="button" variant="outline" className="h-12" onClick={() => setDrafts({})}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12"
+                  onClick={() => {
+                    setDrafts({});
+                    setPlayoffDrafts({});
+                  }}
+                >
                   Borrar
                 </Button>
                 <Button
@@ -443,28 +545,33 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
       )}
 
       {round && (
-        <Card>
-          <CardHeader className="px-3 pb-2 sm:px-6">
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={view === "rounds" ? "default" : "outline"}
-                className="h-11 text-base"
-                onClick={() => setView("rounds")}
-              >
-                Rondas
-              </Button>
-              <Button
-                type="button"
-                variant={view === "standings" ? "default" : "outline"}
-                className="h-11 text-base"
-                onClick={() => setView("standings")}
-              >
-                Tabla
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 px-3 sm:px-6">
+        <section className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              type="button"
+              variant={view === "rounds" ? "default" : "outline"}
+              className="h-10 text-sm"
+              onClick={() => setView("rounds")}
+            >
+              Rondas
+            </Button>
+            <Button
+              type="button"
+              variant={view === "standings" ? "default" : "outline"}
+              className="h-10 text-sm"
+              onClick={() => setView("standings")}
+            >
+              Tabla
+            </Button>
+            <Button
+              type="button"
+              variant={view === "playoff" ? "default" : "outline"}
+              className="h-10 text-sm"
+              onClick={() => setView("playoff")}
+            >
+              Eliminatoria
+            </Button>
+          </div>
             {view === "rounds" ? (
               <>
             <div className="flex items-center justify-between gap-2">
@@ -521,8 +628,8 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
                       </p>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      {scoreBox(key, "a")}
-                      {scoreBox(key, "b")}
+                      {scoreBox(drafts, setDrafts, key, "a")}
+                      {scoreBox(drafts, setDrafts, key, "b")}
                     </div>
                     {partial && (
                       <p className="text-center text-xs text-muted-foreground">
@@ -542,11 +649,8 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
             )}
 
               </>
-            ) : (
+            ) : view === "standings" ? (
               <>
-                <p className="text-sm text-muted-foreground">
-                  Cada jugador suma los puntos que hizo su equipo.
-                </p>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
@@ -598,14 +702,61 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
               </table>
             </div>
             <p className="text-xs text-muted-foreground">
-              Ojo: con descansos no todos juegan la misma cantidad de partidos. El total favorece a
-              quien jugó más; el promedio nivela la cantidad (no la fuerza de los rivales). Cuál
-              define al ganador es una regla por elegir.
+              Con descansos no todos juegan lo mismo: el total favorece a quien jugó más, el
+              promedio nivela. Cuál define al ganador es una regla por elegir.
             </p>
               </>
+            ) : (
+              <>
+                <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                  Propuesta a prueba, reversible: las parejas salen balanceadas de la tabla (mejor
+                  con peor clasificado; los empates se rompen como en la tabla). No es una regla
+                  confirmada; se puede cambiar.
+                </p>
+                {names.length < 4 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Se necesitan al menos 4 inscritos para armar la eliminatoria.
+                  </p>
+                ) : !playoff ? null : (
+                  <>
+                    {playedCount < totalMatches && (
+                      <p className="text-xs text-muted-foreground">
+                        La tabla todavía tiene partidos sin puntos; las parejas usan el orden actual
+                        y se recalculan solas al capturar.
+                      </p>
+                    )}
+                    {playoff.mode === "semifinals" ? (
+                      <>
+                        {playoff.semifinals.map((m, i) =>
+                          renderPlayoffMatch(m.label, m.teamA, m.teamB, `po-sf-${i}`),
+                        )}
+                        {finalPairs ? (
+                          renderPlayoffMatch("Final", finalPairs[0], finalPairs[1], "po-final")
+                        ) : (
+                          <p className="text-center text-sm text-muted-foreground">
+                            La final se arma cuando las dos semifinales tengan marcador: cada pareja
+                            ganadora avanza junta.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          Clasifican los 4 primeros de la tabla; con 8 o más habría semifinales.
+                        </p>
+                        {renderPlayoffMatch("Final", finalPairs![0], finalPairs![1], "po-final")}
+                      </>
+                    )}
+                    {championNames && (
+                      <p className="rounded-xl bg-primary/10 p-3 text-center text-base font-bold">
+                        Campeones: {championNames}
+                      </p>
+                    )}
+                  </>
+                )}
+              </>
             )}
-          </CardContent>
-        </Card>
+        </section>
       )}
 
       <p className="text-xs text-muted-foreground">
@@ -617,4 +768,4 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
       </p>
     </div>
   );
-}
+      }
