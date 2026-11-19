@@ -878,7 +878,14 @@ teams.forEach((t) => {
         backLabel="Torneos"
       />
 
-      {/* Progreso: tarjeta oscura con la cifra del paso y una pastilla por paso. */}
+      {/* Progreso: tarjeta oscura con la cifra del paso y una pastilla por paso.
+          En el paso de prueba aislada se compacta a una línea para no robar viewport. */}
+      {step === PRUEBA_STEP ? (
+        <p className="text-xs text-muted-foreground">
+          Prueba aislada: el avance se guarda solo en este navegador. No crea torneo ni escribe
+          nada en la base de datos; Anterior regresa al formato normal.
+        </p>
+      ) : (
       <div className={`${BENTO_CARD} ${BENTO_DARK} space-y-5`}>
         <div className="flex items-end justify-between gap-3">
           <div>
@@ -915,16 +922,20 @@ teams.forEach((t) => {
           })}
         </ol>
       </div>
+      )}
 
-      <Card key={step} className="animate-fade-in">
-        <CardContent className="p-6">
+      <Card
+        key={step}
+        className={
+          step === PRUEBA_STEP && pruebaRR
+            ? "animate-fade-in border-0 bg-transparent shadow-none"
+            : "animate-fade-in"
+        }
+      >
+        <CardContent className={step === PRUEBA_STEP && pruebaRR ? "p-0" : "p-6"}>
           {/* ============ PASO VIRTUAL: PRUEBA AISLADA ROUND ROBIN ============ */}
           {step === PRUEBA_STEP && pruebaRR && (
             <div className="space-y-3">
-              <p className="rounded-xl border-2 border-dashed border-primary/60 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-                Prueba aislada: el avance se guarda solo en este navegador. No crea un
-                torneo ni escribe nada en la base de datos; Anterior regresa al formato normal.
-              </p>
               <Suspense fallback={<p className="py-8 text-center text-sm">Cargando la prueba…</p>}>
                 <RoundRobinDemo embedded />
               </Suspense>
