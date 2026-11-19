@@ -1053,6 +1053,28 @@ teams.forEach((t) => {
                           </Button>
                         ))}
                       </div>
+                      {/* Prueba aislada (solo esta rama de investigación): round robin
+                          INDIVIDUAL con nombres, parejas rotativas, marcadores y tabla.
+                          No crea torneo, no toca la base de datos ni los formatos de
+                          arriba; es un acceso al recorrido en memoria. */}
+                      <div className="mt-2 rounded-xl border-2 border-dashed border-primary/60 bg-primary/5 p-3">
+                        <p className="text-sm font-semibold">
+                          Round robin individual (prueba aislada)
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Con nombres de jugadores, canchas y puntos por partido; las parejas
+                          rotan solas. No crea un torneo ni guarda nada aquí: se juega en el
+                          navegador.
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2"
+                          onClick={() => navigate("/demo/round-robin")}
+                        >
+                          Abrir la prueba
+                        </Button>
+                      </div>
                 </div>
                 <div className="grid gap-1.5 sm:col-span-2">
                   <Label htmlFor="t-rules">Reglamento resumido</Label>
@@ -1808,4 +1830,4 @@ function CoverUpload({
       )}
     </div>
   );
-                      }
+}
