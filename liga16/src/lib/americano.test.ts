@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { PUBLISHED_DEMO_SNAPSHOT_TEXT } from './americano-demo-published.fixture';
 import {
+  deriveAppliedConfig,
+  generateMixAmericano,
+  nextMixicanoRound,
+  type Genero,
+  generateTeamAmericano,
+  nextTeamMexicanoRound,
+  pairsFromRoster,
+  teamMexicanoTotalRounds,
+  nextMexicanoRound,
+  mexicanoRoundReady,
+  mexicanoTotalRounds,
   americanoStandings,
   constrainedFullRotation,
   partnershipCoverage,
@@ -461,5 +473,278 @@ describe('garantía de cobertura y ruta de presupuesto agotado', () => {
         expect(maxConsecutiveRests(relabeled, n)).toBe(maxConsecutiveRests(rounds, n));
       }
     }
+  });
+});
+
+describe('partida guardada por la versión publicada (regresión)', () => {
+  const saved = parseAmericanoDemo(PUBLISHED_DEMO_SNAPSHOT_TEXT);
+
+  it('sigue cargando con nombres, rondas y marcadores intactos', () => {
+    expect(saved).not.toBeNull();
+    if (!saved) return;
+    expect(saved.names).toEqual(['Ana', 'Beto', 'Carla', 'Diego', 'Elena', 'Fede', 'Gaby']);
+    expect(saved.rounds).toHaveLength(11);
+    expect(Object.keys(saved.drafts)).toHaveLength(4);
+    expect(Object.values(saved.drafts).every((d) => d.done === true)).toBe(true);
+  });
+
+  it('recarga mantiene todo tras un ciclo de guardado', () => {
+    if (!saved) throw new Error('fixture inválido');
+    expect(parseAmericanoDemo(serializeAmericanoDemo(saved))).toEqual(saved);
+  });
+
+  it('editar sin aplicar no cambia la partida: la configuración aplicada sale de las rondas', () => {
+    if (!saved) throw new Error('fixture inválido');
+    // Respaldo a mitad de una edición: lista con un jugador más, 2 canchas y modo corto sin aplicar.
+    const enEdicion = {
+      ...saved,
+      configOpen: true,
+      inscritos: [...saved.inscritos, 'Irene'],
+      courts: 2,
+      roundMode: 'short' as const,
+    };
+    const recargado = parseAmericanoDemo(serializeAmericanoDemo(enEdicion));
+    expect(recargado).not.toBeNull();
+    if (!recargado) return;
+    expect(recargado.names).toEqual(saved.names);
+    expect(recargado.rounds).toEqual(saved.rounds);
+    expect(recargado.drafts).toEqual(saved.drafts);
+    expect(
+      deriveAppliedConfig(recargado.rounds, recargado.names.length, { courts: 2, mode: 'short' }),
+    ).toEqual({ courts: 1, mode: 'full' });
+  });
+});
+
+describe("Mexicano", () => {
+  const sc = (pairs: Array<[string, number, number]>) => {
+    const m: Record<string, { a: number; b: number }> = {};
+    for (const [k, a, b] of pairs) m[k] = { a, b };
+    return m;
+  };
+
+  it("ronda 1: sorteo con semilla, todos distintos, descansan los sobrantes", () => {
+    const r = nextMexicanoRound(7, 1, [], {}, 5);
+    expect(r).toEqual(nextMexicanoRound(7, 1, [], {}, 5));
+    const used = [...r.matches[0].teamA, ...r.matches[0].teamB, ...r.resting];
+    expect(new Set(used).size).toBe(7);
+    expect(r.resting).toHaveLength(3);
+  });
+
+  it("ronda 2 sale de la tabla: 1º+4º contra 2º+3º, cuarteto de arriba en cancha 1", () => {
+    const r1 = nextMexicanoRound(8, 2, [], {}, 3);
+    // cancha 1 gana 6-2, cancha 2 gana 5-3
+    const scores = sc([
+      ["0-0", 6, 2],
+      ["0-1", 5, 3],
+    ]);
+    const r2 = nextMexicanoRound(8, 2, [r1], scores, 3);
+    const rank = americanoStandings(8, [r1], scores, "total").map((x) => x.player);
+    expect(r2.matches[0].teamA).toEqual([rank[0], rank[3]]);
+    expect(r2.matches[0].teamB).toEqual([rank[1], rank[2]]);
+    expect(r2.matches[1].teamA).toEqual([rank[4], rank[7]]);
+    expect(r2.matches[1].teamB).toEqual([rank[5], rank[6]]);
+    expect(r2.matches.map((m) => m.court)).toEqual([1, 2]);
+  });
+
+  it("empate total en la tabla: resultado determinista", () => {
+    const r1 = nextMexicanoRound(4, 1, [], {}, 9);
+    const scores = sc([["0-0", 4, 4]]);
+    const a = nextMexicanoRound(4, 1, [r1], scores, 9);
+    const b = nextMexicanoRound(4, 1, [r1], scores, 9);
+    expect(a).toEqual(b);
+    expect(new Set([...a.matches[0].teamA, ...a.matches[0].teamB]).size).toBe(4);
+  });
+
+  it("descansos parejos: con 7 jugadores y 1 cancha nadie descansa 2 veces más que otro", () => {
+    const rounds = [nextMexicanoRound(7, 1, [], {}, 2)];
+    const scores: Record<string, { a: number; b: number }> = {};
+    for (let i = 0; i < mexicanoTotalRounds(7) - 1; i++) {
+      scores[`${i}-0`] = { a: 3 + (i % 3), b: 2 };
+      rounds.push(nextMexicanoRound(7, 1, rounds, scores, 2));
+    }
+    expect(rounds).toHaveLength(6);
+    const rests = new Array(7).fill(0);
+    for (const r of rounds) for (const p of r.resting) rests[p]++;
+    expect(Math.max(...rests) - Math.min(...rests)).toBeLessThanOrEqual(1);
+  });
+
+  it("corregir un marcador viejo NO cambia rondas ya armadas ni muta la entrada", () => {
+    const r1 = nextMexicanoRound(8, 2, [], {}, 4);
+    const s1 = sc([
+      ["0-0", 6, 2],
+      ["0-1", 5, 3],
+    ]);
+    const r2 = nextMexicanoRound(8, 2, [r1], s1, 4);
+    const rounds = [r1, r2];
+    const frozen = JSON.stringify(rounds);
+    const corregido = { ...s1, "0-0": { a: 1, b: 7 } };
+    const r2b = nextMexicanoRound(8, 2, [r1], corregido, 4);
+    expect(JSON.stringify(rounds)).toBe(frozen); // lo ya armado queda igual
+    expect(JSON.stringify(r2b)).not.toBe(JSON.stringify(r2)); // solo una ronda NUEVA usaría la tabla corregida
+  });
+
+  it("la ronda siguiente solo está lista con todos los partidos cerrados", () => {
+    const r1 = nextMexicanoRound(8, 2, [], {}, 1);
+    expect(mexicanoRoundReady([r1], {})).toBe(false);
+    expect(mexicanoRoundReady([r1], sc([["0-0", 3, 4]]))).toBe(false);
+    expect(
+      mexicanoRoundReady(
+        [r1],
+        sc([
+          ["0-0", 3, 4],
+          ["0-1", 4, 4],
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it("deriveAppliedConfig: Mexicano no deduce la duración del conteo de rondas", () => {
+    const r1 = nextMexicanoRound(7, 1, [], {}, 1);
+    expect(deriveAppliedConfig([r1], 7, { courts: 1, mode: "full" }, "mexicano")).toEqual({
+      courts: 1,
+      mode: "full",
+    });
+  });
+
+  it("guardado sin modalidad (versión publicada) sigue siendo válido", () => {
+    expect(parseAmericanoDemo(PUBLISHED_DEMO_SNAPSHOT_TEXT)).not.toBeNull();
+  });
+});
+
+describe("Team (parejas fijas)", () => {
+  const sc = (pairs: Array<[string, number, number]>) => {
+    const m: Record<string, { a: number; b: number }> = {};
+    for (const [k, a, b] of pairs) m[k] = { a, b };
+    return m;
+  };
+  const pairKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
+
+  it("pairsFromRoster: parejas por orden de la lista", () => {
+    expect(pairsFromRoster(8)).toEqual([
+      [0, 1],
+      [2, 3],
+      [4, 5],
+      [6, 7],
+    ]);
+  });
+
+  it("Team Americano: cada pareja juega contra todas una vez (8 jugadores, 2 canchas)", () => {
+    const rounds = generateTeamAmericano(8, 2);
+    expect(rounds).toHaveLength(3);
+    const vs = new Set<string>();
+    for (const r of rounds)
+      for (const m of r.matches) vs.add(pairKey(m.teamA[0] / 2 | 0, m.teamB[0] / 2 | 0));
+    expect(vs.size).toBe(6); // C(4,2)
+    for (const r of rounds) {
+      expect(r.resting).toHaveLength(0);
+      expect(r.matches.map((m) => m.court)).toEqual([1, 2]);
+    }
+  });
+
+  it("Team Americano: 3 parejas con 1 cancha, 3 rondas y cobertura completa", () => {
+    const rounds = generateTeamAmericano(6, 1);
+    expect(rounds).toHaveLength(3);
+    const vs = new Set<string>();
+    for (const r of rounds) for (const m of r.matches) vs.add(pairKey(m.teamA[0], m.teamB[0]));
+    expect(vs.size).toBe(3);
+    // cada ronda descansan los 2 de la pareja que no juega
+    for (const r of rounds) expect(r.resting).toHaveLength(2);
+  });
+
+  it("Team Mexicano: ronda 1 sorteada; con más parejas que canchas juegan las que menos han jugado", () => {
+    const r1 = nextTeamMexicanoRound(8, 1, [], {}, 7);
+    expect(r1).toEqual(nextTeamMexicanoRound(8, 1, [], {}, 7));
+    expect(r1.matches).toHaveLength(1);
+    expect(r1.resting).toHaveLength(4);
+    const scores = sc([["0-0", 5, 2]]);
+    const r2 = nextTeamMexicanoRound(8, 1, [r1], scores, 7);
+    // los que descansaron en la 1ª juegan la 2ª
+    expect(r2.resting.sort()).toEqual(
+      [r1.matches[0].teamA[0], r1.matches[0].teamA[1], r1.matches[0].teamB[0], r1.matches[0].teamB[1]].sort(),
+    );
+  });
+
+  it("Team Mexicano: ronda 2 empareja parejas por tabla (1ª vs 2ª), sin tocar rondas armadas", () => {
+    const r1 = nextTeamMexicanoRound(8, 2, [], {}, 3);
+    const scores = sc([
+      ["0-0", 6, 2],
+      ["0-1", 5, 3],
+    ]);
+    const r2 = nextTeamMexicanoRound(8, 2, [r1], scores, 3);
+    const st = americanoStandings(8, [r1], scores, "total");
+    const rankPairs = st.map((r) => (r.player / 2) | 0).filter((v, i, a) => a.indexOf(v) === i);
+    const top = rankPairs[0];
+    const second = rankPairs[1];
+    const m = r2.matches[0];
+    expect(new Set([(m.teamA[0] / 2) | 0, (m.teamB[0] / 2) | 0])).toEqual(new Set([top, second]));
+    // corregir marcador no cambia la ronda ya armada
+    const frozen = JSON.stringify(r2);
+    nextTeamMexicanoRound(8, 2, [r1], { ...scores, "0-0": { a: 1, b: 7 } }, 3);
+    expect(JSON.stringify(r2)).toBe(frozen);
+  });
+
+  it("teamMexicanoTotalRounds: una menos que parejas", () => {
+    expect(teamMexicanoTotalRounds(8)).toBe(3);
+    expect(teamMexicanoTotalRounds(6)).toBe(2);
+  });
+});
+
+describe("Mixtos", () => {
+  for (const n of [2, 3, 4, 5, 6]) for (const courts of [1, 2, 3]) {
+    it(`Mix Americano: ${n}+${n}, ${courts} cancha(s), cobertura completa y partidos válidos`, () => {
+      const genders: Genero[] = [...Array<Genero>(n).fill("f"), ...Array<Genero>(n).fill("m")];
+      for (const seed of [1, 2, 7]) {
+        const rounds = generateMixAmericano(genders, courts, seed);
+        const counts = new Map<string, number>();
+        expect(rounds.length).toBeGreaterThan(0);
+        for (const round of rounds) {
+          expect(round.matches.length).toBeLessThanOrEqual(courts);
+          const used: number[] = [];
+          for (const match of round.matches) {
+            for (const pair of [match.teamA, match.teamB]) {
+              expect(genders[pair[0]]).not.toBe(genders[pair[1]]);
+              const key = [...pair].sort((a,b)=>a-b).join("-");
+              counts.set(key, (counts.get(key) ?? 0) + 1);
+              used.push(...pair);
+            }
+          }
+          expect(new Set([...used, ...round.resting]).size).toBe(n*2);
+          expect(used.length + round.resting.length).toBe(n*2);
+        }
+        expect(counts.size).toBe(n*n);
+        expect([...counts.values()].reduce((a,b)=>a+b,0)).toBe(n*n + n%2);
+        expect(Math.max(...counts.values())).toBe(n%2 ? 2 : 1);
+      }
+    });
+  }
+  it("Mix Americano rechaza grupos desiguales o de menos de 2", () => {
+    expect(generateMixAmericano(["f", "f", "m", "m", "m"], 1, 1)).toEqual([]);
+    expect(generateMixAmericano(["f", "m"], 1, 1)).toEqual([]);
+  });
+  it("Mixicano: parejas mixtas, descanso parejo por género, determinista y sin mutar", () => {
+    const genders: Genero[] = ["f","f","f","m","m","m"];
+    const rounds = [nextMixicanoRound(genders,1,[],{},3)];
+    const scores: Record<string,{a:number;b:number}> = {};
+    for(let i=0;i<5;i++) {
+      scores[`${i}-0`]={a:5,b:3};
+      const before=JSON.stringify(rounds);
+      const next=nextMixicanoRound(genders,1,rounds,scores,3);
+      expect(JSON.stringify(rounds)).toBe(before);
+      expect(next).toEqual(nextMixicanoRound(genders,1,rounds,scores,3));
+      for(const mt of next.matches) for(const pair of [mt.teamA,mt.teamB]) expect(genders[pair[0]]).not.toBe(genders[pair[1]]);
+      rounds.push(next);
+    }
+    const rests=Array<number>(6).fill(0);
+    for(const r of rounds) for(const p of r.resting) rests[p]++;
+    expect(Math.max(...rests)-Math.min(...rests)).toBeLessThanOrEqual(1);
+  });
+  it("guardados mixtos necesitan géneros válidos; el guardado publicado no los requiere", () => {
+    const old=parseAmericanoDemo(PUBLISHED_DEMO_SNAPSHOT_TEXT)!;
+    expect(parseAmericanoDemo(serializeAmericanoDemo(old))).not.toBeNull();
+    expect(parseAmericanoDemo(serializeAmericanoDemo({...old,modalidad:"mixicano"}))).toBeNull();
+    const names=["Ana","Bea","Caro","Dani","Eli","Fede"];
+    const generos: Genero[]=["f","f","f","m","m","m"];
+    const snap={...old,names,inscritos:names,generos,modalidad:"mixicano" as const,rounds:[nextMixicanoRound(generos,1,[],{},1)],drafts:{}};
+    expect(parseAmericanoDemo(serializeAmericanoDemo(snap))).not.toBeNull();
   });
 });
