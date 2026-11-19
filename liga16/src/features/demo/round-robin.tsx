@@ -410,12 +410,18 @@ export default function RoundRobinDemo() {
     );
   }
 
-  /** Cierre/apertura explícita del partido: cerrado cuenta en la tabla. */
+  /** Cierre/apertura explícita del partido: cerrado cuenta en la tabla.
+      Un lado sin tocar vale 0 al cerrar (el casillero ya muestra 0): así un
+      4-0 se cierra sin obligar a capturar el cero a una mano en cancha. */
   function toggleDone(setter: DraftSetter, key: string, onWrite?: () => void) {
     onWrite?.();
     setter((prev) => {
       const cur = prev[key] ?? { a: "", b: "" };
-      return { ...prev, [key]: { ...cur, done: !cur.done } };
+      if (cur.done) return { ...prev, [key]: { ...cur, done: false } };
+      return {
+        ...prev,
+        [key]: { a: cur.a === "" ? "0" : cur.a, b: cur.b === "" ? "0" : cur.b, done: true },
+      };
     });
   }
 
@@ -512,7 +518,7 @@ export default function RoundRobinDemo() {
           <button
             type="button"
             className="rounded-full border px-4 py-1 text-xs font-medium disabled:opacity-40"
-            disabled={!draft.done && (draft.a.trim() === "" || draft.b.trim() === "")}
+            disabled={!draft.done && draft.a.trim() === "" && draft.b.trim() === ""}
             onClick={() => toggleDone(setPlayoffDrafts, key, markWrite)}
           >
             {draft.done ? "Corregir" : "Terminar"}
@@ -868,7 +874,7 @@ export default function RoundRobinDemo() {
                       <button
                         type="button"
                         className="rounded-full border px-4 py-1 text-xs font-medium disabled:opacity-40"
-                        disabled={!draft.done && (draft.a.trim() === "" || draft.b.trim() === "")}
+                        disabled={!draft.done && draft.a.trim() === "" && draft.b.trim() === ""}
                         onClick={() => toggleDone(setDrafts, key)}
                       >
                         {draft.done ? "Corregir" : "Terminar"}
