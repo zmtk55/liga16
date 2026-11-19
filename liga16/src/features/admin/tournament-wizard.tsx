@@ -239,6 +239,9 @@ export default function TournamentWizard() {
   const [tournamentId, setTournamentId] = useState<string | null>(null);
   const pendingCoverUpload = useRef<PendingCoverUpload | null>(null);
   const savedTournament = useRef<{id: string; slug: string} | null>(null);
+  // Prueba aislada del round robin individual (solo esta rama): estado local
+  // del wizard; no se persiste ni cambia el formato real del torneo.
+  const [pruebaRR, setPruebaRR] = useState(false);
   const [tournament, setTournament] = useState({
     name: "",
     cover_url: null as string | null,
@@ -1045,36 +1048,50 @@ teams.forEach((t) => {
                           <Button
                             key={f.v}
                             type="button"
-                            variant={tournament.format === f.v ? "default" : "outline"}
+                            variant={tournament.format === f.v && !pruebaRR ? "default" : "outline"}
                             size="sm"
-                            onClick={() => setTournament((t) => ({ ...t, format: f.v }))}
+                            onClick={() => {
+                              setPruebaRR(false);
+                              setTournament((t) => ({ ...t, format: f.v }));
+                            }}
                           >
                             {f.l}
                           </Button>
                         ))}
-                      </div>
-                      {/* Prueba aislada (solo esta rama de investigación): round robin
-                          INDIVIDUAL con nombres, parejas rotativas, marcadores y tabla.
-                          No crea torneo, no toca la base de datos ni los formatos de
-                          arriba; es un acceso al recorrido en memoria. */}
-                      <div className="mt-2 rounded-xl border-2 border-dashed border-primary/60 bg-primary/5 p-3">
-                        <p className="text-sm font-semibold">
-                          Round robin individual (prueba aislada)
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          Con nombres de jugadores, canchas y puntos por partido; las parejas
-                          rotan solas. No crea un torneo ni guarda nada aquí: se juega en el
-                          navegador.
-                        </p>
+                        {/* Prueba aislada (solo esta rama de investigación): opción
+                            extra en el paso de formato que lleva al round robin
+                            INDIVIDUAL en memoria. No entra al union TournamentFormat,
+                            no crea torneo y no escribe nada en la base de datos. */}
                         <Button
+                          type="button"
+                          variant={pruebaRR ? "default" : "outline"}
                           size="sm"
-                          variant="outline"
-                          className="mt-2"
-                          onClick={() => navigate("/demo/round-robin")}
+                          className={pruebaRR ? "" : "border-dashed"}
+                          onClick={() => setPruebaRR(true)}
                         >
-                          Abrir la prueba
+                          Round robin individual (prueba)
                         </Button>
                       </div>
+                      {pruebaRR && (
+                        <div className="mt-2 rounded-xl border-2 border-dashed border-primary/60 bg-primary/5 p-3">
+                          <p className="text-sm font-semibold">
+                            Round robin individual (prueba aislada)
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Con nombres de jugadores, canchas y puntos por partido; las parejas
+                            rotan solas. No crea un torneo ni guarda nada aquí: se juega en el
+                            navegador.
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-2"
+                            onClick={() => navigate("/demo/round-robin")}
+                          >
+                            Abrir la prueba
+                          </Button>
+                        </div>
+                      )}
                 </div>
                 <div className="grid gap-1.5 sm:col-span-2">
                   <Label htmlFor="t-rules">Reglamento resumido</Label>
@@ -1830,4 +1847,4 @@ function CoverUpload({
       )}
     </div>
   );
-}
+          }
