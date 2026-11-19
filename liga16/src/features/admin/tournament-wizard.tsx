@@ -3,7 +3,7 @@ import { requireOrganizerBackend } from '@/lib/organizer-readiness';
 import { savePendingCover, type PendingCoverUpload } from "@/lib/pending-cover";
 import { useAuth } from "@/contexts/AuthContext";
 import { canManageTournament } from "@/lib/access";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useNavigate, useParams } from "react-router";
@@ -100,6 +100,12 @@ const STEPS = [
 ] as const;
 
 const GRUPO_LETRAS = "ABCDEFGHIJ".split("");
+
+/** Paso virtual del wizard (solo rama de investigación): monta el round robin
+    individual completo (jugadores, canchas, rondas, tabla, eliminatoria) en
+    memoria dentro del onboarding. No persiste nada en Supabase. */
+const PRUEBA_STEP = STEPS.length;
+const RoundRobinDemo = lazy(() => import("@/features/demo/round-robin"));
 
 interface TeamInput {
   categoryKey: string;
@@ -430,6 +436,7 @@ export default function TournamentWizard() {
 
   /** Qué falta en el paso actual — para avisar al usuario en vez de dejar el botón mudo. */
   const missingReason = useMemo(() => {
+    if (pruebaRR) return null; // la prueba no valida ni persiste pasos
     if (step === 0) {
       if (!club.name.trim()) return "Escribe el nombre de la sede";
       if (courts.length === 0) return "Registra al menos una cancha";
@@ -444,11 +451,16 @@ export default function TournamentWizard() {
     }
     if (step === 4 && groups.length === 0) return "Ejecuta el sorteo para crear los grupos";
     return null;
-  }, [step, club, courts, tournament, categories, teams, groups, editingIndex, editMode]);
+  }, [step, club, courts, tournament, categories, teams, groups, editingIndex, editMode, pruebaRR]);
 
   const canAdvance = useMemo(() => missingReason === null, [missingReason]);
 
   async function next() {
+    // Prueba aislada: salta al paso virtual en memoria sin persistir nada.
+    if (pruebaRR && step === 1) {
+      setStep(PRUEBA_STEP);
+      return;
+    }
     if (!canAdvance) {
       if (missingReason) toast.warning(missingReason);
       return;
@@ -600,6 +612,10 @@ export default function TournamentWizard() {
   }
 
   function back() {
+    if (step === PRUEBA_STEP) {
+      setStep(1);
+      return;
+    }
     setStep((s) => Math.max(0, s - 1));
   }
 
@@ -868,13 +884,15 @@ teams.forEach((t) => {
           <div>
             <p className="text-caption uppercase opacity-65">Paso</p>
             <p className={BENTO_METRIC_MD}>
-              {step + 1}
-              <span className="opacity-50"> / {STEPS.length}</span>
+              {step === PRUEBA_STEP ? "Prueba" : step + 1}
+              {step !== PRUEBA_STEP && <span className="opacity-50"> / {STEPS.length}</span>}
             </p>
           </div>
-          <p className="text-right font-display text-lg font-semibold">{STEPS[step].label}</p>
+          <p className="text-right font-display text-lg font-semibold">
+            {step === PRUEBA_STEP ? "Round robin individual (prueba aislada)" : STEPS[step].label}
+          </p>
         </div>
-        <ol className="flex flex-wrap items-center gap-2 text-xs">
+        <ol className={step === PRUEBA_STEP ? "hidden" : "flex flex-wrap items-center gap-2 text-xs"}>
           {STEPS.map((s, i) => {
             const Icon = s.icon;
             return (
@@ -900,6 +918,18 @@ teams.forEach((t) => {
 
       <Card key={step} className="animate-fade-in">
         <CardContent className="p-6">
+          {/* ============ PASO VIRTUAL: PRUEBA AISLADA ROUND ROBIN ============ */}
+          {step === PRUEBA_STEP && pruebaRR && (
+            <div className="space-y-3">
+              <p className="rounded-xl border-2 border-dashed border-primary/60 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+                Prueba aislada: se juega en memoria en este navegador. No crea un torneo
+                ni escribe nada en la base de datos; Anterior regresa al formato normal.
+              </p>
+              <Suspense fallback={<p className="py-8 text-center text-sm">Cargando la prueba…</p>}>
+                <RoundRobinDemo />
+              </Suspense>
+            </div>
+          )}
           {/* ============ PASO 1: SEDE Y CANCHAS ============ */}
           {step === 0 && (
             <div className="space-y-5">
@@ -1079,14 +1109,14 @@ teams.forEach((t) => {
                           </p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             Con nombres de jugadores, canchas y puntos por partido; las parejas
-                            rotan solas. No crea un torneo ni guarda nada aquí: se juega en el
-                            navegador.
+                            rotan solas. Se juega aquí mismo, en memoria: no crea un torneo
+                            ni guarda nada en la base de datos.
                           </p>
                           <Button
                             size="sm"
                             variant="outline"
                             className="mt-2"
-                            onClick={() => navigate("/demo/round-robin")}
+                            onClick={() => setStep(PRUEBA_STEP)}
                           >
                             Abrir la prueba
                           </Button>
@@ -1666,7 +1696,9 @@ teams.forEach((t) => {
         <Button variant="outline" onClick={back} disabled={step === 0 || saving}>
           <ChevronLeft className="h-4 w-4" /> Anterior
         </Button>
-        {step < STEPS.length - 1 ? (
+        {step === PRUEBA_STEP ? (
+          <p className="text-xs text-muted-foreground">La prueba no crea torneo</p>
+        ) : step < STEPS.length - 1 ? (
           <div className="text-end">
             <Button onClick={next} disabled={!canAdvance || saving}>
               Siguiente <ChevronRight className="h-4 w-4" />
