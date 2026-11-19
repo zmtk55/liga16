@@ -926,7 +926,7 @@ teams.forEach((t) => {
                 torneo ni escribe nada en la base de datos; Anterior regresa al formato normal.
               </p>
               <Suspense fallback={<p className="py-8 text-center text-sm">Cargando la prueba…</p>}>
-                <RoundRobinDemo />
+                <RoundRobinDemo embedded />
               </Suspense>
             </div>
           )}
