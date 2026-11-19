@@ -375,26 +375,24 @@ export default function RoundRobinDemo() {
                 return (
                   <div key={key} className="space-y-2 rounded-xl border p-3">
                     <p className="text-center text-xs text-muted-foreground">Cancha {match.court}</p>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 space-y-2">
-                        <p className="text-base font-semibold leading-snug">
-                          {teamNames(match.teamA)}
-                          {score && score.a > score.b && (
-                            <span className="block text-xs font-normal text-primary">ganaron</span>
-                          )}
-                        </p>
-                        {scoreBox(key, "a")}
-                      </div>
-                      <p className="self-center text-sm text-muted-foreground">vs</p>
-                      <div className="flex-1 space-y-2 text-right">
-                        <p className="text-base font-semibold leading-snug">
-                          {teamNames(match.teamB)}
-                          {score && score.b > score.a && (
-                            <span className="block text-xs font-normal text-primary">ganaron</span>
-                          )}
-                        </p>
-                        <div className="flex justify-end">{scoreBox(key, "b")}</div>
-                      </div>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="min-w-0 flex-1 text-base font-semibold leading-snug">
+                        {teamNames(match.teamA)}
+                        {score && score.a > score.b && (
+                          <span className="block text-xs font-normal text-primary">ganaron</span>
+                        )}
+                      </p>
+                      <p className="text-sm text-muted-foreground">vs</p>
+                      <p className="min-w-0 flex-1 text-right text-base font-semibold leading-snug">
+                        {teamNames(match.teamB)}
+                        {score && score.b > score.a && (
+                          <span className="block text-xs font-normal text-primary">ganaron</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      {scoreBox(key, "a")}
+                      {scoreBox(key, "b")}
                     </div>
                     {partial && (
                       <p className="text-center text-xs text-muted-foreground">
