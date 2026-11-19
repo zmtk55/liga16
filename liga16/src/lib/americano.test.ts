@@ -5,9 +5,12 @@ import {
   generateAmericano,
   maxConsecutiveRests,
   maxCourts,
+  parseAmericanoDemo,
   playoffFinalPairs,
   proposePlayoffPairs,
+  serializeAmericanoDemo,
   validateAmericanoScore,
+  type AmericanoDemoSnapshot,
   type AmericanoRound,
 } from './americano';
 
@@ -224,28 +227,36 @@ describe('americanoStandings', () => {
   });
 });
 
-describe('validateAmericanoScore (regla de la demo: el primero que llegue a N)', () => {
-  it('acepta marcadores donde un lado llega a N y el otro queda abajo', () => {
-    expect(validateAmericanoScore(21, 0, 21)).toEqual({ ok: true, score: { a: 21, b: 0 } });
-    expect(validateAmericanoScore(4, 2, 4)).toEqual({ ok: true, score: { a: 4, b: 2 } });
-    expect(validateAmericanoScore(3, 5, 5)).toEqual({ ok: true, score: { a: 3, b: 5 } });
-    expect(validateAmericanoScore(21, 20, 21)).toEqual({ ok: true, score: { a: 21, b: 20 } });
+describe('americanoStandings con empate final válido', () => {
+  it('un partido empatado suma puntos y PJ a los cuatro, sin victoria para nadie', () => {
+    const rounds: AmericanoRound[] = [
+      { matches: [{ court: 1, teamA: [0, 1], teamB: [2, 3] }], resting: [] },
+    ];
+    const table = americanoStandings(4, rounds, { '0-0': { a: 2, b: 2 } }, 'total');
+    for (const row of table) {
+      expect(row.points).toBe(2);
+      expect(row.played).toBe(1);
+      expect(row.wins).toBe(0);
+      expect(row.diff).toBe(0);
+    }
   });
-  it('rechaza marcadores donde nadie llega a N o pasan de N con mensaje claro', () => {
-    const r = validateAmericanoScore(13, 8, 21);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toContain('21');
-    expect(validateAmericanoScore(22, 14, 21).ok).toBe(false);
-    expect(validateAmericanoScore(3, 2, 4).ok).toBe(false);
+});
+
+describe('validateAmericanoScore (regla ajustada por Julian 18-nov: captura libre, empate válido)', () => {
+  it('acepta cualquier marcador de enteros no negativos, sin obligar a llegar a N', () => {
+    expect(validateAmericanoScore(4, 2)).toEqual({ ok: true, score: { a: 4, b: 2 } });
+    expect(validateAmericanoScore(3, 2)).toEqual({ ok: true, score: { a: 3, b: 2 } });
+    expect(validateAmericanoScore(13, 8)).toEqual({ ok: true, score: { a: 13, b: 8 } });
+    expect(validateAmericanoScore(21, 20)).toEqual({ ok: true, score: { a: 21, b: 20 } });
   });
-  it('rechaza empates (alguien tiene que llegar a N solo)', () => {
-    expect(validateAmericanoScore(4, 4, 4).ok).toBe(false);
-    expect(validateAmericanoScore(21, 21, 21).ok).toBe(false);
+  it('acepta empates como resultado final (2-2 también puede ser final)', () => {
+    expect(validateAmericanoScore(2, 2)).toEqual({ ok: true, score: { a: 2, b: 2 } });
+    expect(validateAmericanoScore(4, 4)).toEqual({ ok: true, score: { a: 4, b: 4 } });
   });
   it('rechaza valores no numéricos o fuera de rango', () => {
-    expect(validateAmericanoScore(-1, 22, 21).ok).toBe(false);
-    expect(validateAmericanoScore(1.5, 19.5, 21).ok).toBe(false);
-    expect(validateAmericanoScore(100, 0, 21).ok).toBe(false);
+    expect(validateAmericanoScore(-1, 2).ok).toBe(false);
+    expect(validateAmericanoScore(1.5, 1).ok).toBe(false);
+    expect(validateAmericanoScore(100, 0).ok).toBe(false);
   });
 });
 
@@ -310,11 +321,67 @@ describe('playoffFinalPairs (cada pareja ganadora de semi avanza junta)', () => 
     expect(playoffFinalPairs(plan, [null, null])).toBeNull();
     expect(playoffFinalPairs(plan, [{ a: 4, b: 1 }, null])).toBeNull();
   });
+  it('una semifinal empatada NO inventa ganador: la final queda pendiente', () => {
+    expect(
+      playoffFinalPairs(plan, [
+        { a: 2, b: 2 },
+        { a: 4, b: 1 },
+      ]),
+    ).toBeNull();
+  });
   it('en final directa devuelve las parejas del plan sin mirar marcadores', () => {
     const direct = proposePlayoffPairs([1, 0, 2, 3])!;
     expect(playoffFinalPairs(direct, [null, null])).toEqual([
       [1, 3],
       [0, 2],
     ]);
+  });
+});
+
+
+describe('persistencia local de la demo (refresco accidental)', () => {
+  const snapshot: AmericanoDemoSnapshot = {
+    version: 1,
+    savedAt: '2026-11-18T00:00:00.000Z',
+    inscritos: ['Ana', 'Beto', 'Carla', 'Diego'],
+    courts: 1,
+    pointsPerMatch: 4,
+    roundMode: 'full',
+    seed: 3,
+    names: ['Ana', 'Beto', 'Carla', 'Diego'],
+    rounds: generateAmericano(4, 1, 3, 3),
+    drafts: { '0-0': { a: '4', b: '2', done: true }, '0-1': { a: '2', b: '2' } },
+    sortMode: 'average',
+    currentRound: 1,
+    configOpen: false,
+    view: 'playoff',
+    playoffDrafts: { 'po-final': { a: '4', b: '1', done: true } },
+    playoffKeys: { 'po-final': 'po-final-0-3-1-2' },
+  };
+
+  it('ida y vuelta: serializar y parsear conserva el estado completo', () => {
+    const parsed = parseAmericanoDemo(serializeAmericanoDemo(snapshot));
+    expect(parsed).toEqual(snapshot);
+  });
+
+  it('JSON corrupto devuelve null en vez de tronar', () => {
+    expect(parseAmericanoDemo('{no es json')).toBeNull();
+    expect(parseAmericanoDemo('')).toBeNull();
+  });
+
+  it('una version distinta se descarta (no se restaura a medias)', () => {
+    expect(parseAmericanoDemo(JSON.stringify({ ...snapshot, version: 2 }))).toBeNull();
+  });
+
+  it('datos con forma incompleta o invalida se descartan', () => {
+    expect(parseAmericanoDemo(JSON.stringify({ ...snapshot, rounds: 'x' }))).toBeNull();
+    expect(parseAmericanoDemo(JSON.stringify({ ...snapshot, inscritos: ['Ana', 5] }))).toBeNull();
+    expect(
+      parseAmericanoDemo(JSON.stringify({ ...snapshot, drafts: { k: { a: 1, b: '2' } } })),
+    ).toBeNull();
+    expect(
+      parseAmericanoDemo(JSON.stringify({ ...snapshot, sortMode: 'puntos' })),
+    ).toBeNull();
+    expect(parseAmericanoDemo(JSON.stringify({ nombre: 'algo' }))).toBeNull();
   });
 });
