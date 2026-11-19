@@ -922,8 +922,8 @@ teams.forEach((t) => {
           {step === PRUEBA_STEP && pruebaRR && (
             <div className="space-y-3">
               <p className="rounded-xl border-2 border-dashed border-primary/60 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-                Prueba aislada: se juega en memoria en este navegador. No crea un torneo
-                ni escribe nada en la base de datos; Anterior regresa al formato normal.
+                Prueba aislada: el avance se guarda solo en este navegador. No crea un
+                torneo ni escribe nada en la base de datos; Anterior regresa al formato normal.
               </p>
               <Suspense fallback={<p className="py-8 text-center text-sm">Cargando la prueba…</p>}>
                 <RoundRobinDemo />
@@ -1011,6 +1011,29 @@ teams.forEach((t) => {
             </div>
           )}
 
+          {/* Entrada directa a la prueba aislada desde el inicio del wizard: no
+              exige registrar sede ni cancha; el recorrido no escribe en la base. */}
+          {step === 0 && (
+            <div className="mt-6 rounded-xl border-2 border-dashed border-primary/60 bg-primary/5 p-3">
+              <p className="text-sm font-semibold">¿Solo quieres probar el round robin individual?</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Entra directo: no registra sede, canchas ni torneo; el avance se guarda
+                solo en este navegador.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                onClick={() => {
+                  setPruebaRR(true);
+                  setStep(PRUEBA_STEP);
+                }}
+              >
+                Probar sin crear torneo
+              </Button>
+            </div>
+          )}
           {/* ============ PASO 2: TORNEO ============ */}
           {step === 1 && (
             <div className="space-y-5">
@@ -1109,8 +1132,8 @@ teams.forEach((t) => {
                           </p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             Con nombres de jugadores, canchas y puntos por partido; las parejas
-                            rotan solas. Se juega aquí mismo, en memoria: no crea un torneo
-                            ni guarda nada en la base de datos.
+                            rotan solas. Se juega aquí mismo y el avance se guarda solo en
+                            este navegador: no crea un torneo ni escribe en la base de datos.
                           </p>
                           <Button
                             size="sm"
@@ -1879,4 +1902,4 @@ function CoverUpload({
       )}
     </div>
   );
-          }
+        }
