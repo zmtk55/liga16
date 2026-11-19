@@ -74,7 +74,7 @@ export default function RoundRobinDemo() {
   const [namesText, setNamesText] = useState(rosterFromUrl.join("\n"));
   const [courts, setCourts] = useState(1);
   const [pointsPerMatch, setPointsPerMatch] = useState(4);
-  const [roundCount, setRoundCount] = useState(11);
+  const [roundMode, setRoundMode] = useState<"full" | "short">("full");
   const [seed, setSeed] = useState(1);
   const [names, setNames] = useState<string[]>([]);
   const [rounds, setRounds] = useState<AmericanoRound[]>([]);
@@ -122,7 +122,8 @@ export default function RoundRobinDemo() {
     if (usableNames.length < 4) return;
     const usableCourts = Math.min(courts, maxCourts(usableNames.length));
     setNames(usableNames);
-    setRounds(generateAmericano(usableNames.length, usableCourts, roundCount, seed));
+    const roundsWanted = roundMode === "full" ? fullRounds : 6;
+    setRounds(generateAmericano(usableNames.length, usableCourts, roundsWanted, seed));
     setDrafts({});
     setCurrentRound(0);
     setConfigOpen(false);
@@ -132,7 +133,10 @@ export default function RoundRobinDemo() {
   function revolver() {
     const nextSeed = seed + 1;
     setSeed(nextSeed);
-    setRounds(generateAmericano(names.length, Math.min(courts, maxCourts(names.length)), roundCount, nextSeed));
+    const roundsWanted = roundMode === "full" ? fullRotationRounds(names.length, courts) : 6;
+    setRounds(
+      generateAmericano(names.length, Math.min(courts, maxCourts(names.length)), roundsWanted, nextSeed),
+    );
     setDrafts({});
     setCurrentRound(0);
   }
@@ -336,18 +340,18 @@ export default function RoundRobinDemo() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
-                  variant={roundCount === fullRounds ? "default" : "outline"}
+                  variant={roundMode === "full" ? "default" : "outline"}
                   className="h-10"
-                  onClick={() => setRoundCount(fullRounds)}
+                  onClick={() => setRoundMode("full")}
                 >
                   Completa ({fullRounds})
                 </Button>
                 {usableNames.length === 7 && courts === 1 && (
                   <Button
                     type="button"
-                    variant={roundCount === 6 ? "default" : "outline"}
+                    variant={roundMode === "short" ? "default" : "outline"}
                     className="h-10"
-                    onClick={() => setRoundCount(6)}
+                    onClick={() => setRoundMode("short")}
                   >
                     Corta (6)
                   </Button>
@@ -588,4 +592,4 @@ export default function RoundRobinDemo() {
       </Card>
     </div>
   );
-                }
+}
