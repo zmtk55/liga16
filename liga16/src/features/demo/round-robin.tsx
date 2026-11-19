@@ -75,6 +75,8 @@ export default function RoundRobinDemo() {
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>({});
   const [sortMode, setSortMode] = useState<AmericanoSortMode>("total");
   const [currentRound, setCurrentRound] = useState(0);
+  const [configOpen, setConfigOpen] = useState(true);
+  const [view, setView] = useState<"rounds" | "standings">("rounds");
 
   const parsedNames = useMemo(
     () =>
@@ -112,6 +114,16 @@ export default function RoundRobinDemo() {
     const usableCourts = Math.min(courts, maxCourts(parsedNames.length));
     setNames(parsedNames);
     setRounds(generateAmericano(parsedNames.length, usableCourts, roundCount, seed));
+    setDrafts({});
+    setCurrentRound(0);
+    setConfigOpen(false);
+    setView("rounds");
+  }
+
+  function revolver() {
+    const nextSeed = seed + 1;
+    setSeed(nextSeed);
+    setRounds(generateAmericano(names.length, Math.min(courts, maxCourts(names.length)), roundCount, nextSeed));
     setDrafts({});
     setCurrentRound(0);
   }
@@ -194,6 +206,9 @@ export default function RoundRobinDemo() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-4 sm:py-8">
+      {/* La preview de Vercel inyecta un boton flotante (vercel-live-feedback) que tapa
+          controles del borde derecho en movil; se oculta solo en esta pagina de demo. */}
+      <style>{`vercel-live-feedback { display: none !important; }`}</style>
       <div className="space-y-1">
         <Badge variant="secondary">Demo · datos ficticios</Badge>
         <h1 className="text-xl font-bold sm:text-2xl">Round robin individual (dobles rotativos)</h1>
@@ -203,9 +218,31 @@ export default function RoundRobinDemo() {
         </p>
       </div>
 
+      {names.length > 0 && !configOpen ? (
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-2 px-3 py-3 sm:px-6">
+            <p className="w-full text-sm font-medium">
+              {names.length} jugadores · a {pointsPerMatch} puntos · {rounds.length} rondas ·{" "}
+              {playedCount} de {totalMatches} con puntos
+            </p>
+            <Button type="button" size="sm" variant="outline" onClick={() => setConfigOpen(true)}>
+              Editar
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={simulateRemaining}>
+              Simular
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setDrafts({})}>
+              Borrar
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={revolver}>
+              Revolver
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">1. Nombres y formato</CardTitle>
+          <CardTitle className="text-lg">Nombres y formato</CardTitle>
           <CardDescription>Un nombre por línea (4 a {MAX_PLAYERS}).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -303,19 +340,7 @@ export default function RoundRobinDemo() {
                   type="button"
                   variant="outline"
                   className="h-12"
-                  onClick={() => {
-                    setSeed((s) => s + 1);
-                    setRounds(
-                      generateAmericano(
-                        names.length,
-                        Math.min(courts, maxCourts(names.length)),
-                        roundCount,
-                        seed + 1,
-                      ),
-                    );
-                    setDrafts({});
-                    setCurrentRound(0);
-                  }}
+                  onClick={revolver}
                 >
                   Revolver
                 </Button>
@@ -330,13 +355,33 @@ export default function RoundRobinDemo() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {round && (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">2. Rondas y puntos</CardTitle>
+          <CardHeader className="px-3 pb-2 sm:px-6">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={view === "rounds" ? "default" : "outline"}
+                className="h-11 text-base"
+                onClick={() => setView("rounds")}
+              >
+                Rondas
+              </Button>
+              <Button
+                type="button"
+                variant={view === "standings" ? "default" : "outline"}
+                className="h-11 text-base"
+                onClick={() => setView("standings")}
+              >
+                Tabla
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4 px-3 sm:px-6">
+            {view === "rounds" ? (
+              <>
             <div className="flex items-center justify-between gap-2">
               <Button
                 type="button"
@@ -411,27 +456,12 @@ export default function RoundRobinDemo() {
               </p>
             )}
 
-            {ri < rounds.length - 1 && (
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-12 w-full text-base"
-                onClick={() => setCurrentRound(ri + 1)}
-              >
-                Siguiente ronda ›
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {names.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">3. Tabla individual en vivo</CardTitle>
-            <CardDescription>Cada jugador suma los puntos que hizo su equipo.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Cada jugador suma los puntos que hizo su equipo.
+                </p>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
@@ -487,6 +517,8 @@ export default function RoundRobinDemo() {
               quien jugó más; el promedio nivela la cantidad (no la fuerza de los rivales). Cuál
               define al ganador es una regla por elegir.
             </p>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
