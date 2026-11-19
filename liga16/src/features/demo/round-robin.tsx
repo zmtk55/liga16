@@ -30,15 +30,20 @@ import {
  *  - https://www.nextarena.co/tools/padel-americano-generator/7-players-1-court
  *    (alternativa corta: 6 rondas sin repetir compañero)
  *
- * Reglas ELEGIDAS PARA ESTA PRUEBA (no son preferencia confirmada de nadie):
- * cada partido se juega a N puntos en total (los dos marcadores suman N,
- * como el americano clásico que describe Rallyano) y cada jugador se queda
- * con los puntos que anotó su equipo. Sin compensación por descanso: la tabla
- * se puede ordenar por total o por promedio por partido para ver el efecto.
+ * Diseño mobile-first para uso EN CANCHA (referencia visual aportada por
+ * Julian el 18-nov-2026: navegación por ronda con flechas, marcadores
+ * grandes, descansos visibles): la meta es crear el round robin en menos de
+ * 4 minutos y capturar puntos con una mano entre juegos.
+ *
+ * Reglas ELEGIDAS PARA ESTA PRUEBA: cada partido lo gana el primer equipo en
+ * llegar a N puntos (la regla que describió Julian: "el primero que llegue a
+ * 4, a veces a 5"), sin empate, y cada jugador se queda con los puntos que
+ * anotó su equipo. Sin compensación por descanso: la tabla se puede ordenar
+ * por total o por promedio por partido para ver el efecto.
  */
 
 const DEFAULT_NAMES = ["Ana", "Beto", "Carla", "Diego", "Elena", "Fede", "Gaby"];
-const POINT_OPTIONS = [16, 21, 24, 32];
+const POINT_OPTIONS = [4, 5, 8, 16];
 const MAX_PLAYERS = 12;
 
 interface ScoreDraft {
@@ -52,7 +57,7 @@ function parseScore(draft: ScoreDraft | undefined, pointsPerMatch: number): { a:
   return check.ok ? check.score : null;
 }
 
-/** Error visible cuando ambos lados están capturados pero no suman N. */
+/** Error visible cuando ambos lados están capturados pero el marcador no llega a N. */
 function scoreError(draft: ScoreDraft | undefined, pointsPerMatch: number): string | null {
   if (!draft || draft.a.trim() === "" || draft.b.trim() === "") return null;
   const check = validateAmericanoScore(Number(draft.a), Number(draft.b), pointsPerMatch);
@@ -62,13 +67,14 @@ function scoreError(draft: ScoreDraft | undefined, pointsPerMatch: number): stri
 export default function RoundRobinDemo() {
   const [namesText, setNamesText] = useState(DEFAULT_NAMES.join("\n"));
   const [courts, setCourts] = useState(1);
-  const [pointsPerMatch, setPointsPerMatch] = useState(21);
+  const [pointsPerMatch, setPointsPerMatch] = useState(4);
   const [roundCount, setRoundCount] = useState(11);
   const [seed, setSeed] = useState(1);
   const [names, setNames] = useState<string[]>([]);
   const [rounds, setRounds] = useState<AmericanoRound[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>({});
   const [sortMode, setSortMode] = useState<AmericanoSortMode>("total");
+  const [currentRound, setCurrentRound] = useState(0);
 
   const parsedNames = useMemo(
     () =>
@@ -98,6 +104,8 @@ export default function RoundRobinDemo() {
 
   const playedCount = Object.keys(scores).length;
   const totalMatches = rounds.reduce((acc, r) => acc + r.matches.length, 0);
+  const ri = Math.min(currentRound, Math.max(0, rounds.length - 1));
+  const round = rounds[ri];
 
   function generate() {
     if (parsedNames.length < 4) return;
@@ -105,20 +113,21 @@ export default function RoundRobinDemo() {
     setNames(parsedNames);
     setRounds(generateAmericano(parsedNames.length, usableCourts, roundCount, seed));
     setDrafts({});
+    setCurrentRound(0);
   }
 
   function simulateRemaining() {
     setDrafts((prev) => {
       const next = { ...prev };
-      rounds.forEach((round, ri) => {
-        round.matches.forEach((_, mi) => {
-          const key = `${ri}-${mi}`;
+      rounds.forEach((r, ridx) => {
+        r.matches.forEach((_, mi) => {
+          const key = `${ridx}-${mi}`;
           if (parseScore(next[key], pointsPerMatch)) return;
-          const loser = Math.floor(Math.random() * Math.floor(pointsPerMatch / 2)); // 0..<N/2
+          const loser = Math.floor(Math.random() * pointsPerMatch); // 0..N-1: el ganador llega a N
           next[key] =
             Math.random() < 0.5
-              ? { a: String(pointsPerMatch - loser), b: String(loser) }
-              : { a: String(loser), b: String(pointsPerMatch - loser) };
+              ? { a: String(pointsPerMatch), b: String(loser) }
+              : { a: String(loser), b: String(pointsPerMatch) };
         });
       });
       return next;
@@ -130,119 +139,182 @@ export default function RoundRobinDemo() {
     setDrafts((prev) => ({ ...prev, [key]: { ...(prev[key] ?? { a: "", b: "" }), [side]: clean } }));
   }
 
+  /** Botones +/− para capturar con una mano: tocar "+" hasta llegar al marcador. */
+  function bump(key: string, side: "a" | "b", delta: number) {
+    setDrafts((prev) => {
+      const cur = prev[key] ?? { a: "", b: "" };
+      const from = cur[side] === "" ? 0 : Number(cur[side]);
+      const to = Math.max(0, Math.min(pointsPerMatch, from + delta));
+      return { ...prev, [key]: { ...cur, [side]: String(to) } };
+    });
+  }
+
+  function teamNames(team: [number, number]) {
+    return (
+      <>
+        {names[team[0]]}
+        <br />
+        {names[team[1]]}
+      </>
+    );
+  }
+
+  function scoreBox(key: string, side: "a" | "b") {
+    const draft = drafts[key] ?? { a: "", b: "" };
+    return (
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-12 w-10 px-0 text-lg"
+          aria-label="quitar punto"
+          onClick={() => bump(key, side, -1)}
+        >
+          −
+        </Button>
+        <Input
+          className="h-12 w-14 px-1 text-center text-xl font-semibold tabular-nums"
+          inputMode="numeric"
+          placeholder="0"
+          value={draft[side]}
+          onChange={(e) => setScore(key, side, e.target.value)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          className="h-12 w-10 px-0 text-lg"
+          aria-label="agregar punto"
+          onClick={() => bump(key, side, 1)}
+        >
+          +
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <div className="space-y-2">
+    <div className="mx-auto max-w-2xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-4 sm:py-8">
+      <div className="space-y-1">
         <Badge variant="secondary">Demo · datos ficticios</Badge>
-        <h1 className="text-2xl font-bold">Round robin individual (dobles rotativos)</h1>
+        <h1 className="text-xl font-bold sm:text-2xl">Round robin individual (dobles rotativos)</h1>
         <p className="text-sm text-muted-foreground">
-          Escribes los nombres, se arman las rondas con compañeros que rotan y cada quien suma sus
-          puntos en una tabla individual. Nada se guarda en la app ni toca tus torneos; se reinicia
+          Nombres, rondas con compañeros que rotan y tabla individual. Nada se guarda; se reinicia
           al recargar.
         </p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>1. Nombres y formato</CardTitle>
-          <CardDescription>
-            Un nombre por línea (4 a {MAX_PLAYERS}). Generar de nuevo borra los puntos capturados.
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">1. Nombres y formato</CardTitle>
+          <CardDescription>Un nombre por línea (4 a {MAX_PLAYERS}).</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <Textarea
             value={namesText}
             onChange={(e) => setNamesText(e.target.value)}
-            rows={8}
-            className="max-w-sm"
+            rows={7}
+            className="text-base"
           />
           {parsedNames.length > 0 && parsedNames.length < 4 && (
             <p className="text-xs text-destructive">Hacen falta al menos 4 nombres.</p>
           )}
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Canchas</p>
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: maxCourts(parsedNames.length) }, (_, i) => i + 1).map((c) => (
-                <Button
-                  key={c}
-                  type="button"
-                  variant={courts === c ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCourts(c)}
-                >
-                  {c}
-                </Button>
-              ))}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Puntos por partido</p>
+              <div className="flex gap-2">
+                {POINT_OPTIONS.map((p) => (
+                  <Button
+                    key={p}
+                    type="button"
+                    variant={pointsPerMatch === p ? "default" : "outline"}
+                    className="h-10 w-11 px-0"
+                    onClick={() => setPointsPerMatch(p)}
+                  >
+                    {p}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Gana el primero en llegar; sin empate.</p>
             </div>
-            {restingPerRound > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Con {parsedNames.length} jugadores y {courts} cancha{courts > 1 ? "s" : ""},{" "}
-                {restingPerRound} descansan por ronda (se turnan parejo).
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Puntos por partido</p>
-            <div className="flex flex-wrap gap-2">
-              {POINT_OPTIONS.map((p) => (
-                <Button
-                  key={p}
-                  type="button"
-                  variant={pointsPerMatch === p ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPointsPerMatch(p)}
-                >
-                  {p}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Rondas</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                className="h-9 w-20 text-center"
-                inputMode="numeric"
-                value={String(roundCount)}
-                onChange={(e) => {
-                  const v = Number(e.target.value.replace(/[^0-9]/g, ""));
-                  if (Number.isInteger(v) && v >= 1 && v <= 30) setRoundCount(v);
-                  else if (e.target.value === "") setRoundCount(1);
-                }}
-              />
-              <Button type="button" variant="outline" size="sm" onClick={() => setRoundCount(fullRounds)}>
-                Rotación completa ({fullRounds})
-              </Button>
-              {parsedNames.length === 7 && courts === 1 && (
-                <Button type="button" variant="outline" size="sm" onClick={() => setRoundCount(6)}>
-                  Sesión corta (6)
-                </Button>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Canchas</p>
+              <div className="flex gap-2">
+                {Array.from({ length: maxCourts(parsedNames.length) }, (_, i) => i + 1).map((c) => (
+                  <Button
+                    key={c}
+                    type="button"
+                    variant={courts === c ? "default" : "outline"}
+                    className="h-10 w-11 px-0"
+                    onClick={() => setCourts(c)}
+                  >
+                    {c}
+                  </Button>
+                ))}
+              </div>
+              {restingPerRound > 0 && (
+                <p className="text-xs text-muted-foreground">{restingPerRound} descansan por ronda.</p>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Rotación completa = todos llegan a ser compañeros de todos al menos una vez. Con menos
-              rondas, nadie repite compañero mientras se pueda evitar.
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Rondas</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={roundCount === fullRounds ? "default" : "outline"}
+                  className="h-10"
+                  onClick={() => setRoundCount(fullRounds)}
+                >
+                  Completa ({fullRounds})
+                </Button>
+                {parsedNames.length === 7 && courts === 1 && (
+                  <Button
+                    type="button"
+                    variant={roundCount === 6 ? "default" : "outline"}
+                    className="h-10"
+                    onClick={() => setRoundCount(6)}
+                  >
+                    Corta (6)
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Completa = todos son compañeros de todos al menos una vez.
+              </p>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={generate} disabled={parsedNames.length < 4}>
-              {names.length > 0 ? "Regenerar demo" : "Generar rondas"}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              type="button"
+              className="h-12 flex-1 text-base"
+              onClick={generate}
+              disabled={parsedNames.length < 4}
+            >
+              {names.length > 0 ? "Regenerar" : "Generar rondas"}
             </Button>
             {names.length > 0 && (
               <>
-                <Button type="button" variant="outline" onClick={simulateRemaining}>
+                <Button type="button" variant="outline" className="h-12" onClick={simulateRemaining}>
                   Simular puntos
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setDrafts({})}>
-                  Borrar puntos
+                <Button type="button" variant="outline" className="h-12" onClick={() => setDrafts({})}>
+                  Borrar
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
+                  className="h-12"
                   onClick={() => {
                     setSeed((s) => s + 1);
-                    setRounds(generateAmericano(names.length, Math.min(courts, maxCourts(names.length)), roundCount, seed + 1));
+                    setRounds(
+                      generateAmericano(
+                        names.length,
+                        Math.min(courts, maxCourts(names.length)),
+                        roundCount,
+                        seed + 1,
+                      ),
+                    );
                     setDrafts({});
+                    setCurrentRound(0);
                   }}
                 >
                   Revolver
@@ -259,99 +331,110 @@ export default function RoundRobinDemo() {
         </CardContent>
       </Card>
 
-      {names.length > 0 && (
+      {round && (
         <Card>
-          <CardHeader>
-            <CardTitle>2. Rondas y captura de puntos</CardTitle>
-            <CardDescription>
-              Regla de esta prueba: cada partido se juega a {pointsPerMatch} puntos en total, así
-              que los dos marcadores deben sumar {pointsPerMatch} (13-8 vale, 21-14 no). La tabla se
-              actualiza sola y puedes corregir cualquier marcador escribiendo de nuevo.
-            </CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">2. Rondas y puntos</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {rounds.map((round, ri) => (
-              <div key={ri} className="space-y-3">
-                <p className="text-sm font-semibold">Ronda {ri + 1}</p>
-                <div className="space-y-2">
-                  {round.matches.map((match, mi) => {
-                    const key = `${ri}-${mi}`;
-                    const draft = drafts[key] ?? { a: "", b: "" };
-                    const score = parseScore(draft, pointsPerMatch);
-                    const invalid = scoreError(draft, pointsPerMatch);
-                    const partial = !score && !invalid && (draft.a !== "" || draft.b !== "");
-                    return (
-                      <div key={key} className="rounded-xl border p-3">
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                          <div className="min-w-40 flex-1">
-                            <p className="text-sm font-medium">
-                              {names[match.teamA[0]]} &amp; {names[match.teamA[1]]}{" "}
-                              <span className="text-muted-foreground">vs</span>{" "}
-                              {names[match.teamB[0]]} &amp; {names[match.teamB[1]]}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Cancha {match.court}
-                              {score
-                                ? score.a === score.b
-                                  ? " · empate"
-                                  : ` · ganaron ${
-                                      score.a > score.b
-                                        ? `${names[match.teamA[0]]} & ${names[match.teamA[1]]}`
-                                        : `${names[match.teamB[0]]} & ${names[match.teamB[1]]}`
-                                    }`
-                                : ""}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              className="h-8 w-12 px-1 text-center text-sm"
-                              inputMode="numeric"
-                              placeholder="0"
-                              value={draft.a}
-                              onChange={(e) => setScore(key, "a", e.target.value)}
-                            />
-                            <span className="text-xs text-muted-foreground">-</span>
-                            <Input
-                              className="h-8 w-12 px-1 text-center text-sm"
-                              inputMode="numeric"
-                              placeholder="0"
-                              value={draft.b}
-                              onChange={(e) => setScore(key, "b", e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        {partial && (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            Falta un lado del marcador para contar el partido.
-                          </p>
-                        )}
-                        {invalid && <p className="mt-2 text-xs text-destructive">{invalid}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-                {round.resting.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Descansan: {round.resting.map((p) => names[p]).join(", ")}
-                  </p>
-                )}
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-12 px-0 text-xl"
+                aria-label="ronda anterior"
+                disabled={ri === 0}
+                onClick={() => setCurrentRound(ri - 1)}
+              >
+                ‹
+              </Button>
+              <div className="text-center">
+                <p className="text-lg font-bold">
+                  Ronda {ri + 1} <span className="text-sm font-normal text-muted-foreground">de {rounds.length}</span>
+                </p>
               </div>
-            ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-12 px-0 text-xl"
+                aria-label="ronda siguiente"
+                disabled={ri >= rounds.length - 1}
+                onClick={() => setCurrentRound(ri + 1)}
+              >
+                ›
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {round.matches.map((match, mi) => {
+                const key = `${ri}-${mi}`;
+                const draft = drafts[key] ?? { a: "", b: "" };
+                const score = parseScore(draft, pointsPerMatch);
+                const invalid = scoreError(draft, pointsPerMatch);
+                const partial = !score && !invalid && (draft.a !== "" || draft.b !== "");
+                return (
+                  <div key={key} className="space-y-2 rounded-xl border p-3">
+                    <p className="text-center text-xs text-muted-foreground">Cancha {match.court}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 space-y-2">
+                        <p className="text-base font-semibold leading-snug">
+                          {teamNames(match.teamA)}
+                          {score && score.a > score.b && (
+                            <span className="block text-xs font-normal text-primary">ganaron</span>
+                          )}
+                        </p>
+                        {scoreBox(key, "a")}
+                      </div>
+                      <p className="self-center text-sm text-muted-foreground">vs</p>
+                      <div className="flex-1 space-y-2 text-right">
+                        <p className="text-base font-semibold leading-snug">
+                          {teamNames(match.teamB)}
+                          {score && score.b > score.a && (
+                            <span className="block text-xs font-normal text-primary">ganaron</span>
+                          )}
+                        </p>
+                        <div className="flex justify-end">{scoreBox(key, "b")}</div>
+                      </div>
+                    </div>
+                    {partial && (
+                      <p className="text-center text-xs text-muted-foreground">
+                        Falta un lado del marcador para contar el partido.
+                      </p>
+                    )}
+                    {invalid && <p className="text-center text-xs text-destructive">{invalid}</p>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {round.resting.length > 0 && (
+              <p className="text-center text-sm text-muted-foreground">
+                Descansan: <span className="font-medium">{round.resting.map((p) => names[p]).join(", ")}</span>
+              </p>
+            )}
+
+            {ri < rounds.length - 1 && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-12 w-full text-base"
+                onClick={() => setCurrentRound(ri + 1)}
+              >
+                Siguiente ronda ›
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
 
       {names.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>3. Tabla individual en vivo</CardTitle>
-            <CardDescription>
-              Cada jugador suma los puntos que hizo su equipo en cada ronda.
-            </CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">3. Tabla individual en vivo</CardTitle>
+            <CardDescription>Cada jugador suma los puntos que hizo su equipo.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">Ordenar por:</span>
               <Button
                 type="button"
                 size="sm"
@@ -403,36 +486,27 @@ export default function RoundRobinDemo() {
             </div>
             <p className="text-xs text-muted-foreground">
               Ojo: con descansos no todos juegan la misma cantidad de partidos. El total favorece a
-              quien jugó más; el promedio nivela. Cuál de las dos define al ganador es una regla por
-              elegir — las apps de referencia usan el total y reparten los descansos lo más parejo
-              posible (algunas dan puntos de compensación al que descansa).
+              quien jugó más; el promedio nivela la cantidad (no la fuerza de los rivales). Cuál
+              define al ganador es una regla por elegir.
             </p>
           </CardContent>
         </Card>
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Qué se está probando aquí</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Qué se está probando aquí</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
-            Este es el formato que usan las apps de americano: metes nombres, salen rondas de
-            dobles con compañeros rotativos y una tabla individual por puntos. Con 7 jugadores y 1
-            cancha, la rotación completa son 11 rondas: todos llegan a ser compañeros de todos con
-            una sola pareja repetida (es el mínimo posible: con 7 no existe rotación perfecta sin
-            repetir), y todos juegan 6 o 7 partidos.
+            El formato de las apps de americano: nombres, rondas de dobles con compañeros rotativos
+            y tabla individual. Con 7 jugadores y 1 cancha, la rotación completa son 11 rondas:
+            todos son compañeros de todos con una sola pareja repetida (el mínimo posible), nadie
+            descansa dos rondas seguidas y todos juegan 6 o 7 partidos.
           </p>
           <p>
-            Reglas elegidas para esta prueba (no confirmadas): partido a N puntos en total (los
-            marcadores suman N, como el americano clásico; con N par puede haber empate), cada
-            jugador se queda con los puntos de su equipo, sin compensación por descanso. Todo se
-            puede cambiar.
-          </p>
-          <p>
-            Lo que NO decide esta demo: si el torneo vale por total o por promedio, qué pasa si
-            alguien se va a mitad, y si se ofrece también mexicano (emparejar por la tabla en vez de
-            rotación fija).
+            Lo que NO decide esta demo: si el torneo vale por total o por promedio, cómo se forman
+            las parejas de semis y finales, y qué pasa si alguien se va a mitad.
           </p>
           <p>
             <Link to="/torneos" className="font-semibold text-primary underline-offset-4 hover:underline">
@@ -443,4 +517,4 @@ export default function RoundRobinDemo() {
       </Card>
     </div>
   );
-                        }
+}
