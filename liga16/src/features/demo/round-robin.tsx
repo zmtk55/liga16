@@ -315,9 +315,22 @@ export default function RoundRobinDemo() {
           .join(" y ")
       : null;
 
+  // Acepta un nombre o una LISTA pegada (separada por comas o renglones),
+  // como la app de referencia ("Type a player or paste a list"): la alta
+  // completa queda en segundos. Duplicados y vacíos se omiten.
   function inscribir() {
-    if (!nombreLimpio || esDuplicado) return;
-    setInscritos((prev) => [...prev, nombreLimpio]);
+    const entrantes = nuevoNombre
+      .split(/[,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (entrantes.length === 0) return;
+    setInscritos((prev) => {
+      const next = [...prev];
+      for (const n of entrantes) {
+        if (n.length <= 30 && !next.some((x) => x.toLowerCase() === n.toLowerCase())) next.push(n);
+      }
+      return next;
+    });
     setNuevoNombre("");
   }
 
@@ -613,7 +626,7 @@ export default function RoundRobinDemo() {
               type="button"
               className="h-12 px-5"
               onClick={inscribir}
-              disabled={!nombreLimpio || esDuplicado}
+              disabled={!nombreLimpio}
             >
               Inscribir
             </Button>
