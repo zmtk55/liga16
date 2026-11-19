@@ -89,8 +89,11 @@ export default function RoundRobinDemo() {
   const [currentRound, setCurrentRound] = useState(0);
   const [configOpen, setConfigOpen] = useState(true);
   const [view, setView] = useState<"rounds" | "standings" | "playoff">("rounds");
-  // Marcadores de la eliminatoria (propuesta); llaves "po-*", separadas de las rondas.
+  // Marcadores de la eliminatoria (propuesta), llaveados por posición
+  // ("po-sf-0", "po-final"); playoffKeys guarda con QUÉ parejas se capturó
+  // cada marcador: si las parejas cambian, el marcador deja de ser válido.
   const [playoffDrafts, setPlayoffDrafts] = useState<Record<string, ScoreDraft>>({});
+  const [playoffKeys, setPlayoffKeys] = useState<Record<string, string>>({});
 
   // La lista de inscritos manda. Fuera de limite NO se recorta: se bloquea la
   // generacion con aviso claro y los nombres quedan intactos.
@@ -128,28 +131,62 @@ export default function RoundRobinDemo() {
     () => (names.length >= 4 ? proposePlayoffPairs(standings.map((r) => r.player)) : null),
     [names.length, standings],
   );
-  // Las llaves de la eliminatoria llevan las parejas: si la tabla (o el
-  // criterio total/promedio) cambia y cambian las parejas, un marcador viejo
-  // NUNCA se pega a parejas nuevas ni deja campeones obsoletos.
+  // Huella de las parejas de cada llave: si la tabla (o el criterio
+  // total/promedio) cambia y cambian las parejas, el marcador capturado para
+  // las parejas anteriores deja de contar y se BORRA (no se restaura si las
+  // parejas vuelven: una final invalidada queda vacía hasta nueva captura).
   function poKey(prefix: string, teamA: [number, number], teamB: [number, number]) {
     return `${prefix}-${teamA[0]}-${teamA[1]}-${teamB[0]}-${teamB[1]}`;
   }
 
+  const currentPoKeys = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (playoff) {
+      playoff.semifinals.forEach((m, i) => {
+        map[`po-sf-${i}`] = poKey(`po-sf-${i}`, m.teamA, m.teamB);
+      });
+    }
+    return map;
+  }, [playoff]);
+
   const sfScores = useMemo(
     () =>
       playoff
-        ? playoff.semifinals.map((m, i) =>
-            parseScore(playoffDrafts[poKey(`po-sf-${i}`, m.teamA, m.teamB)], pointsPerMatch),
-          )
+        ? playoff.semifinals.map((_, i) => {
+            const key = `po-sf-${i}`;
+            if (playoffKeys[key] !== currentPoKeys[key]) return null;
+            return parseScore(playoffDrafts[key], pointsPerMatch);
+          })
         : [],
-    [playoff, playoffDrafts, pointsPerMatch],
+    [playoff, playoffKeys, currentPoKeys, playoffDrafts, pointsPerMatch],
   );
   const finalPairs = useMemo(
     () => (playoff ? playoffFinalPairs(playoff, sfScores) : null),
     [playoff, sfScores],
   );
   const finalKey = finalPairs ? poKey("po-final", finalPairs[0], finalPairs[1]) : null;
-  const finalScore = finalKey ? parseScore(playoffDrafts[finalKey], pointsPerMatch) : null;
+  const finalScore =
+    finalKey && playoffKeys["po-final"] === finalKey
+      ? parseScore(playoffDrafts["po-final"], pointsPerMatch)
+      : null;
+
+  // Poda en render (patrón de estado derivado de React): en cuanto cambian
+  // las parejas válidas, lo capturado para otras parejas se elimina; así una
+  // final invalidada NO resucita si la combinación vuelve después.
+  const validPo: Record<string, string> = { ...currentPoKeys };
+  if (finalKey) validPo["po-final"] = finalKey;
+  const validSig = `${JSON.stringify(currentPoKeys)}|${finalKey ?? ""}`;
+  const [prunedSig, setPrunedSig] = useState("");
+  if (prunedSig !== validSig) {
+    setPrunedSig(validSig);
+    setPlayoffDrafts((prev) => {
+      const keys = Object.keys(prev);
+      if (keys.every((k) => playoffKeys[k] === validPo[k])) return prev;
+      const next: Record<string, ScoreDraft> = {};
+      for (const k of keys) if (playoffKeys[k] === validPo[k]) next[k] = prev[k];
+      return next;
+    });
+  }
   const championNames =
     finalScore && finalPairs
       ? (finalScore.a > finalScore.b ? finalPairs[0] : finalPairs[1])
@@ -175,6 +212,7 @@ export default function RoundRobinDemo() {
     setRounds(generateAmericano(inscritos.length, usableCourts, roundsWanted, seed));
     setDrafts({});
     setPlayoffDrafts({});
+    setPlayoffKeys({});
     setCurrentRound(0);
     setConfigOpen(false);
     setView("rounds");
@@ -189,6 +227,7 @@ export default function RoundRobinDemo() {
     );
     setDrafts({});
     setPlayoffDrafts({});
+    setPlayoffKeys({});
     setCurrentRound(0);
   }
 
@@ -242,6 +281,7 @@ export default function RoundRobinDemo() {
     setter: DraftSetter,
     key: string,
     side: "a" | "b",
+    onWrite?: () => void,
   ) {
     const draft = map[key] ?? { a: "", b: "" };
     return (
@@ -251,7 +291,10 @@ export default function RoundRobinDemo() {
           variant="outline"
           className="h-12 w-10 px-0 text-lg"
           aria-label="quitar punto"
-          onClick={() => bump(setter, key, side, -1)}
+          onClick={() => {
+            onWrite?.();
+            bump(setter, key, side, -1);
+          }}
         >
           −
         </Button>
@@ -260,14 +303,20 @@ export default function RoundRobinDemo() {
           inputMode="numeric"
           placeholder="0"
           value={draft[side]}
-          onChange={(e) => setScore(setter, key, side, e.target.value)}
+          onChange={(e) => {
+            onWrite?.();
+            setScore(setter, key, side, e.target.value);
+          }}
         />
         <Button
           type="button"
           variant="outline"
           className="h-12 w-10 px-0 text-lg"
           aria-label="agregar punto"
-          onClick={() => bump(setter, key, side, 1)}
+          onClick={() => {
+            onWrite?.();
+            bump(setter, key, side, 1);
+          }}
         >
           +
         </Button>
@@ -275,14 +324,19 @@ export default function RoundRobinDemo() {
     );
   }
 
-  /** Partido de la eliminatoria (propuesta): misma captura que las rondas, llaves "po-*". */
+  /** Partido de la eliminatoria (propuesta): misma captura que las rondas.
+      La llave es por posición y el marcador solo se muestra/cuenta si fue
+      capturado para ESTAS parejas (huella en playoffKeys). */
   function renderPlayoffMatch(
     label: string,
     teamA: [number, number],
     teamB: [number, number],
     key: string,
   ) {
-    const draft = playoffDrafts[key] ?? { a: "", b: "" };
+    const pairKey = poKey(key, teamA, teamB);
+    const draft =
+      playoffKeys[key] === pairKey ? (playoffDrafts[key] ?? { a: "", b: "" }) : { a: "", b: "" };
+    const markWrite = () => setPlayoffKeys((prev) => ({ ...prev, [key]: pairKey }));
     const score = parseScore(draft, pointsPerMatch);
     const invalid = scoreError(draft, pointsPerMatch);
     return (
@@ -304,8 +358,8 @@ export default function RoundRobinDemo() {
           </p>
         </div>
         <div className="flex items-center justify-between gap-2">
-          {scoreBox(playoffDrafts, setPlayoffDrafts, key, "a")}
-          {scoreBox(playoffDrafts, setPlayoffDrafts, key, "b")}
+          {scoreBox({ ...playoffDrafts, [key]: draft }, setPlayoffDrafts, key, "a", markWrite)}
+          {scoreBox({ ...playoffDrafts, [key]: draft }, setPlayoffDrafts, key, "b", markWrite)}
         </div>
         {invalid && <p className="text-center text-xs text-destructive">{invalid}</p>}
       </div>
@@ -352,6 +406,7 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
               onClick={() => {
                 setDrafts({});
                 setPlayoffDrafts({});
+                setPlayoffKeys({});
               }}
             >
               Borrar
@@ -530,6 +585,7 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
                   onClick={() => {
                     setDrafts({});
                     setPlayoffDrafts({});
+                    setPlayoffKeys({});
                   }}
                 >
                   Borrar
@@ -722,7 +778,8 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
                 <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
                   Propuesta a prueba, reversible: las parejas salen balanceadas de la tabla (mejor
                   con peor clasificado; los empates se rompen como en la tabla: puntos, diferencia,
-                  victorias). No es una regla confirmada; se puede cambiar.
+                  victorias y, si persiste, orden de inscripción). No es una regla confirmada; se
+                  puede cambiar.
                 </p>
                 {names.length < 4 ? (
                   <p className="text-sm text-muted-foreground">
@@ -739,10 +796,10 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
                     {playoff.mode === "semifinals" ? (
                       <>
                         {playoff.semifinals.map((m, i) =>
-                          renderPlayoffMatch(m.label, m.teamA, m.teamB, poKey(`po-sf-${i}`, m.teamA, m.teamB)),
+                          renderPlayoffMatch(m.label, m.teamA, m.teamB, `po-sf-${i}`),
                         )}
                         {finalPairs ? (
-                          renderPlayoffMatch("Final", finalPairs[0], finalPairs[1], poKey("po-final", finalPairs[0], finalPairs[1]))
+                          renderPlayoffMatch("Final", finalPairs[0], finalPairs[1], "po-final")
                         ) : (
                           <p className="text-center text-sm text-muted-foreground">
                             La final se arma cuando las dos semifinales tengan marcador: cada pareja
@@ -755,7 +812,7 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
                         <p className="text-xs text-muted-foreground">
                           Clasifican los 4 primeros de la tabla; con 8 o más habría semifinales.
                         </p>
-                        {renderPlayoffMatch("Final", finalPairs![0], finalPairs![1], poKey("po-final", finalPairs![0], finalPairs![1]))}
+                        {renderPlayoffMatch("Final", finalPairs![0], finalPairs![1], "po-final")}
                       </>
                     )}
                     {championNames && (
@@ -784,4 +841,4 @@ body:has(.demo-round-robin :is(input, textarea):focus) [aria-label="Navegación 
       </p>
     </div>
   );
-                        }
+}
