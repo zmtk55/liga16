@@ -1151,13 +1151,18 @@ export interface PlayoffPlan {
  * balanceadas desde la tabla individual, mejor clasificado con peor
  * clasificado. Convenciones documentadas: 1º+4º vs 2º+3º por bloque de 4
  * (https://padelturn.com/en/padel/americano) y 1º+3º vs 2º+4º estilo mexicano
- * (https://www.padelisa.com/mexicano). Se eligió la balanceada: con 4-7,
- * final directa 1º+4º vs 2º+3º; con 8+, semifinales cruzadas
+ * (https://www.padelisa.com/mexicano). Julian pidió poder ESCOGER entre ambas
+ * (19-nov-2026: "deberias escoger 1 y 3 2 y 4 impares o pares aveces la
+ * Gente utiliza diferente"). Con 4-7, final directa con la convención elegida
+ * (por defecto la balanceada 1º+4º vs 2º+3º); con 8+, semifinales cruzadas
  * (1º+8º vs 4º+5º y 2º+7º vs 3º+6º) para que los dos primeros de la tabla no
- * puedan coincidir hasta la final. Los empates se rompen con el orden que ya
- * trae la tabla (puntos, diferencia, victorias).
+ * puedan coincidir hasta la final — para 8+ no hay convención impares/pares
+ * documentada y la elección todavía no aplica ahí (pendiente con Julian).
+ * Los empates se rompen con el orden que ya trae la tabla (puntos,
+ * diferencia, victorias).
  */
-export function proposePlayoffPairs(ranking: number[]): PlayoffPlan | null {
+export type PlayoffPairing = "balanced" | "odds-evens";
+export function proposePlayoffPairs(ranking: number[], pairing: PlayoffPairing = "balanced"): PlayoffPlan | null {
   if (ranking.length < 4) return null;
   if (ranking.length >= 8) {
     const q = ranking.slice(0, 8);
@@ -1176,10 +1181,16 @@ export function proposePlayoffPairs(ranking: number[]): PlayoffPlan | null {
     mode: "final",
     qualifiers: q,
     semifinals: [],
-    finalPairs: [
-      [q[0], q[3]],
-      [q[1], q[2]],
-    ],
+    finalPairs:
+      pairing === "odds-evens"
+        ? [
+            [q[0], q[2]],
+            [q[1], q[3]],
+          ]
+        : [
+            [q[0], q[3]],
+            [q[1], q[2]],
+          ],
   };
 }
 
@@ -1253,6 +1264,8 @@ export interface AmericanoDemoSnapshot {
   view: "rounds" | "standings" | "playoff";
   playoffDrafts: Record<string, { a: string; b: string; done?: boolean }>;
   playoffKeys: Record<string, string>;
+  /** Convención de parejas de la final directa; ausente en guardados anteriores = "balanced". */
+  poPairing?: PlayoffPairing;
   /** Ausente en guardados anteriores = "americano" (Normal Americano). */
   modalidad?: AmericanoModalidad;
   /** Géneros de la partida aplicada; solo existe en modalidades mixtas. */
@@ -1349,6 +1362,7 @@ export function validateAmericanoDemoSnapshot(value: unknown): value is American
     (s.view === "rounds" || s.view === "standings" || s.view === "playoff") &&
     isDraftMap(s.playoffDrafts) &&
     isKeyMap(s.playoffKeys) &&
+    (s.poPairing === undefined || s.poPairing === "balanced" || s.poPairing === "odds-evens") &&
     (s.modalidad === undefined ||
       s.modalidad === "americano" ||
       s.modalidad === "mexicano" ||
