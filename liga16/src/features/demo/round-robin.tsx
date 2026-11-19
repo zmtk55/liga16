@@ -545,7 +545,11 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             className={
               draft.done
                 ? "rounded-lg border px-5 py-2 text-sm font-medium"
-                : "rounded-lg bg-primary px-6 py-2 text-sm font-bold text-primary-foreground disabled:opacity-40"
+                : `rounded-lg px-6 py-2 text-sm font-bold ${
+                    draft.a.trim() === "" && draft.b.trim() === ""
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-primary text-primary-foreground"
+                  }`
             }
             disabled={!draft.done && draft.a.trim() === "" && draft.b.trim() === ""}
             onClick={() => toggleDone(setPlayoffDrafts, key, markWrite)}
@@ -626,7 +630,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
           </span>
         </div>
       ) : (
-        <div className={embedded ? "space-y-3" : "flex min-h-[calc(100dvh-17rem)] flex-col gap-3"}>
+        <div className="space-y-3">
           <div className="flex gap-2">
             <Input
               ref={nombreInputRef}
@@ -809,17 +813,15 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             </div>
           </details>
           </div>
-          <div className={embedded ? undefined : "mt-auto pt-2"}>
-            <Button
-              type="button"
-              variant={canGenerate ? "default" : "secondary"}
-              className="h-12 w-full rounded-xl text-base font-bold"
-              onClick={generate}
-              disabled={!canGenerate}
-            >
-              {names.length > 0 ? "Regenerar rondas" : "¡Empezar!"}
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant={canGenerate ? "default" : "secondary"}
+            className="h-12 w-full rounded-xl text-base font-bold"
+            onClick={generate}
+            disabled={!canGenerate}
+          >
+            {names.length > 0 ? "Regenerar rondas" : "¡Empezar!"}
+          </Button>
 
 
           {names.length > 0 && (
@@ -924,7 +926,11 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                         className={
                           draft.done
                             ? "rounded-lg border px-5 py-2 text-sm font-medium"
-                            : "rounded-lg bg-primary px-6 py-2 text-sm font-bold text-primary-foreground disabled:opacity-40"
+                            : `rounded-lg px-6 py-2 text-sm font-bold ${
+                                draft.a.trim() === "" && draft.b.trim() === ""
+                                  ? "bg-muted text-muted-foreground"
+                                  : "bg-primary text-primary-foreground"
+                              }`
                         }
                         disabled={!draft.done && draft.a.trim() === "" && draft.b.trim() === ""}
                         onClick={() => toggleDone(setDrafts, key)}
