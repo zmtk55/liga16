@@ -3,7 +3,9 @@ import {
   americanoStandings,
   fullRotationRounds,
   generateAmericano,
+  maxConsecutiveRests,
   maxCourts,
+  validateAmericanoScore,
   type AmericanoRound,
 } from './americano';
 
@@ -83,6 +85,17 @@ describe('generateAmericano: rotación completa exacta (1 cancha)', () => {
     expect(Math.max(...rests) - Math.min(...rests)).toBeLessThanOrEqual(1);
   });
 
+  it('n=7: NADIE descansa dos rondas seguidas en toda la secuencia', () => {
+    const rounds = generateAmericano(7, 1, 11);
+    expect(maxConsecutiveRests(rounds, 7)).toBe(1);
+    // Verificación explícita ronda a ronda, no sólo el máximo:
+    for (let p = 0; p < 7; p++) {
+      for (let i = 0; i + 1 < rounds.length; i++) {
+        expect(rounds[i].resting.includes(p) && rounds[i + 1].resting.includes(p)).toBe(false);
+      }
+    }
+  });
+
   it('n=5: todos con todos exactamente una vez', () => {
     const rounds = generateAmericano(5, 1, 5);
     expectValidSchedule(rounds, 5, 1);
@@ -97,10 +110,19 @@ describe('generateAmericano: rotación completa exacta (1 cancha)', () => {
     expect(partnershipStats(rounds)).toEqual({ covered: 6, repeats: 0 });
   });
 
-  it('n=9 con 1 cancha: rotación completa en 18 rondas sin repeticiones', () => {
+  it('n=9 con 1 cancha: rotación completa en 18 rondas sin repeticiones; descansos seguidos acotados', () => {
     const rounds = generateAmericano(9, 1, 18);
     expectValidSchedule(rounds, 9, 1);
     expect(partnershipStats(rounds)).toEqual({ covered: 36, repeats: 0 });
+    // Con 5 descansos por ronda entre 9 jugadores, dos rondas seguidas SIEMPRE
+    // comparten al menos un descansado (5+5>9): imposible evitarlos del todo.
+    // El generador los acota a rachas cortas.
+    expect(maxConsecutiveRests(rounds, 9)).toBeLessThanOrEqual(3);
+  });
+
+  it('n=5: cada quien descansa una vez, nunca seguidas', () => {
+    const rounds = generateAmericano(5, 1, 5);
+    expect(maxConsecutiveRests(rounds, 5)).toBeLessThanOrEqual(1);
   });
 });
 
@@ -124,6 +146,13 @@ describe('generateAmericano: voraz (varias canchas / rondas a elegir)', () => {
     expectValidSchedule(rounds, 6, 1);
     const rests = restCounts(rounds, 6);
     expect(Math.max(...rests) - Math.min(...rests)).toBeLessThanOrEqual(1);
+    expect(maxConsecutiveRests(rounds, 6)).toBeLessThanOrEqual(2);
+  });
+
+  it('n=7 en 1 cancha, 6 rondas (sesión corta): nadie descansa dos seguidas', () => {
+    const rounds = generateAmericano(7, 1, 6);
+    expectValidSchedule(rounds, 7, 1);
+    expect(maxConsecutiveRests(rounds, 7)).toBeLessThanOrEqual(1);
   });
 
   it('n=12 en 3 canchas: todos juegan todas las rondas', () => {
@@ -139,6 +168,11 @@ describe('generateAmericano: voraz (varias canchas / rondas a elegir)', () => {
   it('rechaza entradas inválidas', () => {
     expect(generateAmericano(3, 1, 5)).toEqual([]);
     expect(generateAmericano(7, 1, 0)).toEqual([]);
+  });
+
+  it('la sesión corta voraz de 7 mantiene la cobertura posible sin repetir compañeros', () => {
+    const rounds = generateAmericano(7, 1, 6);
+    expect(partnershipStats(rounds).repeats).toBe(0);
   });
 });
 
@@ -185,5 +219,24 @@ describe('americanoStandings', () => {
       [m.teamA[0], m.teamA[1], m.teamB[0], m.teamB[1]].sort(),
     );
     expect(table[0].wins).toBe(0);
+  });
+});
+
+describe('validateAmericanoScore (regla de la demo: el partido suma N puntos)', () => {
+  it('acepta marcadores que suman N', () => {
+    expect(validateAmericanoScore(21, 0, 21)).toEqual({ ok: true, score: { a: 21, b: 0 } });
+    expect(validateAmericanoScore(13, 8, 21)).toEqual({ ok: true, score: { a: 13, b: 8 } });
+    expect(validateAmericanoScore(8, 8, 16)).toEqual({ ok: true, score: { a: 8, b: 8 } });
+  });
+  it('rechaza marcadores que no suman N con mensaje claro', () => {
+    const r = validateAmericanoScore(21, 14, 21);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('21');
+    expect(validateAmericanoScore(10, 14, 21).ok).toBe(false);
+  });
+  it('rechaza valores no numéricos o fuera de rango', () => {
+    expect(validateAmericanoScore(-1, 22, 21).ok).toBe(false);
+    expect(validateAmericanoScore(1.5, 19.5, 21).ok).toBe(false);
+    expect(validateAmericanoScore(100, 0, 21).ok).toBe(false);
   });
 });
