@@ -45,6 +45,32 @@ export function fullRotationRounds(playerCount: number, courts: number): number 
   return Math.ceil(partnerships / (2 * courts));
 }
 
+/**
+ * Cobertura real de compañeros de una rotación: cuántas parejas distintas
+ * llegaron a formarse de las posibles. La UI la usa para no prometer "todos
+ * con todos" cuando una ruta de respaldo no lo logró.
+ */
+export function partnershipCoverage(
+  rounds: AmericanoRound[],
+  playerCount: number,
+): { covered: number; total: number } {
+  const seen = new Set<number>();
+  for (const round of rounds)
+    for (const match of round.matches)
+      for (const team of [match.teamA, match.teamB])
+        seen.add(team[0] < team[1] ? team[0] * EDGE + team[1] : team[1] * EDGE + team[0]);
+  return { covered: seen.size, total: (playerCount * (playerCount - 1)) / 2 };
+}
+
+function popcount(x: number): number {
+  let c = 0;
+  while (x) {
+    x &= x - 1;
+    c++;
+  }
+  return c;
+}
+
 /** Máximo de canchas útiles: cada partido necesita 4 jugadores. */
 export function maxCourts(playerCount: number): number {
   return Math.max(1, Math.floor(playerCount / 4));
@@ -347,6 +373,203 @@ function exactFullRotation(playerCount: number): AmericanoRound[] | null {
   return finalOrder.map((idx) => asRounds[idx]);
 }
 
+
+/* ------------- rotación completa exacta por construcción / DFS ------------- */
+
+/**
+ * Factorización circular para n divisible por 4 con canchas = n/4 (todos
+ * juegan todas las rondas): construcción clásica del círculo — n-1 rondas,
+ * cada pareja exactamente una vez. Determinista.
+ */
+function circleRotation(playerCount: number): AmericanoRound[] {
+  const n = playerCount;
+  const rounds: AmericanoRound[] = [];
+  for (let r = 0; r < n - 1; r++) {
+    const pairs: [number, number][] = [[n - 1, r]];
+    for (let i = 1; i <= (n - 2) / 2; i++) {
+      pairs.push([(((r + i) % (n - 1)) + (n - 1)) % (n - 1), (((r - i) % (n - 1)) + (n - 1)) % (n - 1)]);
+    }
+    const matches: AmericanoMatch[] = [];
+    for (let m = 0; m < pairs.length; m += 2) {
+      matches.push({ court: m / 2 + 1, teamA: pairs[m], teamB: pairs[m + 1] });
+    }
+    rounds.push({ matches, resting: [] });
+  }
+  return rounds;
+}
+
+/** Emparejamientos de `play` en `courts` partidos (2 parejas c/u), sin duplicados. */
+function matchPairings(play: number[], courts: number): [number, number][][][] {
+  const out: [number, number][][][] = [];
+  function pairingsOf4(w: number, x: number, y: number, z: number): [number, number][][] {
+    return [
+      [[w, x], [y, z]],
+      [[w, y], [x, z]],
+      [[w, z], [x, y]],
+    ];
+  }
+  function choose(players: number[], acc: [number, number][][]) {
+    if (acc.length === courts) {
+      out.push(acc.map((m) => m.map((t) => [...t]) as [number, number][]));
+      return;
+    }
+    const p0 = players[0];
+    for (let i = 1; i < players.length; i++)
+      for (let j = i + 1; j < players.length; j++)
+        for (let k = j + 1; k < players.length; k++) {
+          const four = [p0, players[i], players[j], players[k]];
+          const rest = players.filter((p) => !four.includes(p));
+          for (const m of pairingsOf4(four[0], four[1], four[2], four[3])) choose(rest, [...acc, m]);
+        }
+  }
+  choose(play, []);
+  const seen = new Set<string>();
+  return out.filter((o) => {
+    const key = o
+      .map((m) => m.map((t) => [...t].sort((a, b) => a - b).join(',')).sort().join('|'))
+      .join(';');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Rotación completa exacta por DFS con restricciones: por ronda elige el
+ * grupo que descansa (cuotas parejas, racha de descansos <= targetMaxRest) y
+ * el emparejamiento (urgencia: parejas aún no cubiertas), con retroceso.
+ * Determinista (sin azar). Devuelve null si agota el presupuesto de nodos.
+ */
+export function constrainedFullRotation(
+  playerCount: number,
+  courts: number,
+  targetMaxRest: number,
+  nodeCap: number,
+): AmericanoRound[] | null {
+  const n = playerCount;
+  const R = fullRotationRounds(n, courts);
+  const b = n - 4 * courts;
+  const repsAllowed = 2 * courts * R - (n * (n - 1)) / 2;
+  const quota = (R * b) / n;
+  const qLo = Math.floor(quota);
+  const qHi = Math.ceil(quota);
+  const pairTotal = (n * (n - 1)) / 2;
+  const uncovered = new Set<number>();
+  for (let a = 0; a < n; a++) for (let c = a + 1; c < n; c++) uncovered.add(edgeKey(a, c));
+  const restCounts = new Array<number>(n).fill(0);
+  const streak = new Array<number>(n).fill(0);
+  const savedStreak: number[][] = new Array(R);
+  let nodes = 0;
+  let repsUsed = 0;
+
+  const allCombos: number[][] = [];
+  (function gen(start: number, acc: number[]) {
+    if (acc.length === b) {
+      allCombos.push([...acc]);
+      return;
+    }
+    for (let i = start; i < n; i++) {
+      acc.push(i);
+      gen(i + 1, acc);
+      acc.pop();
+    }
+  })(0, []);
+
+  const comboMasks = allCombos.map((c) => c.reduce((m, p) => m | (1 << p), 0));
+  const fullMask = (1 << n) - 1;
+  const answer: { matches: [number, number][][]; resting: number[] }[] = new Array(R);
+
+  function dfs(r: number): boolean {
+    if (++nodes > nodeCap) return false;
+    if (r === R) return uncovered.size === 0;
+    const roundsLeft = R - r - 1;
+    savedStreak[r] = [...streak];
+    // Parejas sin cubrir como máscaras por jugador: la urgencia de cada grupo
+    // se cuenta con operaciones de bits (antes recorría todas las parejas).
+    const unc = new Array<number>(n).fill(0);
+    for (const k of uncovered) {
+      const a = Math.floor(k / EDGE);
+      const c = k % EDGE;
+      unc[a] |= 1 << c;
+      unc[c] |= 1 << a;
+    }
+    const cands: { rest: number[]; play: number[]; urgent: number }[] = [];
+    for (let ci = 0; ci < allCombos.length; ci++) {
+      const rest = allCombos[ci];
+      let ok = true;
+      for (const p of rest)
+        if (streak[p] + 1 > targetMaxRest || restCounts[p] + 1 > qHi) {
+          ok = false;
+          break;
+        }
+      if (!ok) continue;
+      const restMask = comboMasks[ci];
+      for (let p = 0; p < n && ok; p++)
+        if (!(restMask & (1 << p)) && restCounts[p] + roundsLeft < qLo) ok = false;
+      if (!ok) continue;
+      const playMask = fullMask ^ restMask;
+      let twice = 0;
+      for (let p = 0; p < n; p++) if (playMask & (1 << p)) twice += popcount(unc[p] & playMask);
+      cands.push({ rest, play: [], urgent: twice >> 1 });
+    }
+    cands.sort((x, y) => y.urgent - x.urgent);
+    for (const cand of cands.slice(0, 12)) {
+      const rest = cand.rest;
+      const restSetTop = new Set(rest);
+      const play: number[] = [];
+      for (let p = 0; p < n; p++) if (!restSetTop.has(p)) play.push(p);
+      for (const o of matchPairings(play, courts)) {
+        const keys = o.flatMap((m) => [edgeKey(m[0][0], m[0][1]), edgeKey(m[1][0], m[1][1])]);
+        const fresh = keys.filter((k) => uncovered.has(k));
+        const reps = keys.length - fresh.length;
+        if (repsUsed + reps > repsAllowed) continue;
+        fresh.forEach((k) => uncovered.delete(k));
+        repsUsed += reps;
+        for (const p of rest) {
+          restCounts[p]++;
+          streak[p]++;
+        }
+        for (const p of play) streak[p] = 0;
+        answer[r] = { matches: o, resting: rest };
+        if (dfs(r + 1)) return true;
+        for (const p of rest) restCounts[p]--;
+        for (let p = 0; p < n; p++) streak[p] = savedStreak[r][p];
+        fresh.forEach((k) => uncovered.add(k));
+        repsUsed -= reps;
+        if (nodes > nodeCap) return false;
+      }
+    }
+    return false;
+  }
+  if (pairTotal === 0) return null;
+  if (!dfs(0)) return null;
+  return answer.map((a) => ({
+    matches: a.matches.map((m, i) => ({
+      court: i + 1,
+      teamA: [m[0][0], m[0][1]] as [number, number],
+      teamB: [m[1][0], m[1][1]] as [number, number],
+    })),
+    resting: a.resting,
+  }));
+}
+
+/**
+ * Piso de descansos seguidos por conteo: con r descansos por jugador en R
+ * rondas, la racha mínima posible es k = ceil(r/(R-r)). Si la densidad es
+ * exacta (r = R·k/(k+1)), cumplir k obligaría a grupos fijos de descanso que
+ * harían imposible la cobertura completa de parejas (demostrado: con racha
+ * ≤k y densidad exacta, cada jugador sigue un patrón periódico fijo y solo se
+ * empareja dentro de su bloque), así que el piso real con cobertura es k+1.
+ */
+function restFloor(n: number, courts: number, rounds: number): number {
+  const b = n - 4 * courts;
+  if (b <= 0) return 0;
+  const r = (rounds * b) / n;
+  const k = Math.ceil(r / (rounds - r));
+  const tight = Math.abs((rounds * k) / (k + 1) - r) < 1e-9;
+  return tight ? k + 1 : k;
+}
+
 /* ------------------------------ voraz general ----------------------------- */
 
 function greedyAmericano(
@@ -439,6 +662,10 @@ function greedyAmericano(
  * en cualquier otro caso, el voraz con reintentos. Al final, las rondas se
  * reordenan para que nadie descanse dos seguidas cuando existe ese orden.
  */
+/** La rotación completa por DFS es determinista: se calcula una vez por (jugadores, canchas). */
+const KNOWN_UNREACHED_FLOOR = new Set(['11-1']);
+const fullRotationMemo = new Map<string, AmericanoRound[]>();
+
 export function generateAmericano(
   playerCount: number,
   courts: number,
@@ -448,10 +675,33 @@ export function generateAmericano(
   if (playerCount < 4) return [];
   const usableCourts = Math.min(Math.max(1, courts), maxCourts(playerCount));
   if (rounds < 1) return [];
-  if (usableCourts === 1 && playerCount <= 12 && rounds === fullRotationRounds(playerCount, 1)) {
-    const exact = exactFullRotation(playerCount); // ya viene con orden sano
-    if (exact) return exact;
-    return optimizeSequencing(greedyAmericano(playerCount, 1, rounds, seed, 20, 300), playerCount, seed);
+  if (rounds === fullRotationRounds(playerCount, usableCourts)) {
+    // Sin descansos (n divisible por 4, canchas = n/4): círculo exacto.
+    if (playerCount % 4 === 0 && usableCourts === playerCount / 4) {
+      return circleRotation(playerCount);
+    }
+    // Con descansos: DFS con restricciones; intenta el piso teórico de
+    // descansos seguidos y, si no aparece solución pronto, el siguiente nivel.
+    const memoKey = `${playerCount}-${usableCourts}`;
+    const memo = fullRotationMemo.get(memoKey);
+    if (memo) return memo;
+    const floor = restFloor(playerCount, usableCourts, rounds);
+    // 11 jugadores / 1 cancha: el piso (racha 2) no apareció con tres métodos
+    // distintos (NO demostrado imposible); se salta ese intento para no gastar
+    // tiempo en el teléfono y se entrega la racha 3 que sí se construye.
+    const targets = KNOWN_UNREACHED_FLOOR.has(memoKey) ? [floor + 1] : [floor, floor + 1];
+    for (const target of targets) {
+      const cap = target === floor ? 1_500 : 600_000;
+      const solved = constrainedFullRotation(playerCount, usableCourts, target, cap);
+      if (solved) {
+        fullRotationMemo.set(memoKey, solved);
+        return solved;
+      }
+    }
+    if (usableCourts === 1 && playerCount <= 12) {
+      const exact = exactFullRotation(playerCount); // ya viene con orden sano
+      if (exact) return exact;
+    }
   }
   return optimizeSequencing(
     greedyAmericano(playerCount, usableCourts, rounds, seed, 20, 300),
