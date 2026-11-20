@@ -458,6 +458,47 @@ describe('rotación completa: cobertura y descansos en TODAS las configuraciones
   }
 });
 
+describe('rotación completa 16 jugadores / 4 canchas (tope del selector, pedido de Julian 19-nov)', () => {
+  // Única configuración de 4 canchas posible (MAX_PLAYERS=16 → maxCourts=4):
+  // sin descansos (b=0), 15 rondas, cobertura completa demostrada por semilla.
+  it('n=16, canchas=4: todos con todos en 15 rondas, sin descansos', () => {
+    for (const seed of [1, 7, 42]) {
+      const rounds = generateAmericano(16, 4, fullRotationRounds(16, 4), seed);
+      expect(rounds).toHaveLength(15);
+      expectValidSchedule(rounds, 16, 4);
+      expect(partnershipCoverage(rounds, 16).covered).toBe(120);
+      for (const round of rounds) expect(round.resting).toHaveLength(0);
+    }
+  });
+  it('maxCourts: 16 jugadores permiten 4 canchas', () => {
+    expect(maxCourts(16)).toBe(4);
+    expect(maxCourts(15)).toBe(3);
+  });
+});
+
+describe('rotación completa 16 jugadores / 1-3 canchas (tandas del círculo; el DFS no escala a este tamaño)', () => {
+  it.each([1, 2, 3])('n=16, canchas=%i: cobertura completa y estructura válida', (c) => {
+    const rounds = generateAmericano(16, c, fullRotationRounds(16, c), 1);
+    expect(rounds).toHaveLength(fullRotationRounds(16, c));
+    expectValidSchedule(rounds, 16, c);
+    expect(partnershipCoverage(rounds, 16).covered).toBe(120);
+  });
+  it('descansos seguidos dentro de la barra vigente (piso+1, como 12j/1c)', () => {
+    // Pisos teóricos: 1 cancha 3, 2 canchas 1, 3 canchas 0; la barra que ya se
+    // entrega en producción es piso+1 (12j/1c entrega 3 con piso 2).
+    expect(maxConsecutiveRests(generateAmericano(16, 1, fullRotationRounds(16, 1), 1), 16)).toBeLessThanOrEqual(4);
+    expect(maxConsecutiveRests(generateAmericano(16, 2, fullRotationRounds(16, 2), 1), 16)).toBeLessThanOrEqual(2);
+    expect(maxConsecutiveRests(generateAmericano(16, 3, fullRotationRounds(16, 3), 1), 16)).toBeLessThanOrEqual(1);
+  });
+  it('determinista: mismos argumentos, mismas rondas', () => {
+    for (const c of [1, 2, 3]) {
+      expect(generateAmericano(16, c, fullRotationRounds(16, c), 1)).toEqual(
+        generateAmericano(16, c, fullRotationRounds(16, c), 1),
+      );
+    }
+  });
+});
+
 describe('garantía de cobertura y ruta de presupuesto agotado', () => {
   it('partnershipCoverage reporta 100% en todas las configuraciones soportadas', () => {
     for (let n = 4; n <= 12; n++) {
@@ -514,6 +555,23 @@ describe('partida guardada por la versión publicada (regresión)', () => {
   it('recarga mantiene todo tras un ciclo de guardado', () => {
     if (!saved) throw new Error('fixture inválido');
     expect(parseAmericanoDemo(serializeAmericanoDemo(saved))).toEqual(saved);
+  });
+
+  it('un guardado de Americano con 16 jugadores y 4 canchas sigue siendo válido', () => {
+    if (!saved) throw new Error('fixture inválido');
+    // Antes del selector de 4 canchas el validador capaba names en 12 y un
+    // respaldo de 16 jugadores se descartaba entero al recargar.
+    const mas = ['Hugo', 'Iris', 'Juan', 'Karla', 'Luis', 'Mona', 'Nico', 'Olga', 'Paco'];
+    const diezSeis = {
+      ...saved,
+      inscritos: [...saved.inscritos, ...mas],
+      names: [...saved.names, ...mas],
+      courts: 4,
+      rounds: generateAmericano(16, 4, fullRotationRounds(16, 4), 1),
+      drafts: {},
+      currentRound: 0,
+    };
+    expect(parseAmericanoDemo(serializeAmericanoDemo(diezSeis))).not.toBeNull();
   });
 
   it('editar sin aplicar no cambia la partida: la configuración aplicada sale de las rondas', () => {

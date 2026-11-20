@@ -41,6 +41,8 @@ describe("Beat the Box",()=>{
    const names=Array.from({length:16},(_,i)=>`Player ${i+1}`);
    const snap={...old,modalidad:"beat-box" as const,names,inscritos:names,courts:4,rounds:firstBoxStage(16,1),drafts:{}};
    expect(parseAmericanoDemo(serializeAmericanoDemo(snap))).toEqual(snap);
-   expect(parseAmericanoDemo(serializeAmericanoDemo({...snap,modalidad:"americano"}))).toBeNull();
+   // Desde el selector de 4 canchas el Americano también admite 16; los demás modos siguen en 12.
+   expect(parseAmericanoDemo(serializeAmericanoDemo({...snap,modalidad:"americano"}))).not.toBeNull();
+   expect(parseAmericanoDemo(serializeAmericanoDemo({...snap,modalidad:"mexicano"}))).toBeNull();
  });
 });

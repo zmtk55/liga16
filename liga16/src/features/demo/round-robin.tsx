@@ -344,8 +344,11 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
   const boxAplicado = applied.modalidad === "beat-box";
   const knockoutSeleccionado = modalidad === "playoffs";
   const knockoutAplicado = applied.modalidad === "playoffs";
-  const limiteModalidad = boxSeleccionado || knockoutSeleccionado ? 16 : 12;
-  const canGenerate = (!knockoutSeleccionado || inscritos.length >= 6) && inscritos.length <= limiteModalidad && (!boxSeleccionado || validBoxCount(inscritos.length)) && inscritos.length >= 4 && !overLimit && (!porParejas || inscritos.length % 2 === 0) && (!mixSeleccionado || mixValido) && (!clubSeleccionado || clubValido);
+  // El Americano admite además 16 jugadores justos (hasta 4 canchas); con 13
+  // a 15 no hay rotación completa confiable y queda bloqueado, como hasta hoy.
+  const limiteModalidad = boxSeleccionado || knockoutSeleccionado ? 16 : modalidad === "americano" ? 16 : 12;
+  const americanoIncompleto = modalidad === "americano" && inscritos.length > 12 && inscritos.length < 16;
+  const canGenerate = (!knockoutSeleccionado || inscritos.length >= 6) && inscritos.length <= limiteModalidad && !americanoIncompleto && (!boxSeleccionado || validBoxCount(inscritos.length)) && inscritos.length >= 4 && !overLimit && (!porParejas || inscritos.length % 2 === 0) && (!mixSeleccionado || mixValido) && (!clubSeleccionado || clubValido);
   const titulos: Record<AmericanoModalidad, string> = {
     americano: "Normal Americano",
     mexicano: "Mexicano",
@@ -1220,7 +1223,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper" sideOffset={4} className="max-w-[var(--radix-select-content-available-width)]">
-                <SelectItem value="americano" disabled={inscritos.length>12}>Normal Americano</SelectItem>
+                <SelectItem value="americano" disabled={inscritos.length > 12 && inscritos.length !== 16}>Normal Americano</SelectItem>
                 <SelectItem value="mix-americano" disabled={inscritos.length > 12 || inscritos.length % 2 !== 0}>Mix Americano{inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
                 <SelectItem value="mexicano" disabled={inscritos.length > 12}>Mexicano</SelectItem>
                 <SelectItem value="mixicano" disabled={inscritos.length > 12 || inscritos.length % 2 !== 0}>Mixicano{inscritos.length % 2 !== 0 ? " (necesita jugadores pares)" : ""}</SelectItem>
@@ -1237,7 +1240,8 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             <p className="text-xs leading-relaxed text-muted-foreground">{explicaciones[modalidad]}</p>
           </div>
 
-          {inscritos.length > limiteModalidad && <p role="status" className="text-xs text-muted-foreground">En esta demo Beat the Box y Playoffs admiten 16 jugadores. Los otros modos admiten hasta 12.</p>}
+          {inscritos.length > limiteModalidad && <p role="status" className="text-xs text-muted-foreground">Con más de 12 jugadores esta demo admite Americano (16 justos), Beat the Box y Playoffs; los demás modos llegan hasta 12.</p>}
+          {americanoIncompleto && <p role="status" className="text-xs text-muted-foreground">El Americano no se puede armar con 13 a 15 jugadores en esta demo; sí hasta 12 o con 16.</p>}
           {clubSeleccionado && (
             <fieldset className="space-y-2">
               <legend className="text-sm font-semibold">Clubes</legend>
@@ -1349,9 +1353,9 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
               }}
               spacing={8}
               aria-label="Número de canchas"
-              className="w-full min-w-full"
+              className="w-full min-w-full max-[374px]:flex-wrap"
             >
-              {Array.from({ length: 3 }, (_, i) => i + 1).map((c) => {
+              {Array.from({ length: 4 }, (_, i) => i + 1).map((c) => {
                 const ok = c <= maxC;
                 return (
                   <ToggleGroupItem
@@ -1359,14 +1363,14 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
                     value={String(c)}
                     disabled={!ok}
                     aria-label={`${c} ${c === 1 ? "cancha" : "canchas"}`}
-                    className={`h-12 flex-1 rounded-xl border text-sm font-semibold transition-colors data-[state=on]:border-primary data-[state=on]:bg-primary/15 data-[state=on]:text-primary data-[state=off]:bg-muted/40 ${ok ? "" : "opacity-40"}`}
+                    className={`h-12 flex-1 rounded-xl border text-sm font-semibold transition-colors max-[374px]:w-[calc(50%-4px)] max-[374px]:flex-none data-[state=on]:border-primary data-[state=on]:bg-primary/15 data-[state=on]:text-primary data-[state=off]:bg-muted/40 ${ok ? "" : "opacity-40"}`}
                   >
                     {c} {c === 1 ? "cancha" : "canchas"}
                   </ToggleGroupItem>
                 );
               })}
             </ToggleGroup>
-            {maxC < 3 && (
+            {maxC < 4 && (
               <p className="text-xs text-muted-foreground">
                 Con {inscritos.length} jugadores el máximo es {maxC} {maxC === 1 ? "cancha" : "canchas"};{" "}
                 {maxC + 1} canchas necesitan {(maxC + 1) * 4} jugadores.{" "}
@@ -1378,7 +1382,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             </>}
           </div>
 
-          {modalidad === "americano" && (
+          {modalidad === "americano" && !americanoIncompleto && (
           <div className="space-y-2">
             <p className="text-sm font-semibold">Rondas</p>
             <RadioGroup
@@ -1417,6 +1421,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
           </div>
           )}
 
+          {!americanoIncompleto && (
           <p className="text-xs text-muted-foreground">
             {inscritos.length} jugadores · {courtsSel} {courtsSel === 1 ? "cancha" : "canchas"} ·{" "}
             {knockoutSeleccionado ? Math.ceil(Math.log2(inscritos.length/2)) : boxSeleccionado ? 6 : (modalidad === "mexicano" || modalidad === "mixicano" || modalidad === "club-mexicano")
@@ -1435,6 +1440,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             rondas
             {!knockoutSeleccionado && restingPerRound > 0 ? (modalidad === "mix-americano" || modalidad === "team-americano" ? " · descansos según la ronda" : ` · descansan ${restingPerRound} por ronda`) : ""}
           </p>
+          )}
 
           {mostrarAviso && (
             <p ref={confirmRef} role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
@@ -1867,7 +1873,7 @@ export default function RoundRobinDemo({ embedded = false }: { embedded?: boolea
             <CollapsibleContent>
               <p className="mt-1">
                 Los resultados se guardan en este navegador y no cambian los torneos reales.
-                Modalidades de la demo: hasta 12 jugadores; Beat the Box y Playoffs, hasta 16.
+                Modalidades de la demo: hasta 12 jugadores; el Americano también con 16 justos; Beat the Box y Playoffs, hasta 16.
                 Super Mexicano, Playoffs de 9 a 32 parejas y cuadro B siguen pendientes.
               </p>
             </CollapsibleContent>

@@ -666,6 +666,27 @@ function greedyAmericano(
 const KNOWN_UNREACHED_FLOOR = new Set(['11-1']);
 const fullRotationMemo = new Map<string, AmericanoRound[]>();
 
+/**
+ * Rotación completa de 16 jugadores con menos de 4 canchas: parte la
+ * rotación de círculo (15 rondas × 4 partidos, cada pareja exactamente una
+ * vez) en tandas del tamaño de las canchas. Cobertura completa por
+ * construcción, determinista e inmediata; el DFS con restricciones no
+ * escala a este tamaño (memoria/tiempo). Quien no juega la tanda, descansa.
+ */
+function chunkedCircleFullRotation(courts: number): AmericanoRound[] {
+  const all = circleRotation(16).flatMap((r) => r.matches);
+  const rounds: AmericanoRound[] = [];
+  for (let i = 0; i < all.length; i += courts) {
+    const matches = all.slice(i, i + courts).map((m, k) => ({ ...m, court: k + 1 }));
+    const active = new Set<number>();
+    for (const m of matches) for (const p of [...m.teamA, ...m.teamB]) active.add(p);
+    const resting: number[] = [];
+    for (let p = 0; p < 16; p++) if (!active.has(p)) resting.push(p);
+    rounds.push({ matches, resting });
+  }
+  return rounds;
+}
+
 export function generateAmericano(
   playerCount: number,
   courts: number,
@@ -679,6 +700,11 @@ export function generateAmericano(
     // Sin descansos (n divisible por 4, canchas = n/4): círculo exacto.
     if (playerCount % 4 === 0 && usableCourts === playerCount / 4) {
       return circleRotation(playerCount);
+    }
+    // 16 jugadores con 1-3 canchas (nuevo alcance de la demo): tandas del
+    // círculo; el DFS de abajo no termina en tiempo útil para este tamaño.
+    if (playerCount === 16) {
+      return optimizeSequencing(chunkedCircleFullRotation(usableCourts), playerCount, seed);
     }
     // Con descansos: DFS con restricciones; intenta el piso teórico de
     // descansos seguidos y, si no aparece solución pronto, el siguiente nivel.
@@ -1353,7 +1379,9 @@ export function validateAmericanoDemoSnapshot(value: unknown): value is American
     isIntIn(s.pointsPerMatch, 1, 99) &&
     (s.roundMode === "full" || s.roundMode === "short") &&
     isIntIn(s.seed, 1, 1_000_000) &&
-    isNameList(s.names, (s.modalidad === "beat-box" || s.modalidad === "playoffs") ? 16 : 12) &&
+    // Americano (o ausente, que es americano) admite 16 desde el selector de
+    // 4 canchas; box y playoffs ya admitían 16; el resto sigue en 12.
+    isNameList(s.names, (s.modalidad === "beat-box" || s.modalidad === "playoffs" || s.modalidad === undefined || s.modalidad === "americano") ? 16 : 12) &&
     isRoundList(s.rounds) &&
     isDraftMap(s.drafts) &&
     (s.sortMode === "total" || s.sortMode === "average") &&
