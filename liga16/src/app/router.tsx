@@ -81,7 +81,7 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     errorElement: <RouteErrorElement />,
     children: [
-      { index: true, element: <Home /> },
+      { index: true, element: <RecoveryAwareHome /> },
       { path: "login", element: <Login /> },
       {
         path: "mi-perfil",
@@ -250,4 +250,9 @@ async function hasValidRecoverySession(): Promise<boolean> {
   if (error || data.session?.access_token !== incomingRecoveryToken) return false;
   const verified = await supabase.auth.getUser();
   return !verified.error && verified.data.user?.id === data.session.user.id;
+}
+
+
+function RecoveryAwareHome() {
+  return incomingRecoveryToken ? <Navigate to="/recuperar-contrasena" replace /> : <Home />;
 }
