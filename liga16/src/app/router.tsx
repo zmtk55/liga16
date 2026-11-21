@@ -215,7 +215,7 @@ function PasswordRecoveryPage() {
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           {status === "done" ? <>
             <p role="status" className="text-sm">Contraseña guardada. Inicia sesión con la nueva contraseña.</p>
-            <Button asChild className="w-full"><Link to="/login">Ir a iniciar sesión</Link></Button>
+            <Button asChild className="w-full"><a href="/login">Ir a iniciar sesión</a></Button>
           </> : <form onSubmit={save} className="space-y-4">
             <div className="space-y-2"><Label htmlFor="new-password">Nueva contraseña</Label><Input id="new-password" type="password" autoComplete="new-password" minLength={12} required disabled={status !== "ready"} value={password} onChange={(e) => setPassword(e.target.value)} /><p className="text-xs text-muted-foreground">Usa al menos 12 caracteres.</p></div>
             <div className="space-y-2"><Label htmlFor="confirm-password">Confirmar contraseña</Label><Input id="confirm-password" type="password" autoComplete="new-password" minLength={12} required disabled={status !== "ready"} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></div>
